@@ -1,0 +1,70 @@
+name: Archive any Align build
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: "Build number to put in the ZIP name (for example 152)"
+        required: true
+        type: string
+      commit:
+        description: "Exact commit SHA, tag, or branch to archive"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  archive:
+    name: Create Build ${{ inputs.build_number }} ZIP
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate build number
+        shell: bash
+        env:
+          BUILD_NUMBER: ${{ inputs.build_number }}
+        run: |
+          if [[ ! "$BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "::error::Build number must contain digits only."
+            exit 1
+          fi
+
+      - name: Check out requested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit }}
+          fetch-depth: 0
+
+      - name: Resolve exact commit
+        id: commit
+        shell: bash
+        run: |
+          SHA="$(git rev-parse HEAD)"
+          SHORT_SHA="$(git rev-parse --short=12 HEAD)"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "Archiving commit: $SHA"
+
+      - name: Create source ZIP
+        shell: bash
+        env:
+          BUILD_NUMBER: ${{ inputs.build_number }}
+          SHORT_SHA: ${{ steps.commit.outputs.short_sha }}
+        run: |
+          mkdir -p dist
+          VERSION="Build-${BUILD_NUMBER}-${SHORT_SHA}"
+          git archive \
+            --format=zip \
+            --prefix="Align-v1.3-${VERSION}/" \
+            HEAD \
+            -o "dist/Align-v1.3-${VERSION}.zip"
+          ls -lh "dist/Align-v1.3-${VERSION}.zip"
+
+      - name: Upload Build ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: Align-v1.3-Build-${{ inputs.build_number }}-${{ steps.commit.outputs.short_sha }}
+          path: dist/*.zip
+          if-no-files-found: error
+          retention-days: 365

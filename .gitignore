@@ -1,0 +1,26 @@
+
+otp-data/
+
+otp-runtime/
+
+# Local accounts, planner data, credentials and runtime artefacts.
+*.sqlite3*
+*.db
+*.pem
+*.key
+.env
+.env.*
+.align_https/
+.align_beta/
+beta_data/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+node_modules/
+test-results/
+install-logs/
+
+Backups/
+
+.align/

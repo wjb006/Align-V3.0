@@ -1,0 +1,70 @@
+name: Build 156 browser regressions
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  browser:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Desktop Chromium
+            browser: chromium
+            mobile_device: ''
+          - name: Mobile Chrome (Pixel 7)
+            browser: chromium
+            mobile_device: 'Pixel 7'
+          - name: Mobile Safari (iPhone 13)
+            browser: webkit
+            mobile_device: 'iPhone 13'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned Playwright
+        working-directory: browser-tests
+        run: npm ci
+      - name: Install browser
+        working-directory: browser-tests
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Run Build 156 browser regressions
+        env:
+          BROWSER: ${{ matrix.browser }}
+          MOBILE_DEVICE: ${{ matrix.mobile_device }}
+        run: node browser-tests/build156.spec.js
+      - name: Upload mobile visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build156-visual-${{ matrix.browser }}-${{ matrix.mobile_device || 'desktop' }}
+          path: test-results/*.png
+          if-no-files-found: ignore
+          retention-days: 14
+  package:
+    name: Package successful Build 156
+    needs: browser
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create source ZIP
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          VERSION="Build-156-${SHORT_SHA}"
+          mkdir -p dist
+          git archive --format=zip --prefix="Align-v1.3-${VERSION}/" HEAD -o "dist/Align-v1.3-${VERSION}.zip"
+      - name: Upload successful build ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: Align-v1.3-Build-156-${{ github.sha }}
+          path: dist/*.zip
+          retention-days: 90

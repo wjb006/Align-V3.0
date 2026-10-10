@@ -1,0 +1,13 @@
+Align Build 156 · V2.1
+
+- Enables two-way iCloud Calendar sync for Align-owned shifts and section events:
+  iCloud edits are pulled back into Align when Align has not also changed the item.
+- Copies leave-at journey alerts into iCloud calendar alerts as
+  Leave at HH:MM for "Event", and formats travel details in calendar notes.
+- Adds a shared alert offset dropdown (5–45 minutes, 1–2 hours, 1–5 days, 1 week)
+  for shift alerts and travel reminders.
+- Management Studio can edit Home section titles, visibility, order, and bottom
+  navigation labels/icons (Pages & text), including Upcoming Events.
+- Home Upcoming Events lists items under a shared date heading instead of
+  repeating the date on every card.
+- Defaults and upgrades rename “Upcoming shifts” to “Upcoming Events”.

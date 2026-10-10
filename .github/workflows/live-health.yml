@@ -1,0 +1,20 @@
+name: Live site health
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check /api/health
+        run: |
+          for i in 1 2 3; do
+            code=$(curl -s -o health.json -w '%{http_code}' --max-time 60 https://align-beta-preview.onrender.com/api/health || true)
+            [ "$code" = "200" ] && break
+            sleep 30
+          done
+          echo "HTTP $code"
+          [ "$code" = "200" ] || { echo "::error::Align health check failed (HTTP $code)"; exit 1; }
+          python3 -c "import json;d=json.load(open('health.json'));print(d['version'],d['mode'],d['database']['available']);assert d['database']['available'] is True"

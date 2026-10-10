@@ -1,0 +1,2017 @@
+(() => {
+  const e = AlignFields.escape, $ = s => document.querySelector(s);
+let state, doc,
+    tab = 'overview',
+    selected = '',
+    fieldId = '',
+    workflowNodeId = '',
+    financeView = 'setup',
+    history = [],
+    future = [],
+    dirty = false,
+    busy = false,
+    lastRenderedTab = '';
+
+const types = {
+  text: 'Short text',
+  textarea: 'Long text',
+  tel: 'Phone number',
+  email: 'Email',
+  number: 'Number',
+  formula: 'Calculated amount',
+  date: 'Date',
+  select: 'Dropdown',
+  checkbox: 'Checkbox'
+};
+
+const destinations = {
+  submenu: 'Folder / submenu',
+  note: 'Information page',
+  layout: 'List',
+  profile: 'Personal details',
+  add: 'Add shifts',
+  calendar: 'Schedule',
+  settings: 'Settings'
+};
+const id = prefix =>
+  `${prefix}_${crypto.randomUUID().replace(/-/g,'')}`;
+
+const copy = value =>
+  JSON.parse(JSON.stringify(value));
+
+async function api(path, options={}) {
+  const r = await fetch(path, {
+    ...options,
+    cache: 'no-store',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(sessionStorage.getItem('align-admin-token')
+        ? {
+            'X-Align-Admin':
+              sessionStorage.getItem('align-admin-token')
+          }
+        : {})
+    },
+    body: options.body
+      ? JSON.stringify(options.body)
+      : undefined
+  });
+
+  const data = await r.json();
+
+  if(!r.ok) {
+    throw Error(
+      data.error ||
+      'Unable to complete this action.'
+    );
+  }
+
+  return data;
+}
+  function inUnifiedDesign() { const pane=$('#design-pane'); return Boolean(pane&&!pane.hidden); }
+  function status(message, error=false) { const saved=/^(Draft saved|Published)/.test(message); $('#builder-status').textContent=message; $('#builder-status').classList.toggle('builder-error',error); const shared=$('#management-status'); if(shared&&!inUnifiedDesign()) { shared.textContent=message; shared.dataset.state=error?'error':saved?'saved':''; } if(window.AlignStudioNotice&&(error||saved)) window.AlignStudioNotice(message, error?'error':'saved'); }
+  function controls() { $('#draft-indicator').textContent=dirty?'Unsaved edits':state?'Draft saved · Live revision '+state.published_revision:''; if(inUnifiedDesign()) return; for(const name of ['save','publish']) $('#'+name).disabled=busy||!doc; $('#undo').disabled=busy||!history.length; $('#redo').disabled=busy||!future.length; $('#discard').disabled=busy||!doc; $('#export').disabled=!doc; $('#import').disabled=busy; }
+  function changed() { future=[]; history.push(copy(doc)); if(history.length>50) history.shift(); dirty=true; }
+  function currentLayout() { return doc.layouts.find(x=>x.id===selected); }
+  function fields() { return tab==='startup'?doc.startup.fields:currentLayout()?.fields; }
+  function input(label,key,value,type='text') {return `<div class="field"><label>${e(label)}<input data-prop="${key}" type="${type}" value="${e(value)}"></label></div>`;}
+  function area(label,key,value) {return `<div class="field"><label>${e(label)}<textarea data-prop="${key}" rows="3">${e(value)}</textarea></label></div>`;}
+  function options(items,value) {return Object.entries(items).map(([k,v])=>`<option value="${e(k)}" ${value===k?'selected':''}>${e(v)}</option>`).join('');}
+  function fieldList() {
+    const list=fields(); if(!list) return '';
+    const field=list.find(f=>f.id===fieldId);
+    const oldFields=tab==='startup'?state.published.startup.fields:state.published.layouts.find(l=>l.id===selected)?.fields||[];
+    return `<h3>Form fields</h3><p class="helper">Move fields to change the form and column order. Removing a field hides it; previously saved values are retained.</p>${list.map((f,i)=>`<div class="builder-row ${f.id===fieldId?'selected':''}"><button class="builder-row-title" data-field="${e(f.id)}">${e(f.label)}<small>${e(types[f.type])}${f.required?' · Required':' · Optional'}</small></button><div class="builder-row-actions"><button data-move-field="${e(f.id)}" data-dir="-1" ${!i?'disabled':''} aria-label="Move ${e(f.label)} up">↑</button><button data-move-field="${e(f.id)}" data-dir="1" ${i===list.length-1?'disabled':''} aria-label="Move ${e(f.label)} down">↓</button><button data-remove-field="${e(f.id)}" ${tab==='startup'&&f.id==='user_name'?'disabled':''} aria-label="Delete ${e(f.label)}">×</button></div></div>`).join('')}<button class="secondary-button" data-add-field>Add field</button>${field?`<div class="builder-editor" data-field-editor><h3>Edit ${e(field.label)}</h3>${input('Field label','label',field.label)}<div class="field"><label>Field type<select data-prop="type" ${oldFields.some(f=>f.id===field.id)?'disabled':''}>${options(types,field.type)}</select></label></div>${oldFields.some(f=>f.id===field.id)?'<p class="helper">This field has been published. Add a new field to use a different type.</p>':''}${area('Help text','help',field.help)}${field.type==='formula'?area('Formula — e.g. [Amount] - [Paid]','formula',field.formula||'')+'<p class="helper">Use + − * / and parentheses. Available numeric fields: '+e(list.filter(f=>f.id!==field.id&&['number','formula'].includes(f.type)).map(f=>'['+f.label+']').join(', '))+'. Results calculate on save; blank inputs and division by zero show an error.</p>':''}${field.type==='select'?area('Choices (one per line)','options',field.options.join('\n')):''}<label><input type="checkbox" data-prop="required" ${field.required?'checked':''} ${tab==='startup'&&field.id==='user_name'?'disabled':''}> Required</label></div>`:''}`;
+  }
+  function previewFields(list) {return `<form class="settings-form" data-preview-form>${AlignFields.render(list,{},'preview')}</form>`;}
+  document.addEventListener('submit', event => {
+    if (event.target && event.target.matches && event.target.matches('[data-preview-form]')) event.preventDefault();
+  }, true);
+  function workflowNodeLabel(layout,node) {
+  if(['field','choice'].includes(node.type)) {
+    const field=layout.fields.find(f=>f.id===node.field_id);
+    return field?.label || node.field_id;
+  }
+
+  if(node.type==='calculation') return 'Calculate finance values';
+  if(node.type==='summary') return node.title || 'Summary / Confirm';
+  if(node.type==='save') return 'Save record';
+  if(node.type==='destination') return 'Finance summary';
+
+  return node.id;
+}
+
+function workflowCondition(edge,layout) {
+  if(!edge.when) return '';
+
+  const field=layout.fields.find(f=>f.id===edge.when.field);
+  const label=field?.label || edge.when.field;
+
+  let value=edge.when.equals;
+
+  if(value===true) value='Yes';
+  if(value===false) value='No';
+
+  return `${label}: ${value}`;
+}
+function workflowConditionFields(layout) {
+  return layout.fields.filter(field =>
+    ['select','checkbox'].includes(field.type)
+  );
+}
+
+function workflowConditionChoices(field) {
+  if(!field) return [];
+
+  if(field.type==='checkbox') {
+    return [
+      {value:false,label:'No'},
+      {value:true,label:'Yes'}
+    ];
+  }
+
+  return (field.options||[]).map(value=>({
+    value,
+    label:value
+  }));
+}
+
+function workflowConditionEditor(layout,edge,index) {
+  if(!edge.when) {
+    return `
+      <div class="workflow-condition-editor">
+        <strong>From ${e(edge.from)}</strong>
+        <p class="helper">Always follows this connection.</p>
+      </div>
+    `;
+  }
+
+  const fields=workflowConditionFields(layout);
+  const selectedField=layout.fields.find(
+    field=>field.id===edge.when.field
+  );
+
+  const choices=workflowConditionChoices(selectedField);
+
+  return `
+    <div class="workflow-condition-editor">
+      <strong>From ${e(edge.from)}</strong>
+
+      <div class="builder-two">
+        <div class="field">
+          <label>
+            Condition field
+            <select data-workflow-condition-field="${index}">
+              ${fields.map(field=>`
+                <option
+                  value="${e(field.id)}"
+                  ${field.id===edge.when.field?'selected':''}
+                >
+                  ${e(field.label)}
+                </option>
+              `).join('')}
+            </select>
+          </label>
+        </div>
+
+        <div class="field">
+          <label>
+            Equals
+            <select data-workflow-condition-value="${index}">
+              ${choices.map(choice=>`
+                <option
+                  value="${e(JSON.stringify(choice.value))}"
+                  ${JSON.stringify(choice.value)===JSON.stringify(edge.when.equals)?'selected':''}
+                >
+                  ${e(choice.label)}
+                </option>
+              `).join('')}
+            </select>
+          </label>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function workflowNodeDetails(layout) {
+  const workflow=layout?.workflow;
+
+  if(!workflow?.nodes?.length) return '';
+
+  if(!workflowNodeId) {
+    return `
+      <div class="builder-editor workflow-node-editor">
+        <h3>Workflow node</h3>
+        <p class="helper">Select a node in the workflow tree to inspect it.</p>
+      </div>
+    `;
+  }
+
+  const node=workflow.nodes.find(x=>x.id===workflowNodeId);
+
+  if(!node) {
+    workflowNodeId='';
+    return `
+      <div class="builder-editor workflow-node-editor">
+        <h3>Workflow node</h3>
+        <p class="helper">Select a node in the workflow tree to inspect it.</p>
+      </div>
+    `;
+  }
+
+  const field=['field','choice'].includes(node.type)
+    ? layout.fields.find(f=>f.id===node.field_id)
+    : null;
+
+  const incoming=(workflow.edges||[]).filter(edge=>edge.to===node.id);
+  const outgoing=(workflow.edges||[]).filter(edge=>edge.from===node.id);
+
+  const edgeText=edge=>{
+    const other=edge.from===node.id ? edge.to : edge.from;
+    const condition=edge.when
+      ? ` · ${workflowCondition(edge,layout)}`
+      : '';
+
+    return `${other}${condition}`;
+  };
+
+  let specific='';
+
+  if(field) {
+    specific=`
+      <dt>Field</dt>
+      <dd>${e(field.label)}</dd>
+
+      <dt>Field ID</dt>
+      <dd><code>${e(field.id)}</code></dd>
+
+      <dt>Field type</dt>
+      <dd>${e(field.type)}</dd>
+
+      <dt>Required</dt>
+      <dd>${field.required?'Yes':'No'}</dd>
+    `;
+  }
+
+  if(node.type==='calculation') {
+    specific=`
+      <dt>Operation</dt>
+      <dd><code>${e(node.operation||'')}</code></dd>
+
+      <dt>Inputs</dt>
+      <dd>${e((node.inputs||[]).join(', ')||'None')}</dd>
+
+      <dt>Outputs</dt>
+      <dd>${e((node.outputs||[]).join(', ')||'None')}</dd>
+    `;
+  }
+
+  if(node.type==='summary') {
+    specific=`
+      <dt>Title</dt>
+      <dd>${e(node.title||'Summary / Confirm')}</dd>
+
+      <dt>Visible fields</dt>
+      <dd>${e(node.visible_fields||'current_branch')}</dd>
+    `;
+  }
+
+  if(node.type==='save') {
+    specific=`
+      <dt>Record type</dt>
+      <dd>${e(node.record_type||'record')}</dd>
+    `;
+  }
+
+  if(node.type==='destination') {
+    specific=`
+      <dt>Destination</dt>
+      <dd>${e(node.screen||'')}</dd>
+    `;
+  }
+
+  return `
+    <div class="builder-editor workflow-node-editor">
+      <p class="eyebrow">Selected workflow node</p>
+      <h3>${e(workflowNodeLabel(layout,node))}</h3>
+
+      <dl class="workflow-node-details">
+        <dt>Node ID</dt>
+        <dd><code>${e(node.id)}</code></dd>
+
+        <dt>Type</dt>
+        <dd>${e(node.type)}</dd>
+
+        ${specific}
+      </dl>
+
+      <h4>Comes from</h4>
+
+    ${
+      incoming.length
+        ? incoming.map(edge=>
+            workflowConditionEditor(
+              layout,
+              edge,
+              workflow.edges.indexOf(edge)
+            )
+          ).join('')
+        : '<p class="helper">This is the workflow start node.</p>'
+    }
+
+      ${
+        outgoing.length
+          ? `<ul class="workflow-connection-list">${outgoing.map(edge=>`<li>${e(edgeText(edge))}</li>`).join('')}</ul>`
+          : '<p class="helper">No following node.</p>'
+      }
+
+      <p class="helper">
+         Existing branch conditions can be edited here.
+         Adding, deleting and moving connections comes later.
+        </p>
+    </div>
+  `;
+}
+function workflowTree(layout) {
+  const workflow=layout.workflow;
+
+  if(!workflow?.nodes?.length) {
+    return '<p class="helper">No workflow has been configured for this layout.</p>';
+  }
+
+  const nodes=new Map(workflow.nodes.map(node=>[node.id,node]));
+  const edges=new Map();
+
+  for(const edge of workflow.edges||[]) {
+    if(!edges.has(edge.from)) edges.set(edge.from,[]);
+    edges.get(edge.from).push(edge);
+  }
+
+  function branch(nodeId,path=new Set()) {
+    const node=nodes.get(nodeId);
+
+    if(!node) return '';
+
+    if(path.has(nodeId)) {
+      return '<div class="workflow-cycle">↻ Workflow loop</div>';
+    }
+
+    const nextPath=new Set(path);
+    nextPath.add(nodeId);
+
+    const children=edges.get(nodeId)||[];
+
+    return `
+      <button
+          type="button"
+          class="workflow-node workflow-node-${e(node.type)} ${workflowNodeId===node.id?'is-selected':''}"
+          data-workflow-node="${e(node.id)}"
+          aria-pressed="${workflowNodeId===node.id?'true':'false'}"
+        >
+          <small>${e(node.type)}</small>
+          <strong>${e(workflowNodeLabel(layout,node))}</strong>
+      </button>
+
+        ${children.length ? `
+          <div class="workflow-children">
+            ${children.map(edge=>`
+              <div class="workflow-child">
+                <div class="workflow-arrow">↓</div>
+                ${edge.when
+                  ? `<div class="workflow-condition">${e(workflowCondition(edge,layout))}</div>`
+                  : ''
+                }
+                ${branch(edge.to,nextPath)}
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  return `
+    <div class="workflow-tree">
+      ${branch(workflow.start_node)}
+    </div>
+  `;
+}
+  function menuTree(parent='',depth=0) {
+    return doc.menus.filter(m=>m.parent_id===parent).map((m,i,siblings)=>`<div style="margin-left:${Math.min(depth,8)*16}px"><div class="builder-row ${selected===m.id?'selected':''}"><button class="builder-row-title" data-item="${e(m.id)}">${e(m.icon)} ${e(m.title)}<small>${depth?'Secondary menu':'Primary menu'} · ${e(destinations[m.destination])}${m.active?'':' · Hidden'}</small></button><div class="builder-row-actions"><button data-move="${e(m.id)}" data-dir="-1" ${!i?'disabled':''} aria-label="Move ${e(m.title)} up">↑</button><button data-move="${e(m.id)}" data-dir="1" ${i===siblings.length-1?'disabled':''} aria-label="Move ${e(m.title)} down">↓</button></div></div>${menuTree(m.id,depth+1)}</div>`).join('');
+  }
+  function descendant(mid, ancestor) {let m=doc.menus.find(x=>x.id===mid);const seen=new Set();while(m?.parent_id&&!seen.has(m.id)){seen.add(m.id);if(m.parent_id===ancestor)return true;m=doc.menus.find(x=>x.id===m.parent_id);}return false;}
+  function menuEditor() {
+    const m=doc.menus.find(x=>x.id===selected); if(!m)return '<p class="helper">Select a menu item to edit its title, destination, and parent.</p>';
+    return `<div class="builder-editor" data-menu-editor><h3>Edit menu item</h3>${input('Title','title',m.title)}${area('Description','description',m.description)}<div class="builder-two">${input('Icon or emoji','icon',m.icon)}${input('Colour','colour',m.colour,'color')}</div><div class="field"><label>Menu location<select data-prop="parent_id"><option value="">Home (primary menu)</option>${doc.menus.filter(x=>x.destination==='submenu'&&x.id!==m.id&&!descendant(x.id,m.id)).map(x=>`<option value="${e(x.id)}" ${m.parent_id===x.id?'selected':''}>Inside ${e(x.title)}</option>`).join('')}</select></label></div><div class="field"><label>Opens<select data-prop="destination">${options(destinations,m.destination)}</select></label></div>${m.destination==='layout'?`<div class="field"><label>Database layout<select data-prop="layout_id"><option value="">Choose a layout</option>${doc.layouts.map(x=>`<option value="${e(x.id)}" ${m.layout_id===x.id?'selected':''}>${e(x.title)}</option>`).join('')}</select></label></div>`:''}${m.destination==='note'?area('Page content','content',m.content):''}<label><input type="checkbox" data-prop="active" ${m.active?'checked':''}> Visible to users</label><div class="button-row" style="margin-top:18px"><button class="secondary-button" data-add-child ${m.destination!=='submenu'?'disabled':''}>Add secondary item</button><button class="danger-button" data-delete-menu>Delete menu item</button></div></div>`;
+  }
+  function menuPreview(parent='',depth=0) {return doc.menus.filter(x=>x.parent_id===parent&&x.active).map(m=>`<div style="margin-left:${Math.min(depth,8)*12}px"><article class="card" style="padding:14px;border-left:4px solid ${e(m.colour)}"><strong>${e(m.icon)} ${e(m.title)}</strong><p class="helper">${e(m.description||destinations[m.destination])}</p></article>${menuPreview(m.id,depth+1)}</div>`).join('');}
+  function homeNavigationEditor(embedded=false) {
+    const nav=doc.navigation||[], sections=(doc.home_sections||[]).slice().sort((a,b)=>a.sort_order-b.sort_order);
+    const move=(attr,i,last)=>`<span class="studio-line-move"><button ${attr}="${i}" data-dir="-1" ${!i?'disabled':''} aria-label="Move up">↑</button><button ${attr}="${i}" data-dir="1" ${i===last?'disabled':''} aria-label="Move down">↓</button></span>`;
+    const buttons=nav.map((n,i)=>`<div class="studio-line"><input class="studio-line-icon" data-prop="nav-icon-${i}" value="${e(n.icon)}" aria-label="Icon"><input class="studio-line-name" data-prop="nav-title-${i}" value="${e(n.title)}" aria-label="Name"><label class="studio-line-check"><input type="checkbox" data-nav-prop="active" data-nav-index="${i}" ${n.active?'checked':''}> Show</label>${move('data-nav-move',i,nav.length-1)}</div>`).join('');
+    const blocks=sections.map((s,i)=>`<div class="studio-line is-section"><input class="studio-line-name" data-prop="section-title-${i}" value="${e(s.title)}" aria-label="Section name"><label class="studio-line-check"><input type="checkbox" data-section-prop="visible" data-section-index="${i}" ${s.visible?'checked':''}> Show</label>${move('data-section-move',i,sections.length-1)}</div>`).join('');
+    const head=embedded?'':`<h2>Home screen</h2><p class="helper">One row each. Change the name, then publish when you want people to see it.</p>`;
+    return `${head}<h3>Bottom buttons</h3><div class="studio-lines">${buttons}</div><h3>Home sections</h3><div class="studio-lines">${blocks}</div>`;
+  }
+  function baseStructureEditor() {
+    const weather=doc.base_structure?.weather||{enabled:true,refresh_minutes:15,show_last_updated:true,show_errors:true,views:['today','hourly','daily']};
+    return `<h2>Shared details</h2><p class="helper">Set the shared home screen, buttons, and weather. People’s saved records stay as they are.</p><div class="builder-banner">Version ${e(String(doc.base_structure?.version||1))}. Save a draft, then publish when you want people to see it.</div><h3>Navigation and Home</h3>${homeNavigationEditor(true)}<h3>Weather display defaults</h3><div class="builder-option-group"><label><input type="checkbox" data-base-weather="enabled" ${weather.enabled!==false?'checked':''}> Show weather on supported screens</label><label>Refresh interval<select data-base-weather="refresh_minutes">${options({5:'5 minutes',10:'10 minutes',15:'15 minutes',30:'30 minutes',60:'60 minutes'},String(weather.refresh_minutes||15))}</select></label><label><input type="checkbox" data-base-weather="show_last_updated" ${weather.show_last_updated!==false?'checked':''}> Show last-updated time</label><label><input type="checkbox" data-base-weather="show_errors" ${weather.show_errors!==false?'checked':''}> Show weather refresh errors</label></div><p class="helper">Weather views remain Today, Hourly, and Daily. Provider credentials and location privacy are not configurable here.</p><button type="button" class="secondary-button" data-reset-base>Reset base structure defaults</button>`;
+  }
+  function travelResultsEditor() {
+    const t=doc.travel_results||{}, v=t.visibility||{};
+    return `<h2>Travel</h2><p class="helper">Choose what a journey card shows. Saved journeys stay as they are.</p><div class="builder-option-group"><label><input type="checkbox" data-travel-prop="show_best_only" ${t.show_best_only!==false?'checked':''}> Show only the best journey first</label><label><input type="checkbox" data-travel-prop="show_more" ${t.show_more!==false?'checked':''}> Show a Show more / Show less alternatives control</label></div><h3>Journey information</h3><div class="builder-option-group">${[['leave_by','Leave-by time'],['departure_arrival','Departure and arrival'],['duration','Duration and walking'],['mode_provider','Mode and provider'],['weather_adjustment','Weather adjustment'],['traffic_adjustment','Traffic adjustment'],['actions','Journey actions']].map(([key,label])=>`<label><input type="checkbox" data-travel-visibility="${key}" ${v[key]!==false?'checked':''}> ${label}</label>`).join('')}</div><button type="button" class="secondary-button" data-reset-travel>Reset travel display defaults</button>`;
+  }
+
+  function editIndex() {
+    return [
+      {title:doc.startup.title,detail:'The first screen people see',tab:'startup'},
+      ...doc.startup.fields.map(f=>({title:f.label,detail:'Welcome question · '+types[f.type],tab:'startup',field:f.id})),
+      ...doc.menus.map(m=>({title:m.title,detail:'Menu item',tab:'menus',item:m.id})),
+      ...doc.layouts.flatMap(l=>[{title:l.title,detail:'List · '+l.fields.length+' questions',tab:'layouts',item:l.id},...l.fields.map(f=>({title:f.label,detail:l.title+' · '+types[f.type],tab:'layouts',item:l.id,field:f.id}))]),
+      {title:'Home screen and buttons',detail:'Names, icons, and what is shown',tab:'home-nav'}
+    ];
+  }
+  function overview() {
+    const query=($('#edit-search')?.value||'').trim().toLowerCase();
+    const items=editIndex().filter(x=>(x.title+' '+x.detail).toLowerCase().includes(query));
+    if(!query) return '';
+    const shown=items;
+    const groups=[['Welcome','startup'],['Menus','menus'],['Lists','layouts'],['Home screen','home-nav']];
+    const jump=x=>`<button class="builder-jump" data-jump="${e(x.tab)}" data-select="${e(x.item||'')}" data-select-field="${e(x.field||'')}"><strong>${e(x.title)}</strong><small>${e(x.detail)}</small></button>`;
+    const body=groups.map(([label,name])=>{
+      const rows=shown.filter(x=>x.tab===name);
+      return rows.length?`<h3 class="studio-index-label">${e(label)}</h3>${rows.map(jump).join('')}`:'';
+    }).join('');
+    return body||'<div class="studio-empty"><strong>Nothing matches</strong><p>Try a different word, or choose a section on the left.</p></div>';
+  }
+  function differences(a,b,path='',out=[]) {
+    if(JSON.stringify(a)===JSON.stringify(b))return out;
+    if(a&&b&&typeof a==='object'&&typeof b==='object'&&!Array.isArray(a)&&!Array.isArray(b)) {
+      for(const k of new Set([...Object.keys(a),...Object.keys(b)]))differences(a[k],b[k],path?path+' / '+k:k,out);
+    } else if(Array.isArray(a)&&Array.isArray(b)&&[...a,...b].every(x=>x&&x.id)) {
+      if(a.map(x=>x.id).join()!==b.map(x=>x.id).join())out.push({path:path+' / order',before:a.map(x=>x.title||x.label||x.id),after:b.map(x=>x.title||x.label||x.id)});
+      for(const id of new Set([...a,...b].map(x=>x.id))) {
+        const old=a.find(x=>x.id===id),next=b.find(x=>x.id===id);
+        differences(old,next,path+' / '+(next?.title||next?.label||old?.title||old?.label||id),out);
+      }
+    } else out.push({path,before:a,after:b});
+    return out;
+  }
+  function review() {
+    const rows=differences(state.published,doc);
+    const value=v=>v===undefined?'Not present':typeof v==='string'?v:JSON.stringify(v,null,2);
+    return `<h2>Check what will change</h2><p class="helper">This draft compared with the live app (version ${state.published_revision}). ${rows.length} ${rows.length===1?'change':'changes'}. Save draft keeps this private. Publish updates the app people use.</p>`+rows.map(r=>`<article class="builder-change"><h3>${e(r.path)}</h3><div class="builder-two"><div><small>Live now</small><pre>${e(value(r.before))}</pre></div><div><small>Your draft</small><pre>${e(value(r.after))}</pre></div></div></article>`).join('')+(rows.length?'':'<div class="studio-empty"><strong>Nothing new to publish</strong><p>This draft matches the live app.</p></div>');
+  }
+
+function financeNav() {
+  return `
+    <div class="finance-builder-tabs">
+      ${[
+        ['setup', 'Setup'],
+        ['fields', 'Fields'],
+        ['flow', 'Flow'],
+        ['preview', 'Preview']
+      ].map(([key, label]) => `
+        <button
+          type="button"
+          data-finance-view="${key}"
+          class="${financeView === key ? 'is-active' : ''}"
+        >
+          ${label}
+        </button>
+      `).join('')}
+    </div>
+  `;
+}
+
+
+function workflowFriendlyType(node) {
+  if (node.type === 'choice') return 'Choice';
+  if (node.type === 'field') return 'Question';
+  if (node.type === 'calculation') return 'Automatic calculation';
+  if (node.type === 'summary') return 'Review';
+  if (node.type === 'save') return 'Save';
+  if (node.type === 'destination') return 'Finish';
+
+  return 'Step';
+}
+
+
+function workflowNodeMenu(layout) {
+  const workflow = layout?.workflow;
+
+  if (!workflow?.nodes?.length) {
+    return `
+      <aside class="finance-workflow-menu">
+        <h3>Finance steps</h3>
+        <p class="helper">
+          No workflow steps are configured yet.
+        </p>
+      </aside>
+    `;
+  }
+
+  return `
+    <aside class="finance-workflow-menu">
+
+      <p class="eyebrow">Finance flow</p>
+      <h3>Steps</h3>
+
+      <p class="helper">
+        Pick a step to edit what happens there.
+      </p>
+
+      <div class="finance-workflow-step-list">
+
+        ${workflow.nodes.map((node, index) => `
+          <button
+            type="button"
+            class="
+              finance-workflow-step
+              ${workflowNodeId === node.id ? 'is-selected' : ''}
+            "
+            data-workflow-node="${e(node.id)}"
+          >
+
+            <span class="finance-workflow-number">
+              ${index + 1}
+            </span>
+
+            <span class="finance-workflow-step-text">
+              <strong>
+                ${e(workflowNodeLabel(layout, node))}
+              </strong>
+
+              <small>
+                ${e(workflowFriendlyType(node))}
+              </small>
+            </span>
+
+            <span
+              class="finance-workflow-arrow"
+              aria-hidden="true"
+            >
+              ›
+            </span>
+
+          </button>
+        `).join('')}
+
+      </div>
+
+    </aside>
+  `;
+}
+
+
+function friendlyWorkflowConditionEditor(layout, edge, index) {
+  if (!edge.when) {
+    return `
+      <div class="finance-rule">
+        <p class="helper">
+          This step always follows the previous step.
+        </p>
+      </div>
+    `;
+  }
+
+  const conditionFields = workflowConditionFields(layout);
+
+  const selectedField = layout.fields.find(
+    field => field.id === edge.when.field
+  );
+
+  const choices = workflowConditionChoices(selectedField);
+
+  return `
+    <div class="finance-rule">
+
+      <div class="finance-rule-grid">
+
+        <label>
+          Show when
+
+          <select
+            data-workflow-condition-field="${index}"
+          >
+            ${conditionFields.map(field => `
+              <option
+                value="${e(field.id)}"
+                ${field.id === edge.when.field ? 'selected' : ''}
+              >
+                ${e(field.label)}
+              </option>
+            `).join('')}
+          </select>
+        </label>
+
+
+        <span class="finance-rule-is">
+          is
+        </span>
+
+
+        <label>
+          <span class="sr-only">
+            Condition value
+          </span>
+
+          <select
+            data-workflow-condition-value="${index}"
+          >
+            ${choices.map(choice => `
+              <option
+                value="${e(JSON.stringify(choice.value))}"
+                ${
+                  JSON.stringify(choice.value) ===
+                  JSON.stringify(edge.when.equals)
+                    ? 'selected'
+                    : ''
+                }
+              >
+                ${e(choice.label)}
+              </option>
+            `).join('')}
+          </select>
+        </label>
+
+      </div>
+
+    </div>
+  `;
+}
+
+
+function workflowFriendlyEditor(layout) {
+  const workflow = layout?.workflow;
+
+  if (!workflow?.nodes?.length) {
+    return `
+      <div class="finance-step-welcome">
+        <h2>Finance flow</h2>
+
+        <p class="helper">
+          There are no workflow steps yet.
+        </p>
+      </div>
+    `;
+  }
+
+
+  if (!workflowNodeId) {
+    return `
+      <div class="finance-step-welcome">
+
+        <p class="eyebrow">
+          Finance flow
+        </p>
+
+        <h2>
+          Choose a step
+        </h2>
+
+        <p>
+          Select a step beside the Builder menu to see
+          what it does and change its rules.
+        </p>
+
+        <div class="finance-flow-overview">
+          ${workflowTree(layout)}
+        </div>
+
+      </div>
+    `;
+  }
+
+
+  const node = workflow.nodes.find(
+    item => item.id === workflowNodeId
+  );
+
+
+  if (!node) {
+    workflowNodeId = '';
+    return workflowFriendlyEditor(layout);
+  }
+
+
+  const incoming = (workflow.edges || []).filter(
+    edge => edge.to === node.id
+  );
+
+
+  const outgoing = (workflow.edges || []).filter(
+    edge => edge.from === node.id
+  );
+
+
+  return `
+    <div class="finance-step-editor">
+
+      <div class="finance-step-heading">
+
+        <p class="eyebrow">
+          ${e(workflowFriendlyType(node))}
+        </p>
+
+        <h2>
+          ${e(workflowNodeLabel(layout, node))}
+        </h2>
+
+      </div>
+
+
+      <details
+        class="finance-step-section finance-step-disclosure"
+        open
+      >
+
+        <summary>
+          <span>Show when</span>
+
+          <span
+            class="finance-disclosure-chevron"
+            aria-hidden="true"
+          >
+            ▾
+          </span>
+        </summary>
+
+
+        <div class="finance-step-section-body">
+
+          ${
+            incoming.length
+              ? incoming.map(edge =>
+                  friendlyWorkflowConditionEditor(
+                    layout,
+                    edge,
+                    workflow.edges.indexOf(edge)
+                  )
+                ).join('')
+              : `
+                  <p class="helper">
+                    This is the first step, so it is
+                    always shown first.
+                  </p>
+                `
+          }
+
+        </div>
+
+      </details>
+
+
+      <details
+        class="finance-step-section finance-step-disclosure"
+        open
+      >
+
+        <summary>
+          <span>What happens next?</span>
+
+          <span
+            class="finance-disclosure-chevron"
+            aria-hidden="true"
+          >
+            ▾
+          </span>
+        </summary>
+
+
+        <div class="finance-step-section-body">
+
+          ${
+            outgoing.length
+              ? outgoing.map(edge => {
+                  const target = workflow.nodes.find(
+                    item => item.id === edge.to
+                  );
+
+                  return `
+                    <div class="finance-next-step">
+
+                      ${
+                        edge.when
+                          ? `
+                              <span>
+                                When ${e(
+                                  workflowCondition(
+                                    edge,
+                                    layout
+                                  )
+                                )}
+                              </span>
+                            `
+                          : `
+                              <span>
+                                Next
+                              </span>
+                            `
+                      }
+
+                      <strong>
+                        ${
+                          target
+                            ? e(
+                                workflowNodeLabel(
+                                  layout,
+                                  target
+                                )
+                              )
+                            : 'Finish'
+                        }
+                      </strong>
+
+                    </div>
+                  `;
+                }).join('')
+              : `
+                  <p class="helper">
+                    This is the end of the flow.
+                  </p>
+                `
+          }
+
+        </div>
+
+      </details>
+
+
+      <details
+        class="finance-step-advanced finance-step-disclosure"
+      >
+
+        <summary>
+          <span>Advanced</span>
+
+          <span
+            class="finance-disclosure-chevron"
+            aria-hidden="true"
+          >
+            ▾
+          </span>
+        </summary>
+
+
+        <div class="finance-step-section-body">
+
+          <dl class="workflow-node-details">
+
+            <dt>Node ID</dt>
+
+            <dd>
+              <code>${e(node.id)}</code>
+            </dd>
+
+
+            <dt>Type</dt>
+
+            <dd>
+              ${e(node.type)}
+            </dd>
+
+
+            ${
+              node.field_id
+                ? `
+                    <dt>Field ID</dt>
+
+                    <dd>
+                      <code>${e(node.field_id)}</code>
+                    </dd>
+                  `
+                : ''
+            }
+
+
+            ${
+              node.operation
+                ? `
+                    <dt>Operation</dt>
+
+                    <dd>
+                      <code>${e(node.operation)}</code>
+                    </dd>
+                  `
+                : ''
+            }
+
+          </dl>
+
+        </div>
+
+      </details>
+
+    </div>
+  `;
+}
+
+
+function ensureFinanceBuilderStyles() {
+  if (document.getElementById('align-finance-builder-v2')) {
+    return;
+  }
+
+  const style = document.createElement('style');
+  style.id = 'align-finance-builder-v2';
+
+  style.textContent = `
+    .builder-grid-no-preview {
+      grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .builder-grid-no-preview > .builder-panel {
+      grid-column: 1 / -1;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .finance-flow-layout {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 22px;
+      align-items: start;
+      width: 100%;
+      margin-top: 18px;
+    }
+
+    .finance-workflow-menu {
+      position: sticky;
+      top: 92px;
+      min-width: 0;
+      padding: 18px;
+      border: 1px solid #e0e6f0;
+      border-radius: 16px;
+      background: #f7f9fc;
+    }
+
+    .finance-workflow-menu h3 {
+      margin: 4px 0 4px;
+      font-size: 18px;
+    }
+
+    .finance-workflow-menu .helper {
+      margin-top: 5px;
+    }
+
+    .finance-workflow-step-list {
+      display: grid;
+      gap: 7px;
+      margin-top: 16px;
+    }
+
+    .finance-workflow-step {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 11px;
+      border: 1px solid transparent;
+      border-radius: 11px;
+      background: transparent;
+      color: #33435d;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .finance-workflow-step:hover {
+      border-color: #d5def0;
+      background: #fff;
+    }
+
+    .finance-workflow-step.is-selected {
+      border-color: #7893eb;
+      background: #eaf0ff;
+      color: #294ec4;
+      box-shadow: 0 1px 4px rgba(41,78,196,.08);
+    }
+
+    .finance-workflow-number {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 9px;
+      background: #fff;
+      border: 1px solid #dce4ef;
+      color: #6d7b90;
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .finance-workflow-step.is-selected
+    .finance-workflow-number {
+      border-color: #89a0e8;
+      color: #294ec4;
+    }
+
+    .finance-workflow-step-text {
+      min-width: 0;
+    }
+
+    .finance-workflow-step-text strong,
+    .finance-workflow-step-text small {
+      display: block;
+      overflow-wrap: anywhere;
+    }
+
+    .finance-workflow-step-text strong {
+      font-size: 14px;
+    }
+
+    .finance-workflow-step-text small {
+      margin-top: 3px;
+      color: #7b879a;
+      font-size: 11px;
+    }
+
+    .finance-workflow-arrow {
+      color: #8591a5;
+      font-size: 20px;
+    }
+
+    .finance-flow-editor {
+      min-width: 0;
+      min-height: 520px;
+      padding: 4px 4px 30px;
+    }
+
+    .finance-step-welcome {
+      max-width: 850px;
+    }
+
+    .finance-step-heading {
+      margin-bottom: 24px;
+    }
+
+    .finance-step-heading h2 {
+      margin: 4px 0 0;
+      font-size: 27px;
+    }
+
+    .finance-step-section {
+      margin-top: 18px;
+      padding: 20px;
+      border: 1px solid #e1e7ef;
+      border-radius: 14px;
+      background: #fff;
+    }
+
+    .finance-step-section h3 {
+      margin: 0 0 14px;
+      font-size: 16px;
+    }
+
+    .finance-rule {
+      padding: 14px;
+      border-radius: 12px;
+      background: #f7f9fc;
+    }
+
+    .finance-rule-grid {
+      display: grid;
+      grid-template-columns: minmax(180px,1fr) auto minmax(180px,1fr);
+      align-items: end;
+      gap: 12px;
+    }
+
+    .finance-rule-grid label {
+      display: grid;
+      gap: 6px;
+      color: #58677e;
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .finance-rule-is {
+      padding-bottom: 12px;
+      color: #7d899b;
+      font-size: 13px;
+    }
+
+    .finance-next-step {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin: 8px 0;
+      padding: 13px 14px;
+      border-radius: 11px;
+      background: #f7f9fc;
+    }
+
+    .finance-next-step span {
+      color: #68768c;
+      font-size: 13px;
+    }
+
+    .finance-step-advanced {
+      margin-top: 22px;
+      padding: 14px 16px;
+      border: 1px solid #e2e7ef;
+      border-radius: 12px;
+      background: #fbfcfe;
+    }
+
+    .finance-step-advanced summary {
+      color: #596980;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .finance-flow-overview .workflow-tree {
+      margin-top: 24px;
+    }
+
+
+
+    .finance-step-disclosure {
+      overflow: hidden;
+      padding: 0;
+    }
+
+    .finance-step-disclosure > summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 56px;
+      padding: 0 20px;
+      border-radius: 14px;
+      color: #31415a;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+    }
+
+    .finance-step-disclosure > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .finance-step-disclosure > summary::marker {
+      display: none;
+      content: "";
+    }
+
+    .finance-step-disclosure > summary:hover {
+      background: #f8faff;
+    }
+
+    .finance-step-section-body {
+      padding: 0 20px 20px;
+    }
+
+    .finance-disclosure-chevron {
+      display: inline-block;
+      flex: 0 0 auto;
+      color: #718099;
+      font-size: 16px;
+      transition: transform .16s ease;
+    }
+
+    .finance-step-disclosure[open]
+    > summary
+    .finance-disclosure-chevron {
+      transform: rotate(180deg);
+    }
+
+    .finance-step-disclosure[open] > summary {
+      margin-bottom: 6px;
+    }
+
+    .finance-step-advanced.finance-step-disclosure {
+      margin-top: 18px;
+      padding: 0;
+    }
+
+    .finance-step-advanced
+    .workflow-node-details {
+      margin-top: 4px;
+    }
+
+    @media (max-width: 1050px) {
+      .finance-flow-layout {
+        grid-template-columns: 240px minmax(0,1fr);
+      }
+    }
+
+    @media (max-width: 780px) {
+      .finance-flow-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .finance-workflow-menu {
+        position: static;
+      }
+
+      .finance-rule-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .finance-rule-is {
+        padding: 0;
+      }
+    }
+  `;
+
+  document.head.appendChild(style);
+}
+
+
+function financeEditor(layout) {
+  ensureFinanceBuilderStyles();
+
+  if (financeView === 'setup') {
+    return `
+      ${financeNav()}
+
+      <h2>Finance</h2>
+
+      <p class="helper">
+        Change how Finance appears in Align.
+      </p>
+
+      <div data-layout-editor>
+
+        ${input(
+          'Name',
+          'title',
+          layout.title
+        )}
+
+        ${area(
+          'Description',
+          'description',
+          layout.description
+        )}
+
+        <div class="field">
+          <label>
+            Record display
+
+            <select data-prop="view">
+              ${options(
+                {
+                  table: 'Table',
+                  cards: 'Cards'
+                },
+                layout.view
+              )}
+            </select>
+          </label>
+        </div>
+
+        <label>
+          <input
+            type="checkbox"
+            data-prop="review_before_save"
+            ${layout.review_before_save ? 'checked' : ''}
+          >
+
+          Show a review screen before saving
+        </label>
+
+      </div>
+    `;
+  }
+
+
+  if (financeView === 'fields') {
+    return `
+      ${financeNav()}
+
+      <h2>Finance questions</h2>
+
+      <p class="helper">
+        These are the questions people answer when
+        adding a Finance item.
+      </p>
+
+      ${fieldList()}
+    `;
+  }
+
+
+  if (financeView === 'flow') {
+    if (
+      workflowNodeId &&
+      !layout.workflow?.nodes?.some(
+        node => node.id === workflowNodeId
+      )
+    ) {
+      workflowNodeId = '';
+    }
+
+    return `
+      ${financeNav()}
+
+      <div class="finance-flow-layout">
+
+        ${workflowNodeMenu(layout)}
+
+        <section
+          class="finance-flow-editor"
+          aria-label="Finance workflow editor"
+        >
+          ${workflowFriendlyEditor(layout)}
+        </section>
+
+      </div>
+    `;
+  }
+
+
+  return `
+    ${financeNav()}
+
+    <h2>Finance preview</h2>
+
+    <p class="helper">
+      This is how the Finance form currently looks.
+    </p>
+
+    <div class="builder-preview">
+
+      <h2>${e(layout.title)}</h2>
+
+      <p>${e(layout.description)}</p>
+
+      ${previewFields(layout.fields)}
+
+    </div>
+
+    <h3>Finance summary</h3>
+
+    ${AlignFinance.summary(
+      [{
+        id: 'example',
+        values: {
+          category: 'Monthly payment / bill',
+          name: 'Example bill',
+          label: 'Home',
+          next_payment: '2026-10-01',
+          frequency: 'Monthly',
+          payment_amount: 80,
+          monthly_amount: 80
+        }
+      }],
+      () => ''
+    )}
+  `;
+}
+
+
+function render(previewOnly=false) {
+  if (!doc) return;
+  const menuScrollTop = !previewOnly && tab === 'menus' && lastRenderedTab === 'menus'
+    ? window.scrollY
+    : null;
+
+  document
+    .querySelectorAll('[data-tab]')
+    .forEach(button => {
+      button.setAttribute(
+        'aria-pressed',
+        String(button.dataset.tab === tab)
+      );
+    });
+
+  let editor = '';
+  let preview = '';
+
+
+  if (tab === 'overview') {
+    editor = overview();
+    preview = '';
+  }
+
+
+  else if (tab === 'review') {
+    editor = review();
+
+    preview = `
+      <h2>Ready to publish?</h2>
+
+      <p>
+        Review your changes before publishing.
+      </p>
+    `;
+  }
+
+
+  else if (tab === 'startup') {
+    editor = `
+      <h2>Personal details first</h2>
+
+      <p class="helper">
+        Shown to new users after sign-in.
+      </p>
+
+      <div data-startup-editor>
+
+        ${input(
+          'Welcome title',
+          'title',
+          doc.startup.title
+        )}
+
+        ${area(
+          'Welcome message',
+          'description',
+          doc.startup.description
+        )}
+
+        ${input(
+          'Continue button',
+          'button',
+          doc.startup.button
+        )}
+
+      </div>
+
+      ${fieldList()}
+    `;
+
+    preview = `
+      <p class="builder-label">
+        Startup preview
+      </p>
+
+      <div class="builder-preview">
+
+        <h2>
+          ${e(doc.startup.title)}
+        </h2>
+
+        <p>
+          ${e(doc.startup.description)}
+        </p>
+
+        ${previewFields(doc.startup.fields)}
+
+      </div>
+    `;
+  }
+
+
+  else if (tab === 'menus') {
+    editor = `
+      <h2>Menu structure</h2>
+
+      <p class="helper">
+        Choose where things appear in Align.
+      </p>
+
+      ${
+        menuTree() ||
+        '<p class="builder-empty">No menus yet.</p>'
+      }
+
+      <button
+        class="secondary-button"
+        data-add-menu
+      >
+        Add menu item
+      </button>
+
+      ${menuEditor()}
+    `;
+
+    preview = `
+      <p class="builder-label">
+        Menu preview
+      </p>
+
+      <div class="builder-preview">
+        ${
+          menuPreview() ||
+          '<p>No visible menu items.</p>'
+        }
+      </div>
+    `;
+  }
+
+
+  else if (tab === 'base-structure') {
+    editor = baseStructureEditor();
+
+    preview = `
+      <p class="builder-label">
+        Base structure preview
+      </p>
+    `;
+  }
+
+
+  else if (tab === 'travel-results') {
+    editor = travelResultsEditor();
+
+    preview = `
+      <p class="builder-label">
+        Travel preview
+      </p>
+
+      <div class="builder-preview">
+        <article class="card">
+          <strong>
+            Recommended journey
+          </strong>
+
+          <p>
+            Leave 08:10 · Arrive 08:45
+          </p>
+        </article>
+      </div>
+    `;
+  }
+
+
+  else if (tab === 'home-nav') {
+    editor = homeNavigationEditor();
+
+    preview = `
+      <p class="builder-label">
+        Home preview
+      </p>
+    `;
+  }
+
+
+  else if (tab === 'layouts') {
+    const layout = currentLayout();
+
+
+    if (layout?.finance) {
+      editor = financeEditor(layout);
+
+      preview =
+        financeView === 'flow' ||
+        financeView === 'preview'
+          ? ''
+          : `
+              <p class="builder-label">
+                Preview
+              </p>
+
+              <div class="builder-preview">
+
+                <h2>
+                  ${e(layout.title)}
+                </h2>
+
+                <p>
+                  ${e(layout.description)}
+                </p>
+
+                ${previewFields(layout.fields)}
+
+              </div>
+            `;
+    }
+
+
+    else {
+      editor = `
+        <h2>Lists</h2>
+
+        <p class="helper">
+          Choose a list to edit. Each list is a form people can fill in.
+        </p>
+
+        ${doc.layouts.map(item => `
+          <div
+            class="
+              builder-row
+              ${selected === item.id ? 'selected' : ''}
+            "
+          >
+
+            <button
+              class="builder-row-title"
+              data-item="${e(item.id)}"
+            >
+              ${e(item.title)}
+
+              <small>
+                ${item.fields.length} fields
+              </small>
+            </button>
+
+          </div>
+        `).join('')}
+
+
+        <button
+          class="secondary-button"
+          data-add-layout
+        >
+          Create a list
+        </button>
+
+
+        <button
+          class="secondary-button"
+          data-bills-template
+        >
+          Add Bills template
+        </button>
+
+
+        <button
+          class="secondary-button"
+          data-finance-template
+        >
+          Add Finance template
+        </button>
+
+
+        ${
+          layout
+            ? `
+                <div
+                  class="builder-editor"
+                  data-layout-editor
+                >
+
+                  ${input(
+                    'Layout name',
+                    'title',
+                    layout.title
+                  )}
+
+                  ${area(
+                    'Description',
+                    'description',
+                    layout.description
+                  )}
+
+                  <div class="field">
+                    <label>
+                      Record display
+
+                      <select data-prop="view">
+                        ${options(
+                          {
+                            table: 'Table',
+                            cards: 'Cards'
+                          },
+                          layout.view
+                        )}
+                      </select>
+                    </label>
+                  </div>
+
+                </div>
+
+                ${fieldList()}
+              `
+            : ''
+        }
+      `;
+
+      preview = layout
+        ? `
+            <p class="builder-label">
+              Form preview
+            </p>
+
+            <div class="builder-preview">
+
+              <h2>
+                ${e(layout.title)}
+              </h2>
+
+              <p>
+                ${e(layout.description)}
+              </p>
+
+              ${previewFields(layout.fields)}
+
+            </div>
+          `
+        : `
+            <p class="builder-empty">
+              Choose a list.
+            </p>
+          `;
+    }
+  }
+
+
+  if (
+    previewOnly &&
+    $('#builder-content aside')
+  ) {
+    $('#builder-content aside').innerHTML =
+      preview;
+  }
+
+  else {
+    const hidePreview =
+      tab === 'overview' ||
+      (tab === 'layouts' &&
+      currentLayout()?.finance &&
+      (
+        financeView === 'flow' ||
+        financeView === 'preview'
+      ));
+
+    $('#builder-content').innerHTML = `
+      <div
+        class="
+          builder-grid
+          ${hidePreview ? 'builder-grid-no-preview' : ''}
+        "
+      >
+
+        <section class="builder-panel">
+          ${editor}
+        </section>
+
+        ${
+          hidePreview
+            ? ''
+            : `
+                <aside
+                  class="builder-panel"
+                  aria-label="Preview"
+                >
+                  ${preview}
+                </aside>
+              `
+        }
+
+      </div>
+    `;
+  }
+
+
+  const previewElement =
+    $('#builder-content aside');
+
+  if (previewElement) {
+    AlignFormatting.apply(
+      previewElement,
+      doc.formatting
+    );
+  }
+
+
+  if (
+    !previewOnly &&
+    $('[data-field-editor]')
+  ) {
+    const field =
+      fields()?.find(
+        item => item.id === fieldId
+      );
+
+    if (field) {
+      const list = fields();
+
+      const prior = list
+        .slice(
+          0,
+          list.indexOf(field)
+        )
+        .filter(item =>
+          ['select','checkbox']
+            .includes(item.type)
+        );
+
+      $('[data-field-editor]')
+        .insertAdjacentHTML(
+          'beforeend',
+          `
+            ${
+              field.type === 'select'
+                ? `
+                    <label>
+                      <input
+                        type="checkbox"
+                        data-prop="allow_custom"
+                        ${field.allow_custom ? 'checked' : ''}
+                      >
+                      Allow users to type a new choice
+                    </label>
+                  `
+                : ''
+            }
+
+            <h4>
+              Show this field when
+            </h4>
+
+            <p class="helper">
+              Leave all choices unchecked
+              to always show.
+            </p>
+
+            ${prior.map(previous => `
+              <fieldset>
+
+                <legend>
+                  ${e(previous.label)}
+                </legend>
+
+                ${
+                  (
+                    previous.type === 'checkbox'
+                      ? [false,true]
+                      : previous.options
+                  )
+                  .map(value => `
+                    <label
+                      style="display:block"
+                    >
+                      <input
+                        type="checkbox"
+                        data-condition-field="${e(previous.id)}"
+                        data-condition-value="${e(JSON.stringify(value))}"
+                        ${
+                          (
+                            field.show_when?.[
+                              previous.id
+                            ] || []
+                          ).includes(value)
+                            ? 'checked'
+                            : ''
+                        }
+                      >
+
+                      ${
+                        e(
+                          typeof value === 'boolean'
+                            ? (
+                                value
+                                  ? 'Checked'
+                                  : 'Not checked'
+                              )
+                            : value
+                        )
+                      }
+
+                    </label>
+                  `).join('')
+                }
+
+              </fieldset>
+            `).join('')}
+          `
+        );
+    }
+  }
+
+  controls();
+  lastRenderedTab = tab;
+  if (menuScrollTop !== null) window.scrollTo(0, menuScrollTop);
+}
+  function move(list,item,direction) {const a=list.indexOf(item),b=a+direction;if(b>=0&&b<list.length)[list[a],list[b]]=[list[b],list[a]];}
+  function newMenu(parent='') {changed();const m={id:id('menu'),parent_id:parent,title:'New menu item',description:'',icon:'○',colour:'#365CE6',destination:'note',layout_id:'',content:'',active:true};doc.menus.push(m);selected=m.id;fieldId='';render();}
+  $('#builder-content').addEventListener('change', ev=>{
+    const el=ev.target,key=el.dataset.prop||'';
+
+    if(el.hasAttribute('data-workflow-condition-field')){
+      const layout=currentLayout();
+      const index=Number(el.dataset.workflowConditionField);
+      const edge=layout?.workflow?.edges?.[index];
+
+      if(!edge?.when) return;
+
+      const nextField=layout.fields.find(
+        field=>field.id===el.value
+      );
+
+      if(!nextField) return;
+
+      changed();
+
+      edge.when.field=nextField.id;
+      edge.when.equals=
+        nextField.type==='checkbox'
+          ? false
+          : (nextField.options?.[0] ?? '');
+
+      status('Workflow condition changed. Save the draft when ready.');
+
+      render();
+      return;
+    }
+
+    if(el.hasAttribute('data-workflow-condition-value')){
+      const layout=currentLayout();
+      const index=Number(el.dataset.workflowConditionValue);
+      const edge=layout?.workflow?.edges?.[index];
+
+      if(!edge?.when) return;
+
+      changed();
+
+      edge.when.equals=JSON.parse(el.value);
+
+      status('Workflow condition changed. Save the draft when ready.');
+
+      render();
+      return;
+    }
+
+    if(el.dataset.conditionField){changed();const field=fields().find(f=>f.id===fieldId);field.show_when={};el.closest('[data-field-editor]').querySelectorAll('[data-condition-field]:checked').forEach(x=>{(field.show_when[x.dataset.conditionField]||=[]).push(JSON.parse(x.dataset.conditionValue));});render();return;}
+    if(!key && !el.dataset.navProp && !el.dataset.sectionProp)return;
+    if((tab==='home-nav'||tab==='base-structure') && key.startsWith('nav-title-')) { changed(); doc.navigation[Number(key.slice(10))].title=el.value; status('Unsaved changes. Save a draft or publish when ready.'); return; }
+    if((tab==='home-nav'||tab==='base-structure') && key.startsWith('nav-icon-')) { changed(); doc.navigation[Number(key.slice(9))].icon=el.value; status('Unsaved changes. Save a draft or publish when ready.'); return; }
+    if((tab==='home-nav'||tab==='base-structure') && key.startsWith('section-title-')) { const ordered=(doc.home_sections||[]).slice().sort((a,b)=>a.sort_order-b.sort_order); changed(); ordered[Number(key.slice(14))].title=el.value; status('Unsaved changes. Save a draft or publish when ready.'); return; }
+    if(el.dataset.navProp) { changed(); doc.navigation[Number(el.dataset.navIndex)].active=el.checked; render(); return; }
+    if(el.dataset.sectionProp) { changed(); doc.home_sections.slice().sort((a,b)=>a.sort_order-b.sort_order)[Number(el.dataset.sectionIndex)].visible=el.checked; render(); return; }
+    if(el.dataset.baseWeather) { changed(); doc.base_structure=doc.base_structure||{}; doc.base_structure.weather=doc.base_structure.weather||{}; doc.base_structure.weather[el.dataset.baseWeather]=el.type==='checkbox'?el.checked:el.dataset.baseWeather==='refresh_minutes'?Number(el.value):el.value; render(); return; }
+    if(el.dataset.travelProp) { changed(); doc.travel_results=doc.travel_results||{}; doc.travel_results[el.dataset.travelProp]=el.checked; render(); return; }
+    if(el.dataset.travelVisibility) { changed(); doc.travel_results=doc.travel_results||{}; doc.travel_results.visibility=doc.travel_results.visibility||{}; doc.travel_results.visibility[el.dataset.travelVisibility]=el.checked; render(); return; }
+    let target=el.closest('[data-field-editor]')?fields()?.find(x=>x.id===fieldId):el.closest('[data-startup-editor]')?doc.startup:el.closest('[data-menu-editor]')?doc.menus.find(x=>x.id===selected):currentLayout();if(!target)return;
+    if(key==='destination'&&target.destination==='submenu'&&el.value!=='submenu'&&doc.menus.some(x=>x.parent_id===target.id)){status('Move the child items out of this folder before changing its destination.',true);render();return;}
+    changed();target[key]=el.type==='checkbox'?el.checked:key==='options'?el.value.split('\n').map(x=>x.trim()).filter(Boolean):el.value;
+    status('Unsaved changes. Save a draft or publish when ready.');render(!['type','destination','parent_id'].includes(key));
+  });
+document.addEventListener('click',ev=>{
+  const b=ev.target.closest('button');
+
+  if(!doc)return;
+
+  if(!b||busy)return;
+
+if(b.dataset.workflowNode) {
+    workflowNodeId = b.dataset.workflowNode;
+    render();
+    return;
+  }
+
+  if(b.dataset.financeView) {
+    financeView = b.dataset.financeView;
+    workflowNodeId = '';
+    render();
+    return;
+  }
+
+    if(b.dataset.jump){tab=b.dataset.jump;selected=b.dataset.select||'';fieldId=b.dataset.selectField||'';render();return;}
+    if(b.dataset.tab){tab=b.dataset.tab;selected='';fieldId='';workflowNodeId='';render();return;}
+    if(b.hasAttribute('data-reset-base')) { changed(); const current=doc.base_structure||{}; doc.base_structure={version:1,navigation:copy(doc.navigation),home_sections:copy(doc.home_sections),formatting:copy(doc.formatting),travel_results:copy(doc.travel_results),weather:{enabled:true,refresh_minutes:15,show_last_updated:true,show_errors:true,views:['today','hourly','daily']}}; tab='base-structure'; status('Base structure reset locally. Save a draft to keep it.'); render(); return; }
+    if(b.hasAttribute('data-reset-travel')) { changed(); doc.travel_results={show_best_only:true,show_more:true,visibility:{leave_by:true,departure_arrival:true,duration:true,mode_provider:true,weather_adjustment:true,traffic_adjustment:true,actions:true}}; tab='travel-results'; status('Travel display defaults reset locally. Save a draft to keep it.'); render(); return; }
+    if(b.dataset.navMove){changed();move(doc.navigation,doc.navigation[Number(b.dataset.navMove)],Number(b.dataset.dir));render();return;}
+    if(b.dataset.sectionMove){const ordered=(doc.home_sections||[]).slice().sort((a,b)=>a.sort_order-b.sort_order),item=ordered[Number(b.dataset.sectionMove)],other=ordered[Number(b.dataset.sectionMove)+Number(b.dataset.dir)];if(other){changed();const t=item.sort_order;item.sort_order=other.sort_order;other.sort_order=t;render();}return;}
+    if(b.dataset.item){selected=b.dataset.item;fieldId='';workflowNodeId='';render();return;}
+    if(b.dataset.field){fieldId=b.dataset.field;render();return;}
+    if(b.hasAttribute('data-add-menu'))newMenu();
+    if(b.hasAttribute('data-add-child'))newMenu(selected);
+    if(b.hasAttribute('data-add-field')){changed();const f={id:id('field'),label:'New field',type:'text',required:false,help:'',options:[]};fields().push(f);fieldId=f.id;render();}
+    if(b.dataset.moveField){changed();move(fields(),fields().find(f=>f.id===b.dataset.moveField),Number(b.dataset.dir));render();}
+    if(b.dataset.removeField&&confirm('Remove this field from the form? Previously saved values are retained.')){changed();const list=fields();list.splice(list.findIndex(f=>f.id===b.dataset.removeField),1);fieldId='';render();}
+    if(b.dataset.move){changed();const m=doc.menus.find(x=>x.id===b.dataset.move),siblings=doc.menus.filter(x=>x.parent_id===m.parent_id),other=siblings[siblings.indexOf(m)+Number(b.dataset.dir)];if(other){const a=doc.menus.indexOf(m),c=doc.menus.indexOf(other);[doc.menus[a],doc.menus[c]]=[doc.menus[c],doc.menus[a]];}render();}
+    if(b.hasAttribute('data-delete-menu')&&confirm('Delete this menu item? Its child items will move up one level. Records are retained.')){changed();const m=doc.menus.find(x=>x.id===selected);doc.menus.forEach(x=>{if(x.parent_id===selected)x.parent_id=m.parent_id;});doc.menus=doc.menus.filter(x=>x.id!==selected);selected='';render();}
+    if(b.hasAttribute('data-bills-template')){changed();const l={id:id('layout'),title:'Bills',description:'Enter bill amounts and payments. Balance and totals calculate automatically.',view:'table',fields:[{id:'bill',label:'Bill',type:'text',required:true,help:'',options:[]},{id:'amount',label:'Amount',type:'number',required:true,help:'Amount due in pounds',options:[]},{id:'paid',label:'Paid',type:'number',required:true,help:'Enter 0 if unpaid',options:[]},{id:'balance',label:'Balance',type:'formula',formula:'[Amount] - [Paid]',required:false,help:'Calculated when saved',options:[]}]};doc.layouts.push(l);selected=l.id;fieldId='';doc.menus.push({id:id('menu'),parent_id:'',title:'Bills',description:'Bills and payments',icon:'£',colour:'#365CE6',destination:'layout',layout_id:l.id,content:'',active:true});render();}
+    if(b.hasAttribute('data-add-layout')){changed();const l={id:id('layout'),title:'New list',description:'',view:'table',fields:[{id:id('field'),label:'Title',type:'text',required:true,help:'',options:[]}]};doc.layouts.push(l);selected=l.id;fieldId='';render();}
+    if(b.hasAttribute('data-duplicate-layout')){changed();const l=copy(currentLayout());l.id=id('layout');l.title+=' copy';doc.layouts.push(l);selected=l.id;render();}
+    if(b.hasAttribute('data-link-layout')){const l=currentLayout();newMenu();const m=doc.menus.find(x=>x.id===selected);m.title=l.title;m.description=l.description;m.destination='layout';m.layout_id=l.id;tab='menus';render();}
+    if(b.hasAttribute('data-delete-layout')&&confirm('Delete this layout and its linked menu items? Existing user records are retained. Export the configuration first if you want to restore this layout later.')){changed();doc.layouts=doc.layouts.filter(x=>x.id!==selected);doc.menus=doc.menus.filter(x=>x.layout_id!==selected);selected='';fieldId='';render();}
+  });
+  async function save(publish) {
+    if(publish&&!confirm('Publish these changes so everyone sees them? Saved records stay as they are.'))return;
+    busy=true;controls();status(publish?'Publishing…':'Saving draft…');
+    try{state=await api(publish?'/api/builder/publish':'/api/builder/config',{method:publish?'POST':'PUT',body:{revision:state.revision,document:doc}});doc=copy(state.draft);dirty=false;history=[];future=[];status(publish?`Published. People will see it when they refresh Align.`:`Draft saved. People will not see this until you publish.`);render();window.dispatchEvent(new CustomEvent('align-builder-config-updated',{detail:state}));}catch(err){status(err.message,true);}finally{busy=false;controls();}
+  }
+  $('#redo').onclick=()=>{if(inUnifiedDesign()||busy||!future.length)return;history.push(copy(doc));doc=future.pop();dirty=true;fieldId='';render();status('Change restored.');};
+  $('#edit-search').oninput=()=>{tab='overview';render();};
+  $('#preview-size').onchange=ev=>document.body.classList.toggle('phone-preview',ev.target.value==='phone');
+  $('#save').onclick=()=>{if(!inUnifiedDesign())save(false);};$('#publish').onclick=()=>{if(!inUnifiedDesign())save(true);};
+  $('#undo').onclick=()=>{if(!inUnifiedDesign()&&history.length){future.push(copy(doc));doc=history.pop();dirty=true;fieldId='';status('Last change undone.');render();}};
+  $('#discard').onclick=()=>{if(!inUnifiedDesign()&&confirm('Replace your current draft with the published version?')){changed();doc=copy(state.published);selected='';fieldId='';render();status('Draft restored locally. Save draft to keep this change.');}};
+  $('#export').onclick=()=>{if(inUnifiedDesign()||!doc)return;const url=URL.createObjectURL(new Blob([JSON.stringify(doc,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='align-layout-configuration.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+  $('#import').onchange=async ev=>{if(inUnifiedDesign())return;try{const file=ev.target.files[0];if(!file)return;if(file.size>900000)throw Error('Configuration file is too large.');const imported=JSON.parse(await file.text());const result=await api('/api/builder/config',{method:'PUT',body:{revision:state.revision,document:imported}});state=result;doc=copy(result.draft);dirty=false;history=[];future=[];selected='';fieldId='';status('Configuration imported as a draft. Preview it before publishing.');render();window.dispatchEvent(new CustomEvent('align-builder-config-updated',{detail:state}));}catch(err){status(err.message,true);}finally{ev.target.value='';}};
+  window.AlignBuilderStudio={hasUnsavedChanges:()=>dirty};
+  window.addEventListener('align-studio-config-updated',event=>{
+    const incoming=event.detail;
+    if(!incoming?.draft||!incoming?.revision) return;
+    if(dirty) {
+      status('Save or discard Builder changes before applying the Studio update.',true);
+      return;
+    }
+    state=incoming;doc=copy(incoming.draft);history=[];future=[];selected='';fieldId='';
+    status('Studio draft updated.');render();
+  });
+  window.addEventListener('align-builder-tab',event=>{const next=event.detail?.tab;if(!['overview','startup','menus','home-nav','base-structure','layouts','travel-results','review'].includes(next))return;tab=next;selected='';fieldId='';workflowNodeId='';if(doc)render();});
+  window.addEventListener('beforeunload',ev=>{if(dirty){ev.preventDefault();ev.returnValue='';}});
+  api('/api/builder/config').then(data=>{state=data;doc=copy(data.draft);status('Ready. Choose a section on the left.');render();}).catch(err=>status(err.message+' Sign in as the owner, then open Studio again.',true));
+document.addEventListener('keydown',ev=>{
+  if(
+    ev.key==='Escape' &&
+    financeView==='flow' &&
+    workflowNodeId
+  ) {
+    workflowNodeId='';
+    render();
+  }
+});
+
+})();

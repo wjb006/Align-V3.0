@@ -1,0 +1,53 @@
+name: PR navigation checks
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  navigation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check changed JavaScript syntax
+        run: |
+          node --check static/dates.js
+          node --check static/app.js
+          node --check static/personal-planner.js
+          node --check static/week-planner.js
+          node --check static/month-calendar.js
+          node --check static/work-setup.js
+          node --check static/service-worker.js
+
+      - name: Run core navigation regression check
+        run: |
+          node test_core_navigation.js
+          node test_ui_polish.js
+          node test_display_dates.js
+          node test_travel_autofill.js
+          node test_related_travel.js
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: python -m pip install --upgrade pip && pip install -r requirements.txt
+
+      - name: Run Builder tests relevant to navigation
+        run: >
+          python -m unittest
+          test_builder_formatting.py
+          test_owner_builder.BuilderTests.test_owner_only_config_and_page
+          test_owner_builder.BuilderTests.test_draft_publish_existing_users_and_conflict
+          test_owner_builder.BuilderTests.test_cycles_and_missing_layout_rejected
+          test_owner_builder.BuilderTests.test_private_record_crud_validation_archive_restore
+          test_owner_builder.BuilderTests.test_removed_fields_preserve_values_and_published_types

@@ -1,0 +1,13 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const context={document:{addEventListener(){}},setInterval(){},personalPrefs:()=>({default_travel:'transit'}),escapeHtml:s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),Date};
+vm.createContext(context);vm.runInContext(fs.readFileSync('static/post-event-travel.js','utf8'),context);
+assert.equal(context.upcomingNow({end_at:new Date(Date.now()-1000).toISOString()}),false);
+assert.equal(context.upcomingNow({end_at:new Date(Date.now()+60000).toISOString()}),true);
+const fields=context.postTravelFields({enabled:true,mode:'drive'});
+assert.match(fields,/name="show_post_travel" checked/);
+assert.match(fields,/<option value="drive" selected>/);
+assert.equal(context.postTravelSummary({post_travel:{enabled:false}}),'');
+const summary=context.postTravelSummary({post_travel:{enabled:true,destination_name:'<Home>',journey:{notes:'<script>unsafe</script>'}}});
+assert.ok(!summary.includes('<script>'));assert.match(summary,/&lt;Home&gt;/);
+assert.match(context.postTravelSummary({post_travel:{enabled:true,destination_name:'Next'}}),/needs refreshing/);
+console.log('Post-event UI: expiry, saved preference, mode, safe display and stale journey checks passed.');

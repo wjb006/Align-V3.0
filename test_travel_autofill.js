@@ -1,0 +1,20 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const listeners={},elements={};
+for(const side of ['origin','destination'])for(const suffix of ['query','choice','selected'])elements['#'+side+'-'+suffix]={value:'',innerHTML:'',textContent:''};
+elements['#postcode-consent']={checked:false};
+let resolveSearch;
+const context={state:{boot:{settings:{user_address:'Saved home'},beta:{}},tab:'transport'},escapeHtml:String,document:{addEventListener:(name,fn)=>{listeners[name]=fn},querySelector:s=>elements[s]},setTimeout,clearTimeout,clearInterval,queueMicrotask:()=>{},api:()=>new Promise(r=>resolveSearch=r)};
+vm.createContext(context);vm.runInContext(fs.readFileSync('static/travel-assets.js','utf8'),context);
+assert(vm.runInContext('renderTravel150()',context).includes('value="Saved home"'));
+(async()=>{
+ elements['#origin-query'].value='Liverpool';
+ const pending=vm.runInContext("searchTravelPlace150('origin')",context);
+ elements['#origin-query'].value='Birkenhead';
+ vm.runInContext("clearTravelPlace150('origin')",context);
+ resolveSearch({places:[{name:'Liverpool',point:[53,-3]}]});await pending;
+ assert(!elements['#origin-choice'].innerHTML.includes('Liverpool'));
+ vm.runInContext('travel150.points.origin=[53,-3]',context);
+ vm.runInContext("clearTravelPlace150('origin')",context);
+ assert.equal(vm.runInContext('travel150.points.origin',context),undefined);
+ console.log('Travel autofill UI checks passed');
+})().catch(e=>{console.error(e);process.exitCode=1});

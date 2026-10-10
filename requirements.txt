@@ -1,0 +1,6 @@
+-r requirements-beta.txt
+-r requirements-asset-studio.txt
+-r requirements-icloud.txt
+psycopg[binary]>=3.2,<4
+pywebpush>=2.0,<3
+tzdata; platform_system == "Windows"

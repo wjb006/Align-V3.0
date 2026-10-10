@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Align · Management Studio</title>
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/styles.css?v=156-v29">
+<link rel="stylesheet" href="/management-studio.css?v=156-v39">
+<link rel="stylesheet" href="/owner-builder.css?v=156-v29">
+</head>
+<body class="management-body studio-calm">
+<div class="unified-shell">
+<aside class="unified-sidebar">
+  <div class="unified-brand"><img src="/icon.svg" alt="" width="36" height="36"><span>Align<small>Management Studio</small></span></div>
+  <nav class="unified-nav" aria-label="Studio">
+    <p class="unified-label">Set up</p>
+    <button data-unified-tab="dashboard" class="is-active">Home</button>
+    <button data-unified-tab="startup" data-builder-tab="startup">Welcome screen</button>
+    <button data-unified-tab="menus" data-builder-tab="menus">Menus</button>
+    <button data-unified-tab="home-nav" data-builder-tab="home-nav">Home layout</button>
+    <button data-unified-tab="layouts" data-builder-tab="layouts">Lists</button>
+    <button data-unified-tab="travel-results" data-builder-tab="travel-results">Travel</button>
+    <button data-unified-tab="base-structure" data-builder-tab="base-structure">Shared details</button>
+    <button data-unified-tab="review" data-builder-tab="review">Check changes</button>
+
+    <p class="unified-label">Look</p>
+    <button data-unified-tab="pages" data-design-tab="pages" data-management-tab="pages">Pages &amp; text</button>
+    <button data-unified-tab="colors" data-design-tab="colors" data-management-tab="colors">Colours</button>
+    <button data-unified-tab="banners" data-design-tab="banners" data-management-tab="banners">Banners</button>
+    <button data-unified-tab="events" data-design-tab="events" data-management-tab="events">Events</button>
+    <button data-unified-tab="calendar" data-design-tab="calendar" data-management-tab="calendar">Calendar</button>
+    <button data-unified-tab="type" data-design-tab="type" data-management-tab="type">Text size</button>
+
+    <p class="unified-label">People</p>
+    <button data-unified-tab="users" data-design-tab="users" data-management-tab="users">Personal choices</button>
+    <button data-unified-tab="history" data-design-tab="history" data-management-tab="history">History</button>
+  </nav>
+  <p id="builder-status" class="builder-status unified-status">Opening Studio…</p>
+</aside>
+
+<main class="unified-main">
+  <header class="unified-topbar">
+    <div class="unified-title">
+      <p id="unified-place" class="unified-place">Set up</p>
+      <h1 id="unified-title">Home</h1>
+      <p id="unified-subtitle" hidden>Choose a section, then publish when it looks right.</p>
+      <p id="management-status" role="status" aria-live="polite">Opening Studio…</p>
+    </div>
+    <div class="unified-actions">
+      <button id="undo" class="management-secondary studio-quiet-action" disabled hidden>Undo</button>
+      <button id="redo" class="management-secondary studio-quiet-action" disabled hidden>Redo</button>
+      <button id="save" class="management-secondary" disabled>Save draft</button>
+      <button id="publish" class="management-primary" disabled>Publish</button>
+      <details class="studio-more">
+        <summary class="management-secondary">More</summary>
+        <div class="studio-more-menu" aria-label="More actions">
+          <button id="studio-update" class="management-secondary" type="button">Updates</button>
+          <button id="publish-everyone" class="management-secondary" hidden disabled>Publish on the website</button>
+          <button id="export" class="management-secondary" disabled>Download a copy</button>
+          <label class="management-secondary management-import">Upload a copy<input id="import" type="file" accept=".json,application/json" hidden></label>
+          <button id="discard" class="management-secondary" disabled>Undo unsaved edits</button>
+          <button type="button" class="management-secondary" data-unified-tab="preview">How the preview works</button>
+          <button type="button" class="management-secondary" data-unified-tab="builds">Older versions</button>
+        </div>
+      </details>
+    </div>
+  </header>
+
+  <section id="builder-pane">
+    <div id="studio-welcome" class="studio-welcome">
+      <h2>Three steps</h2>
+      <ol>
+        <li><span>1</span><p><strong>Choose</strong> a section on the left.</p></li>
+        <li><span>2</span><p><strong>Save draft</strong> keeps it on this computer.</p></li>
+        <li><span>3</span><p><strong>Publish</strong> updates Align.</p></li>
+      </ol>
+    </div>
+    <label class="studio-find"><span class="sr-only">Search</span><input id="edit-search" type="search" placeholder="Search" autocomplete="off"></label>
+    <div class="unified-builder-toolbar" hidden>
+      <div><strong id="builder-page-title">Overview</strong><span>App Builder</span></div>
+    </div>
+    <div id="builder-content"></div>
+    <div aria-hidden="true" hidden>
+      <select id="preview-size"><option value="desktop">Desktop</option><option value="phone">Phone</option></select>
+      <span id="draft-indicator"></span>
+    </div>
+  </section>
+
+  <section id="design-pane" hidden>
+    <div id="management-editor"><div class="management-loading">Loading…</div></div>
+  </section>
+
+  <section id="special-pane" hidden>
+    <div id="special-content"></div>
+  </section>
+</main>
+
+<aside class="unified-phone">
+  <div class="studio-preview-head">
+    <h2>What people see</h2>
+    <div class="management-preview-switch" role="group" aria-label="Preview screen">
+      <button type="button" class="is-active" data-preview-screen="today">Today</button>
+      <button type="button" data-preview-screen="planner">Planner</button>
+      <button type="button" data-preview-screen="calendar">Calendar</button>
+    </div>
+  </div>
+  <div class="management-device">
+    <div class="management-device-camera"></div>
+    <div class="management-device-screen" id="management-phone">
+      <div class="management-phone" data-theme="light">
+        <header class="management-phone-header"><span>Align<small>Your day, in view</small></span><span aria-hidden="true">☰</span></header>
+        <section class="management-phone-section"><h3>Today</h3>
+          <div class="management-phone-event"><time>09:00</time><span><strong>Team check-in</strong><small>Work · preview</small></span></div>
+          <div class="management-phone-event"><time>11:30</time><span><strong>Lunch break</strong><small>Personal · preview</small></span></div>
+          <p class="management-phone-banner">UPCOMING</p>
+          <div class="management-phone-event"><time>THU</time><span><strong>Planning session</strong><small>Preview event</small></span></div>
+        </section>
+        <nav class="management-phone-nav"><strong>Today</strong><span>Inbox</span><span>Planner</span><span>More</span></nav>
+      </div>
+    </div>
+    <div class="management-device-home"></div>
+  </div>
+  <p class="unified-note">Sample only. Publish when you want people to see your changes.</p>
+</aside>
+</div>
+<div id="studio-toast" class="studio-toast" role="status" aria-live="polite" hidden></div>
+
+<script src="/dates.js?v=156-v29"></script>
+<script src="/builder-fields.js?v=156-v29"></script>
+<script src="/owner-builder.js?v=156-v38"></script>
+<script src="/management-studio.js?v=156-v39"></script>
+<script src="/management-studio-nav.js?v=156-v35"></script>
+</body>
+</html>
