@@ -1,11 +1,11 @@
 # Align V3.0 build checklist
 **Live project handoff document**
 
-- **Last updated:** 12 October 2026
+- **Last updated:** 11 October 2026
 - **Workspace:** `C:\Users\wjboy\OneDrive\Documents\ChatGPT\Align V3.0`
 - **Original source (read-only):** `C:\Align\Align_App`
 - **Working branch:** `codex/align-v3-rebuild`
-- **Latest CI baseline:** `cbf86c6` — hosted persistence and navigation pass; desktop and Pixel 7 browser checks pass; iPhone 13 WebKit timed out during Management Studio initialization on GitHub, though the same profile passes locally. Added browser failure diagnostics. Current verified code changes add persistent S3-compatible Studio image storage and are awaiting push/CI.
+- **Latest verified CI baseline:** `594cd085` — browser regressions, hosted persistence/PostgreSQL integration, and navigation checks all passed in GitHub Actions on 11 October 2026. Live hosting is still not verified; see the release blockers below.
 **Scope:** Align V3.0 implementation from the supplied Codex brief, with the user's explicit Align V3.0 naming taking precedence over any older product name in the brief.
 **Domain:** `getalign.co.uk` is owned by the user through IONOS; current DNS still points to existing IONOS hosting. Do not change records until Render provides the verified target.
 ## How to use this document
@@ -16,7 +16,7 @@
 - Preserve `C:\Align\Align_App` as read-only. Preserve user data and unrelated working-tree changes.
 - GitHub remote is `origin` → private `wjb006/Align-V3.0`; a dedicated Neon project now exists, but its schema and connection are not yet installed in Render.
 ## Current handoff: resume here
-- [~] Main rebuild source is pushed on `codex/align-v3-rebuild`; latest CI baseline `cbf86c6` has hosted persistence/navigation green, desktop/Pixel browser green, and an iPhone WebKit Management Studio initialization timeout. The stale cache assertion is fixed. Local full suite now passes (233 passed, 3 skipped, 23 subtests); Chromium and iPhone WebKit both pass locally. S3-compatible image storage and CI diagnostics are implemented locally; push and recheck all workflows.
+- [~] Main rebuild source is pushed on `codex/align-v3-rebuild`; latest CI baseline `594cd085` passed browser regressions, hosted persistence/PostgreSQL integration, and navigation checks in GitHub Actions. The latest browser matrix is green on CI. S3-compatible Studio image-storage code is present, but durable cloud bucket provisioning and live upload verification remain external release gates.
 - [x] Current work includes the Studio's phone-preview section-to-database input-matrix flow: create a section or open its editor; new sections start with required Name, optional Date, and review-before-save; the editor describes naming, matrix setup, and form review.
 - [x] Latest full Python run: `.venv\Scripts\python.exe -m pytest -q` — **231 passed, 3 skipped, 23 subtests passed** (12 October 2026); includes the default Work database and legacy shift-free Home feed.
 - [x] Latest desktop Playwright run: `node browser-tests/align.spec.js` — passed, covering section records, calendar event list/month views, Studio draft/publish, and phone preview. Shift totals and annual-leave UI expectations were removed from the retained calendar check.
@@ -167,6 +167,8 @@
 | 2026-10-11 | Retired schedule-only tests and centralized isolated server fixture | Removed five obsolete shift test modules; retained backup/journey coverage now uses test_support.py; full suite 222 passed, 3 skipped, 23 subtests |
 | 2026-10-11 | Event calendar feed | New event-only feed regression passed; desktop Chromium flow passed after feed change; `py_compile` and `git diff --check` passed |
 | 2026-10-11 | Hosting refresh | Render connector works; only old `align-beta-preview` exists and no Render Postgres; Neon connector requires reauthentication |
+| 2026-10-11 | GitHub Actions latest commit `594cd085` | Browser regressions passed; hosted persistence/PostgreSQL integration passed; navigation checks passed |
+| 2026-10-11 | Live release readiness | Not ready for production: fresh shift-free schema/migrations, Neon/Render setup, persistent object-storage credentials, and live auth/sync/backup/device verification remain open |
 | 2026-10-11 | Script grouping and stale-reference audit | Launch/add-ons grouping implemented; final runtime/browser verification pending |
 | 2026-10-11 | File cleanup inventory | Release note duplicates consolidated; duplicate migration check removed; one-off scripts removed; targeted checks pending |
 | 2026-10-11 | File cleanup inventory | Removed stale Build 150 one-off update note and unused PowerShell aliases; current launcher references rechecked |
