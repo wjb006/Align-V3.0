@@ -226,6 +226,24 @@ def monday_for(value: date) -> date:
     return value - timedelta(days=value.weekday())
 
 
+def retired_schedule_endpoint(path: str) -> bool:
+    """Identify retired schedule-management routes before opening a database."""
+    return bool(
+        path in ("/api/locations", "/api/shift-types", "/api/templates")
+        or re.fullmatch(r"/api/(?:locations|shift-types)/[0-9]+", path)
+        or re.fullmatch(r"/api/templates/[0-9]+(?:/apply)?", path)
+    )
+
+
+def reject_retired_schedule_endpoint(handler) -> bool:
+    """Return a consistent 404 for retired schedule routes without DB access."""
+    path = urlparse(handler.path).path
+    if not retired_schedule_endpoint(path):
+        return False
+    handler.send_json(HTTPStatus.NOT_FOUND, {"error": "This schedule-planning endpoint is no longer available."})
+    return True
+
+
 def initialise_database_at(database: Path) -> None:
     if postgres_enabled():
         from postgres_support import validate_planner
@@ -1546,6 +1564,7 @@ class AlignHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         self.rewrite_public_path()
+        if reject_retired_schedule_endpoint(self): return
         if build152.handle(self, sys.modules[__name__], 'GET'): return
         if phone_push.handle(self, sys.modules[__name__], 'GET'): return
         if asset_studio.handle(self, sys.modules[__name__], 'GET'): return
@@ -1587,6 +1606,7 @@ class AlignHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         self.rewrite_public_path()
+        if reject_retired_schedule_endpoint(self): return
         if build152.handle(self, sys.modules[__name__], 'POST'): return
         if phone_push.handle(self, sys.modules[__name__], 'POST'): return
         if asset_studio.handle(self, sys.modules[__name__], 'POST'): return
@@ -1629,6 +1649,7 @@ class AlignHandler(SimpleHTTPRequestHandler):
         self.send_json(404, {"error": "Not found"})
 
     def do_PUT(self):
+        if reject_retired_schedule_endpoint(self): return
         if build152.handle(self, sys.modules[__name__], 'PUT'): return
         if personal_planner.handle(self, sys.modules[__name__], 'PUT'): return
         if owner_builder.handle(self, sys.modules[__name__], 'PUT'): return
@@ -1659,6 +1680,7 @@ class AlignHandler(SimpleHTTPRequestHandler):
         self.send_json(404, {"error": "Not found"})
 
     def do_DELETE(self):
+        if reject_retired_schedule_endpoint(self): return
         if personal_planner.handle(self, sys.modules[__name__], 'DELETE'): return
         if owner_builder.handle(self, sys.modules[__name__], 'DELETE'): return
         path = urlparse(self.path).path
