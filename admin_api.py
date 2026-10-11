@@ -149,6 +149,21 @@ def _require(handler) -> bool:
 
 def handle(handler, app, method, connection=None, payload=None) -> bool:
     path = urlparse(handler.path).path
+
+    # Schedule-planner APIs are retired in Align V3.0. Return an explicit 404
+    # before touching legacy tables, including writes from stale clients.
+    retired_schedule_paths = (
+        path == "/api/locations"
+        or re.fullmatch(r"/api/locations/\\d+", path)
+        or path == "/api/shift-types"
+        or re.fullmatch(r"/api/shift-types/\\d+", path)
+        or path == "/api/templates"
+        or re.fullmatch(r"/api/templates/\\d+(?:/apply)?", path)
+    )
+    if retired_schedule_paths:
+        handler.send_json(HTTPStatus.NOT_FOUND, {"error": "This schedule-planning endpoint is no longer available."})
+        return True
+
     if method == "GET" and path == "/api/admin/status":
         handler.send_json(200, {"password_required": bool(app.ADMIN_PASSWORD) if not app.BETA_MODE else False, "authenticated": handler.is_admin(), "beta": app.BETA_MODE})
         return True
