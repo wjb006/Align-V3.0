@@ -337,8 +337,7 @@ def verify_hosted_storage():
         validate_auth(c)
         owners = c.execute('SELECT COUNT(*) FROM beta_users WHERE is_owner=1').fetchone()[0]
     with connect('align.sqlite3') as c:
-        validate_planner(c)
+        validate_v3_storage(c)
         c.execute('SELECT COUNT(*) FROM personal_items').fetchone()
-        c.execute('SELECT COUNT(*) FROM shifts').fetchone()
     if owners != 1:
         raise RuntimeError('Hosted startup requires exactly one Owner in align_auth')
