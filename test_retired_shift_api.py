@@ -48,6 +48,26 @@ class RetiredShiftApiTests(unittest.TestCase):
                 self.assertEqual(status, 404)
                 self.assertIn("no longer available", body.decode("utf-8").lower())
 
+    def test_v3_storage_validator_does_not_require_retired_schedule_tables(self):
+        from postgres_support import validate_v3_storage
+
+        class RecordingConnection:
+            def __init__(self):
+                self.statements = []
+
+            def execute(self, statement):
+                self.statements.append(statement)
+                if any(table in statement for table in (
+                    "shifts", "shift_templates", "locations", "shift_types",
+                    "annual_leave", "alert_rules", "shift_batches",
+                )):
+                    raise AssertionError("V3 validator queried a retired schedule table")
+
+        connection = RecordingConnection()
+        validate_v3_storage(connection)
+        self.assertTrue(connection.statements)
+        self.assertTrue(all("LIMIT 0" in statement for statement in connection.statements))
+
     def test_reinitializing_the_schema_keeps_legacy_schedule_data(self):
         with app.db_connection() as connection:
             connection.execute(
