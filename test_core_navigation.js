@@ -20,11 +20,15 @@ for (const role of ['location','area','date','start_time','end_time']) {
 }
 if (!runtime.includes('const work = (state.sectionDefinitions || []).find')) throw new Error('Opening Work from its Studio menu should activate per-user opt-in');
 if (!app.includes('class="inbox-item-text"')) throw new Error('Inbox full note text layout missing');
+const onboarding = app.slice(app.indexOf('function renderOnboarding()'), app.indexOf('function renderLocalDataSettings()'));
+if (/Shift notifications|Continue to Work Settings|Default calendar/.test(onboarding)) throw new Error('First-run setup still contains fixed shift/work-schedule fields');
+if (!onboarding.includes('Work as an optional database in Sections')) throw new Error('First-run setup does not explain optional Work setup');
+if (!app.includes("{ branch_key: 'calendar', title: 'Calendar'")) throw new Error('Account Settings is missing calendar controls');
 for (const [name, source] of [['app',app],['index',index],['service worker',worker]]) {
   if (source.includes('maps173')) throw new Error(`Stale maps173 asset version remains in ${name}`);
 }
-if (!app.includes('const ASSET_VERSION = `${BUILD_VERSION}-v34`;')) throw new Error('App asset version template is not the current Build 156 assets');
-if (!index.includes('156-v34')) throw new Error('Index asset version is not 156-v34');
+if (!app.includes('const ASSET_VERSION = `${BUILD_VERSION}-v35`;')) throw new Error('App asset version template is not the current Build 156 assets');
+if (!index.includes('156-v35')) throw new Error('Index asset version is not 156-v35');
 if (!worker.includes('align-v13-shell-${ASSET_VERSION}')) throw new Error('Shell cache template is missing');
 if (!worker.includes('align-v13-api-${ASSET_VERSION}')) throw new Error('API cache template is missing');
 console.log('core navigation and optional Work setup checks passed');

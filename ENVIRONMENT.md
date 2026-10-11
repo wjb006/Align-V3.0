@@ -5,6 +5,7 @@ Set deployment secrets in the service environment. `.env.example` lists setting 
 | Setting | Purpose |
 |---|---|
 | `PORT` | Port supplied by the hosting platform. |
+| `ALIGN_PUBLIC_URL` | Canonical public HTTPS address used in account email links, for example `https://getalign.co.uk`. |
 | `ALIGN_PORT` | Local server port. |
 | `ALIGN_HOSTING_MODE` | Selects persistent hosted mode or a disposable preview. |
 | `ALIGN_BETA_MODE` | Legacy configuration name for Align's account-scoped hosted mode. The user-facing product is Align in both local and hosted use. |

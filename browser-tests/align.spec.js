@@ -510,10 +510,8 @@ async function main() {
       state.tab='calendar';
       state.monthData = {
         month:'2026-10',start:'2026-09-28',end:'2026-11-01',
-        shifts:[{work_date:'2026-10-05',start_time:'08:30',end_time:'12:30',hours:4,
-          location_name:'Arrowe Park',location_colour:'#365CE6',
-          shift_type_name:'AM Clinic',shift_type_colour:'#2D9D78'}],
-        annual_leave:[{leave_date:'2026-10-06'}],
+        shifts:[],
+        annual_leave:[],
         events:[{title:'Dentist',location:'High Street',start_at:'2026-10-07T14:00:00',
           end_at:'2026-10-07T15:00:00',all_day:false}]
       };
@@ -523,28 +521,17 @@ async function main() {
     });
     await page.waitForSelector('.build152-list-day');
     const listText = await page.locator('#app').innerText();
-    assert.match(listText,/AM Clinic\s*Arrowe Park/);
-    assert.match(listText,/Annual leave/);
     assert.match(listText,/Dentist/);
+    assert.doesNotMatch(listText,/AM Clinic|Annual leave/);
     await page.screenshot({path: 'test-results/calendar-list-mobile.png', fullPage: true});
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), true);
-
-    await page.locator('[data-build152-view="week"]').click();
-    await page.waitForFunction(() => document.querySelector('[data-build152-view="week"]')?.getAttribute('aria-pressed') === 'true');
-    await page.waitForSelector('.week-totals');
-    assert.equal(await page.locator('[data-build152-view="week"]').getAttribute('aria-pressed'),'true');
-    assert.equal(await page.locator('.schedule-week-nav').count(),1);
-    await page.screenshot({path: 'test-results/calendar-week-mobile.png', fullPage: true});
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), true);
-    const weekNavBox = await page.locator('.schedule-week-nav').boundingBox();
-    assert(weekNavBox && weekNavBox.x >= 0 && weekNavBox.x + weekNavBox.width <= await page.evaluate(() => document.documentElement.clientWidth) + 1);
 
     await page.locator('[data-build152-view="month"]').click();
     await page.waitForFunction(() => document.querySelector('[data-build152-view="month"]')?.getAttribute('aria-pressed') === 'true');
     await page.waitForSelector('.month-grid');
     assert.equal(await page.locator('[data-build152-view="month"]').getAttribute('aria-pressed'),'true');
     assert.equal(await page.locator('.month-grid').count(),1);
-    assert.equal(await page.locator('.month-shift').count(),1);
+    assert.equal(await page.locator('.month-event').count(),1);
     await page.screenshot({path: 'test-results/calendar-month-mobile.png', fullPage: true});
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), true);
     const monthGridBox = await page.locator('.month-grid').boundingBox();

@@ -11,7 +11,7 @@
 ## Kept
 - Python `ThreadingHTTPServer`, vanilla JavaScript PWA, SQLite and Postgres support, account workflows, travel and weather code, iCloud sync, and the Finance template.
 - Existing legacy shift schema and code remain in this checkout. Their removal is not complete.
-- The source repository at `C:\Align\Align_App` was not modified. No GitHub remote is configured in this workspace.
+- The source repository at `C:\Align\Align_App` was not modified. A separate private `wjb006/Align-V3.0` repository is configured as `origin`; development is on `codex/align-v3-rebuild`.
 ## Changed
 - Added numbered SQLite/Postgres migrations for `calendar_links` and `section_defs` / `section_fields`; included them in startup migration expectations and tester schema provisioning.
 - Moved iCloud section calendar routing to `calendar_links` while keeping the existing calendar sync protections.
@@ -22,28 +22,30 @@
 - Rebranded the user-facing app and setup/remote-access launchers as Align V3.0. `BUILD_VERSION=156` remains the internal build/cache identifier.
 - Retired the public Beta launchers and user-facing labels. Legacy `/api/beta/*`, `beta_*` database/module names, and `ALIGN_BETA_MODE` remain internal compatibility details; do not rename until a data/API migration can preserve existing accounts.
 - Updated the install guide and conservative uninstaller to include the grouped launch and add-ons files while preserving the database by default.
-- Bumped coordinated web asset cache revision to `156-v34` after frontend changes.
+- Bumped coordinated web asset cache revision to `156-v35` after frontend changes.
 - Began replacing fixed shift setup with an optional Work database. Studio links custom questions to Work Location, Shift Area, work date, and start/end times; users can opt in and retain private records.
 - Updated Management Studio Work matrix to associate custom fields with location, area, work date, and start/end time; Work remains optional and records are private.
 - Consolidated Build 153/154/156 V2.1/V2.2 release notes into the Build 156 notes file, removed a duplicate SQL verification file, and removed one-off scratch scripts.
 - Added `.env.example`, environment/deployment documentation, `render.yaml`, a Postgres bootstrap, and separate hosted-persistence and three-device browser workflows.
 ## Verification
-- `.venv\Scripts\python.exe -m pytest -q`: 303 passed, 3 skipped, 16 subtests passed. The skipped cases require a PostgreSQL test service, which is not available in this workspace.
-- Latest focused checks: 17 Python tests passed; navigation/Work, date, UI polish and asset consistency checks passed.
+- Last full Python run: 71 failed, 236 passed, 3 skipped, 16 subtests passed. The failure set was dominated by legacy shift/work-schedule tests targeting routes no longer exposed in V3; rerun and classify after test cleanup.
+- Latest focused checks: 20 Python tests passed; navigation/Work, date, UI polish, Build 156 asset consistency, and `git diff --check` passed.
 - Fixed PowerShell installer interpolation so the embedded Build 156 verification command parses correctly.
-- Playwright: desktop Chromium, Pixel 7 Chromium, and iPhone 13 WebKit passed in the previous matrix run. Desktop Chromium also passes the latest section creation/edit handoff, three-step form matrix, preview, and draft/publish regressions.
+- Latest desktop Playwright: section records, calendar event list/month, Studio draft/publish, and phone preview passed. Pixel 7 Chromium and iPhone 13 WebKit need a fresh run after the current UI changes.
 - Fresh SQLite initialization succeeded; Python compilation and `git diff --check` succeeded.
-- No GitHub Actions run, Render deployment, or new Neon database was created.
+- Pushed development snapshot to private `wjb006/Align-V3.0`; no V3 Render service or dedicated Neon database has been provisioned.
 ## Outstanding brief requirements
 - Remove all shift features, tables, APIs, alerts, UI, scripts, and related tests. This is a major unfinished requirement; the existing shift planner still runs.
 - Complete and verify the optional Work database flow, including user opt-in and custom field associations.
 - Continue source-file grouping only where runtime compatibility and upgrade history are preserved.
 - Complete direct creation of home blocks from the phone preview. Section creation/editing now starts directly from the preview, but the actual matrix fields are designed in the guided builder panel. Validate the full history/restore flow against the deployed Owner portal.
 - Run the Postgres 18 integration workflow against a real test service.
-- Create and verify the separate GitHub repository and provision a dedicated Render service and Neon database with new secrets. The local workspace currently has no Git remote, and no external services were changed.
+- Finish the full shift retirement and migrate the remaining legacy Settings/Master UI while preserving old data.
+- Provision a dedicated Render service and Neon database with new secrets; existing free `align-beta-preview` remains untouched.
+- Add `getalign.co.uk` to the new Render service and only then change IONOS DNS to Render's verified target records.
 ## Follow-up verification (2026-10-11)
 - Focused Node checks passed: core navigation, display dates, UI polish, Scriptable bridge, and phone push worker.
-- `verify_align_build156.py` passed with coordinated 156-v34 cache identity.
-- Focused Python checks passed: 16 tests across UI polish, extracted routes, and Owner builder.
+- `verify_align_build156.py` passed with coordinated 156-v35 cache identity.
+- Focused Python checks passed: 20 tests across Builder defaults, UI polish, extracted routes, and Owner Builder.
 - PowerShell parser accepted the installer, uninstaller, cleanup, live-folder, add-ons, and remote-access scripts. git diff --check passed; Git emitted line-ending normalization warnings.
-- Full Python and multi-device browser suites have not been rerun after Work associations and file grouping.
+- Full Python and multi-device browser suites have not been rerun after the latest Work and Settings changes.

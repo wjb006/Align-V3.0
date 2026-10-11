@@ -1242,6 +1242,11 @@ class AlignHandler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def beta_base_url(self) -> str:
+        configured = os.environ.get('ALIGN_PUBLIC_URL', '').strip().rstrip('/')
+        if configured:
+            public = urlparse(configured)
+            if public.scheme in {'http', 'https'} and public.netloc and not public.username and not public.password:
+                return configured
         host = self.headers.get('Host','').strip()
         forwarded = self.headers.get('X-Forwarded-Proto','').split(',')[0].strip().lower()
         scheme = forwarded or ('https' if isinstance(self.connection, ssl.SSLSocket) else 'http')

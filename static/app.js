@@ -18,7 +18,7 @@ const modalRoot = document.querySelector('#modal-root');
 const toastElement = document.querySelector('#toast');
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 156;
-const ASSET_VERSION = `${BUILD_VERSION}-v34`;
+const ASSET_VERSION = `${BUILD_VERSION}-v35`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -553,11 +553,8 @@ function renderOnboarding() {
       <div><p class="eyebrow">About you</p><h2>Your details</h2></div>
       <div class="field"><label for="welcome-name">Name</label><input id="welcome-name" name="user_name" required autocomplete="name" value="${escapeHtml(settings.user_name)}" placeholder="Your name" /></div>
       ${addressFields('welcome-address', 'user_address', settings.user_address, 'Home address')}
-      <div><p class="eyebrow" style="margin-top:8px">Work information</p><h2>How do you work?</h2></div>
-      <div class="field"><label for="welcome-rate">Rate of pay (£)</label><input id="welcome-rate" name="rate_of_pay" min="0" step="0.01" type="number" value="${settings.rate_of_pay}" /></div>
-      <div class="field"><label for="welcome-calendar">Default calendar</label><input id="welcome-calendar" name="default_calendar" value="${escapeHtml(settings.default_calendar)}" placeholder="Work" /></div>
-      <div class="switch-row"><label for="welcome-notifications">Shift notifications</label><input class="switch" id="welcome-notifications" name="notifications" type="checkbox" ${settings.notifications ? 'checked' : ''} /></div>
-      <button class="primary-button">Continue to Work Settings</button>
+      <p class="helper">You can set up Work as an optional database in Sections and edit it whenever you need.</p>
+      <button class="primary-button">Continue to Align</button>
     </form>
   </section>`;
 }
@@ -571,7 +568,10 @@ function renderLocalDataSettings() {
 }
 
 function renderUserSettings() {
-  const branches = [...(state.boot.master.branches || [])];
+  const branches = [
+    { branch_key: 'profile', title: 'Your details', description: 'Update your name and personal details.', icon: '○', branch_type: 'profile' },
+    { branch_key: 'calendar', title: 'Calendar', description: 'Connect, import, or export your calendars.', icon: '▦', branch_type: 'calendar' },
+  ];
   const permissions = state.boot.builder?.appearance_permissions || {};
   if (Object.values(permissions).some(Boolean)) {
     branches.push({
@@ -1008,7 +1008,7 @@ document.addEventListener('click', async event => {
     if (input) searchAddresses(input);
   }
   if (action === 'master-tab') { state.masterTab = element.dataset.masterTab; render(); }
-  if (action === 'settings-branch') { state.settingsBranch = element.dataset.branch; if (state.boot.master.branches.find(b => b.branch_key === state.settingsBranch)?.branch_type === 'work') { state.tab='sections'; render(); return; } render(); }
+    if (action === 'settings-branch') { state.settingsBranch = element.dataset.branch; render(); }
   if (action === 'reset-user-appearance') {
     try {
       const result = await api('/api/user-appearance', { method: 'PUT', body: { reset: true } });
@@ -1201,7 +1201,7 @@ document.addEventListener('submit', async event => {
       await api(form.dataset.id ? `/api/alert-rules/${form.dataset.id}` : '/api/alert-rules', { method: form.dataset.id ? 'PUT' : 'POST', body: values });
       closeModal(); await refresh(); toast('Alert saved for upcoming events.');
     }
-    if (form.dataset.form === 'onboarding') { values.notifications = form.notifications.checked; values.onboarding_completed = true; await api('/api/user-settings', { method: 'PUT', body: values }); await refresh(); }
+    if (form.dataset.form === 'onboarding') { values.onboarding_completed = true; await api('/api/user-settings', { method: 'PUT', body: values }); await refresh(); }
       if (form.dataset.form === 'user-appearance') {
         const permissions = state.boot.builder?.appearance_permissions || {};
         const appearance = {};

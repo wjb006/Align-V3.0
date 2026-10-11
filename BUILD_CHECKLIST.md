@@ -14,16 +14,17 @@
 - Keep code implementation, automated checks, and live deployment/device verification distinct. A local pass does not prove a hosted service or phone installation is current.
 - The last known test results are snapshots from this workspace and may become stale as files change. Re-run relevant checks after changes.
 - Preserve `C:\Align\Align_App` as read-only. Preserve user data and unrelated working-tree changes.
-- No GitHub remote, hosted deployment, or newly provisioned database is currently verified for this workspace.
+- GitHub remote is `origin` → private `wjb006/Align-V3.0`; no V3 Render service or dedicated database is provisioned yet.
 ## Current handoff: resume here
 - [x] Main rebuild work remains in this workspace and uncommitted on `codex/align-v3-rebuild`.
 - [x] Current work includes the Studio's phone-preview section-to-database input-matrix flow: create a section or open its editor; new sections start with required Name, optional Date, and review-before-save; the editor describes naming, matrix setup, and form review.
-- [!] Latest full Python suite on 11 October: `.venv\Scripts\python.exe -m pytest -q` — **71 failed, 236 passed, 3 skipped, 16 subtests passed**. Most failures come from legacy tests for removed shift/schedule routes and shared test classes imported across older test modules; classify and update those tests while preserving unrelated calendar and travel coverage. A separate Owner Builder `stats` default regression was fixed and passes focused verification.
-- [x] Latest desktop browser regression: `node browser-tests/align.spec.js` — passed, including section creation, matrix editor, and phone-preview/draft flows.
-- [x] Focused Python verification on 11 October: 20 passed across Owner Builder, extracted routes, UI polish, and Builder defaults. Cache/build consistency verifier passed. `git diff --check` had no whitespace errors (Git printed line-ending normalization warnings).
+- [!] Last complete Python run before the latest UI/test refinements: `.venv\Scripts\python.exe -m pytest -q` — **71 failed, 236 passed, 3 skipped, 16 subtests passed**. Failures were concentrated in legacy shift/work-schedule tests that target routes no longer exposed by the V3 user flow; run and classify the full suite again after retiring or updating those tests.
+- [x] Latest desktop Playwright run: `node browser-tests/align.spec.js` — passed, covering section records, calendar event list/month views, Studio draft/publish, and phone preview. Shift totals and annual-leave UI expectations were removed from the retained calendar check.
+- [x] Latest focused verification: 20 Python tests passed across Builder defaults, Owner Builder, extracted routes, and UI polish; navigation, optional Work, date-format, UI-polish, cache verifier, and `git diff --check` passed.
 - [~] Pixel 7 Chromium and iPhone 13 WebKit passed in an earlier browser matrix, before the newest database-matrix handoff changes. Re-run those profiles after the next meaningful UI changes.
 - [~] Shift removal is the largest remaining local brief requirement; initial bounded implementation started by resetting new installs to a blank, section-driven app while preserving the legacy shift schema/data pending a safe archival migration.
-- [~] Work is being replaced by an optional Studio database. Owner Studio field associations and per-user opt-in are implemented; focused server and navigation checks pass, while full browser verification remains outstanding.
+- [~] Work is being replaced by an optional Studio database. Owner Studio field associations and per-user opt-in are implemented; focused server/navigation checks and desktop browser flow pass. Full mobile browser matrix and hosted privacy/isolation verification remain outstanding.
+- [x] Removed fixed pay, default-work-calendar, and shift-alert questions from the fallback first-run screen; Settings now uses account-safe profile/calendar/appearance sections without requiring the legacy admin master payload.
 - [x] Re-read the supplied brief and scoped the shift-removal dependency map before edits. It spans `app.py`, `planner_api.py`, `admin_api.py`, `align_settings.py`, `work_setup.py`, `transport_places.py`, `transport_service.py`, `travel_refresh.py`, `icloud_sync.py`, `static/app.js`, `static/week-planner.js`, `static/work-setup.js`, schema/migrations, service-worker routes, and shift/work tests. Shift data tables are still present and must be handled with a preservation-safe migration.
 - [x] Keep this file current as each checklist item changes.
 ## 1. Project identity, source and Git hygiene
@@ -32,10 +33,10 @@
 - [x] Rename user-facing product identity and local Owner/remote-access launchers to Align V3.0 / Align names; update known launcher references.
 - [~] Internal legacy module/file names still include `beta_*` and internal `BUILD_VERSION=156`; review remaining names as shift and admin functionality are retired.
 - [x] Created the new private repository `wjb006/Align-V3.0`; existing private `wjb006/Align-app` remains untouched.
-- [x] Added the new repository as `origin`; reviewed ignore rules (local `.env` and SQLite databases excluded); committed and pushed V3 snapshot `15374ee` to `codex/align-v3-rebuild`.
-- [~] Keep the pushed commit as development work only until legacy test expectations are retired/updated, browser checks pass on the final shift-free flow, and hosted persistence is verified.
+- [x] Added the new repository as `origin`; reviewed ignore rules (local `.env` and SQLite databases excluded); pushed development snapshot `15374ee` to `codex/align-v3-rebuild` (later checklist handoff commit `b3711fe`).
+- [~] Keep the pushed branch as development work only until legacy test expectations are retired/updated, browser checks pass on the final shift-free flow, and hosted persistence is verified.
 - [x] Domain ownership confirmed by user: `getalign.co.uk` is managed through IONOS; RDAP reports active registration to 9 September 2027. DNS currently resolves to IONOS hosting (`217.160.0.25` and `2001:8d8:100f:f000::200`).
-- [ ] Commit the completed, reviewed implementation to the dedicated repository; preserve any unrelated changes.
+- [ ] Commit and push the latest profile/Settings and event-only calendar regression updates after focused verification.
 ## 7. Hosted service, database, and custom domain
 - [x] Render workspace `Align-App` (`tea-dagsdf6k1f9s73dof7i0`) inspected read-only; no additional workspace is needed.
 - [~] Existing free Render service `align-beta-preview` uses `wjb006/Align-app` main and remains untouched. No Render Postgres instance exists in this workspace.
@@ -100,10 +101,10 @@
 - [x] Rename browser workflow/spec to `.github/workflows/build-browser.yml` and `browser-tests/align.spec.js`.
 - [x] Add browser coverage for desktop Chromium, Pixel 7 Chromium, and iPhone 13 WebKit profiles.
 - [x] Most recent local desktop browser regression passes; earlier full device matrix passed before the newest matrix work.
-- [x] Align app and service-worker asset cache version at `156-v34`; update Studio-specific asset references and verifier.
+- [x] Align app and service-worker asset cache version at `156-v35`; update Studio-specific asset references and verifier.
 - [x] `verify_align_build156.py` passes for Align V3.0 and Build 156 cache identity.
-- [x] Latest recorded full Python suite: 303 passed, 3 skipped, 16 subtests.
-- [ ] Re-run full Python suite after future code changes; current figure is a dated snapshot, not a promise for future edits.
+- [!] Last full-suite snapshot: 71 failed, 236 passed, 3 skipped, 16 subtests; latest focused subset is green, but a fresh full run is outstanding.
+- [ ] Re-run full Python suite after shift-test retirement/update and classify any remaining non-shift failures.
 - [ ] Re-run desktop, Pixel 7, and iPhone 13 browser profiles after final implementation.
 - [ ] Run GitHub Actions CI on the dedicated repository and resolve any real failures.
 - [ ] Package only from the exact green commit; verify ZIP contents if a source/release package is required by the brief.
@@ -146,6 +147,9 @@
 | 2026-10-11 | `git diff --check` | No whitespace errors; Git reported CRLF-to-LF normalization warnings |
 | 2026-10-11 | PowerShell parser on add-ons, remote access, uninstaller, and cleanup scripts | Passed |
 | 2026-10-11 | Aligned cache references and assertions | Updated app, index, service worker, verifier, and focused UI checks to `156-v34`; not yet rerun |
+| 2026-10-11 | Created and pushed separate private V3 repository | `wjb006/Align-V3.0`, branch `codex/align-v3-rebuild`; existing `wjb006/Align-app` untouched; local SQLite and `.env` excluded |
+| 2026-10-11 | Updated first-run and Settings flow | Removed fixed Work/pay/shift-alert prompts; account-safe Settings; optional Work stays in Sections |
+| 2026-10-11 | Current local verification | 20 focused Python tests, core navigation/Work, dates, UI polish, Build 156 cache verifier, diff check, and desktop Playwright passed; full suite not rerun |
 | 2026-10-11 | Script grouping and stale-reference audit | Launch/add-ons grouping implemented; final runtime/browser verification pending |
 | 2026-10-11 | File cleanup inventory | Release note duplicates consolidated; duplicate migration check removed; one-off scripts removed; targeted checks pending |
 | 2026-10-11 | File cleanup inventory | Removed stale Build 150 one-off update note and unused PowerShell aliases; current launcher references rechecked |
