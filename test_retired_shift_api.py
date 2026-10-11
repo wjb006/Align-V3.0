@@ -25,6 +25,22 @@ class RetiredShiftApiTests(unittest.TestCase):
         self.assertEqual(self.request("POST", "/api/shifts", {})[0], 404)
         self.assertEqual(self.request("POST", "/api/annual-leave", {})[0], 404)
 
+    def test_legacy_schedule_admin_writes_are_retired_before_database_access(self):
+        retired_requests = (
+            ("POST", "/api/locations", {}),
+            ("PUT", "/api/locations/1", {"name": "Legacy"}),
+            ("POST", "/api/shift-types", {"name": "Legacy"}),
+            ("PUT", "/api/shift-types/1", {"name": "Legacy"}),
+            ("POST", "/api/templates", {}),
+            ("PUT", "/api/templates/1", {}),
+            ("POST", "/api/templates/1/apply", {}),
+        )
+        for method, path, payload in retired_requests:
+            with self.subTest(method=method, path=path):
+                status, _, body = self.request(method, path, payload)
+                self.assertEqual(status, 404)
+                self.assertIn("no longer available", body.decode("utf-8").lower())
+
     def test_reinitializing_the_schema_keeps_legacy_schedule_data(self):
         with app.db_connection() as connection:
             connection.execute(
