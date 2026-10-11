@@ -122,7 +122,7 @@ class StartupTests(unittest.TestCase):
         store.hash_password.assert_not_called()
 
     def test_hosted_init_skips_sqlite_migrations(self):
-        with patch.dict(os.environ, {'ALIGN_DATABASE_BACKEND': 'postgres'}), patch('app.connect') as connect, patch('app.migration_runner.upgrade') as upgrade, patch('postgres_support.validate_planner') as validate:
+        with patch.dict(os.environ, {'ALIGN_DATABASE_BACKEND': 'postgres'}), patch('app.connect') as connect, patch('app.migration_runner.upgrade') as upgrade, patch('postgres_support.validate_v3_storage') as validate:
             app.initialise_database_at(Path('align.sqlite3'))
             app.db_connection()
             app.FixedDatabaseApp(Path('align.sqlite3')).db_connection()
