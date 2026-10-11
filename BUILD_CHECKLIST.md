@@ -5,7 +5,7 @@
 - **Workspace:** `C:\Users\wjboy\OneDrive\Documents\ChatGPT\Align V3.0`
 - **Original source (read-only):** `C:\Align\Align_App`
 - **Working branch:** `codex/align-v3-rebuild`
-- **Current commit at last check:** `2193f79` — `Create Align V3.0 project skeleton and calendar migration`
+- **Current commit at last check:** `c64fb25` — `Refine Align V3.0 onboarding and calendar flow`
 **Scope:** Align V3.0 implementation from the supplied Codex brief, with the user's explicit Align V3.0 naming taking precedence over any older product name in the brief.
 **Domain:** `getalign.co.uk` is owned by the user through IONOS; current DNS still points to existing IONOS hosting. Do not change records until Render provides the verified target.
 ## How to use this document
@@ -33,7 +33,7 @@
 - [x] Rename user-facing product identity and local Owner/remote-access launchers to Align V3.0 / Align names; update known launcher references.
 - [~] Internal legacy module/file names still include `beta_*` and internal `BUILD_VERSION=156`; review remaining names as shift and admin functionality are retired.
 - [x] Created the new private repository `wjb006/Align-V3.0`; existing private `wjb006/Align-app` remains untouched.
-- [x] Added the new repository as `origin`; reviewed ignore rules (local `.env` and SQLite databases excluded); pushed development snapshot `15374ee` to `codex/align-v3-rebuild` (later checklist handoff commit `b3711fe`).
+- [x] Added the new repository as `origin`; reviewed ignore rules (local `.env` and SQLite databases excluded); latest pushed development commit is `c64fb25` on `codex/align-v3-rebuild`.
 - [~] Keep the pushed branch as development work only until legacy test expectations are retired/updated, browser checks pass on the final shift-free flow, and hosted persistence is verified.
 - [x] Domain ownership confirmed by user: `getalign.co.uk` is managed through IONOS; RDAP reports active registration to 9 September 2027. DNS currently resolves to IONOS hosting (`217.160.0.25` and `2001:8d8:100f:f000::200`).
 - [ ] Commit and push the latest profile/Settings and event-only calendar regression updates after focused verification.
