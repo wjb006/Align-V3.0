@@ -5,7 +5,7 @@
 - **Workspace:** `C:\Users\wjboy\OneDrive\Documents\ChatGPT\Align V3.0`
 - **Original source (read-only):** `C:\Align\Align_App`
 - **Working branch:** `codex/align-v3-rebuild`
-- **Current commit at last check:** working tree — shared test fixture cleanup verified locally; commit pending
+- **Current commit at last check:** `347ab82` — `Retire obsolete shift tests and verify event flows`
 **Scope:** Align V3.0 implementation from the supplied Codex brief, with the user's explicit Align V3.0 naming taking precedence over any older product name in the brief.
 **Domain:** `getalign.co.uk` is owned by the user through IONOS; current DNS still points to existing IONOS hosting. Do not change records until Render provides the verified target.
 ## How to use this document
@@ -16,7 +16,7 @@
 - Preserve `C:\Align\Align_App` as read-only. Preserve user data and unrelated working-tree changes.
 - GitHub remote is `origin` → private `wjb006/Align-V3.0`; no V3 Render service or dedicated database is provisioned yet.
 ## Current handoff: resume here
-- [~] Main rebuild work continues on `codex/align-v3-rebuild`; tested event-feed changes are committed and pushed.
+- [~] Main rebuild work continues on `codex/align-v3-rebuild`; event-feed and test-retirement changes are committed and pushed (`347ab82`).
 - [x] Current work includes the Studio's phone-preview section-to-database input-matrix flow: create a section or open its editor; new sections start with required Name, optional Date, and review-before-save; the editor describes naming, matrix setup, and form review.
 - [x] Latest full Python run: `.venv\Scripts\python.exe -m pytest -q` — **222 passed, 3 skipped, 23 subtests passed** (11 October 2026); retired shift-only test modules were removed and shared test setup was moved to `test_support.py`.
 - [x] Latest desktop Playwright run: `node browser-tests/align.spec.js` — passed, covering section records, calendar event list/month views, Studio draft/publish, and phone preview. Shift totals and annual-leave UI expectations were removed from the retained calendar check.
