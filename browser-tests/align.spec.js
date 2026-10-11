@@ -289,6 +289,9 @@ async function verifyManagementStudio(browser) {
     await page.locator('#save').click();
     await page.waitForFunction(() => document.querySelector('#builder-status')?.textContent.startsWith('Draft saved'));
     assert.equal(writes.at(-1).document.startup.title,'Welcome V2');
+    // Return to Home before checking the Home tab state and continuing preview tests.
+    await page.locator('[data-unified-tab="dashboard"]').click();
+    assert.equal(await page.locator('[data-unified-tab="dashboard"].is-active').count(),1);
     assert.equal(await page.locator('.management-device-screen').count(),1);
     assert.match(await page.locator('#management-phone').innerText(),/Sample event/);
     assert.equal(await page.locator('#management-phone').evaluate(el =>
