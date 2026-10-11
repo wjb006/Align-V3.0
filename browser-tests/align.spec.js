@@ -267,11 +267,19 @@ async function verifyManagementStudio(browser) {
     await page.addScriptTag({content:fs.readFileSync(path.join(ROOT,'static','owner-builder.js'),'utf8')});
     await page.addScriptTag({content:fs.readFileSync(path.join(ROOT,'static','management-studio.js'),'utf8')});
     await page.addScriptTag({content:fs.readFileSync(path.join(ROOT,'static','management-studio-nav.js'),'utf8')});
+    // Readiness is the rendered editor, not a shared status label. The nav script
+    // intentionally writes the Builder status when it activates Home, so a fast
+    // WebKit response can legitimately be followed by that label and cause a race.
+    await page.locator('[data-unified-tab="colors"]').click();
     try {
-      await page.waitForFunction(() => /live design/i.test(document.querySelector('#management-status')?.textContent || ''), null, {timeout:30000});
+      await page.waitForFunction(() => {
+        const input = document.querySelector('[data-setting="appearance.colors.accent"]');
+        return Boolean(input && input.isConnected && input.type === 'color');
+      }, null, {timeout:30000});
     } catch (error) {
       const status = await page.locator('#management-status').textContent().catch(() => 'missing');
-      throw new Error(`${error.message}; Management Studio status: ${status}; page errors: ${pageErrors.join(' | ') || 'none'}; failed requests: ${failedRequests.join(' | ') || 'none'}`);
+      const editor = await page.locator('#management-editor').innerText().catch(() => 'missing');
+      throw new Error(`${error.message}; Management Studio status: ${status}; editor: ${editor.slice(0,500)}; page errors: ${pageErrors.join(' | ') || 'none'}; failed requests: ${failedRequests.join(' | ') || 'none'}`);
     }
     await page.evaluate(() => window.dispatchEvent(new CustomEvent('align-builder-tab',{detail:{tab:'startup'}})));
     await page.waitForFunction(() => document.querySelector('[data-startup-editor]'));
