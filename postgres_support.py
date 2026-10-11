@@ -300,17 +300,29 @@ def validate_auth(c):
     c.execute('SELECT user_id, password_hash, password_set_at, created_at FROM beta_users LIMIT 0')
 
 
-def validate_planner(c):
-    for table in ('settings', 'personal_items', 'shifts', 'shift_templates', 'locations',
-                  'shift_types', 'location_shift_types', 'annual_leave', 'alert_rules', 'alerts',
-                  'calendar_sources', 'calendar_events', 'organiser_sections', 'organiser_events',
-                  'parent_menu_branches', 'menu_branches', 'builder_config', 'builder_records',
-                  'calendar_links', 'section_defs', 'section_fields',
-                  'calendar_sync_state', 'icloud_config', 'icloud_items', 'shift_batches'):
+def validate_v3_storage(c):
+    """Validate the retained V3 data model without requiring retired shift tables.
+
+    This is deliberately validation-only: hosted schema installation and upgrades
+    remain explicit deployment operations, never an application-startup side effect.
+    """
+    for table in ('settings', 'personal_items', 'calendar_sources', 'calendar_events',
+                  'organiser_sections', 'organiser_events', 'parent_menu_branches',
+                  'menu_branches', 'builder_config', 'builder_records', 'calendar_links',
+                  'section_defs', 'section_fields', 'icloud_config', 'icloud_items'):
         c.execute(f'SELECT * FROM {table} LIMIT 0')
     c.execute('SELECT layout_json FROM section_defs LIMIT 0')
-    c.execute('SELECT applicable_days, sub_shift_type FROM shift_templates LIMIT 0')
     c.execute('SELECT calendar_id, calendar_event_id FROM personal_items LIMIT 0')
+
+
+def validate_planner(c):
+    """Validate the compatibility-era schema, including legacy schedule tables."""
+    validate_v3_storage(c)
+    for table in ('shifts', 'shift_templates', 'locations', 'shift_types',
+                  'location_shift_types', 'annual_leave', 'alert_rules', 'alerts',
+                  'calendar_sync_state', 'shift_batches'):
+        c.execute(f'SELECT * FROM {table} LIMIT 0')
+    c.execute('SELECT applicable_days, sub_shift_type FROM shift_templates LIMIT 0')
 
 
 def prepare_calendar_locations():
