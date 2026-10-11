@@ -54,7 +54,7 @@ function Remove-Safely {
     }
 }
 
-Write-Log 'Starting Align v1.3 Beta Build 156 uninstall.'
+Write-Log 'Starting Align V3.0 Build 156 uninstall.'
 Write-Log "Root: $Root"
 Write-Log "DeleteDatabase switch: $DeleteDatabase"
 
@@ -116,6 +116,12 @@ try {
         'Install-Align.ps1',
         'Install-Align.bat',
         'Start-Align.bat',
+        'Start Align.bat',
+        'Start Align on Wi-Fi.bat',
+        'Start Align Remote Access.bat',
+        'Start Align Transport.bat',
+        'Install Align Add-ons.bat',
+        'Install-Align-AddOns.ps1',
         'Uninstall-Align.ps1',
         'Uninstall-Align.bat',
         'README-INSTALL.md'

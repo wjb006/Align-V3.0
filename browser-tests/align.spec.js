@@ -126,7 +126,7 @@ async function bootstrap(page, store) {
   const leaveCardStart = appSource.indexOf('function renderLeaveCard(');
   const leaveCardEnd = appSource.indexOf('\n', leaveCardStart);
   await page.addScriptTag({content: appSource.slice(leaveCardStart, leaveCardEnd)});
-  await page.addScriptTag({content: sourceFunctions(appSource, ['sectionEventDate', 'eventSectionColour', 'dayHeading', 'renderEventRow'])});
+  await page.addScriptTag({content: sourceFunctions(appSource, ['sectionEventDate', 'eventSectionColour', 'eventChoice', 'dayHeading', 'renderEventRow', 'renderGroupedEventRows'])});
   await page.addScriptTag({content: build152});
   await page.evaluate(() => window.dispatchEvent(new Event('load')));
   await page.evaluate(() => { state.boot={master:{locations:[],shift_types:[]},sections:[]}; state.tab='calendar'; });
@@ -171,6 +171,7 @@ async function verifyOwnerBuilderMenuScroll(context) {
   for (const file of ['builder-fields.js', 'builder-finance.js', 'owner-builder.js', 'owner-builder-layout.js']) {
     await page.addScriptTag({content: fs.readFileSync(path.join(ROOT, 'static', file), 'utf8')});
   }
+  await page.locator('#edit-search').fill('Menu item');
   await page.waitForSelector('.builder-jump');
   await page.locator('#builder-nav-toggle').click();
   assert.equal(await page.locator('#builder-nav-toggle').getAttribute('aria-expanded'), 'true');
@@ -263,6 +264,7 @@ async function verifyManagementStudio(browser) {
     await page.addScriptTag({content:fs.readFileSync(path.join(ROOT,'static','builder-fields.js'),'utf8')});
     await page.addScriptTag({content:fs.readFileSync(path.join(ROOT,'static','owner-builder.js'),'utf8')});
     await page.addScriptTag({content:fs.readFileSync(path.join(ROOT,'static','management-studio.js'),'utf8')});
+    await page.addScriptTag({content:fs.readFileSync(path.join(ROOT,'static','management-studio-nav.js'),'utf8')});
     await page.waitForFunction(() => /live design/.test(document.querySelector('#management-status')?.textContent || ''));
     await page.evaluate(() => window.dispatchEvent(new CustomEvent('align-builder-tab',{detail:{tab:'startup'}})));
     await page.waitForFunction(() => document.querySelector('[data-startup-editor]'));
@@ -271,7 +273,7 @@ async function verifyManagementStudio(browser) {
     await page.waitForFunction(() => document.querySelector('#builder-status')?.textContent.startsWith('Draft saved'));
     assert.equal(writes.at(-1).document.startup.title,'Welcome V2');
     assert.equal(await page.locator('.management-device-screen').count(),1);
-    assert.match(await page.locator('#management-phone').innerText(),/fictional sample/);
+    assert.match(await page.locator('#management-phone').innerText(),/Sample event/);
     assert.equal(await page.locator('#management-phone').evaluate(el =>
       getComputedStyle(el.querySelector('.management-phone')).getPropertyValue('--preview-accent').trim()
     ),'#365ce6');
@@ -282,6 +284,46 @@ async function verifyManagementStudio(browser) {
     assert.equal(await page.locator('[data-management-tab="pages"].is-active').count(),1);
     assert.equal(await page.locator('[data-unified-tab="dashboard"].is-active').count(),0);
     assert.equal(await page.locator('[data-home-title]').count() > 0, true);
+    const sectionsHome = page.locator('#management-phone [data-preview-home-section="menus"]');
+    if (await sectionsHome.count()) await sectionsHome.click();
+    const createMatrix = page.locator('#management-phone [data-preview-create-layout]');
+    if (await createMatrix.count()) {
+      await createMatrix.click();
+      assert.equal(await page.locator('#builder-content [data-layout-editor]').count(),1,
+        'Creating from the phone Sections area should open the section and matrix editor');
+      assert.equal(await page.locator('#builder-content [data-field-editor]').count(),1,
+        'A new database matrix should open with its first question ready to edit');
+      assert.equal(await page.locator('#builder-content [data-prop="review_before_save"]').isChecked(),true,
+        'New section input should include a review step by default');
+      assert.match(await page.locator('#builder-content').innerText(),/Step 1 of 3[\s\S]*Step 2 of 3[\s\S]*Step 3 of 3/);
+      await page.locator('[data-management-tab="pages"]').click();
+    }
+    await page.locator('#management-phone [data-preview-home-section="today"]').click();
+    assert.equal(await page.evaluate(() => document.activeElement?.matches('[data-home-title]')),true,
+      'Selecting a home area in the phone preview should focus its editor');
+    await page.locator('#management-phone [data-preview-home-section="upcoming"]').dragTo(
+      page.locator('#management-phone [data-preview-home-section="today"]')
+    );
+    assert.deepEqual((await page.locator('#management-phone [data-preview-home-section]').evaluateAll(items =>
+      items.map(item => item.dataset.previewHomeSection)
+    )).slice(0,2),['upcoming','today'],'Dragging a preview block should reorder the draft preview');
+    await page.locator('#save').click();
+    await page.waitForFunction(() => document.querySelector('#management-status')?.textContent.startsWith('Draft saved'));
+    assert.deepEqual(writes.at(-1).document.home_sections.slice().sort((a,b)=>a.sort_order-b.sort_order).map(item=>item.id).slice(0,2),['upcoming','today']);
+    await page.locator('#management-phone [data-preview-nav-id="planner"]').click();
+    assert.equal(await page.locator('#builder-pane').isHidden(),false,
+      'Selecting a bottom button in the phone should open its navigation editor');
+    assert.equal(await page.evaluate(() => document.activeElement?.matches('[data-prop^="nav-title-"]')),true);
+    await page.locator('[data-management-tab="pages"]').click();
+    await page.locator('#management-phone [data-preview-nav-id="planner"]').dragTo(
+      page.locator('#management-phone [data-preview-nav-id="today"]')
+    );
+    assert.deepEqual((await page.locator('#management-phone [data-preview-nav-id]').evaluateAll(items =>
+      items.map(item => item.dataset.previewNavId)
+    )).slice(0,2),['planner','today'],'Dragging a phone button should reorder navigation');
+    await page.locator('#save').click();
+    await page.waitForFunction(() => document.querySelector('#management-status')?.textContent.startsWith('Draft saved'));
+    assert.deepEqual(writes.at(-1).document.navigation.slice(0,2).map(item=>item.id),['planner','today']);
     await page.locator('[data-management-tab="colors"]').click();
     assert.equal(await page.locator('[data-unified-tab="colors"].is-active').count(),1);
     assert.equal(await page.locator('[data-management-tab="pages"].is-active').count(),0);
@@ -481,7 +523,7 @@ async function main() {
     });
     await page.waitForSelector('.build152-list-day');
     const listText = await page.locator('#app').innerText();
-    assert.match(listText,/AM Clinic\s+Arrowe Park/);
+    assert.match(listText,/AM Clinic\s*Arrowe Park/);
     assert.match(listText,/Annual leave/);
     assert.match(listText,/Dentist/);
     await page.screenshot({path: 'test-results/calendar-list-mobile.png', fullPage: true});
@@ -527,7 +569,7 @@ async function main() {
       'window.renderUpcomingEvent=function(event){return "<article class=\\"card upcoming-event\\"><strong>"+escapeHtml(event.title)+"</strong></article>"};'
     ].join('')});
     await todayPage.addScriptTag({content: fs.readFileSync(path.join(ROOT, 'static', 'dates.js'), 'utf8')});
-    await todayPage.addScriptTag({content: sourceFunctions(appSource, ['homeSectionTitle', 'homeSectionContent'])});
+    await todayPage.addScriptTag({content: sourceFunctions(appSource, ['homeSectionTitle', 'homeSectionContent', 'eventChoice', 'eventLocationKey', 'renderGroupedEventRows'])});
     await todayPage.addScriptTag({content: personalPlanner});
     await todayPage.evaluate(() => {
       personalWeather = {
@@ -593,7 +635,7 @@ async function main() {
     await verifyOwnerBuilderMenuScroll(context);
     await verifyManagementStudio(browser);
 
-    console.log(`PASS — Build 156 browser regressions: ${browserName}${mobileDevice ? ` (${mobileDevice})` : ''}; live event entry, saved contacts, favourites, Today at a Glance, calendar views, App Builder scrolling, Management Studio draft/publish and phone preview`);
+    console.log(`PASS — Align V3.0 browser regressions: ${browserName}${mobileDevice ? ` (${mobileDevice})` : ''}; user flows, section records, calendar views, Studio draft/publish and phone preview`);
   } finally {
     await context.close();
     await browser.close();

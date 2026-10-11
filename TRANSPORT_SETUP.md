@@ -13,8 +13,8 @@ settings in the personal planner.
 
 For a no-copy/paste Merseyside start, double-click **Start Align Merseyside.bat**
 in the Align folder. It starts the local OTP server from the prepared graph,
-sets the local GraphQL URL, and then starts Align on port 8010. To stop the
-local routing server afterwards, double-click **Stop Align Merseyside.bat**.
+sets the local GraphQL URL, and then starts Align on port 8010. To stop either
+the portable Java or Docker OTP server, double-click **Stop Align OTP.bat**.
 
 The lower-level **Start Align Transport.bat** launcher also defaults to the
 same local URL and is useful when the OTP server is already running.
@@ -86,7 +86,7 @@ before enabling that bridge.
 ## First-run check
 
 1. Start Align with the variables above.
-2. Sign in to the beta account.
+2. Sign in to your Align account.
 3. Open the **Transport** tab.
 4. Enter a saved item as `shift:<id>` or `event:<id>`, origin and destination
    coordinates, and tick the location-consent box.

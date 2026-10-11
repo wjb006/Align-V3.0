@@ -5,7 +5,7 @@
     menus: 'Menus',
     'home-nav': 'Home layout',
     'base-structure': 'Shared details',
-    layouts: 'Lists',
+    layouts: 'Sections',
     'travel-results': 'Travel',
     pages: 'Pages & text',
     colors: 'Colours',
@@ -15,6 +15,7 @@
     type: 'Text size',
     review: 'Check changes',
     users: 'Personal choices',
+    owner: 'Owner settings & integrations',
     history: 'History',
     preview: 'How the preview works',
     builds: 'Older versions',
@@ -26,7 +27,7 @@
     menus: 'The sections people open, and where each one goes.',
     'home-nav': 'What appears on the home screen and the bottom buttons.',
     'base-structure': 'Shared home, buttons, and weather. Saved records stay as they are.',
-    layouts: 'Lists people can fill in, such as appointments or bills.',
+    layouts: 'Create the sections and fields people can use in Align.',
     'travel-results': 'What a journey card shows.',
     pages: 'The words on the home screen and the bottom buttons.',
     colors: 'The colours used across Align. Check the phone before you publish.',
@@ -36,6 +37,7 @@
     type: 'Text size, theme, and how round the corners are.',
     review: 'See what will change, then publish when it looks right.',
     users: 'Choose what each person may change for themselves.',
+    owner: 'Manage account access, Microsoft invitations, and owner integrations.',
     history: 'Earlier published designs. You can bring one back into your draft.',
     preview: 'The phone on the right is a sample. It updates as you edit.',
     builds: 'Older published copies and notes.',
@@ -45,7 +47,7 @@
     dashboard: 'Set up', startup: 'Set up', menus: 'Set up', 'home-nav': 'Set up', layouts: 'Set up',
     'travel-results': 'Set up', 'base-structure': 'Set up', review: 'Set up',
     pages: 'Look', colors: 'Look', banners: 'Look', events: 'Look', calendar: 'Look', type: 'Look',
-    users: 'People', history: 'People'
+    users: 'People', owner: 'People', history: 'People'
   };
   const builderTabs = new Set(['dashboard', 'startup', 'menus', 'home-nav', 'base-structure', 'layouts', 'travel-results', 'review']);
   const designTabs = new Set(['pages', 'colors', 'banners', 'events', 'calendar', 'type', 'users', 'history']);
@@ -104,6 +106,11 @@
 
   function renderSpecial(tab) {
     const box = $('#special-content');
+    if (tab === 'owner') {
+      box.innerHTML = '<div id="owner"><div class="builder-panel studio-special"><h2>Owner settings</h2><p>Loading owner integrations and account controls…</p></div></div>';
+      if (window.AlignOwnerAdmin?.load) window.AlignOwnerAdmin.load();
+      return;
+    }
     const copy = {
       preview: ['How the preview works', 'The phone on the right is a sample of Align. It updates while you edit, and it does not change anyone’s real day.'],
       builds: ['Older versions', 'Published copies and notes live with the build archive. Your current draft is still the one you can publish.'],
@@ -143,5 +150,6 @@
     const b = e.target.closest('[data-unified-tab]');
     if (b) activate(b.dataset.unifiedTab);
   });
+  window.AlignManagementStudioNav = { activate };
   activate('dashboard');
 })();

@@ -1,9 +1,9 @@
 @echo off
 setlocal
-title Align v1.3 Beta Build 156 - Installer
+title Align V3.0 Build 156 - Installer
 
 echo ============================================================
-echo   ALIGN v1.3 BETA - BUILD 156 INSTALLER
+echo   ALIGN V3.0 - BUILD 156 INSTALLER
 echo ============================================================
 echo.
 echo This installs and verifies Align in the folder containing this file.

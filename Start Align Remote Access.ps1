@@ -8,7 +8,7 @@ function Read-LogTail([string]$Path, [int]$Lines = 25) {
         Get-Content -LiteralPath $Path -Tail $Lines -ErrorAction SilentlyContinue
     }
 }
-function Test-LocalBeta {
+function Test-LocalAccountService {
     try {
         $r = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:8010/api/beta/status' -TimeoutSec 3
         if ($r.StatusCode -ne 200) { return $false }
@@ -18,7 +18,7 @@ function Test-LocalBeta {
 }
 
 Write-Host '=============================================='
-Write-Host '        ALIGN v1.3 BETA - PUBLIC TUNNEL'
+Write-Host '        ALIGN V3.0 - REMOTE ACCESS'
 Write-Host '=============================================='
 
 if (-not (Test-Path -LiteralPath '.\app.py')) { Fail 'app.py was not found. Put this launcher inside the Align folder.' }
@@ -29,21 +29,21 @@ $build = [int]$m.Groups[1].Value
 Write-Host "Align Build $build detected."
 
 $python = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
-if (-not (Test-Path -LiteralPath $python)) { Fail 'Run Install Beta Support.bat first. The .venv Python was not found.' }
+if (-not (Test-Path -LiteralPath $python)) { Fail 'Run Install Align Add-ons.bat and choose Owner accounts and remote access first. The .venv Python was not found.' }
 $cloudflared = (Get-Command cloudflared.exe -ErrorAction SilentlyContinue).Source
-if (-not $cloudflared) { Fail 'cloudflared.exe was not found. Run Install Beta Support.bat first.' }
-if (-not (Test-Path -LiteralPath '.\beta_users.sqlite3')) { Fail 'Run Set Up Beta Owner.bat first.' }
+if (-not $cloudflared) { Fail 'cloudflared.exe was not found. Run Install Align Add-ons.bat and choose Owner accounts and remote access first.' }
+if (-not (Test-Path -LiteralPath '.\beta_users.sqlite3')) { Fail 'Run Set Up Align Owner.bat first.' }
 
 # Important: refuse to launch over an existing server. The old launcher could
 # health-check an older process and then accidentally tunnel to it.
-if (Test-LocalBeta) {
-    Fail 'An Align Beta server is already running on port 8010. Close every old Align Beta Server window, wait 3 seconds, then run this launcher again.'
+if (Test-LocalAccountService) {
+    Fail 'An Align server is already running on port 8010. Close every old Align Server window, wait 3 seconds, then run this launcher again.'
 }
 try {
     $listener = Get-NetTCPConnection -LocalPort 8010 -State Listen -ErrorAction SilentlyContinue
     if ($listener) { Fail 'Port 8010 is already in use by another program. Close the old process before starting Align.' }
 } catch {
-    if ($_.Exception.Message -like 'Port 8010*' -or $_.Exception.Message -like 'An Align Beta*') { throw }
+    if ($_.Exception.Message -like 'Port 8010*' -or $_.Exception.Message -like 'An Align*') { throw }
 }
 
 $stateDir = Join-Path $PSScriptRoot '.align_beta'
@@ -69,7 +69,7 @@ try {
     for ($i=0; $i -lt 20; $i++) {
         Start-Sleep -Seconds 1
         if ($server.HasExited) { break }
-        if (Test-LocalBeta) { $ready = $true; break }
+        if (Test-LocalAccountService) { $ready = $true; break }
     }
     if (-not $ready) {
         Write-Host "`n--- Align server output ---" -ForegroundColor Yellow
@@ -88,7 +88,7 @@ try {
         try { $env:TUNNEL_TOKEN = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr) }
         finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
         $tunnel = Start-Process -FilePath $cloudflared -ArgumentList @('tunnel','run') -WorkingDirectory $PSScriptRoot -RedirectStandardOutput $tunnelOut -RedirectStandardError $tunnelErr -PassThru -WindowStyle Hidden
-        Write-Host 'Stable tunnel process started. Use your configured beta hostname.' -ForegroundColor Green
+        Write-Host 'Stable Align tunnel process started. Use your configured Align hostname.' -ForegroundColor Green
     } else {
         Write-Step 'Starting a fresh Cloudflare Quick Tunnel'
         $tunnel = Start-Process -FilePath $cloudflared -ArgumentList @('tunnel','--url','http://127.0.0.1:8010') -WorkingDirectory $PSScriptRoot -RedirectStandardOutput $tunnelOut -RedirectStandardError $tunnelErr -PassThru -WindowStyle Hidden
@@ -171,7 +171,7 @@ try {
         }
 
         Write-Host "`nUSE THIS EXACT ADDRESS:`n$url" -ForegroundColor White -BackgroundColor DarkGreen
-        Write-Host "`nIt has also been saved to: .align_beta\CURRENT BETA URL.txt"
+        Write-Host "`nThe current remote access address is saved in Align's local state folder."
         try { Start-Process $url } catch { }
     }
 

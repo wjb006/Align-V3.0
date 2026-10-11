@@ -42,7 +42,7 @@ def health_status() -> dict:
     database_integrity = "unavailable"
     migrations_available = all(
         (align.migration_runner.ROOT / filename).is_file()
-        for filename in ("149_asset_studio.sql", "149_transport.sql", "POST_MIGRATION_CHECKS.sql")
+        for filename in ("149_asset_studio.sql", "149_transport.sql", "150_calendar_links.sql", "151_sections.sql")
     )
     migrations_applied = False
     try:
@@ -54,9 +54,10 @@ def health_status() -> dict:
                     "SELECT 1 FROM sqlite_master WHERE type='table' AND name='schema_migrations'"
                 ).fetchone()
                 if table:
+                    placeholders = ','.join('?' for _ in align.EXPECTED_MIGRATIONS)
                     applied = {
                         row[0] for row in connection.execute(
-                            "SELECT migration_id FROM schema_migrations WHERE migration_id IN (?, ?)",
+                            f"SELECT migration_id FROM schema_migrations WHERE migration_id IN ({placeholders})",
                             align.EXPECTED_MIGRATIONS,
                         )
                     }

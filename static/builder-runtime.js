@@ -22,6 +22,13 @@ function builderOpenMenu(id) {
 async function builderOpenLayout(id,archived=false) {
   builderRuntime.layout=builderDocument().layouts.find(x=>x.id===id);
   if(!builderRuntime.layout){toast('This database is no longer available. Refresh Align.');return;}
+  const work = (state.sectionDefinitions || []).find(section => section.key === id && section.optional);
+  if (work && !work.enabled) {
+    try {
+      await api(`/api/builder/records/${id}/enable`,{method:'POST',body:{}});
+      state.sectionDefinitions = (await api('/api/sections/definitions')).sections || [];
+    } catch(err) { toast(err.message); return; }
+  }
   builderRuntime.archived=archived;builderRuntime.search='';builderRuntime.loading=true;builderRuntime.error='';
   state.tab='builder-records';render();
   try {const data=await api(`/api/builder/records/${id}?archived=${archived?1:0}`);builderRuntime.records=data.records;}

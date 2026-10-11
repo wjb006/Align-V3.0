@@ -449,39 +449,45 @@
 
   function previewContent() {
     const upcomingTitle = (documentDraft.home_sections || []).find(section => section.id === 'upcoming')?.title || 'Upcoming Events';
-    const todayTitle = (documentDraft.home_sections || []).find(section => section.id === 'today')?.title || 'Today at a glance';
     const nav = (documentDraft.navigation || []).filter(item => item.active !== false).slice(0, 5);
     if (previewScreen === 'calendar') {
       const cells = Array.from({length: 14}, (_, i) => `<span class="mp-cell${i % 7 > 4 ? ' is-weekend' : ''}${i === 9 ? ' is-today' : ''}"><i>${i + 1}</i>${i % 3 === 0 ? '<b></b>' : ''}</span>`).join('');
       const heading = documentDraft.appearance.calendar.week_headings === 'show' ? '<p class="mp-week">WEEK COMMENCING 5 OCT</p>' : '';
       return `<p class="management-phone-banner">MONTH VIEW</p><div class="mp-grid">${cells}</div>
         <p class="management-phone-banner">LIST VIEW</p>${heading}
-        <div class="mp-day"><h4>Monday 5 October</h4><div class="management-phone-event"><time>09:00</time><span><strong>Team check-in</strong><small>Work · fictional sample</small></span></div></div>
-        <div class="mp-day"><h4>Tuesday 6 October</h4><div class="management-phone-event"><time>14:00</time><span><strong>Project review</strong><small>Work · fictional sample</small></span></div></div>`;
+        <div class="mp-day"><h4>Monday 5 October</h4><div class="management-phone-event"><time>09:00</time><span><strong>Appointment</strong><small>Personal · sample</small></span></div></div>
+        <div class="mp-day"><h4>Tuesday 6 October</h4><div class="management-phone-event"><time>14:00</time><span><strong>Project review</strong><small>Personal · sample</small></span></div></div>`;
     }
     if (previewScreen === 'planner') {
       return `<p class="management-phone-banner">PLANNER · TUESDAY</p>
-        <div class="management-phone-event"><time>09:00</time><span><strong>Team check-in</strong><small>Work · fictional sample</small></span></div>
-        <div class="management-phone-event"><time>11:30</time><span><strong>Lunch break</strong><small>Personal · fictional sample</small></span></div>
-        <div class="management-phone-event"><time>14:00</time><span><strong>Project review</strong><small>Work · fictional sample</small></span></div>
+        <div class="management-phone-event"><time>09:00</time><span><strong>Appointment</strong><small>Personal · sample</small></span></div>
+        <div class="management-phone-event"><time>11:30</time><span><strong>Personal plan</strong><small>Personal · fictional sample</small></span></div>
+        <div class="management-phone-event"><time>14:00</time><span><strong>Project review</strong><small>Personal · sample</small></span></div>
         <p class="management-phone-banner">${esc(upcomingTitle).toUpperCase()}</p>
         <div class="mp-day"><h4>Thursday 8 October</h4>
           <div class="management-phone-event"><time>09:00</time><span><strong>Planning session</strong><small>fictional sample event</small></span></div>
-          <div class="management-phone-event"><time>15:30</time><span><strong>Clinic review</strong><small>fictional sample event</small></span></div>
+          <div class="management-phone-event"><time>15:30</time><span><strong>Visit</strong><small>fictional sample event</small></span></div>
         </div>`;
     }
-    const todaySection = (documentDraft.home_sections || []).find(section => section.id === 'today') || {};
-    const showWeather = todaySection.content?.show_weather !== false;
-    const showSchedule = todaySection.content?.show_schedule !== false;
-    return `<div class="management-phone-greeting-block"><p class="management-phone-date">Wednesday 7 October 2026</p><h3 class="management-phone-greeting">Good morning</h3></div>
-      ${todaySection.visible === false ? '' : `<p class="management-phone-banner">${esc(todayTitle).toUpperCase()}</p>
-      ${showWeather ? '<div class="management-phone-weather"><strong>Today’s weather</strong><span>Clear skies · sample preview</span></div>' : ''}
-      ${showSchedule ? '<div class="management-phone-event"><time>09:00</time><span><strong>Team check-in</strong><small>Work</small></span></div><div class="management-phone-event"><time>11:30</time><span><strong>Lunch break</strong><small>Personal</small></span></div>' : ''}`}
-      <p class="management-phone-banner">${esc(upcomingTitle).toUpperCase()}</p>
-      <div class="mp-day"><h4>Thursday 8 October</h4>
-        <div class="management-phone-event"><time>09:00</time><span><strong>Planning session</strong><small>fictional sample event</small></span></div>
-        <div class="management-phone-event"><time>15:30</time><span><strong>Clinic review</strong><small>fictional sample event</small></span></div>
-      </div>`;
+    const blocks = [...(documentDraft.home_sections || [])].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    const blockMarkup = blocks.filter(section => section.visible !== false).map(section => {
+      const title = esc(section.title || section.id);
+      let contents = '';
+      if (section.id === 'today') {
+        if (section.content?.show_weather !== false) contents += '<div class="management-phone-weather"><strong>Today’s weather</strong><span>Clear skies · sample preview</span></div>';
+        if (section.content?.show_schedule !== false) contents += '<div class="management-phone-event"><time>09:00</time><span><strong>Appointment</strong><small>Personal · sample</small></span></div><div class="management-phone-event"><time>11:30</time><span><strong>Personal plan</strong><small>Personal · sample</small></span></div>';
+      } else if (section.id === 'upcoming') {
+        contents = '<div class="mp-day"><h4>Thursday 8 October</h4><div class="management-phone-event"><time>09:00</time><span><strong>Planning session</strong><small>Sample event</small></span></div><div class="management-phone-event"><time>15:30</time><span><strong>Visit</strong><small>Sample event</small></span></div></div>';
+      } else if (section.id === 'menus') {
+        contents = (documentDraft.layouts || []).slice(0, 3).map(layout => `<button type="button" class="management-phone-event mp-section-entry" data-preview-edit-layout="${esc(layout.id)}" aria-label="Edit ${esc(layout.title)} section and input matrix"><span><strong>${esc(layout.title)}</strong><small>${(layout.fields || []).length} questions · tap to design</small></span></button>`).join('') || '<button type="button" class="mp-empty mp-add-section" data-preview-create-layout>Add a section and input matrix</button>';
+      } else if (section.id === 'annual_leave') {
+        contents = '<div class="management-phone-event"><time>FRI</time><span><strong>Annual leave</strong><small>Sample entry</small></span></div>';
+      } else {
+        contents = '<p class="mp-empty">Sample content</p>';
+      }
+      return `<section class="mp-editable-block" data-preview-home-section="${esc(section.id)}" draggable="true"><button class="mp-drag-handle" type="button" aria-label="Select or drag ${title}">⠿</button><p class="management-phone-banner">${title.toUpperCase()}</p>${contents}</section>`;
+    }).join('');
+    return `<div class="management-phone-greeting-block"><p class="management-phone-date">Wednesday 7 October 2026</p><h3 class="management-phone-greeting">Good morning</h3></div>${blockMarkup || '<p class="mp-empty">Add a home area in Studio to preview it here.</p>'}`;
   }
 
   function renderPreviewFallback() {
@@ -490,8 +496,8 @@
     phone.innerHTML = `<div class="management-phone" data-theme="light">
       <header class="management-phone-header"><span>Align<small>Your day, in view</small></span><span aria-hidden="true">☰</span></header>
       <section class="management-phone-section"><h3>Today</h3>
-        <div class="management-phone-event"><time>09:00</time><span><strong>Team check-in</strong><small>Work · preview</small></span></div>
-        <div class="management-phone-event"><time>11:30</time><span><strong>Lunch break</strong><small>Personal · preview</small></span></div>
+        <div class="management-phone-event"><time>09:00</time><span><strong>Appointment</strong><small>Work · preview</small></span></div>
+        <div class="management-phone-event"><time>11:30</time><span><strong>Personal plan</strong><small>Personal · preview</small></span></div>
         <p class="management-phone-banner">UPCOMING</p>
         <div class="management-phone-event"><time>THU</time><span><strong>Planning session</strong><small>Preview event</small></span></div>
       </section>
@@ -503,7 +509,7 @@
     const colors = documentDraft.appearance.colors;
     const nav = (documentDraft.navigation || []).filter(item => item.active !== false).slice(0, 5);
     const navMarkup = nav.length
-      ? nav.map((item, index) => index === 0 ? `<strong>${esc(item.title || 'Today')}</strong>` : `<span>${esc(item.title || '')}</span>`).join('')
+      ? nav.map((item, index) => `<button type="button" class="${index === 0 ? 'is-current' : ''}" data-preview-nav-id="${esc(item.id)}" draggable="true" aria-label="Select or drag ${esc(item.title || 'navigation button')}">${esc(item.icon || '')} ${esc(item.title || '')}</button>`).join('')
       : '<strong>Today</strong><span>Inbox</span><span>Planner</span><span>More</span>';
     $('#management-phone').innerHTML = `<div class="management-phone" data-theme="${documentDraft.appearance.type.theme === 'dark' ? 'dark' : 'light'}" style="${previewStyle()}">
       <header class="management-phone-header"><span>Align<small>Your day, in view</small></span><span aria-hidden="true">☰</span></header>
@@ -512,6 +518,89 @@
     </div>`;
     $('#management-phone').style.background = documentDraft.appearance.type.theme === 'dark' ? '#10142a' : colors.canvas;
   }
+
+  function reorderFromPreview(kind, sourceId, targetId) {
+    if (!sourceId || !targetId || sourceId === targetId) return;
+    const list = kind === 'home'
+      ? [...(documentDraft.home_sections || [])].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+      : (documentDraft.navigation || []);
+    const source = list.findIndex(item => item.id === sourceId);
+    const target = list.findIndex(item => item.id === targetId);
+    if (source < 0 || target < 0) return;
+    const [item] = list.splice(source, 1);
+    list.splice(target, 0, item);
+    if (kind === 'home') list.forEach((section, index) => { section.sort_order = (index + 1) * 10; });
+    else documentDraft.navigation = list;
+    dirty = true;
+    renderEditor();
+    renderPreview();
+    controls();
+    setStatus('Preview order changed. Save a draft or publish when ready.', 'dirty');
+  }
+
+  const phone = $('#management-phone');
+  let draggedPreviewItem = null;
+  phone.addEventListener('click', event => {
+    const sectionEntry = event.target.closest('[data-preview-edit-layout]');
+    const createSection = event.target.closest('[data-preview-create-layout]');
+    if (sectionEntry || createSection) {
+      const nextTab = 'layouts';
+      if (window.AlignManagementStudioNav?.activate) window.AlignManagementStudioNav.activate(nextTab);
+      else window.dispatchEvent(new CustomEvent('align-builder-tab', {detail: {tab: nextTab}}));
+      if (sectionEntry) {
+        document.querySelector(`[data-item="${CSS.escape(sectionEntry.dataset.previewEditLayout)}"]`)?.click();
+      } else {
+        document.querySelector('[data-add-layout]')?.click();
+      }
+      document.querySelector('#builder-content [data-layout-editor]')?.scrollIntoView({block: 'start'});
+      return;
+    }
+    const block = event.target.closest('[data-preview-home-section]');
+    if (block) {
+      if (window.AlignManagementStudioNav?.activate) window.AlignManagementStudioNav.activate('pages');
+      activeTab = 'pages';
+      renderEditor();
+      const index = documentDraft.home_sections.findIndex(item => item.id === block.dataset.previewHomeSection);
+      const input = [...document.querySelectorAll('[data-home-title]')].find(control => Number(control.dataset.homeTitle) === index);
+      input?.focus();
+      input?.scrollIntoView({block: 'nearest'});
+      return;
+    }
+    const nav = event.target.closest('[data-preview-nav-id]');
+    if (nav) {
+      if (window.AlignManagementStudioNav?.activate) window.AlignManagementStudioNav.activate('home-nav');
+      else window.dispatchEvent(new CustomEvent('align-builder-tab', {detail: {tab: 'home-nav'}}));
+      const index = documentDraft.navigation.findIndex(item => item.id === nav.dataset.previewNavId);
+      const input = document.querySelector(`[data-prop="nav-title-${index}"]`) ||
+        [...document.querySelectorAll('[data-nav-title]')].find(control => Number(control.dataset.navTitle) === index);
+      input?.focus();
+      input?.scrollIntoView({block: 'nearest'});
+    }
+  });
+  phone.addEventListener('dragstart', event => {
+    const block = event.target.closest('[data-preview-home-section]');
+    const nav = event.target.closest('[data-preview-nav-id]');
+    if (!block && !nav) return;
+    draggedPreviewItem = block
+      ? {kind: 'home', id: block.dataset.previewHomeSection}
+      : {kind: 'nav', id: nav.dataset.previewNavId};
+    event.dataTransfer?.setData('text/plain', draggedPreviewItem.id);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+  });
+  phone.addEventListener('dragover', event => {
+    if (event.target.closest('[data-preview-home-section],[data-preview-nav-id]')) event.preventDefault();
+  });
+  phone.addEventListener('drop', event => {
+    const block = event.target.closest('[data-preview-home-section]');
+    const nav = event.target.closest('[data-preview-nav-id]');
+    const targetKind = block ? 'home' : nav ? 'nav' : '';
+    const targetId = block?.dataset.previewHomeSection || nav?.dataset.previewNavId;
+    if (draggedPreviewItem && targetKind === draggedPreviewItem.kind && targetId) {
+      event.preventDefault();
+      reorderFromPreview(targetKind, draggedPreviewItem.id, targetId);
+    }
+    draggedPreviewItem = null;
+  });
 
   function onSettingChange(event) {
     const control = event.currentTarget;

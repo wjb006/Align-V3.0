@@ -1,9 +1,0 @@
-Build 151 - Week events and travel reminders
-
-Week Schedule and Add shifts > Week summary now show Align events and imported calendar events, including all-day and overnight entries. Empty days say Nothing planned.
-
-Add event and Add shift offer a Travel reminder choice. Choose the whole travel allowance, including walking, connections and early arrival. This is a fixed alert before the event, not a live route calculation. Per-item reminders are retained in existing notes for offline queue and database compatibility. Removing the extra travel reminder keeps existing general shift alerts.
-
-Alerts are emitted in shift ICS feeds and direct iCloud event/shift sync. Your calendar must be connected and its alerts enabled. All-day events do not receive travel alerts. Phone notification delivery itself was not tested on an iPhone.
-
-Validation: 112 tests passed, PASS - BUILD 151 VERIFIED. New tests cover calendar alarms, invalid ranges, existing alert preservation and week boundaries. JS checks cover reminder save/remove and overnight/midnight display boundaries. Existing bills/weather/OTP changes preserved. No schema migration.

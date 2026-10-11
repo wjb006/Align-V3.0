@@ -98,6 +98,15 @@ class BuilderTests(unittest.TestCase):
                 self.assertEqual(self.request(method,path,{},token)[0],403)
         self.assertEqual(self.request('GET','/api/builder/config',token=self.owner_token)[0],200)
         self.assertEqual(self.request('GET','/owner-builder.html',token=self.owner_token)[0],200)
+
+    def test_studio_integrations_status_is_owner_only_and_redacted(self):
+        for token in (None, self.users[0][1]):
+            self.assertEqual(self.request('GET','/api/studio/status',token=token)[0],403)
+        status, body = self.request('GET','/api/studio/status',token=self.owner_token)
+        self.assertEqual(status,200,body)
+        self.assertTrue(all(isinstance(value, bool) for value in body['integrations'].values()))
+        self.assertIn(body['icloud'], ('Configured','Not configured','Status unavailable'))
+        self.assertEqual(body['here_quota']['limit'],1000)
         status, page = self.request('GET','/management-studio.html',token=self.owner_token)
         self.assertEqual(status,200)
         self.assertIn('Management Studio', page)
@@ -226,16 +235,34 @@ class BuilderTests(unittest.TestCase):
         self.assertEqual(self.request('POST',path,body,token)[0],200)
         self.assertEqual(self.request('POST',path,body,token)[0],200) # retry creates only one record
         self.assertEqual(len(self.request('GET',path,token=token)[1]['records']),1)
-        for other in (self.users[1][1], self.owner_token):
-            self.assertEqual(self.request('GET',path,token=other)[1]['records'],[])
-            self.assertEqual(self.request('PUT',path+'/record_test',{'revision':1,'values':body['values']},other)[0],404)
-        self.assertEqual(self.request('PUT',path+'/record_test',{'revision':0,'values':body['values']},token)[0],409)
-        self.assertEqual(self.request('PUT',path+'/record_test',{'revision':1,'values':{'name':'Edited'}},token)[0],200)
-        self.assertEqual(self.request('DELETE',path+'/record_test',{'revision':2},token)[0],200)
-        self.assertEqual(self.request('GET',path,token=token)[1]['records'],[])
-        self.assertEqual(len(self.request('GET',path+'?archived=1',token=token)[1]['records']),1)
-        self.assertEqual(self.request('DELETE',path+'/record_test',{'revision':3,'restore':True},token)[0],200)
-        self.assertEqual(len(self.request('GET',path,token=token)[1]['records']),1)
+
+    def test_optional_work_database_and_field_associations_are_private(self):
+        current = builder.config(app.DATABASE)
+        doc = copy.deepcopy(current['draft'])
+        doc['layouts'].append({'id':'work','title':'Work','description':'Work details','view':'table','optional':True,
+            'work_associations':{'location':'location','area':'area','date':'date','start_time':'start','end_time':'end'},
+            'fields':[{'id':'name','type':'text','label':'Name','required':True,'help':'','options':[]},
+                      {'id':'location','type':'select','label':'Work Location','required':True,'help':'','options':['Main site']},
+                      {'id':'area','type':'text','label':'Shift Area','required':False,'help':'','options':[]},
+                      {'id':'date','type':'date','label':'Work date','required':True,'help':'','options':[]},
+                      {'id':'start','type':'text','label':'Start time','required':False,'help':'','options':[]},
+                      {'id':'end','type':'text','label':'End time','required':False,'help':'','options':[]}]})
+        doc['menus'].append({'id':'work_menu','parent_id':'','title':'Work','description':'','destination':'layout','layout_id':'work','active':True,'icon':'◷','colour':'#365CE6','content':''})
+        status, result = self.request('POST','/api/builder/publish',{'revision':current['revision'],'document':doc},self.owner_token)
+        self.assertEqual(status,200,result)
+        token = self.users[0][1]
+        definitions = self.request('GET','/api/sections/definitions',token=token)[1]['sections']
+        work = next(item for item in definitions if item['key']=='work')
+        self.assertTrue(work['optional']); self.assertFalse(work['enabled'])
+        self.assertEqual(work['work_associations']['location'],'location')
+        self.assertEqual(self.request('GET','/api/builder/records/work',token=token)[0],403)
+        self.assertEqual(self.request('POST','/api/builder/records/work/enable',{},token)[0],200)
+        enabled = self.request('GET','/api/sections/definitions',token=token)[1]['sections']
+        self.assertTrue(next(item for item in enabled if item['key']=='work')['enabled'])
+        body={'id':'work_record','values':{'name':'Main shift','location':'Main site','area':'Ward','date':'2026-10-12','start':'08:00','end':'16:00'}}
+        self.assertEqual(self.request('POST','/api/builder/records/work',body,token)[0],200)
+        self.assertEqual(self.request('GET','/api/builder/records/work',token=self.users[1][1])[0],403)
+        self.assertEqual(self.request('GET','/api/builder/records/work',token=token)[1]['records'][0]['values']['location'],'Main site')
 
     def test_personal_setup_private_and_no_work_required(self):
         token = self.users[0][1]

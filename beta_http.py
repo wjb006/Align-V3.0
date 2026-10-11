@@ -257,7 +257,7 @@ def apply_pages(handler, app, parsed) -> None:
         self.path='/beta-welcome.html'
     elif BETA_MODE and parsed.path in {'/beta-admin','/beta-admin.html'}:
         if not self.is_admin(): self.path='/beta-login.html'
-        else: self.path='/beta-admin.html'
+        else: self.path='/management-studio.html'
     elif BETA_MODE and parsed.path in {'/','/index.html'}:
         row=self.beta_user()
         if not row: self.path='/beta-login.html'
@@ -265,6 +265,6 @@ def apply_pages(handler, app, parsed) -> None:
         elif not row['welcome_seen_at']: self.path='/beta-welcome.html'
         else: self.path='/index.html'
     elif BETA_MODE and parsed.path in {'/admin','/admin.html'}:
-        self.path='/admin.html' if self.is_admin() else '/beta-login.html'
+        self.path='/management-studio.html' if self.is_admin() else '/beta-login.html'
     elif parsed.path == "/admin" or parsed.path == "/admin.html": self.path = "/admin.html"
     elif parsed.path == "/" or parsed.path == "/index.html": self.path = "/index.html"

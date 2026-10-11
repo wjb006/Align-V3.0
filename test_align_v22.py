@@ -10,14 +10,14 @@ import personal_planner
 
 
 class HomeAreaContentTests(unittest.TestCase):
-    def test_defaults_include_stats_and_content(self):
+    def test_defaults_exclude_shift_summary_and_preserve_content(self):
         class Connection:
             def execute(self, *args, **kwargs):
                 return []
 
         doc = owner_builder.defaults(Connection())
         ids = {section['id']: section for section in doc['home_sections']}
-        self.assertIn('stats', ids)
+        self.assertNotIn('stats', ids)
         self.assertTrue(ids['today']['content']['show_schedule'])
         self.assertTrue(ids['upcoming']['content']['group_by_day'])
 

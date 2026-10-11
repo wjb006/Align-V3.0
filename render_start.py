@@ -30,9 +30,12 @@ def bootstrap_hosted_owner(store, password):
 
 
 def prepare_preview():
-    if os.environ.get('ALIGN_HOSTING_MODE') != 'disposable-preview':
-        raise RuntimeError('Set ALIGN_HOSTING_MODE=disposable-preview; persistent beta hosting is not configured')
     hosted = postgres_enabled()
+    mode = os.environ.get('ALIGN_HOSTING_MODE', '').strip().lower()
+    if hosted and mode != 'persistent':
+        raise RuntimeError('PostgreSQL requires ALIGN_HOSTING_MODE=persistent.')
+    if not hosted and mode != 'disposable-preview':
+        raise RuntimeError('SQLite is allowed on Render only for ALIGN_HOSTING_MODE=disposable-preview.')
     password = os.environ.get('ALIGN_PREVIEW_PASSWORD', '')
     if not hosted and len(password) < 20:
         raise RuntimeError('Set a strong ALIGN_PREVIEW_PASSWORD of at least 20 characters')
@@ -86,9 +89,9 @@ def main():
     try:
         with app.AlignServer(('0.0.0.0', int(os.environ.get('PORT', '10000'))), app.AlignHandler) as server:
             if os.environ.get('ALIGN_DATABASE_BACKEND', 'sqlite').strip().lower() == 'postgres':
-                print('Align Build 156 Neon Postgres ready: align_auth and align_owner queries verified. Owner data is stored in Neon.', flush=True)
+                print('Align V3.0 persistent service ready: Neon storage verified.', flush=True)
             else:
-                print('Align Build 156 disposable preview ready. Data resets on every restart.', flush=True)
+                print('Align V3.0 disposable preview ready. Data resets on every restart.', flush=True)
             server.serve_forever()
     finally:
         if runtime is not None:

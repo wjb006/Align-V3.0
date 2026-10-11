@@ -1,4 +1,4 @@
-"""Microsoft Graph mail delivery for Align v1.3 using Microsoft OAuth2.
+"""Microsoft Graph mail delivery for Align V3.0 using Microsoft OAuth2.
 
 No mailbox password or client secret is stored. The Owner supplies a Microsoft
 public-client Application (Client) ID. MSAL's encrypted token cache is kept by
@@ -37,7 +37,7 @@ class BetaMailer:
             return msal
         except ImportError:
             raise BetaError(
-                'Run Install Beta Support.bat to install Microsoft OAuth support.',
+                'Run Install Align Add-ons.bat and choose Owner accounts and remote access to install Microsoft OAuth support.',
                 'beta_support_missing', 503
             ) from None
 

@@ -23,7 +23,7 @@ try:
     from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 except ImportError as error:  # pragma: no cover - friendly launcher path
     raise SystemExit(
-        "Align HTTPS support is not installed. Run 'Install Align HTTPS Support.bat' first."
+        "Align HTTPS support is not installed. Run 'Install Align Add-ons.bat' and choose iPhone HTTPS certificate support first."
     ) from error
 
 ROOT = Path(__file__).resolve().parent

@@ -1,3 +1,3 @@
 @echo off
-cd /d "%~dp0"
-call "Start Align.bat" --network
+call "%~dp0Start Align.bat" wifi
+exit /b %ERRORLEVEL%

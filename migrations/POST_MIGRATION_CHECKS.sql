@@ -1,4 +1,21 @@
 -- Every query returns check name and violation count, expected zero.
+SELECT 'marker',abs(1-count(*)) FROM schema_migrations WHERE migration_id='149_asset_studio';
+SELECT 'tables',5-count(*) FROM sqlite_master WHERE type='table' AND name IN ('assets','asset_categories','asset_variants','asset_usage_rules','asset_audit_log');
+SELECT 'indexes',12-count(*) FROM sqlite_master WHERE type='index' AND name IN ('idx_assets_type_status','idx_assets_category','idx_assets_active_type','idx_assets_display_name','idx_assets_content_sha256','idx_asset_variants_asset','idx_asset_variants_hash','idx_asset_usage_enabled','idx_asset_categories_group','idx_asset_categories_display_name','idx_asset_audit_asset_date','idx_asset_audit_actor_date');
+SELECT 'triggers',4-count(*) FROM sqlite_master WHERE type='trigger' AND name IN ('asset_category_default_active_insert','asset_category_default_active_update','asset_activation_insert','asset_activation_update');
+SELECT 'workplace seeds',abs(12-count(*)) FROM asset_categories WHERE category_group='workplace' AND built_in=1;
+SELECT 'event seeds',abs(26-count(*)) FROM asset_categories WHERE category_group='event_type' AND built_in=1;
+SELECT 'place seeds',abs(6-count(*)) FROM asset_categories WHERE category_group='place' AND built_in=1;
+SELECT 'travel seeds',abs(6-count(*)) FROM asset_categories WHERE category_group='travel' AND built_in=1;
+SELECT 'duplicate categories',count(*) FROM (SELECT 1 FROM asset_categories GROUP BY category_group,category_key HAVING count(*)>1);
+SELECT 'duplicate assets',count(*) FROM (SELECT 1 FROM assets GROUP BY asset_key HAVING count(*)>1);
+SELECT 'status',count(*) FROM assets WHERE (active=1)<>(status='active');
+SELECT 'processed variants',count(*) FROM assets a WHERE active=1 AND NOT EXISTS(SELECT 1 FROM asset_variants v WHERE v.asset_id=a.asset_id AND variant_type IN ('small','medium','large'));
+SELECT 'enabled usage',count(*) FROM assets a WHERE active=1 AND NOT EXISTS(SELECT 1 FROM asset_usage_rules u WHERE u.asset_id=a.asset_id AND enabled=1);
+SELECT 'defaults',count(*) FROM asset_categories c WHERE default_asset_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM assets a WHERE a.asset_id=c.default_asset_id AND a.active=1);
+SELECT 'orphan variants',count(*) FROM asset_variants v WHERE NOT EXISTS(SELECT 1 FROM assets a WHERE a.asset_id=v.asset_id);
+SELECT 'orphan usage',count(*) FROM asset_usage_rules u WHERE NOT EXISTS(SELECT 1 FROM assets a WHERE a.asset_id=u.asset_id);
+SELECT 'asset categories',count(*) FROM assets a WHERE category_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM asset_categories c WHERE c.category_id=a.category_id);
 SELECT 'foreign_keys',1-foreign_keys FROM pragma_foreign_keys;
 SELECT 'foreign_key_check',count(*) FROM pragma_foreign_key_check;
 SELECT 'marker',abs(1-count(*)) FROM schema_migrations WHERE migration_id='149_asset_studio';

@@ -300,15 +300,15 @@ async function loadScheduleWeek(day) {
 function renderCalendar() {
   if (['month','list'].includes(state.scheduleView)) return renderMonthCalendar();
   const data = state.scheduleData?.start === state.scheduleWeek ? state.scheduleData : null;
-  return `<section class="page"><div class="add-head"><p class="eyebrow">Your calendar</p><h1>Planner</h1><p class="subtle">Location on the left stripe. Shift area in the coloured badge.</p></div>${scheduleViewSwitch()}
+  return `<section class="page"><div class="add-head"><p class="eyebrow">Your calendar</p><h1>Calendar</h1><p class="subtle">Your personal and imported events, organised by date.</p></div>${scheduleViewSwitch()}
     <div class="schedule-week-nav"><button class="secondary-button" data-week-action="schedule-prev" aria-label="Previous week">‹</button><h2>${escapeHtml(wcLabel(state.scheduleWeek))}</h2><button class="secondary-button" data-week-action="schedule-next" aria-label="Next week">›</button></div>
     <div class="schedule-week-tools"><label class="field">Go to week<input type="date" data-schedule-date value="${state.scheduleWeek}"></label><button class="small-button" data-week-action="schedule-today">This week</button></div>
 
-    ${state.scheduleError ? `<div class="planner-error" role="alert">${escapeHtml(state.scheduleError)}<button class="small-button" data-week-action="schedule-retry">Retry</button></div>` : state.scheduleLoading ? '<p role="status" class="empty">Loading week…</p>' : data ? `<p class="week-totals">${escapeHtml(weekTotalsText(data.shifts, state.boot?.settings || {}))}</p>${restGapWarnings(data.shifts, state.boot?.settings?.minimum_rest_hours).map(warning => `<p class="helper">${escapeHtml(warning)}</p>`).join('')}${weekDates(data.start).map(day => {
-      const shifts = data.shifts.filter(s => s.work_date === day), leaves = data.annual_leave.filter(l => l.leave_date === day);
-      return `<section class="schedule-day"><h2>${escapeHtml(dayHeading(day))}</h2>${renderShiftList(shifts)}${weekEventRows(data,day)}${leaves.map(renderLeaveCard).join('')}${!shifts.length && !leaves.length && !weekEventsForDay(data,day).length ? '<p class="rest-day">Nothing planned</p>' : ''}</section>`;
-    }).join('')}` : '<p class="empty">Choose a week to load your schedule.</p>'}
-    <div class="button-row"><button class="secondary-button" data-action="leave-modal">Add annual leave</button><button class="primary-button" data-action="go-add">Add shifts</button></div></section>`;
+    ${state.scheduleError ? `<div class="planner-error" role="alert">${escapeHtml(state.scheduleError)}<button class="small-button" data-week-action="schedule-retry">Retry</button></div>` : state.scheduleLoading ? '<p role="status" class="empty">Loading week…</p>' : data ? `${weekDates(data.start).map(day => {
+      const events = weekEventsForDay(data,day);
+      return `<section class="schedule-day"><h2>${escapeHtml(dayHeading(day))}</h2>${events.length ? weekEventRows(data,day) : '<p class="rest-day">No events</p>'}</section>`;
+    }).join('')}` : '<p class="empty">Choose a week to load your calendar.</p>'}
+    </section>`;
 }
 function renderUserColours() {
   return `<form class="card settings-form" data-week-form="colours"><h2>Location & area colours</h2><p class="helper">Choose a left-hand location stripe and an area badge colour. Names remain visible, so you don’t have to rely on colour alone.</p>

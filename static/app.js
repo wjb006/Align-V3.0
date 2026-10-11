@@ -5,16 +5,9 @@ const state = {
   settingsBranch: 'profile',
   scheduleStart: isoToday(),
   scheduleEnd: isoOffset(42),
-  scheduleShifts: null,
-  scheduleWeek: toIso(monday()),
-  scheduleView: 'month',
-  scheduleFocus: isoToday(),
-  scheduleMonth: isoToday().slice(0, 7),
-  monthData: null,
-  scheduleData: null,
-  add: newAddState(),
   sectionId: null,
   sectionData: null,
+  sectionDefinitions: [],
 };
 window.ALIGN_STATE = state;
 
@@ -25,7 +18,7 @@ const modalRoot = document.querySelector('#modal-root');
 const toastElement = document.querySelector('#toast');
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 156;
-const ASSET_VERSION = `${BUILD_VERSION}-v32`;
+const ASSET_VERSION = `${BUILD_VERSION}-v34`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -58,9 +51,6 @@ function toIso(value) {
 }
 function fromIso(value) { return new Date(`${value}T12:00:00`); }
 function monday(value = new Date()) { const day = value.getDay() || 7; value = new Date(value); value.setDate(value.getDate() - day + 1); return value; }
-function newAddState() {
-  return { step: 1, weekStart: '', selectedDate: '', assignments: {}, editors: {}, activeDay: '', context: null, contextWeek: '', contextLoading: false, error: '', saving: false, requestId: null };
-}
 function escapeHtml(value = '') { return String(value).replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char])); }
 function prettyDate(value) { return formatDisplayDate(value); }
 function weekday(value) { return fromIso(value).toLocaleDateString('en-GB', { weekday: 'short' }); }
@@ -83,8 +73,8 @@ function greeting() {
   if (hour < 18) return 'Good afternoon';
   return 'Good evening';
 }
-function currentTemplate() { return state.boot?.master.templates.find(item => item.id === state.add.templateId); }
-function currentLocation() { return state.boot?.master.locations.find(item => item.id === state.add.locationId); }
+function currentTemplate() { return null; }
+function currentLocation() { return null; }
 
 function setConnectionStatus(mode, pending = 0) {
   const element = document.querySelector('#connection-status');
@@ -146,12 +136,6 @@ async function api(path, options = {}) {
       throw new Error('Align cannot reach your PC and this screen has not been saved on this phone yet. Reconnect once, open it, then it will be available offline.');
     }
 
-    if (method === 'POST' && path === '/api/shifts') {
-      await AlignOffline.queueShiftBatch(options.body);
-      setConnectionStatus('offline', await AlignOffline.pendingCount());
-      return { offline: true, queued: true };
-    }
-
     if (method === 'POST' && /^\/api\/sections\/\d+\/events$/.test(path)) {
       await AlignOffline.queueOrganiserEvent(path, options.body);
       setConnectionStatus('offline', await AlignOffline.pendingCount());
@@ -162,16 +146,13 @@ async function api(path, options = {}) {
   }
 }
 
-async function refresh({ resetSchedule = false } = {}) {
+async function refresh() {
   state.boot = await api('/api/bootstrap');
+  state.sectionDefinitions = (await api('/api/sections/definitions')).sections || [];
   if (isAdmin) state.boot.master = await api('/api/master');
-  state.scheduleData = await api(`/api/week?start=${state.scheduleWeek}`);
-  state.scheduleShifts = state.scheduleData.shifts;
-  if (['month','list'].includes(state.scheduleView)) state.monthData = await api(`/api/month?month=${state.scheduleMonth}`);
-  if (state.add.context) { state.add.context = null; state.add.contextWeek = ''; }
+  if (state.sectionData) await openSection(state.sectionId);
   if(typeof travel150!=='undefined'){travel150.items=null;travel150.result=null;}
   render();
-  checkDueShiftNotifications();
   if(state.boot.personal?.travel_pending)void refreshRelatedTravel();
 }
 
@@ -223,33 +204,9 @@ async function notifyAlign(title, body, tag, url = '/', icon = '/icon.svg') {
   }
 }
 
-window.setInterval(checkDueShiftNotifications, 15000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) checkDueShiftNotifications(); });
 function leaveClock(alert) {
   const match = String(alert.alert_at || '').match(/T(\d{2}:\d{2})/);
   return match ? match[1] : '';
-}
-function checkDueShiftNotifications() {
-  if (notificationPermission() !== 'granted' || !state.boot?.settings?.notifications || !state.boot?.dashboard?.alerts) return;
-  const now = Date.now();
-  const key = `align-notified-alerts:${state.boot.beta?.email || 'local'}`;
-  let seen = {};
-  try { seen = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch (_) {}
-  const next = {};
-  for (const alert of (state.boot.dashboard.reminder_alerts || state.boot.dashboard.alerts)) {
-    const alertAt = Date.parse(alert.alert_at);
-    if (!Number.isFinite(alertAt)) continue;
-    if (alertAt <= now && now - alertAt < 24 * 60 * 60 * 1000 && !seen[alert.id]) {
-      const leaveAt = leaveClock(alert);
-      const place = alert.location_name || 'upcoming event';
-      const body = leaveAt ? `${alert.title} · ${place} · leave ${leaveAt}` : `${alert.title}: ${place}`;
-      void notifyAlign('Align reminder', body, `shift-alert-${alert.id}`, '/', reminderIcon(alert.title));
-      next[alert.id] = Date.now();
-    } else if (seen[alert.id] && now - seen[alert.id] < 7 * 24 * 60 * 60 * 1000) {
-      next[alert.id] = seen[alert.id];
-    }
-  }
-  localStorage.setItem(key, JSON.stringify(next));
 }
 
 function render() {
@@ -275,7 +232,8 @@ function render() {
     app.innerHTML = renderOnboarding();
     return;
   }
-  const content = { today: renderHome, home: renderHome, inbox: renderInbox, planner: renderCalendar, calendar: renderCalendar, sections: renderSectionsIndex, section: renderSection, more: renderMore, add: renderAdd, transport: renderTransport, assets: renderAssets150, settings: renderUserSettings, master: renderMaster, 'work-setup': renderWorkSetup, 'builder-records': builderRecordsPage, 'builder-profile': () => builderStartup(true) }[state.tab]?.() || renderHome();
+  if (['planner','calendar','add','work-setup'].includes(state.tab)) state.tab = 'sections';
+  const content = { today: renderHome, home: renderHome, inbox: renderInbox, sections: renderSectionsIndex, section: renderSection, more: renderMore, transport: renderTransport, assets: renderAssets150, settings: renderUserSettings, master: renderMaster, 'builder-records': builderRecordsPage, 'builder-profile': () => builderStartup(true) }[state.tab]?.() || renderHome();
   const cloudNotice = state.boot.icloud_public?.reconnect_required ? `<div class="card" role="status"><strong>iCloud needs reconnecting</strong><p>${escapeHtml(state.boot.icloud_public.message)}</p><button class="small-button" data-nav="settings">Open settings</button></div>` : '';
   app.innerHTML = cloudNotice + content;
   app.focus({ preventScroll: true });
@@ -322,7 +280,6 @@ function applyManagementAppearance() {
 const CORE_NAVIGATION = [
   {id:'today', title:'Today', icon:'⌂', destination:'today', active:true},
   {id:'inbox', title:'Inbox', icon:'☑', destination:'inbox', active:true},
-  {id:'planner', title:'Planner', icon:'▦', destination:'planner', active:true},
   {id:'sections', title:'Sections', icon:'◫', destination:'sections', active:true},
   {id:'more', title:'More', icon:'•••', destination:'more', active:true},
 ];
@@ -330,7 +287,7 @@ const CORE_NAVIGATION = [
 function coreNavDestination(tab = state.tab) {
   if (['today','home'].includes(tab)) return 'today';
   if (tab === 'inbox') return 'inbox';
-  if (['planner','calendar','add'].includes(tab)) return 'planner';
+  if (['planner','calendar','add'].includes(tab)) return 'sections';
   if (['sections','section'].includes(tab)) return 'sections';
   return 'more';
 }
@@ -338,8 +295,8 @@ function coreNavDestination(tab = state.tab) {
 function renderBottomNavigation() {
   const root = document.querySelector('#bottom-navigation');
   if (!root) return;
-  const configured = state.boot?.builder?.document?.navigation || [];
-  const hasCoreNavigation = configured.some(item => ['today','inbox','planner','sections','more'].includes(item.destination));
+  const configured = (state.boot?.builder?.document?.navigation || []).filter(item => !['planner','calendar','add','work-setup','layout'].includes(item.destination));
+  const hasCoreNavigation = configured.some(item => ['today','inbox','sections','more'].includes(item.destination));
   const items = hasCoreNavigation ? configured : CORE_NAVIGATION;
   const active = coreNavDestination();
   root.innerHTML = items.filter(item => item.active).map(item => `<button data-nav="${escapeHtml(item.destination)}" class="nav-item ${active===item.destination?'active':''}"><span class="nav-icon">${escapeHtml(item.icon)}</span><span>${escapeHtml(item.title)}</span></button>`).join('');
@@ -369,9 +326,10 @@ function renderInbox() {
 }
 
 function renderSectionsIndex() {
-  const parentMenu = state.boot.builder ? [] : rootParentBranches();
-  const sections = state.boot.builder ? state.boot.sections : rootSections();
-  return `<section class="page"><div class="add-head"><p class="eyebrow">Keep related things together</p><h1>Sections</h1><p class="subtle">Appointments, personal plans and the other parts of life you want to keep separate.</p>${!isAdmin?'<button class="primary-button" data-action="new-section">＋ Add section</button>':''}</div><div class="quick-grid">${state.boot.builder?builderMenuTiles():''}${parentMenu.map(branch => `<button class="quick-action" data-action="parent-menu" data-id="${branch.id}" style="border-left:4px solid ${escapeHtml(branch.colour||'#365CE6')}"><b>${escapeHtml(branch.icon)}</b>${escapeHtml(branch.title)}<small>${escapeHtml(branch.description||'')}</small></button>`).join('')}${sections.map(section => `<button class="quick-action organiser-section-tile" data-action="open-section" data-id="${section.id}" style="--section-colour:${escapeHtml(section.colour)}"><b>${escapeHtml(section.icon)}</b>${escapeHtml(section.name)}<small>${escapeHtml(section.calendar_name?`${section.calendar_name} · ${section.imported_event_count+section.align_event_count} events`:(section.description||`${section.align_event_count} Align events`))}</small></button>`).join('')}${!sections.length&&!parentMenu.length&&!state.boot.builder?'<div class="card empty">No sections yet. Add one when you want a dedicated place for something.</div>':''}</div></section>`;
+  const sections = state.sectionDefinitions || [];
+  const work = sections.find(section => section.key === 'work');
+  const visible = sections.filter(section => !section.optional || section.enabled);
+  return `<section class="page"><div class="add-head"><p class="eyebrow">Your data, organised your way</p><h1>Sections</h1><p class="subtle">Sections published by Align Studio appear here. Your records stay private to your account.</p></div><div class="quick-grid">${visible.map(section => `<button class="quick-action organiser-section-tile" data-section-key="${escapeHtml(section.key)}" style="border-left:4px solid ${escapeHtml(section.colour)}"><b>${escapeHtml(section.icon)}</b>${escapeHtml(section.name)}<small>${escapeHtml(section.description || 'Open your saved records')}</small></button>`).join('')}${!visible.length?'<div class="card empty">No sections have been added yet.</div>':''}</div>${!work || !work.enabled ? `<section class="section"><div class="card"><h2>Work (optional)</h2><p class="subtle">${work ? 'Add the Work database to your account. It can include locations, work areas, times, or any questions your Owner has configured.' : 'The Owner has not published the Work database yet. Once available, you can add it to your account and edit your records anytime.'}</p>${work ? '<button class="secondary-button" data-action="work-opt-in">Set up Work</button>' : ''}</div></section>` : ''}</section>`;
 }
 
 function installPanel() {
@@ -380,7 +338,7 @@ function installPanel() {
 
 function renderMore() {
   const ownerTools = isAdmin || state.boot.beta?.is_owner;
-  return `<section class="page"><div class="add-head"><p class="eyebrow">Everything else</p><h1>More</h1><p class="subtle">Settings and tools that do not need to sit in your main navigation.</p></div>${installPanel()}<div class="quick-grid"><button class="quick-action" data-nav="settings"><b>⚙</b>Settings<small>Profile, calendar, colours and alerts</small></button><button class="quick-action" data-nav="transport"><b>↗</b>Travel<small>Saved places and journey planning</small></button><button class="quick-action" data-action="work-setup"><b>▣</b>Work setup<small>Locations, areas and shift times</small></button>${(!state.boot.beta||state.boot.beta.is_owner)?'<button class="quick-action" data-nav="assets"><b>◈</b>Asset Studio<small>Manage Align visual assets</small></button>':''}${ownerTools?'<a class="quick-action" href="/management-studio"><b>◐</b>Management Studio<small>Design the app and choose which options users may personalise</small></a><a class="quick-action" href="/owner-builder"><b>▦</b>App Builder<small>Add or change app pages, menus and data</small></a>':''}${isAdmin?'<button class="quick-action" data-action="go-master"><b>⚙</b>Master edit<small>Admin setup and structure</small></button>':''}</div></section>`;
+  return `<section class="page"><div class="add-head"><p class="eyebrow">Everything else</p><h1>More</h1><p class="subtle">Settings and tools that do not need to sit in your main navigation.</p></div>${installPanel()}<div class="quick-grid"><button class="quick-action" data-nav="settings"><b>⚙</b>Settings<small>Profile, calendar and preferences</small></button><button class="quick-action" data-nav="transport"><b>↗</b>Travel<small>Saved places and journey planning</small></button>${(!state.boot.beta||state.boot.beta.is_owner)?'<button class="quick-action" data-nav="assets"><b>◈</b>Asset Studio<small>Manage Align visual assets</small></button>':''}</div></section>`;
 }
 
 function rootParentBranches() { return (state.boot?.master.parents || []).filter(branch => branch.active && !branch.parent_id); }
@@ -388,69 +346,6 @@ function childParentBranches(parentId) { return (state.boot?.master.parents || [
 function rootSections() { return (state.boot?.sections || []).filter(section => !section.parent_branch_id); }
 function childSections(parentId) { return (state.boot?.sections || []).filter(section => Number(section.parent_branch_id) === Number(parentId)); }
 
-function parseLeaveAt(notes, start) {
-  if (!(start instanceof Date) || !Number.isFinite(start.getTime())) return null;
-  const text = notes || '';
-  const numeric = text.match(/Leave(?: [^:\n]{0,80})?: (\d{1,2})\/(\d{1,2})\/(\d{4}) (\d{1,2}):(\d{2})/);
-  const limit = 12 * 60 * 60 * 1000;
-  if (numeric) {
-    const candidate = new Date(Number(numeric[3]), Number(numeric[2]) - 1, Number(numeric[1]), Number(numeric[4]), Number(numeric[5]));
-    return candidate <= start && start - candidate <= limit ? candidate : null;
-  }
-  const full = text.match(/Leave (?:home|current location): (\d{1,2}) ([A-Za-z]{3}) (\d{1,2}):(\d{2})/);
-  if (full) {
-    const months = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
-    const month = months[full[2].slice(0, 3).toLowerCase()];
-    if (month === undefined) return null;
-    let best = null;
-    for (const year of [start.getFullYear() - 1, start.getFullYear(), start.getFullYear() + 1]) {
-      const candidate = new Date(year, month, Number(full[1]), Number(full[3]), Number(full[4]));
-      if (candidate <= start && (!best || candidate > best)) best = candidate;
-    }
-    return best && start - best <= limit ? best : null;
-  }
-  const short = text.match(/Leave(?: home| current location)?: (\d{1,2}):(\d{2})/);
-  if (!short) return null;
-  const candidate = new Date(start);
-  candidate.setHours(Number(short[1]), Number(short[2]), 0, 0);
-  return candidate <= start && start - candidate <= limit ? candidate : null;
-}
-function clockTime(date) {
-  return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-}
-function countdownPhrase(date, leaving) {
-  const minutes = Math.round((date.getTime() - Date.now()) / 60000);
-  if (minutes <= 0) return leaving ? 'Leave now' : 'Starting now';
-  if (minutes < 60) {
-    const unit = minutes === 1 ? 'minute' : 'minutes';
-    return leaving ? `Leave in ${minutes} ${unit}` : `Starts in ${minutes} ${unit}`;
-  }
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  const span = rest ? `${hours}h ${rest}m` : `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
-  return leaving ? `Leave in ${span}` : `Starts in ${span}`;
-}
-function nextStep(dashboard) {
-  const items = [];
-  for (const shift of dashboard.upcoming || []) {
-    const start = new Date(`${shift.work_date}T${shift.start_time}`);
-    const end = new Date(`${shift.work_date}T${shift.end_time}`);
-    if (end <= start) end.setDate(end.getDate() + 1);
-    if (!Number.isFinite(start.getTime()) || end <= new Date()) continue;
-    const leave = parseLeaveAt(shift.notes, start);
-    items.push({ when: leave || start, leaving: Boolean(leave), title: shift.location_name || shift.shift_type_name || 'Shift' });
-  }
-  for (const event of dashboard.upcoming_events || []) {
-    if (event.all_day) continue;
-    const start = new Date(event.start_at);
-    const end = new Date(event.end_at);
-    if (!Number.isFinite(end.getTime()) || end <= new Date()) continue;
-    const leave = parseLeaveAt(event.notes, start);
-    items.push({ when: leave || start, leaving: Boolean(leave), title: event.title || 'Event' });
-  }
-  items.sort((a, b) => a.when - b.when);
-  return items[0] || null;
-}
 function renderHomeGreeting(dashboard) {
   const settings = state.boot.settings;
   const title = isAdmin
@@ -461,22 +356,15 @@ function renderHomeGreeting(dashboard) {
 }
 function renderHome() {
   const { dashboard } = state.boot;
-  const summary = dashboard.summary;
   const sections = state.boot.builder ? state.boot.sections : rootSections();
   return `<section class="page">
     ${renderHomeGreeting(dashboard)}
-    ${homeSection('stats') ? `<div class="hero-stat-row home-week-stats">
-        <div class="hero-stat"><strong>${summary.shift_count}</strong><span>shifts this week</span></div>
-        <div class="hero-stat"><strong>${hours(summary.week_hours)}</strong><span>total hours</span></div>
-        ${summary.contracted_hours > 0 ? `<div class="hero-stat"><strong>${hours(summary.overtime_hours)}</strong><span>over ${escapeHtml(hours(summary.contracted_hours))}</span></div>` : `<div class="hero-stat"><strong>${sections.length}</strong><span>extra sections</span></div>`}
-        ${summary.pay_estimate > 0 ? `<div class="hero-stat"><strong>£${Number(summary.pay_estimate).toFixed(2)}</strong><span>estimated pay</span></div>` : ''}
-      </div>` : ''}
+    ${homeSection('stats') ? `<div class="hero-stat-row home-week-stats"><div class="hero-stat"><strong>${sections.length}</strong><span>your sections</span></div><div class="hero-stat"><strong>${dashboard.upcoming_events?.length || 0}</strong><span>upcoming events</span></div></div>` : ''}
     ${homeSection('today') ? personalToday() : ''}
     ${homeSection('upcoming') ? `<section class="section" data-management-banner="upcoming">
-      <div class="section-head"><h2>${homeSectionTitle('upcoming','Upcoming Events')}</h2><div class="button-row"><button class="text-button" data-build153-manage-contacts>Saved contacts</button><button class="text-button" data-action="go-schedule">See schedule</button></div></div>
+      <div class="section-head"><h2>${homeSectionTitle('upcoming','Upcoming Events')}</h2><div class="button-row"><button class="text-button" data-build153-manage-contacts>Saved contacts</button></div></div>
       ${renderUpcomingGrouped(dashboard)}
     </section>` : ''}
-    ${homeSection('annual_leave') && (dashboard.annual_leave.length || dashboard.leave_balance?.allowance) ? `<section class="section" data-management-banner="annual_leave"><div class="section-head"><h2>${homeSectionTitle('annual_leave','Annual leave')}</h2></div>${renderLeaveBalance(dashboard.leave_balance)}${groupLeaveRanges(dashboard.annual_leave).slice(0, 3).map(renderLeaveRange).join('')}</section>` : ''}
   </section>`;
 }
 
@@ -487,9 +375,6 @@ function sectionEventDate(event) {
 }
 function eventSectionColour(event) {
   if (typeof safeColour !== 'function') return event.section_colour || event.location_colour || '#365CE6';
-  if (event.kind === 'Work' || event.origin === 'Work') {
-    return safeColour(event.location_colour || event.section_colour || event.colour);
-  }
   const fromSection = event.section_id && (state.boot?.sections || []).find(section => Number(section.id) === Number(event.section_id))?.colour;
   return safeColour(event.section_colour || fromSection || event.colour);
 }
@@ -501,13 +386,10 @@ function renderEventRow(event, {
   index = 0,
 } = {}) {
   const colour = eventSectionColour(event);
-  const isWork = event.kind === 'Work' || event.origin === 'Work';
-  const editable = !isWork && event.origin !== 'Calendar' && event.section_id && event.id && !event.all_day;
-  const attrs = isWork && event.id
-    ? ` data-shift="${event.id}" tabindex="0" role="button"`
-    : (editable
+  const editable = event.origin !== 'Calendar' && event.section_id && event.id && !event.all_day;
+  const attrs = editable
       ? ` data-week-action="event-edit" data-section-id="${event.section_id}" data-event-id="${event.id}" tabindex="0" role="button"`
-      : eventViewAttributes(event));
+      : eventViewAttributes(event);
   const travel = typeof eventTravelMarkup === 'function' ? eventTravelMarkup(event) : '';
   const contact = condensed ? '' : (window.ALIGN152?.eventContactMarkup(event.notes) || '');
   let timeLabel;
@@ -522,11 +404,9 @@ function renderEventRow(event, {
     ? (showDate ? ' · ' + escapeHtml(sectionEventDate(event).split(' · ').slice(1).join(' · ')) : (until ? ' · until ' + escapeHtml(until) : ''))
     : '';
   const areaOnly = eventChoice('title_format', 'location_area') === 'area';
-  const shownTitle = isWork ? (event.category_name || event.title) : event.title;
-  const badgeName = isWork
-    ? (areaOnly ? '' : (event.location_name || eventPlaceName(event)))
-    : (event.category_name || event.calendar_name || '');
-  const badgeColour = isWork ? (event.location_colour || colour) : (event.section_colour || colour);
+  const shownTitle = event.title;
+  const badgeName = event.category_name || event.calendar_name || '';
+  const badgeColour = event.section_colour || colour;
   const badge = badgeName && typeof typeBadge === 'function' ? typeBadge(badgeName, badgeColour) : '';
   const meta = condensed
     ? badge
@@ -702,12 +582,12 @@ function renderUserSettings() {
   }
   if (!branches.some(branch => branch.branch_key === state.settingsBranch)) state.settingsBranch = branches[0]?.branch_key || '';
   const selected = branches.find(branch => branch.branch_key === state.settingsBranch);
-  return `<section class="page"><div class="add-head"><p class="eyebrow">Your planner</p><h1>Settings</h1><div class="button-row"><button data-nav="transport" class="secondary-button">Travel</button>${(!state.boot.beta || state.boot.beta.is_owner)?'<button data-nav="assets" class="secondary-button">Asset Studio</button>':''}${state.boot.beta?.is_owner?'<a href="/management-studio" class="secondary-button">Management Studio</a>':''}</div><p class="subtle">Manage the parts of Align available to you.</p></div>
+  return `<section class="page"><div class="add-head"><p class="eyebrow">Your planner</p><h1>Settings</h1><div class="button-row"><button data-nav="transport" class="secondary-button">Travel</button>${(!state.boot.beta || state.boot.beta.is_owner)?'<button data-nav="assets" class="secondary-button">Asset Studio</button>':''}</div><p class="subtle">Manage your profile, calendars and preferences.</p></div>
     <div class="settings-branch-list">${branches.map(branch => `<button class="card settings-branch ${branch.branch_key === state.settingsBranch ? 'selected' : ''}" data-action="settings-branch" data-branch="${escapeHtml(branch.branch_key)}"><span class="branch-icon">${escapeHtml(branch.icon)}</span><span><strong>${escapeHtml(branch.title)}</strong><small>${escapeHtml(branch.description)}</small></span><b>›</b></button>`).join('') || '<div class="card empty">No Settings branches are currently enabled.</div>'}</div>
     ${selected ? `<section class="section">${renderUserBranch(selected)}</section>` : ''}
     ${!isAdmin ? `<section class="section"><div class="card settings-form offline-tools-card"><div><p class="eyebrow">Offline support</p><h2>Offline diagnostics</h2></div><p class="helper">Check whether the app shell, phone database and saved planner responses are ready for use without the PC connection.</p><div class="button-row"><button type="button" class="secondary-button" data-action="offline-diagnostics">Open diagnostics</button><button type="button" class="primary-button" data-action="retry-offline-setup">Retry setup</button></div></div></section>` : ''}
     ${renderLocalDataSettings()}
-    ${state.boot.beta ? `<section class="section"><div class="card settings-form"><p class="eyebrow">Account</p><h2>${escapeHtml(state.boot.beta.email)}</h2><p class="helper">Your planner and calendar data are stored in your own hosted account database. Database downloads and restores are disabled in hosted mode; this account’s data is not exposed to other persons.</p><div class="button-row"><button type="button" class="secondary-button" data-action="beta-feedback">Send feedback</button>${state.boot.beta.is_owner ? '<a class="secondary-button" href="/account">Owner controls</a>' : ''}<button type="button" class="text-button" data-action="beta-logout">Sign out</button></div></div></section>` : ''}
+    ${state.boot.beta ? `<section class="section"><div class="card settings-form"><p class="eyebrow">Account</p><h2>${escapeHtml(state.boot.beta.email)}</h2><p class="helper">Your planner and calendar data are stored in your own hosted account database. Database downloads and restores are disabled in hosted mode; this account’s data is not exposed to other persons.</p><div class="button-row"><button type="button" class="secondary-button" data-action="beta-feedback">Send feedback</button><button type="button" class="text-button" data-action="beta-logout">Sign out</button></div></div></section>` : ''}
   </section>`;
 }
 
@@ -716,11 +596,11 @@ function renderUserBranch(branch) {
   const settings = state.boot.settings;
   if (branch.branch_type === 'appearance') return renderPersonalAppearance();
   if (branch.branch_type === 'colours') return renderUserColours();
-  if (branch.branch_type === 'work') return `<section class="card settings-form"><h2>Work Settings</h2><p class="helper">View Work Locations, Shift Areas and Start Times together. Add a new item, or choose Edit beside an existing one.</p><p>${hours(settings.contracted_hours)} contracted per week · ${state.boot.master.templates.length} saved shift choices</p><button class="primary-button" data-action="work-setup">View Work Settings</button></section>`;
+  if (branch.branch_type === 'work') return '<section class="card settings-form"><h2>Work</h2><p class="helper">Work is managed through the optional database in Sections.</p><button class="primary-button" data-nav="sections">Open Sections</button></section>';
   if (branch.branch_type === 'profile') return `<div class="section-head"><h2>${escapeHtml(branch.title)}</h2></div><form class="card settings-form" data-form="user-settings"><p class="helper">${escapeHtml(branch.description)}</p><div class="field"><label>Your name</label><input name="user_name" required value="${escapeHtml(settings.user_name)}" /></div>${addressFields('profile-address', 'user_address', settings.user_address)}<button class="primary-button">Save details</button></form>`;
   if (branch.branch_type === 'alerts') return renderAlertSettings();
   if (branch.branch_type === 'calendar') return renderCalendarSettings();
-  if (branch.branch_type === 'locations') return `<div class="section-head"><h2>${escapeHtml(branch.title)}</h2><button class="text-button" data-action="new-user-location">Add location</button></div><p class="helper">${escapeHtml(branch.description || 'Add or amend the places you work and their shift categories.')}</p><div class="master-list">${state.boot.master.locations.map(location => `<article class="card master-item"><div class="item-content"><h3>${escapeHtml(location.name)}</h3><p>${escapeHtml(location.address || 'No address saved')} · ${escapeHtml(locationCategoryNames(location.id).join(', ') || 'No categories chosen')}</p></div><button class="small-button" data-action="edit-user-location" data-id="${location.id}">Edit</button></article>`).join('') || '<div class="card empty">No work locations have been added.</div>'}<button class="secondary-button" data-action="new-user-location">＋ Add work location</button></div>`;
+  if (branch.branch_type === 'locations') return '<section class="card settings-form"><h2>Work locations</h2><p class="helper">Work locations and areas are now fields in your optional Work database.</p><button class="primary-button" data-nav="sections">Open Sections</button></section>';
   return `<div class="section-head"><h2>${escapeHtml(branch.title)}</h2></div><article class="card info-card"><p class="helper">${escapeHtml(branch.description)}</p><p>${escapeHtml(branch.content || 'Your administrator has not added any information to this section yet.').replace(/\n/g, '<br>')}</p></article>`;
 }
 
@@ -962,7 +842,7 @@ function submenuModal(id) {
   const branches=childParentBranches(id), sections=childSections(id);
   modal(parent.title, `<div class="quick-grid">${branches.map(branch=>`<button class="quick-action" data-action="parent-menu" data-id="${branch.id}" style="border-left:4px solid ${escapeHtml(branch.colour || '#365CE6')}"><b>${escapeHtml(branch.icon)}</b>${escapeHtml(branch.title)}<small>${escapeHtml(branch.description || '')}</small></button>`).join('')}${sections.map(section=>`<button class="quick-action organiser-section-tile" data-action="open-section" data-id="${section.id}" style="border-left:4px solid ${escapeHtml(section.colour)}"><b>${escapeHtml(section.icon)}</b>${escapeHtml(section.name)}<small>${escapeHtml(section.description || '')}</small></button>`).join('')}${!branches.length&&!sections.length?'<p class="helper">Nothing has been added here yet.</p>':''}</div><div class="modal-actions"><button class="primary-button" data-action="close-modal">Done</button></div>`);
 }
-function betaFeedbackModal(){ modal('Send beta feedback', `<form class="form-grid" data-form="beta-feedback"><div class="field"><label>Type</label><select name="type"><option value="problem">Problem</option><option value="idea">Idea</option><option value="general">General feedback</option></select></div><div class="field"><label>What would you like us to know?</label><textarea name="message" required maxlength="4000" rows="7"></textarea></div><p class="helper">Build ${BUILD_VERSION} and the current screen can be included. Your planner/calendar content is not attached automatically.</p><div class="modal-actions"><button type="button" class="secondary-button" data-action="close-modal">Cancel</button><button class="primary-button">Send feedback</button></div></form>`); }
+function alignFeedbackModal(){ modal('Send feedback to Align', `<form class="form-grid" data-form="align-feedback"><div class="field"><label>Type</label><select name="type"><option value="problem">Problem</option><option value="idea">Idea</option><option value="general">General feedback</option></select></div><div class="field"><label>What would you like us to know?</label><textarea name="message" required maxlength="4000" rows="7"></textarea></div><p class="helper">Align build ${BUILD_VERSION} and the current screen can be included. Your planner/calendar content is not attached automatically.</p><div class="modal-actions"><button type="button" class="secondary-button" data-action="close-modal">Cancel</button><button class="primary-button">Send feedback</button></div></form>`); }
 
 function parentInfoModal(id) {
   const item = state.boot.master.parents.find(branch => branch.id === id);
@@ -1004,16 +884,6 @@ function leaveModal() {
   const note = balance?.allowance ? renderLeaveBalance(balance) : '<p class="helper">Set a yearly leave allowance in Work Settings to see how many days are left.</p>';
   modal('Book annual leave', `<form class="form-grid" data-form="leave">${note}<div class="form-grid two"><div class="field"><label>From</label><input name="start_date" required type="date" min="${isoToday()}" value="${isoToday()}" /></div><div class="field"><label>To</label><input name="end_date" required type="date" min="${isoToday()}" value="${isoToday()}" /></div></div><div class="field"><label>Notes (optional)</label><textarea name="notes" placeholder="e.g. Holiday"></textarea></div><div class="modal-actions"><button type="button" class="secondary-button" data-action="close-modal">Cancel</button><button class="primary-button">Book leave</button></div></form>`);
 }
-function shiftModal(id) {
-  const shift = [...(state.scheduleShifts || []), ...state.boot.dashboard.upcoming].find(item => item.id === id);
-  if (!shift) { toast('Refresh the schedule to edit this shift.'); return; }
-  const cover = coverFromNotes(shift.notes);
-  modal('Edit shift', `<form class="form-grid" data-form="shift" data-id="${id}"><p class="helper"><strong>${escapeHtml(shift.shift_type_name)} · ${appleDestinationLink(shift.location_address || shift.location_name,'',shift.location_name)}</strong></p><div class="field"><label>Shift date</label><input name="work_date" required type="date" value="${escapeHtml(shift.work_date)}" /></div><div class="form-grid two"><div class="field"><label>Start time</label><input name="start_time" type="time" value="${escapeHtml(shift.start_time)}" /></div><div class="field"><label>End time</label><input name="end_time" type="time" value="${escapeHtml(shift.end_time)}" /></div></div><div class="field"><label>Unpaid break (minutes)</label><input name="break_minutes" min="0" type="number" value="${shift.break_minutes}" /></div><div class="field"><label>Whose shift</label><select name="cover"><option value="" ${cover.cover ? '' : 'selected'}>My shift</option><option value="given" ${cover.cover === 'given' ? 'selected' : ''}>Given away</option><option value="extra" ${cover.cover === 'extra' ? 'selected' : ''}>Extra cover</option></select></div><div class="field"><label>Name (optional)</label><input name="cover_name" maxlength="40" value="${escapeHtml(cover.name)}" placeholder="Who covered, or who you swapped with" /></div>${travelNotesField(shift.notes)}<p class="helper">Given-away shifts stay on the calendar and drop out of the weekly hours. Changing the date checks leave, your appointments, imported calendars and conflicting hours.</p><div class="modal-actions"><button type="button" class="danger-button" data-action="delete-shift" data-id="${id}">Delete</button><button type="button" class="secondary-button" data-action="close-modal">Cancel</button><button class="primary-button">Save shift</button></div></form>`);
-}
-
-const originalShiftModal = shiftModal;
-shiftModal = function(id) { originalShiftModal(id); void mountPostTravelEditor('shift',id); };
-
 function localShiftsOverlap(first, second) {
   const range = value => { const [startHour, startMinute] = value.start_time.split(':').map(Number); const [endHour, endMinute] = value.end_time.split(':').map(Number); const start = startHour * 60 + startMinute; let end = endHour * 60 + endMinute; if (end <= start) end += 1440; return [start, end]; };
   const [aStart, aEnd] = range(first); const [bStart, bEnd] = range(second); return aStart < bEnd && bStart < aEnd;
@@ -1039,10 +909,10 @@ async function searchAddresses(input) {
 document.addEventListener('click', async event => {
   if (event.target.closest('.compact-event-details')) return;
   if (event.target.closest('.apple-maps-link')) return;
-  const element = event.target.closest('[data-action], [data-nav], [data-shift]');
+  const element = event.target.closest('[data-action], [data-nav], [data-section-key]');
   if (!element) return;
+  if (element.dataset.sectionKey) { await builderOpenLayout(element.dataset.sectionKey); return; }
   if (element.dataset.nav) { if (workSetup?.saving) return; if (workSetup?.editor && !window.confirm('Discard this unsaved Work Settings edit?')) return; workSetup = null; state.tab = element.dataset.nav; render(); return; }
-  if (element.dataset.shift) { shiftModal(Number(element.dataset.shift)); return; }
   const action = element.dataset.action;
   if (action === 'prompt-install') { void promptAlignInstall(); return; }
   if (action === 'download-local-backup') {
@@ -1063,9 +933,9 @@ document.addEventListener('click', async event => {
     return;
   }
   if (action === 'offline-diagnostics') { await showOfflineDiagnostics(); return; }
-  if (action === 'enable-browser-notifications') { try { await enableBrowserNotifications(); checkDueShiftNotifications(); } catch (error) { toast(error.message); } return; }
+  if (action === 'enable-browser-notifications') { try { await enableBrowserNotifications(); } catch (error) { toast(error.message); } return; }
   if (action === 'retry-offline-setup') { closeModal(); await completeOfflineSetup({ showResult: true }); return; }
-  if (action === 'beta-feedback') { betaFeedbackModal(); return; }
+  if (action === 'beta-feedback') { alignFeedbackModal(); return; }
   if (action === 'beta-logout') { try { await rawApi('/api/beta/logout',{method:'POST',body:{}}); if(typeof AlignOffline!=='undefined' && AlignOffline.reset) await AlignOffline.reset(); if(navigator.serviceWorker?.controller) navigator.serviceWorker.controller.postMessage({type:'ALIGN_CLEAR_PRIVATE'}); } finally { location.href='/login'; } return; }
   if (action === 'new-section') { sectionModal(); return; }
   if (action === 'open-section') { try { await openSection(Number(element.dataset.id)); } catch (error) { toast(error.message); } return; }
@@ -1083,7 +953,7 @@ document.addEventListener('click', async event => {
     try { await api(`/api/organiser-events/${element.dataset.id}`, { method: 'DELETE' }); closeModal(); await refresh(); await reloadSection(); toast('Event deleted.'); } catch (error) { toast(error.message); }
     return;
   }
-  if (action === 'work-setup') { await openWorkSetup(); return; }
+  if (action === 'work-setup') { state.tab='sections'; render(); return; }
   if (action === 'reload-app') { window.location.reload(); return; }
   if (action === 'go-calendar-settings') { state.settingsBranch = 'calendar'; state.tab = 'settings'; render(); }
   if (action === 'new-alert-rule') alertRuleModal();
@@ -1097,9 +967,18 @@ document.addEventListener('click', async event => {
     try { await navigator.clipboard.writeText(input.value); toast('Subscription address copied.'); }
     catch (_) { input.focus(); input.select(); toast(document.execCommand('copy') ? 'Subscription address copied.' : 'Select and copy the subscription address above.'); }
   }
-  if (action === 'go-add') { state.tab = 'add'; render(); }
-  if (action === 'go-schedule') { state.tab = 'planner'; render(); }
+
   if (action === 'go-master') { state.tab = 'master'; render(); }
+  if (action === 'work-opt-in') {
+    const work = state.sectionDefinitions.find(section => section.key === 'work');
+    if (!work) { toast('Work setup is not available yet. The Owner must publish its database and form first.'); return; }
+    try {
+      await api('/api/builder/records/work/enable', {method:'POST', body:{}});
+      state.sectionDefinitions = (await api('/api/sections/definitions')).sections || [];
+      await builderOpenLayout('work');
+    } catch (error) { toast(error.message); }
+    return;
+  }
   if (action === 'go-settings') { state.tab = 'settings'; render(); }
   if (action === 'parent-menu') {
     const branch = state.boot.master.parents.find(item => item.id === Number(element.dataset.id));
@@ -1108,7 +987,6 @@ document.addEventListener('click', async event => {
     else if (branch.destination === 'submenu') submenuModal(branch.id);
     else { state.tab = branch.destination; render(); }
   }
-  if (action === 'leave-modal') leaveModal();
   if (action === 'close-modal') {
     if (element.classList.contains('modal-backdrop') && event.target !== element) return;
     closeModal();
@@ -1130,7 +1008,7 @@ document.addEventListener('click', async event => {
     if (input) searchAddresses(input);
   }
   if (action === 'master-tab') { state.masterTab = element.dataset.masterTab; render(); }
-  if (action === 'settings-branch') { state.settingsBranch = element.dataset.branch; if (state.boot.master.branches.find(b => b.branch_key === state.settingsBranch)?.branch_type === 'work') { await openWorkSetup(); return; } render(); }
+  if (action === 'settings-branch') { state.settingsBranch = element.dataset.branch; if (state.boot.master.branches.find(b => b.branch_key === state.settingsBranch)?.branch_type === 'work') { state.tab='sections'; render(); return; } render(); }
   if (action === 'reset-user-appearance') {
     try {
       const result = await api('/api/user-appearance', { method: 'PUT', body: { reset: true } });
@@ -1153,17 +1031,13 @@ document.addEventListener('click', async event => {
   if (action === 'edit-type') typeModal(Number(element.dataset.id));
   if (action === 'new-template') templateModal();
   if (action === 'edit-template') templateModal(Number(element.dataset.id));
-  if (action === 'apply-template') applyTemplateModal(Number(element.dataset.id));
-  if (action === 'delete-shift') {
-    if (!window.confirm('Delete this shift?')) return;
-    try { await api(`/api/shifts/${element.dataset.id}`, { method: 'DELETE' }); closeModal(); state.scheduleShifts = null; await refresh(); toast('Shift deleted.'); } catch (error) { toast(error.message); }
-  }
+
   if (action === 'delete-leave') {
     const ids = String(element.dataset.leave || '').split(',').filter(Boolean);
     if (!ids.length || !window.confirm(ids.length > 1 ? 'Remove this annual leave?' : 'Remove this annual leave day?')) return;
     try {
       for (const id of ids) await api(`/api/leave/${id}`, { method: 'DELETE' });
-      state.scheduleShifts = null; await refresh(); toast('Annual leave removed.');
+      await refresh(); toast('Annual leave removed.');
     } catch (error) { toast(error.message); }
   }
   if (action === 'remove-calendar') {
@@ -1242,7 +1116,7 @@ document.addEventListener('invalid', event => {
   const field = event.target;
   const form = field?.form;
   if (!form) return;
-  const tracked = form.dataset.form || ['schedule-filter', 'travel150', 'assets-upload150'].includes(form.id);
+  const tracked = form.dataset.form || ['travel150', 'assets-upload150'].includes(form.id);
   if (!tracked) return;
   field.setAttribute('aria-invalid', 'true');
   showFormError(form, 'Check the highlighted fields and try again.');
@@ -1250,7 +1124,7 @@ document.addEventListener('invalid', event => {
 
 document.addEventListener('submit', async event => {
   const form = event.target;
-  if (!form.dataset.form && form.id !== 'schedule-filter') return;
+  if (!form.dataset.form) return;
   event.preventDefault();
   form.querySelector('[data-form-error]')?.remove();
   if (typeof form.checkValidity === 'function' && !form.checkValidity()) {
@@ -1271,7 +1145,6 @@ document.addEventListener('submit', async event => {
       toast('Admin access unlocked.');
       return;
     }
-    if (form.id === 'schedule-filter') { state.scheduleStart = values.start; state.scheduleEnd = values.end; state.scheduleShifts = await api(`/api/shifts?start=${values.start}&end=${values.end}`); render(); return; }
     if (form.dataset.form === 'organiser-section') {
       const id = form.dataset.id;
       values.import_enabled = form.import_enabled.checked;
@@ -1320,7 +1193,7 @@ document.addEventListener('submit', async event => {
       closeModal(); await refresh(); await reloadSection();       toast((id ? 'Event updated.' : (result.offline ? 'Saved offline. It will sync to iCloud when Align reconnects.' : 'Event added. iCloud sync will pick it up shortly.')) + travelWarning);
       return;
     }
-    if (form.dataset.form === 'beta-feedback') { await api('/api/beta/feedback',{method:'POST',body:{type:values.type,message:values.message,screen:state.tab}}); closeModal(); toast('Feedback sent — thank you.'); return; }
+    if (form.dataset.form === 'align-feedback') { await api('/api/beta/feedback',{method:'POST',body:{type:values.type,message:values.message,screen:state.tab}}); closeModal(); toast('Feedback sent to Align — thank you.'); return; }
     if (form.dataset.form === 'transport-plan') { throw new Error('Choose a saved shift or event and locations in the Travel screen before finding journeys.'); }
     if (form.dataset.form === 'alert-rule') {
       values.active = form.active.checked;
@@ -1328,7 +1201,7 @@ document.addEventListener('submit', async event => {
       await api(form.dataset.id ? `/api/alert-rules/${form.dataset.id}` : '/api/alert-rules', { method: form.dataset.id ? 'PUT' : 'POST', body: values });
       closeModal(); await refresh(); toast('Alert saved for upcoming events.');
     }
-    if (form.dataset.form === 'onboarding') { values.notifications = form.notifications.checked; values.onboarding_completed = true; await api('/api/user-settings', { method: 'PUT', body: values }); await refresh(); await openWorkSetup(); }
+    if (form.dataset.form === 'onboarding') { values.notifications = form.notifications.checked; values.onboarding_completed = true; await api('/api/user-settings', { method: 'PUT', body: values }); await refresh(); }
       if (form.dataset.form === 'user-appearance') {
         const permissions = state.boot.builder?.appearance_permissions || {};
         const appearance = {};
@@ -1355,14 +1228,12 @@ document.addEventListener('submit', async event => {
     if (form.dataset.form === 'calendar-import') { const file = form.ics_file.files[0]; if (!file) throw new Error('Choose an .ics calendar file first.'); const ics = await file.text(); await api('/api/calendars/import', { method: 'POST', body: { name: values.name || file.name.replace(/\.ics$/i, ''), ics } }); await refresh(); toast('Calendar imported. New shifts will avoid its clashes.'); }
     if (form.dataset.form === 'shift-type') { const id = form.dataset.id; values.active = form.active ? form.active.checked : true; await api(id ? `/api/shift-types/${id}` : '/api/shift-types', { method: id ? 'PUT' : 'POST', body: values }); closeModal(); await refresh(); toast('Shift type saved.'); }
     if (form.dataset.form === 'template') { const id = form.dataset.id; values.active = form.active ? form.active.checked : true; values.applicable_days = [...form.querySelectorAll('input[name="applicable_days"]:checked')].map(input => input.value); if (!values.applicable_days.length) throw new Error('Choose at least one day for this shift pattern.'); await api(id ? `/api/templates/${id}` : '/api/templates', { method: id ? 'PUT' : 'POST', body: values }); closeModal(); await refresh(); toast('Shift pattern saved.'); }
-    if (form.dataset.form === 'apply-template') { const result = await api(`/api/templates/${form.dataset.id}/apply`, { method: 'POST', body: values }); closeModal(); state.scheduleShifts = null; await refresh(); toast(`${result.updated} future shift${result.updated === 1 ? '' : 's'} updated.`); }
     if (form.dataset.form === 'leave') {
       const booked = await api('/api/leave', { method: 'POST', body: values });
       closeModal(); await refresh();
       const balance = booked.leave_balance;
       toast(balance?.allowance ? (balance.remaining < 0 ? `Annual leave booked. That is ${-balance.remaining} day${balance.remaining === -1 ? '' : 's'} over the allowance.` : `Annual leave booked. ${balance.remaining} day${balance.remaining === 1 ? '' : 's'} left.`) : 'Annual leave booked.');
     }
-    if (form.dataset.form === 'shift') { await api(`/api/shifts/${form.dataset.id}`, { method: 'PUT', body: values }); closeModal(); state.scheduleShifts = null; await refresh(); toast('Shift updated.'); }
   } catch (error) { showFormError(form, error.message); toast(error.message, 'error'); }
 });
 
@@ -1484,19 +1355,7 @@ async function prepareOfflineRuntime() {
 }
 
 function requiredOfflineKeys() {
-  // The Add Shift wizard can open any of the booking weeks supplied by
-  // /api/bootstrap. Cache every one of those weeks while online so the wizard
-  // has its clash/leave context even when the PC is unreachable.
-  const bookingWeeks = (state.boot?.week_options || [])
-    .map(week => week?.date)
-    .filter(Boolean)
-    .map(start => `/api/week?start=${start}`);
-  return [...new Set([
-    '/api/bootstrap',
-    `/api/week?start=${state.scheduleWeek}`,
-    `/api/month?month=${state.scheduleMonth}`,
-    ...bookingWeeks,
-  ])];
+  return [`/api/bootstrap`, `/api/sections/definitions`];
 }
 
 async function requestWorkerDiagnostics() {
@@ -1525,7 +1384,6 @@ async function primeOfflineData() {
     try {
       const payload = await rawApi(path);
       await AlignOffline.remember(path, payload);
-      if (path.startsWith('/api/month') && !state.monthData) state.monthData = payload;
     } catch (_) {
       // Verification below will identify exactly which item is missing.
     }

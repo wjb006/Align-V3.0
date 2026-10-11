@@ -1,9 +1,9 @@
 @echo off
 setlocal
-title Align v1.3 Beta Build 156 - Uninstaller
+title Align V3.0 Build 156 - Uninstaller
 
 echo ============================================================
-echo   ALIGN v1.3 BETA - BUILD 156 UNINSTALLER
+echo   ALIGN V3.0 - BUILD 156 UNINSTALLER
 echo ============================================================
 echo.
 echo This removes the local Align virtual environment and

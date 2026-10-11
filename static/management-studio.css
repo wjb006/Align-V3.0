@@ -72,6 +72,16 @@
 .management-area-id { color: #8a95a7; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .management-area-extras { display: flex; flex-wrap: wrap; gap: 10px 16px; }
 .management-phone-banner { margin: 11px 0 6px; padding: 9px 11px; border-radius: var(--preview-radius,11px); color: var(--preview-banner-ink,#fff); background: var(--preview-banner,#172a62); font-size: .79em; font-weight: 750; }
+  .mp-editable-block { position: relative; padding: 0 0 3px 18px; border-radius: 9px; cursor: grab; }
+  .mp-editable-block:active { cursor: grabbing; }
+  .mp-editable-block:hover { outline: 2px solid color-mix(in srgb, var(--preview-accent,#365ce6) 45%, transparent); }
+  .mp-drag-handle { position:absolute; top:12px; left:0; width:20px; min-height:26px; padding:0; border:0; color:var(--preview-accent,#365ce6); background:transparent; font-size:18px; cursor:grab; }
+  .mp-empty { margin:8px 0; padding:10px; border:1px dashed #aab5ca; border-radius:9px; color:#65718b; font-size:.78em; }
+  .mp-section-entry,.mp-add-section { width:100%; text-align:left; font:inherit; cursor:pointer; }
+  .mp-section-entry:hover,.mp-add-section:hover { outline:2px solid color-mix(in srgb, var(--preview-accent,#365ce6) 45%, transparent); }
+  .management-phone-nav button { min-width:0; padding:4px 1px; border:0; color:inherit; background:transparent; font:inherit; cursor:grab; }
+  .management-phone-nav button.is-current { color:var(--preview-accent,#365ce6); font-weight:750; }
+  .management-phone-nav button:hover { outline:2px solid color-mix(in srgb, var(--preview-accent,#365ce6) 45%, transparent); border-radius:6px; }
 .management-phone-weather { margin-bottom: 12px; padding: 11px; border: 1px solid #e0e5f0; border-radius: var(--preview-radius,11px); background: var(--preview-surface,#fff); }
 .management-phone-weather strong { display: block; font-size: .93em; }
 .management-phone-weather span { color: #65718b; font-size: .72em; }

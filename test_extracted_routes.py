@@ -44,7 +44,7 @@ class ExtractedRouteTests(unittest.TestCase):
 
                 status, headers, body = request("/")
                 self.assertEqual(status, 200)
-                self.assertIn(b"Build 156", body)
+                self.assertIn(b"V3.0", body)
                 self.assertEqual(headers["X-Content-Type-Options"], "nosniff")
                 policy = headers["Content-Security-Policy"]
                 script_src = next(part.strip() for part in policy.split(";") if part.strip().startswith("script-src"))

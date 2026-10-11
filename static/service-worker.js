@@ -1,5 +1,5 @@
 const BUILD = 156;
-const ASSET_VERSION = `${BUILD}-v32`;
+const ASSET_VERSION = `${BUILD}-v34`;
 
 const SHELL_CACHE = `align-v13-shell-${ASSET_VERSION}`;
 const API_CACHE = `align-v13-api-${ASSET_VERSION}`;
@@ -15,9 +15,6 @@ const SHELL_ASSETS = [
   `/dates.js?v=${ASSET_VERSION}`,
   `/offline-store.js?v=${ASSET_VERSION}`,
   `/icloud.js?v=${ASSET_VERSION}`,
-  `/month-calendar.js?v=${ASSET_VERSION}`,
-  `/week-planner.js?v=${ASSET_VERSION}`,
-  `/work-setup.js?v=${ASSET_VERSION}`,
   `/builder-fields.js?v=${ASSET_VERSION}`,
   `/builder-runtime.js?v=${ASSET_VERSION}`,
   `/journey-breakdown.js?v=${ASSET_VERSION}`,

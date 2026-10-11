@@ -1,4 +1,4 @@
-"""Verify Build 156 source and offline asset version consistency."""
+"""Verify Align V3.0 Build 156 source and offline asset version consistency."""
 import re
 from pathlib import Path
 
@@ -15,17 +15,17 @@ def main():
         if not match or match.group(1) != "156":
             print(f"STOP: {name} is not Build 156.")
             raise SystemExit(1)
-    asset_version = "156-v32"
+    asset_version = "156-v34"
     index = (ROOT / "static/index.html").read_text(encoding="utf-8")
-    if asset_version not in index or "Build 156" not in index:
-        print("STOP: index.html does not reference the Build 156 assets.")
+    if asset_version not in index or "Align V3.0" not in index:
+        print("STOP: index.html does not reference the Align V3.0 Build 156 assets.")
         raise SystemExit(1)
     app_js = (ROOT / "static/app.js").read_text(encoding="utf-8")
     worker = (ROOT / "static/service-worker.js").read_text(encoding="utf-8")
-    if f"`${{BUILD_VERSION}}-v32`" not in app_js or f"`${{BUILD}}-v32`" not in worker:
+    if f"`${{BUILD_VERSION}}-v34`" not in app_js or f"`${{BUILD}}-v34`" not in worker:
         print("STOP: app or service-worker asset cache version is stale.")
         raise SystemExit(1)
-    print("PASS — Build 156 version and offline asset consistency verified.")
+    print("PASS — Align V3.0 Build 156 version and offline asset consistency verified.")
 
 
 if __name__ == "__main__":

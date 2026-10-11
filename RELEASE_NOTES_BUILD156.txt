@@ -1,13 +1,46 @@
-Align Build 156 · V2.1
+## Build 156.2.2
 
-- Enables two-way iCloud Calendar sync for Align-owned shifts and section events:
-  iCloud edits are pulled back into Align when Align has not also changed the item.
-- Copies leave-at journey alerts into iCloud calendar alerts as
-  Leave at HH:MM for "Event", and formats travel details in calendar notes.
-- Adds a shared alert offset dropdown (5–45 minutes, 1–2 hours, 1–5 days, 1 week)
-  for shift alerts and travel reminders.
-- Management Studio can edit Home section titles, visibility, order, and bottom
-  navigation labels/icons (Pages & text), including Upcoming Events.
-- Home Upcoming Events lists items under a shared date heading instead of
-  repeating the date on every card.
-- Defaults and upgrades rename “Upcoming shifts” to “Upcoming Events”.
+- Enables two-way iCloud Calendar sync for Align-owned shifts and section events.
+- Adds leave-at journey alerts to iCloud calendar entries and formats travel notes.
+- Adds shared alert offsets for shift alerts and travel reminders.
+- Lets Studio edit Home area titles, visibility, order, and bottom navigation.
+- Groups Upcoming Events under shared date headings.
+- Renames “Upcoming shifts” to “Upcoming Events”.
+
+## Build 156.2.1
+
+- Adds UK date, time, and location recognition to live event entry.
+- Keeps saved contact details in the account contact store and links events to contacts.
+- Adds separate saved contact management and clickable event phone numbers.
+- Updates Home, section, planner, and event detail contact displays.
+
+## Build 156.2.0
+
+- Adds a responsive Owner Management Studio for shared appearance and event presentation.
+- Adds per-account appearance overrides controlled by Owner permissions.
+- Updates app, service worker, cache version, and release checks.
+
+## Build 156.0
+
+- Adds location address suggestions and UK weekday headings.
+- Uses consistent event cards and day grouping on Upcoming Events.
+- Condenses Today and changes the Home hero to greeting and date.
+- Adds Home area visibility, naming, ordering, and content controls.
+
+## Build 154
+
+- Adds a responsive Owner Management Studio for shared appearance and event presentation.
+- Adds per-account appearance overrides controlled by Owner permissions.
+- Keeps the App Builder as the place to add or remove menus, pages, and data layouts.
+
+## Build 153
+
+- Adds UK date, time, and location recognition to live event entry.
+- Keeps saved contact details in the account contact store and links events to contacts.
+- Adds separate saved contact management and clickable event phone numbers.
+
+## Build 151
+
+- Adds event and imported calendar entries to week summaries.
+- Adds optional travel reminders for event and shift calendar entries.
+- Retains reminder compatibility through existing notes and calendar sync behavior.

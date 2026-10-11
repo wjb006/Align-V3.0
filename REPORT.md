@@ -1,0 +1,49 @@
+# Align V3.0 rebuild report
+## Removed or retired
+- Replaced the old build-specific browser workflow/spec names with `build-browser.yml` and `align.spec.js`.
+- Removed Owner and Builder links from the user-facing menus; the Studio is served through `/studio` and checks Owner authentication.
+- Replaced the legacy organiser section index with published database-driven sections.
+- Renamed the local Owner setup and remote access launchers to Align names. Updated their cross-file references.
+- Grouped local, Wi-Fi, remote-access, transport, and Merseyside startup under `Start Align.bat`; retained thin shortcut delegates for saved entrypoints.
+- Grouped optional iCloud, Owner/account, and iPhone HTTPS setup under `Install Align Add-ons.bat` and the shared PowerShell installer. Renamed the account dependency bundle to `requirements-accounts.txt`.
+- Combined Docker and portable-Java OTP shutdown in `Stop Align OTP.bat`; removed duplicate optional installers and Merseyside stop entrypoint.
+- Restored `schema.sql` after finding that removing its legacy tables made fresh SQLite startup fail. This preserves a working starting point while the remaining legacy shift code is being retired.
+## Kept
+- Python `ThreadingHTTPServer`, vanilla JavaScript PWA, SQLite and Postgres support, account workflows, travel and weather code, iCloud sync, and the Finance template.
+- Existing legacy shift schema and code remain in this checkout. Their removal is not complete.
+- The source repository at `C:\Align\Align_App` was not modified. No GitHub remote is configured in this workspace.
+## Changed
+- Added numbered SQLite/Postgres migrations for `calendar_links` and `section_defs` / `section_fields`; included them in startup migration expectations and tester schema provisioning.
+- Moved iCloud section calendar routing to `calendar_links` while keeping the existing calendar sync protections.
+- Materialized published Studio layouts into section definitions and kept user records in private `builder_records` storage. The phone preview supports editing and creating sections with their input matrices, and reordering home areas and navigation buttons. New sections start with a required Name question, optional Date question, and review-before-save. The Owner editor guides setup through naming the section, building the ordered field matrix, and reviewing the entry form.
+- Added published sections to the user app and routed them to the private records UI.
+- Added `/studio`, an Owner-only status endpoint, integrated Owner settings, and environment-name-only configuration visibility. The Owner panel now includes HERE allowance status and an account-level iCloud configuration indicator without exposing values or calendar details.
+- Added first-run profile questions and persistence. Removed the forced redirect into Work Setup after onboarding.
+- Rebranded the user-facing app and setup/remote-access launchers as Align V3.0. `BUILD_VERSION=156` remains the internal build/cache identifier.
+- Retired the public Beta launchers and user-facing labels. Legacy `/api/beta/*`, `beta_*` database/module names, and `ALIGN_BETA_MODE` remain internal compatibility details; do not rename until a data/API migration can preserve existing accounts.
+- Updated the install guide and conservative uninstaller to include the grouped launch and add-ons files while preserving the database by default.
+- Bumped coordinated web asset cache revision to `156-v34` after frontend changes.
+- Began replacing fixed shift setup with an optional Work database. Studio links custom questions to Work Location, Shift Area, work date, and start/end times; users can opt in and retain private records.
+- Updated Management Studio Work matrix to associate custom fields with location, area, work date, and start/end time; Work remains optional and records are private.
+- Consolidated Build 153/154/156 V2.1/V2.2 release notes into the Build 156 notes file, removed a duplicate SQL verification file, and removed one-off scratch scripts.
+- Added `.env.example`, environment/deployment documentation, `render.yaml`, a Postgres bootstrap, and separate hosted-persistence and three-device browser workflows.
+## Verification
+- `.venv\Scripts\python.exe -m pytest -q`: 303 passed, 3 skipped, 16 subtests passed. The skipped cases require a PostgreSQL test service, which is not available in this workspace.
+- Latest focused checks: 17 Python tests passed; navigation/Work, date, UI polish and asset consistency checks passed.
+- Fixed PowerShell installer interpolation so the embedded Build 156 verification command parses correctly.
+- Playwright: desktop Chromium, Pixel 7 Chromium, and iPhone 13 WebKit passed in the previous matrix run. Desktop Chromium also passes the latest section creation/edit handoff, three-step form matrix, preview, and draft/publish regressions.
+- Fresh SQLite initialization succeeded; Python compilation and `git diff --check` succeeded.
+- No GitHub Actions run, Render deployment, or new Neon database was created.
+## Outstanding brief requirements
+- Remove all shift features, tables, APIs, alerts, UI, scripts, and related tests. This is a major unfinished requirement; the existing shift planner still runs.
+- Complete and verify the optional Work database flow, including user opt-in and custom field associations.
+- Continue source-file grouping only where runtime compatibility and upgrade history are preserved.
+- Complete direct creation of home blocks from the phone preview. Section creation/editing now starts directly from the preview, but the actual matrix fields are designed in the guided builder panel. Validate the full history/restore flow against the deployed Owner portal.
+- Run the Postgres 18 integration workflow against a real test service.
+- Create and verify the separate GitHub repository and provision a dedicated Render service and Neon database with new secrets. The local workspace currently has no Git remote, and no external services were changed.
+## Follow-up verification (2026-10-11)
+- Focused Node checks passed: core navigation, display dates, UI polish, Scriptable bridge, and phone push worker.
+- `verify_align_build156.py` passed with coordinated 156-v34 cache identity.
+- Focused Python checks passed: 16 tests across UI polish, extracted routes, and Owner builder.
+- PowerShell parser accepted the installer, uninstaller, cleanup, live-folder, add-ons, and remote-access scripts. git diff --check passed; Git emitted line-ending normalization warnings.
+- Full Python and multi-device browser suites have not been rerun after Work associations and file grouping.

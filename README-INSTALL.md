@@ -1,12 +1,15 @@
-# Align v1.3 — Build 156 Installation Guide
+# Align V3.0 — Build 156 Installation Guide
 
 ## Purpose
-This package installs the local Windows version of Align v1.3 Build 156.
+This package installs the local Windows version of Align V3.0 Build 156.
 
 ## Included
 - `Install-Align.bat` — double-click installer.
 - `Install-Align.ps1` — prerequisite, virtual-environment, dependency, database and verification engine.
-- `Start-Align.bat` — starts Align using `.venv`.
+- `Start Align.bat` — main menu for local, Wi-Fi, remote-access, and transport startup.
+- `Start-Align.bat` — direct local/Wi-Fi runner used by the menu and saved shortcuts.
+- `align.ps1` — optional live-folder start, stop, status, Wi-Fi and update controller.
+- `Install Align Add-ons.bat` — one menu for optional iCloud, Owner/remote-access, and iPhone HTTPS setup.
 - `README-INSTALL.md` — this guide.
 
 ## Prerequisites
@@ -39,15 +42,21 @@ The installer does not delete an existing database. Re-running the installer is 
 Stop Align before manually copying or replacing the database.
 
 ## Start Align
-After a successful installation, double-click:
+After a successful installation, double-click the main startup menu:
 
-`Start-Align.bat`
+`Start Align.bat`
+
+Choose local use, Wi-Fi access, remote access, transport routing, or the Merseyside transport profile. For a direct local start, `Start-Align.bat` remains available. Advanced live-folder management is available through `align.ps1` (`start`, `stop`, `status`, `wifi`, `update`).
 
 The local application normally runs at:
 
 `http://127.0.0.1:8001/`
 
 The launcher starts `launch.py` with `.venv\Scripts\python.exe`. Keep the command window open while using the local server. Press Ctrl+C in that window to stop Align.
+
+## Optional integrations
+
+Use `Install Align Add-ons.bat` to install optional Python packages and setup tools from one place. It offers iCloud calendar support, Owner accounts and remote access, and local iPhone HTTPS certificate support. The menu does not store credentials. Run the certificate option when you are ready to install/trust the iPhone profile; choosing the option starts its temporary local setup page.
 
 ## What is verified
 The installer checks:
@@ -96,4 +105,4 @@ This package is for the local Windows application. It does not configure Render,
 ## Successful result
 A successful install ends with `ALIGN INSTALLATION COMPLETE` and reports Build 156, the Python version, virtual-environment path, database path and log path.
 
-Then run `Start-Align.bat` and open `http://127.0.0.1:8001/`.
+Then run `Start Align.bat`, choose local use, and open `http://127.0.0.1:8001/`.

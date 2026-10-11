@@ -1,7 +1,7 @@
 let cloudState = null;
 let cloudBusy = false;
 let cloudMessage = '';
-let betaCredentialKey = null;
+let accountCredentialKey = null;
 let cloudStatusPollTimer = 0;
 function pollCloudSyncStatus(previousAttempt, polls = 0) {
   clearTimeout(cloudStatusPollTimer);
@@ -45,27 +45,27 @@ function cloudSyncStatusMarkup(status) {
   }).join('');
   return `<p role="status">${escapeHtml(status.message)}<br>${escapeHtml(attempt)}${attempt ? '<br>' : ''}${success}</p>${error}${conflicts}${calendars ? `<ul class="icloud-sync-calendars" aria-label="Calendar sync status">${calendars}</ul>` : ''}`;
 }
-async function betaEncryptCredential(value) {
-  if (!betaCredentialKey) {
+async function encryptAccountCredential(value) {
+  if (!accountCredentialKey) {
     const status = await rawApi('/api/beta/status');
-    if (!status.credential_public_key) throw new Error('Beta credential encryption is not installed on the server. Run Install Beta Support.bat.');
+    if (!status.credential_public_key) throw new Error('Secure credential support is not installed on this local server. Run Install Align Add-ons.bat and choose Owner accounts and remote access.');
     const raw = Uint8Array.from(atob(status.credential_public_key), c => c.charCodeAt(0));
-    betaCredentialKey = await crypto.subtle.importKey('spki', raw, {name:'RSA-OAEP', hash:'SHA-256'}, false, ['encrypt']);
+    accountCredentialKey = await crypto.subtle.importKey('spki', raw, {name:'RSA-OAEP', hash:'SHA-256'}, false, ['encrypt']);
   }
-  const encrypted = await crypto.subtle.encrypt({name:'RSA-OAEP'}, betaCredentialKey, new TextEncoder().encode(value));
+  const encrypted = await crypto.subtle.encrypt({name:'RSA-OAEP'}, accountCredentialKey, new TextEncoder().encode(value));
   let text=''; new Uint8Array(encrypted).forEach(byte => text += String.fromCharCode(byte));
   return btoa(text);
 }
 function renderICloud() {
-  const beta = Boolean(state.boot?.beta);
+  const accountSession = Boolean(state.boot?.beta);
   const local = ['127.0.0.1','localhost','[::1]'].includes(location.hostname);
-  if (!beta && (!isAdmin || !local)) {
+  if (!accountSession && (!isAdmin || !local)) {
     const scheme = location.protocol === 'https:' ? 'https' : 'http';
     return `<section class="card settings-form"><h2>iCloud Calendar</h2><p>Connect securely from the PC Admin page at <strong>${scheme}://127.0.0.1:${location.port || (scheme === 'https' ? '443' : '80')}/admin</strong>, then open the iCloud Calendar tab. Do not enter Apple credentials over the Wi-Fi address.</p><p>Once enabled, Align reads your selected calendars and manages its own shifts in your chosen calendar while the PC is running.</p></section>`;
   }
   const status = cloudState;
-  return `<section class="card settings-form"><h2>iCloud Calendar</h2><p class="helper">Optional direct connection. ${beta ? 'Your app-specific password is encrypted in this browser before it crosses the public connection and encrypted again while stored on the beta server.' : 'Credentials stay in memory for this server run and are sent only to Apple over HTTPS. Reconnect after restarting Align.'}</p>
-    <p class="apply-note">${location.hostname === 'beta.getalign.co.uk' ? 'iCloud support is installed on the hosted server. ' : 'First run <strong>Install iCloud Support.bat</strong> from the Align folder, then restart Align. '}Use an <a href="https://support.apple.com/en-gb/102654" target="_blank" rel="noopener noreferrer">Apple app-specific password</a>, not your main Apple password.</p>
+  return `<section class="card settings-form"><h2>iCloud Calendar</h2><p class="helper">Optional direct connection. ${accountSession ? 'Your app-specific password is encrypted in this browser before it crosses the public connection and encrypted again while stored on the Align server.' : 'Credentials stay in memory for this server run and are sent only to Apple over HTTPS. Reconnect after restarting Align.'}</p>
+    <p class="apply-note">${location.hostname === 'beta.getalign.co.uk' ? 'iCloud support is installed on the hosted server. ' : 'First run <strong>Install Align Add-ons.bat</strong> and choose iCloud calendar support, then restart Align. '}Use an <a href="https://support.apple.com/en-gb/102654" target="_blank" rel="noopener noreferrer">Apple app-specific password</a>, not your main Apple password.</p>
     ${cloudMessage ? `<p role="alert" class="planner-error">${escapeHtml(cloudMessage)}</p>` : ''}
     ${cloudSyncStatusMarkup(status)}
     <button class="small-button" data-cloud-action="status" ${cloudBusy ? 'disabled' : ''}>Check connection</button>
@@ -81,7 +81,7 @@ document.addEventListener('submit', async event => {
   let body;
   if (kind === 'connect') {
     const username=form.elements.username.value, password=form.elements.password.value;
-    if (state.boot?.beta) body={username_box:await betaEncryptCredential(username),password_box:await betaEncryptCredential(password)};
+    if (state.boot?.beta) body={username_box:await encryptAccountCredential(username),password_box:await encryptAccountCredential(password)};
     else body={username,password};
     form.elements.password.value='';
   } else if (kind === 'create-calendar') body={name:form.elements.calendar_name.value};

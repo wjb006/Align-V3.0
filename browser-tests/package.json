@@ -3,7 +3,7 @@
   "private": true,
   "description": "Browser regression tests for Align",
   "scripts": {
-    "test": "node build156.spec.js"
+    "test": "node align.spec.js"
   },
   "devDependencies": {
     "playwright": "1.63.0"

@@ -11,10 +11,10 @@ the local database. In the organized installation, that safety copy is kept in
 `Master\Backups`; other installations keep it in a `Backups` folder beside the
 database. Align does not automatically remove these safety copies.
 
-Disconnect iCloud on the PC before restoring. After restore, review the planner
-and reconnect iCloud only after confirming the restored data. A backup contains
+Disconnect iCloud on the PC before restoring. After restore, review the restored
+Align data and reconnect iCloud only after confirming it. A backup contains
 the SQLite database, including values stored in that database; it does not
 bundle the app runtime or separate key files.
 
-These controls are disabled when beta mode or a PostgreSQL backend is active.
+These controls are disabled in hosted account mode or when a PostgreSQL backend is active.
 They do not export or restore hosted Neon/Postgres data.

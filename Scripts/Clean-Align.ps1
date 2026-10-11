@@ -39,7 +39,7 @@ function Get-SafeFiles([string]$Path){
 $now=Get-Date
 $plan=[Collections.Generic.List[object]]::new()
 # Only these locations are eligible for disposable-file cleanup.
-# Active beta/tunnel logs, .venv, OTP runtime/data, .git, .vs and _REVIEW are excluded.
+# Active remote-access tunnel logs, .venv, OTP runtime/data, .git, .vs and _REVIEW are excluded.
 foreach($relative in @('Align_App\__pycache__','Align_App\temp','Align_App\tmp','Align_App\logs')){
     $folder=Join-Path $AlignRoot $relative
     if(-not (Test-Path -LiteralPath $folder)){continue}
@@ -78,7 +78,7 @@ if($Apply -and $plan.Count -and -not $WhatIfPreference){
         $_.Name -match '^(python|pythonw|java|cloudflared)\.exe$' -and
         ($_.ExecutablePath -like "$AlignRoot\*" -or ($_.CommandLine -and $_.CommandLine.Contains($AlignRoot)))
     }
-    if($running){throw 'Close Align, OpenTripPlanner and the beta tunnel before applying cleanup. Preview is safe while they run.'}
+    if($running){throw 'Close Align, OpenTripPlanner and the remote-access tunnel before applying cleanup. Preview is safe while they run.'}
 }
 $run=(Get-Date -Format 'yyyyMMdd-HHmmss')+'-'+[guid]::NewGuid().ToString('N').Substring(0,8)
 if(-not $ReportFolder){$ReportFolder=Join-Path $AlignRoot '05_Documentation\Cleanup reports'}

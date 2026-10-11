@@ -1,10 +1,10 @@
 @echo off
 setlocal EnableExtensions
 cd /d "%~dp0"
-title Align - Save Stable Beta Tunnel Token
+title Align - Save Remote Access Token
 
 echo ==============================================
-echo       ALIGN - SAVE STABLE TUNNEL TOKEN
+echo       ALIGN - SAVE REMOTE ACCESS TOKEN
 echo ==============================================
 echo.
 echo This stores the Cloudflare Tunnel token encrypted with Windows DPAPI.
@@ -21,7 +21,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$secure = Read-Host 'Paste tunnel token' -AsSecureString;" ^
   "if ($secure.Length -lt 20) { throw 'That token looks too short.' };" ^
   "$secure | ConvertFrom-SecureString | Set-Content -LiteralPath '.align_beta\tunnel-token.dpapi' -Encoding UTF8;" ^
-  "Write-Host ''; Write-Host 'Stable beta tunnel token saved securely.'"
+  "Write-Host ''; Write-Host 'Align remote access token saved securely.'"
 
 if not %errorlevel%==0 (
   echo.

@@ -42,6 +42,8 @@ def ensure(c):
     if postgres_enabled():
         c.execute('SELECT id, revision, published_revision, draft, published FROM builder_config LIMIT 0')
         c.execute('SELECT id, layout_id, values_json, revision, archived, created_at, updated_at FROM builder_records LIMIT 0')
+        c.execute('SELECT id, key, name, icon, colour, sort_order, active, revision, published_revision, layout_json FROM section_defs LIMIT 0')
+        c.execute('SELECT id, section_id, field_key, label, type, required, options_json, validation_json, formula, sort_order FROM section_fields LIMIT 0')
         return
     c.execute('CREATE TABLE IF NOT EXISTS builder_config (id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL, published_revision INTEGER NOT NULL, draft TEXT NOT NULL, published TEXT NOT NULL)')
     c.execute('CREATE TABLE IF NOT EXISTS builder_records (id TEXT PRIMARY KEY, layout_id TEXT NOT NULL, values_json TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1, archived INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)')
@@ -57,17 +59,19 @@ def defaults(c):
     document = {'startup': {'title': 'Welcome to Align', 'description': 'Add your personal details. You can set up work and calendars later.', 'button': 'Open my planner',
                         'fields': [dict(id='user_name', label='Full name', type='text', required=True, help='', options=[]),
                                    dict(id='user_phone', label='Phone number', type='tel', required=False, help='', options=[]),
-                                   dict(id='user_address', label='Address', type='textarea', required=False, help='', options=[])]},
+                                   dict(id='user_address', label='Address', type='textarea', required=False, help='', options=[]),
+                                   dict(id='user_home_location', label='Home location', type='text', required=False, help='Use a home address or a place name for travel and local weather.', options=[]),
+                                   dict(id='travel_bus', label='Use bus journeys', type='checkbox', required=False, help='', options=[]),
+                                   dict(id='travel_rail', label='Use train journeys', type='checkbox', required=False, help='', options=[]),
+                                   dict(id='travel_walk', label='Use walking journeys', type='checkbox', required=False, help='', options=[])]},
             'menus': menus, 'layouts': [],
-            'navigation': [dict(id='today', title='Today', icon='⌂', destination='today', active=True), dict(id='inbox', title='Inbox', icon='☑', destination='inbox', active=True), dict(id='planner', title='Planner', icon='▦', destination='planner', active=True), dict(id='sections', title='Sections', icon='◫', destination='sections', active=True), dict(id='more', title='More', icon='•••', destination='more', active=True)],
+            'navigation': [dict(id='today', title='Today', icon='⌂', destination='today', active=True), dict(id='inbox', title='Inbox', icon='☑', destination='inbox', active=True), dict(id='sections', title='Sections', icon='◫', destination='sections', active=True), dict(id='more', title='More', icon='•••', destination='more', active=True)],
             'home_sections': [
                 dict(id='today', title='Today at a glance', visible=True, sort_order=10,
                      content=dict(show_weather=True, show_schedule=True, show_quick_add=True)),
-                dict(id='stats', title='Week summary', visible=True, sort_order=15, content={}),
                 dict(id='menus', title='Your sections', visible=True, sort_order=20, content={}),
                 dict(id='upcoming', title='Upcoming Events', visible=True, sort_order=30,
                      content=dict(group_by_day=True)),
-                dict(id='annual_leave', title='Annual leave', visible=True, sort_order=40, content={}),
             ],
             'travel_results': dict(show_best_only=True, show_more=True, visibility=dict(
                 leave_by=True, departure_arrival=True, duration=True, mode_provider=True,
@@ -118,13 +122,7 @@ def config(path):
             except BuilderError:
                 fixed_sections = None
             if fixed_sections is not None:
-                ids = {section['id'] for section in fixed_sections}
-                if 'stats' not in ids:
-                    fixed_sections.append(dict(
-                        id='stats', title='Week summary', visible=True, sort_order=15,
-                        content=validate_home_section_content('stats', {}),
-                    ))
-                    changed = True
+                fixed_sections = [section for section in fixed_sections if section.get('id') not in ('stats','annual_leave')]
                 for section in fixed_sections:
                     if section.get('id') == 'upcoming' and section.get('title') == 'Upcoming shifts':
                         section['title'] = 'Upcoming Events'
@@ -145,11 +143,8 @@ def config(path):
                     layout['workflow'] = builder_finance.workflow()
                     changed = True
             navigation = target.get('navigation', [])
-            has_core_navigation = isinstance(navigation, list) and any(
-                isinstance(item, dict) and item.get('destination') in ('today','inbox','planner','sections','more')
-                for item in navigation
-            )
-            if not has_core_navigation:
+            target['navigation'] = [item for item in navigation if item.get('destination') not in ('planner','calendar','add')]
+            if len(target['navigation']) < 2:
                 target['navigation'] = json.loads(json.dumps(baseline['navigation']))
                 target['base_structure'] = base_structure(target)
                 changed = True
@@ -373,13 +368,36 @@ def validate(doc, previous=None):
         if layout.get('view') not in ('table', 'cards'):
             raise BuilderError('Choose table or cards.')
 
+        # Work is an optional database, configured through the same Studio
+        # matrix. Keep stable association keys so downstream work tools can
+        # interpret the selected location, area, and time fields.
+        work_associations = layout.get('work_associations', {})
+        if lid == 'work':
+            if not isinstance(work_associations, dict):
+                raise BuilderError('Choose valid Work field associations.')
+            work_fields = fields_validate(layout.get('fields'))
+            work_by_id = {field['id']: field for field in work_fields}
+            cleaned_associations = {}
+            expected_types = {'location': ('text', 'textarea', 'select'), 'area': ('text', 'textarea', 'select'), 'date': ('date',), 'start_time': ('text', 'select'), 'end_time': ('text', 'select')}
+            for role, allowed_types in expected_types.items():
+                field_id = work_associations.get(role, '')
+                if not field_id:
+                    cleaned_associations[role] = ''
+                    continue
+                if field_id not in work_by_id or work_by_id[field_id]['type'] not in allowed_types:
+                    raise BuilderError(f'Choose a valid {role.replace("_", " ")} field for Work.')
+                cleaned_associations[role] = field_id
+        else:
+            work_fields = fields_validate(layout.get('fields'))
+            cleaned_associations = {}
+
         clean_layouts.append(
             dict(
                 id=lid,
                 title=title,
                 description=text(layout.get('description', ''), 500),
                 view=layout['view'],
-                fields=fields_validate(layout.get('fields'))
+                fields=work_fields
             )
         )
 
@@ -389,6 +407,10 @@ def validate(doc, previous=None):
             layout.get('review_before_save')
         )
         clean_layout['finance'] = bool(layout.get('finance'))
+        clean_layout['optional'] = bool(layout.get('optional'))
+        if lid == 'work':
+            clean_layout['optional'] = True
+            clean_layout['work_associations'] = cleaned_associations
 
         if layout.get('finance'):
             try:
@@ -816,6 +838,7 @@ def save_config(path, body, publish=False):
         raw = json.dumps(clean)
         if publish:
             c.execute('UPDATE builder_config SET revision=?, published_revision=?, draft=?, published=? WHERE id=1', (revision, revision, raw, raw))
+            sync_published_sections(c, clean, revision)
             _history_record(c, revision, clean)
             try:
                 from pathlib import Path
@@ -842,6 +865,83 @@ def save_config(path, body, publish=False):
         else:
             c.execute('UPDATE builder_config SET revision=?, draft=? WHERE id=1', (revision, raw))
     return config(path)
+
+
+SECTION_FIELD_TYPES = {
+    'text': 'text', 'textarea': 'textarea', 'tel': 'tel', 'number': 'number',
+    'date': 'date', 'select': 'select', 'checkbox': 'checkbox',
+    'formula': 'calculated', 'email': 'text',
+}
+
+
+def sync_published_sections(c, document, revision):
+    """Materialise the published builder layouts as section definitions."""
+    layouts = document.get('layouts', [])
+    keys = [layout['id'] for layout in layouts]
+    if keys:
+        placeholders = ','.join('?' for _ in keys)
+        c.execute(f'UPDATE section_defs SET active=0,revision=?,published_revision=? WHERE key NOT IN ({placeholders})',
+                  (revision, revision, *keys))
+    else:
+        c.execute('UPDATE section_defs SET active=0,revision=?,published_revision=?', (revision, revision))
+    for order, layout in enumerate(layouts, start=1):
+        menu = next((item for item in document.get('menus', [])
+                     if item.get('destination') == 'layout' and item.get('layout_id') == layout['id']), {})
+        c.execute("""INSERT INTO section_defs
+            (key,name,icon,colour,sort_order,active,revision,published_revision,layout_json)
+            VALUES(?,?,?,?,?,1,?,?,?) ON CONFLICT(key) DO UPDATE SET
+            name=excluded.name,icon=excluded.icon,colour=excluded.colour,sort_order=excluded.sort_order,
+            active=1,revision=excluded.revision,published_revision=excluded.published_revision,layout_json=excluded.layout_json""",
+            (layout['id'], layout['title'], menu.get('icon', '◫'), menu.get('colour', '#365CE6'), order * 10, revision, revision, json.dumps(layout)))
+        section = c.execute('SELECT id FROM section_defs WHERE key=?', (layout['id'],)).fetchone()
+        section_id = section['id']
+        c.execute('DELETE FROM section_fields WHERE section_id=?', (section_id,))
+        for field_order, field in enumerate(layout.get('fields', []), start=1):
+            kind = SECTION_FIELD_TYPES.get(field['type'])
+            if not kind:
+                raise BuilderError('A section contains a field type that cannot be published.')
+            validation = {key: field[key] for key in ('show_when', 'allow_custom') if key in field}
+            c.execute("""INSERT INTO section_fields
+                (section_id,field_key,label,type,required,options_json,validation_json,formula,sort_order)
+                VALUES(?,?,?,?,?,?,?,?,?)""",
+                (section_id, field['id'], field['label'], kind, int(field['required']),
+                 json.dumps(field.get('options', [])), json.dumps(validation), field.get('formula', ''), field_order * 10))
+
+
+def section_layouts(c, published_only=True):
+    where = 'WHERE active=1 AND published_revision=revision' if published_only else 'WHERE active=1'
+    layouts = []
+    for row in c.execute(f'SELECT * FROM section_defs {where} ORDER BY sort_order,name'):
+        fields = []
+        for field in c.execute('SELECT * FROM section_fields WHERE section_id=? ORDER BY sort_order,id', (row['id'],)):
+            validation = json.loads(field['validation_json'] or '{}')
+            fields.append({
+                'id': field['field_key'], 'label': field['label'],
+                'type': 'formula' if field['type'] == 'calculated' else field['type'],
+                'required': bool(field['required']), 'options': json.loads(field['options_json'] or '[]'),
+                'formula': field['formula'], 'show_when': validation.get('show_when', {}),
+                'allow_custom': bool(validation.get('allow_custom')),
+            })
+        layout = json.loads(row['layout_json'] or '{}')
+        layout.update({'id': row['key'], 'title': row['name'], 'fields': fields})
+        layouts.append(layout)
+    return layouts
+
+
+def published_layouts(owner_path):
+    """Read global published section definitions from the Owner schema."""
+    with connect(owner_path) as c:
+        ensure(c)
+        layouts = section_layouts(c)
+    configured = layouts or config(owner_path)['published'].get('layouts', [])
+    # Work is an optional, user-owned database template. It is materialized
+    # only after the owner publishes it and users may edit its form through
+    # the same private section-record flow as other databases.
+    for layout in configured:
+        if layout.get('id') == 'work':
+            layout['optional'] = True
+            layout.setdefault('description', 'Work locations, areas, and times you choose to track.')
+    return configured
 
 
 def values_validate(fields, values):
@@ -888,8 +988,9 @@ def record_values(layout, values):
 def profile(c):
     row = c.execute("SELECT setting_value FROM settings WHERE setting_key='builder_profile'").fetchone()
     saved = json.loads(row['setting_value']) if row else {}
-    for row in c.execute("SELECT * FROM settings WHERE setting_key IN ('user_name','user_address','user_phone')"):
-        saved[row['setting_key']] = row['setting_value']
+    for row in c.execute("SELECT * FROM settings WHERE setting_key IN ('user_name','user_address','user_phone','user_home_location','travel_bus','travel_rail','travel_walk')"):
+        key = row['setting_key']
+        saved[key] = row['setting_value'].lower() == 'true' if key in ('travel_bus', 'travel_rail', 'travel_walk') else row['setting_value']
     return saved
 
 
@@ -920,6 +1021,8 @@ def handle(handler, app, method):
     from urllib.parse import urlparse, parse_qs
     path = urlparse(handler.path).path
     owner_pages = (
+        '/studio', '/studio.html',
+        '/beta-admin', '/beta-admin.html',
         '/owner-builder', '/owner-builder.html',
         '/management-studio', '/management-studio.html',
     )
@@ -967,7 +1070,7 @@ def handle(handler, app, method):
     if path in owner_pages:
         if method != 'GET': return False
         if not handler.require_admin(): return True
-        handler.path = '/management-studio.html' if path.startswith('/management-studio') else '/owner-builder.html'
+        handler.path = '/management-studio.html' if path in ('/studio', '/studio.html', '/beta-admin', '/beta-admin.html') or path.startswith('/management-studio') else '/owner-builder.html'
         from http.server import SimpleHTTPRequestHandler
         SimpleHTTPRequestHandler.do_GET(handler)
         return True
@@ -1044,6 +1147,72 @@ def handle(handler, app, method):
             status = exc.status if isinstance(exc, BuilderError) else 400
             handler.send_json(status, {'error': str(exc)})
         return True
+    if path == '/api/studio/status':
+        if method != 'GET':
+            handler.send_json(405, {'error': 'Unsupported action.'})
+            return True
+        if not handler.require_admin():
+            return True
+        names = (
+            'ALIGN_TRANSPORT_ENABLED', 'ALIGN_JOURNEY_PROVIDER',
+            'ALIGN_HERE_ROUTING_KEY', 'ALIGN_HERE_TRANSIT_ENABLED',
+            'ALIGN_GOOGLE_ROUTES_KEY', 'ALIGN_OTP_URL', 'ALIGN_NAPTAN_CSV',
+            'ALIGN_BODS_LIVE_URL', 'ALIGN_BODS_TOKEN', 'ALIGN_DARWIN_LIVE_URL',
+            'ALIGN_DARWIN_TOKEN', 'ALIGN_CREDENTIAL_KEY', 'DATABASE_URL',
+        )
+        try:
+            import here_quota
+            quota = here_quota.usage_status()
+        except Exception:
+            quota = {'available': False, 'used': None, 'limit': 1000, 'remaining': None, 'next_available_at': None}
+        try:
+            with app.db_connection() as c:
+                cloud = c.execute('SELECT account_hash,target_url,read_urls FROM icloud_config WHERE id=1').fetchone()
+            icloud_status = 'Configured' if cloud and (cloud['account_hash'] or cloud['target_url'] or cloud['read_urls'] not in ('', '[]')) else 'Not configured'
+        except (sqlite3.Error, RuntimeError):
+            icloud_status = 'Status unavailable'
+        handler.send_json(200, {
+            'integrations': {name: bool(os.environ.get(name, '').strip()) for name in names},
+            'here_quota': quota,
+            'weather': config(app.DATABASE)['published'].get('base_structure', {}).get('weather', {}),
+            'icloud': icloud_status,
+            'icloud_privacy': 'Each tester’s calendar details remain private; account connection state is shown in Accounts.',
+        })
+        return True
+    if path == '/api/sections/definitions':
+        if method != 'GET':
+            handler.send_json(405, {'error': 'Unsupported action.'})
+            return True
+        if app.BETA_MODE and not handler.require_beta_user():
+            return True
+        try:
+            layouts = published_layouts(app.DATABASE)
+            # Resolve optional-section state in the signed-in user's database.
+            # Published definitions remain in the Owner database.
+            if app.BETA_MODE:
+                handler.activate_beta_database()
+            with app.db_connection() as c:
+                ensure(c)
+                result = []
+                # Published schema is global, but the user's private database
+                # may not have had its section tables materialized yet.
+                sync_published_sections(c, {'layouts': layouts}, max((layout.get('revision', 1) for layout in layouts), default=1))
+                for layout in layouts:
+                    definition = c.execute('SELECT icon,colour,sort_order,revision,published_revision FROM section_defs WHERE key=?', (layout['id'],)).fetchone()
+                    opted_in = bool(c.execute("SELECT 1 FROM settings WHERE setting_key=?", ('section_opt_in_' + layout['id'],)).fetchone())
+            result.append({
+                        'key': layout['id'], 'name': layout['title'], 'icon': definition['icon'],
+                        'colour': definition['colour'], 'sort_order': definition['sort_order'],
+                        'revision': definition['revision'], 'published_revision': definition['published_revision'],
+                        'description': layout.get('description', ''), 'view': layout.get('view', 'cards'),
+                        'optional': bool(layout.get('optional')), 'enabled': opted_in if layout.get('optional') else True,
+                        'fields': layout['fields'], 'finance': bool(layout.get('finance')),
+                        'work_associations': layout.get('work_associations', {}) if layout['id'] == 'work' else {},
+                    })
+            handler.send_json(200, {'sections': result})
+        except (BuilderError, ValueError, sqlite3.Error) as exc:
+            handler.send_json(400, {'error': 'Section definitions could not be loaded.'})
+        return True
     if not path.startswith('/api/builder/'):
         return False
     try:
@@ -1070,15 +1239,22 @@ def handle(handler, app, method):
             else: raise BuilderError('Unsupported action.', 405)
             return True
         doc = config(app.DATABASE)['published']
+        # User database records, including optional Work opt-in, are private to
+        # the authenticated account. Route through that account before opening
+        # any builder_records/settings tables.
+        if app.BETA_MODE:
+            handler.activate_beta_database()
         with app.db_connection() as c:
             ensure(c)
             if path == '/api/builder/profile' and method == 'PUT':
                 values = values_validate(doc['startup']['fields'], handler.read_json().get('values'))
                 values = {**profile(c), **values}
                 c.execute("INSERT INTO settings VALUES('builder_profile',?) ON CONFLICT(setting_key) DO UPDATE SET setting_value=excluded.setting_value", (json.dumps(values),))
-                for key in ('user_name', 'user_address', 'user_phone'):
+                for key in ('user_name', 'user_address', 'user_phone', 'user_home_location', 'travel_bus', 'travel_rail', 'travel_walk'):
                     if key in values:
-                        c.execute('INSERT INTO settings VALUES(?,?) ON CONFLICT(setting_key) DO UPDATE SET setting_value=excluded.setting_value', (key, str(values[key])))
+                        c.execute('INSERT INTO settings VALUES(?,?) ON CONFLICT(setting_key) DO UPDATE SET setting_value=excluded.setting_value', (key, json.dumps(values[key]) if isinstance(values[key], bool) else str(values[key])))
+                modes = [mode for key, mode in (('travel_bus','bus'), ('travel_rail','rail'), ('travel_walk','walk')) if values.get(key) is True]
+                c.execute("UPDATE transport_preferences SET modes=? WHERE id=1", (json.dumps(modes),))
                 c.execute("UPDATE settings SET setting_value='1' WHERE setting_key='onboarding_completed'")
                 # Persist before acknowledging success to an immediately reloading client.
                 c.commit()
@@ -1087,8 +1263,18 @@ def handle(handler, app, method):
             match = re.fullmatch(r'/api/builder/records/([a-zA-Z][\w-]*)(?:/([a-zA-Z][\w-]*))?', path)
             if not match: raise BuilderError('Not found.', 404)
             lid, rid = match.groups()
-            layout = next((x for x in doc['layouts'] if x['id'] == lid), None)
+            layout = next((x for x in published_layouts(app.DATABASE) if x['id'] == lid), None)
             if not layout: raise BuilderError('This layout is no longer available.', 404)
+            opted_in = bool(c.execute("SELECT 1 FROM settings WHERE setting_key=?", ('section_opt_in_' + lid,)).fetchone())
+            if layout.get('optional') and not opted_in and method == 'GET' and not rid:
+                handler.send_json(403, {'error': 'Add this optional database to your account before opening it.'})
+                return True
+            if layout.get('optional') and method == 'POST' and rid == 'enable':
+                c.execute("INSERT INTO settings(setting_key,setting_value) VALUES(?, '1') ON CONFLICT(setting_key) DO UPDATE SET setting_value='1'", ('section_opt_in_' + lid,))
+                handler.send_json(200, {'enabled': True, 'layout': layout})
+                return True
+            if layout.get('optional') and not opted_in:
+                raise BuilderError('Add this optional database to your account before opening it.', 403)
             if method == 'GET' and not rid:
                 query = parse_qs(urlparse(handler.path).query)
                 archived = int(query.get('archived', ['0'])[0] == '1')

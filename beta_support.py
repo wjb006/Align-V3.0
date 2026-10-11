@@ -1,4 +1,4 @@
-"""Account, invite, recovery and private-data support for Align_v1.3 Beta.
+"""Account, invite, recovery and private-data support for Align V3.0.
 
 The registry is intentionally separate from every planner database. Owner tools can
 manage access, the shared default structure and deliberately submitted feedback,
@@ -123,7 +123,7 @@ class BetaStore:
                 if col not in cols:
                     c.execute(sql)
             # Existing Build 137-140 users are established accounts. Newly-created
-            # v1.3 testers are explicitly marked pending until invite completion.
+            # V3.0 testers are explicitly marked pending until invite completion.
             c.execute("UPDATE beta_users SET account_status='active' WHERE account_status='' OR account_status IS NULL")
             c.executescript("""
             CREATE TABLE IF NOT EXISTS beta_invites (
@@ -209,7 +209,7 @@ class BetaStore:
             CREATE TABLE IF NOT EXISTS beta_email_settings (
               singleton INTEGER PRIMARY KEY CHECK(singleton=1),
               sender_email TEXT NOT NULL DEFAULT '',
-              sender_name TEXT NOT NULL DEFAULT 'Align Beta',
+              sender_name TEXT NOT NULL DEFAULT 'Align',
               smtp_host TEXT NOT NULL DEFAULT 'smtp-mail.outlook.com',
               smtp_port INTEGER NOT NULL DEFAULT 587,
               encryption TEXT NOT NULL DEFAULT 'starttls',
@@ -267,7 +267,7 @@ class BetaStore:
             from argon2 import PasswordHasher
             from argon2.low_level import Type
         except ImportError:
-            raise BetaError('Run Install Beta Support.bat to install secure password support.', 'beta_support_missing', 503) from None
+            raise BetaError('Run Install Align Add-ons.bat and choose Owner accounts and remote access to install secure password support.', 'beta_support_missing', 503) from None
         return PasswordHasher(time_cost=3, memory_cost=65536, parallelism=2, hash_len=32, salt_len=16, type=Type.ID)
 
     def hash_password(self, password: str) -> str:
@@ -305,9 +305,13 @@ class BetaStore:
 
     def database_for(self, row) -> Path:
         if postgres_enabled():
-            if not row['is_owner']:
-                raise BetaError('Hosted tester persistence is not configured.', 'hosted_storage_unavailable', 503)
-            return self.owner_database
+            if row['is_owner']:
+                return self.owner_database
+            value = Path(row['database_path'])
+            user_id = row.get('user_id') if hasattr(row, 'get') else row['user_id'] if 'user_id' in row.keys() else None
+            if not user_id or value.parent.name != 'beta_data' or value.name != f"{user_id}.sqlite3":
+                raise BetaError('Invalid hosted tester database path.', 'hosted_storage_unavailable', 503)
+            return self.root / value
         value = Path(row['database_path'])
         if value.name == self.owner_database.name and row['is_owner']:
             return self.owner_database
@@ -383,7 +387,7 @@ class BetaStore:
         return token
 
     def login(self, email, credential, remote=''):
-        """Password login, with a compatibility path for the pre-v1.3 Owner code."""
+        """Password login, with a compatibility path for the pre-V3.0 Owner code."""
         email = str(email or '').strip().casefold()
         credential = str(credential or '')
         key = self._attempt_key(email, remote)
@@ -540,22 +544,31 @@ class BetaStore:
             self._idempotency_save(owner_id,key,operation,request_payload,response,status,result_id)
 
     def _create_pending_user(self,email,display_name,apply_owner_template):
-        if postgres_enabled():
-            raise BetaError('Hosted tester persistence is not configured.', 'hosted_storage_unavailable', 503)
         email=str(email or '').strip().casefold(); display_name=str(display_name or '').strip()[:120]
         if '@' not in email or len(email)>254: raise BetaError('Enter a valid tester email address.')
+        if postgres_enabled() and not os.environ.get('DATABASE_URL', '').strip():
+            raise BetaError('DATABASE_URL is required for hosted tester storage.', 'hosted_storage_unavailable', 503)
         existing=self.user_by_email(email)
         if existing:
             raise BetaError('That email already has beta access or a pending invitation.','account_exists',409)
         uid=secrets.token_hex(12); rel=Path('beta_data')/f'{uid}.sqlite3'; path=self.root/rel
-        self.initialise_database_at(path); apply_owner_template(path)
+        if postgres_enabled():
+            from postgres_support import provision_tester_schema
+            provision_tester_schema(path)
+        self.initialise_database_at(path)
+        apply_owner_template(path)
         placeholder=self.digest(secrets.token_urlsafe(32))
         try:
             with self._connect() as c:
                 c.execute("INSERT INTO beta_users(user_id,email,display_name,invite_hash,database_path,account_status) VALUES(?,?,?,?,?,'pending')",
                           (uid,email,display_name,placeholder,str(rel)))
         except sqlite3.IntegrityError as e:
-            path.unlink(missing_ok=True); raise BetaError('That email already has beta access.','account_exists',409) from e
+            if postgres_enabled():
+                from postgres_support import delete_tester_schema
+                delete_tester_schema(path, uid)
+            else:
+                path.unlink(missing_ok=True)
+            raise BetaError('That email already has beta access.','account_exists',409) from e
         return self.user(uid)
 
     def create_invite(self,email,display_name,apply_owner_template,owner_id,idempotency_key=''):
@@ -693,7 +706,7 @@ class BetaStore:
     def reset_invite(self,user_id):
         """Compatibility helper for owner setup / old Admin buttons.
 
-        Pending v1.3 testers receive a replacement invite. Established accounts receive
+        Pending V3.0 testers receive a replacement invite. Established accounts receive
         a one-time password-reset code instead of having their password exposed.
         """
         row=self.user(user_id)
@@ -716,8 +729,12 @@ class BetaStore:
         row=self.user(user_id)
         if not row or row['is_owner']: raise BetaError('The owner account cannot be removed here.')
         path=self.database_for(row)
-        with self._connect() as c: c.execute("DELETE FROM beta_users WHERE user_id=?",(user_id,))
-        path.unlink(missing_ok=True)
+        if postgres_enabled():
+            from postgres_support import delete_tester_schema
+            delete_tester_schema(path, user_id)
+        else:
+            with self._connect() as c: c.execute("DELETE FROM beta_users WHERE user_id=?",(user_id,))
+            path.unlink(missing_ok=True)
         self.audit('account_removed','success',user_id,reason='owner_action')
 
     def add_feedback(self,row,kind,message,build,screen=''):
@@ -811,18 +828,18 @@ class BetaStore:
                 'last_error':s['last_error'] or None}
 
     def save_email_settings(self,payload):
-        email=str(payload.get('sender_email','')).strip().casefold(); name=str(payload.get('sender_name','Align Beta')).strip()[:100]
+        email=str(payload.get('sender_email','')).strip().casefold(); name=str(payload.get('sender_name','Align')).strip()[:100]
         client_id=str(payload.get('oauth_client_id','')).strip()[:200]; authority=str(payload.get('oauth_authority','consumers')).strip()[:80] or 'consumers'
         if '@' not in email: raise BetaError('Enter the Outlook sender email address.','invalid_email_settings')
         if not client_id: raise BetaError('Enter the Microsoft application Client ID.','invalid_email_settings')
-        # v1.3 intentionally pins Outlook.com SMTP's published TLS endpoint.
+        # V3.0 intentionally pins Outlook.com SMTP's published TLS endpoint.
         with self._connect() as c:
             old=c.execute("SELECT oauth_client_id,sender_email FROM beta_email_settings WHERE singleton=1").fetchone()
             clear_cache = old and (old['oauth_client_id']!=client_id or old['sender_email'].casefold()!=email)
             c.execute("""UPDATE beta_email_settings SET sender_email=?,sender_name=?,smtp_host='smtp-mail.outlook.com',smtp_port=587,
                          encryption='starttls',oauth_client_id=?,oauth_authority=?,oauth_cache_enc=CASE WHEN ? = 1 THEN '' ELSE oauth_cache_enc END,
                          connection_status='untested',last_error='',updated_at=CURRENT_TIMESTAMP WHERE singleton=1""",
-                      (email,name or 'Align Beta',client_id,authority,1 if clear_cache else 0))
+                      (email,name or 'Align',client_id,authority,1 if clear_cache else 0))
         self.audit('email_settings_updated','success',self.owner()['user_id'] if self.owner() else None,reason='owner_action')
         return self.email_settings_public()
 
@@ -847,7 +864,7 @@ class BetaStore:
     # ----- Existing encrypted iCloud credentials -----
     def _fernet(self):
         try: from cryptography.fernet import Fernet
-        except ImportError: raise BetaError('Run Install Beta Support.bat before using encrypted beta credentials.','beta_support_missing',503) from None
+        except ImportError: raise BetaError('Run Install Align Add-ons.bat and choose Owner accounts and remote access before using encrypted account credentials.','beta_support_missing',503) from None
         configured = os.environ.get('ALIGN_CREDENTIAL_KEY', '').strip()
         if configured:
             try:
@@ -866,7 +883,7 @@ class BetaStore:
         try:
             from cryptography.hazmat.primitives import serialization
             from cryptography.hazmat.primitives.asymmetric import rsa
-        except ImportError: raise BetaError('Run Install Beta Support.bat first.','beta_support_missing',503) from None
+        except ImportError: raise BetaError('Run Install Align Add-ons.bat and choose Owner accounts and remote access first.','beta_support_missing',503) from None
         if not self.rsa_private_file.exists():
             private=rsa.generate_private_key(public_exponent=65537,key_size=3072)
             self.rsa_private_file.write_bytes(private.private_bytes(serialization.Encoding.PEM,serialization.PrivateFormat.PKCS8,serialization.NoEncryption()))

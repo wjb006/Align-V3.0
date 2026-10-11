@@ -1,4 +1,4 @@
-"""Align: a mobile-first shift planner powered by Python and SQLite.
+"""Align V3.0: a mobile-first personal organiser powered by Python and SQLite.
 
 Run with:  python app.py
 Then open: http://127.0.0.1:8001
@@ -75,7 +75,7 @@ ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
 DATABASE = ROOT / "align.sqlite3"
 BUILD_VERSION = 156
-APP_VERSION = "1.3"
+APP_VERSION = "3.0"
 BETA_MODE = os.environ.get("ALIGN_BETA_MODE", "0") == "1" or "--beta" in sys.argv
 REQUEST_CONTEXT = threading.local()
 ICLOUD_MANAGER = None
@@ -85,7 +85,7 @@ BETA_ICLOUD_LOCK = threading.Lock()
 BETA_STORE = None
 BETA_MAILER = None
 LOG = logging.getLogger("align")
-EXPECTED_MIGRATIONS = ("149_asset_studio", "149_transport", "150_calendar_links")
+EXPECTED_MIGRATIONS = ("149_asset_studio", "149_transport", "150_calendar_links", "151_sections")
 
 
 def icloud_manager():
@@ -109,6 +109,11 @@ ADDRESS_LAST_REQUEST = 0.0
 DEFAULT_SETTINGS = {
     "user_name": "",
     "user_address": "",
+    "user_phone": "",
+    "user_home_location": "",
+    "travel_bus": "true",
+    "travel_rail": "true",
+    "travel_walk": "true",
     "contracted_hours": "0",
     "standard_shift_minutes": "240",
     "work_setup_completed": "0",
@@ -727,10 +732,7 @@ def month_data(connection: sqlite3.Connection, month: str) -> dict:
     return {'month': month, 'start': start.isoformat(), 'end': end.isoformat(),
             'events': rows_as_dicts(connection.execute('SELECT oe.id,oe.section_id,oe.title,oe.start_at,oe.end_at,oe.all_day,oe.location,oe.notes,os.colour AS section_colour FROM organiser_events oe LEFT JOIN organiser_sections os ON os.id=oe.section_id WHERE oe.start_at<? AND oe.end_at>? ORDER BY oe.start_at', ((end+timedelta(days=1)).isoformat(), start.isoformat()))),
             'imported_events': rows_as_dicts(connection.execute('SELECT ce.id,cs.section_id,ce.title,ce.start_at,ce.end_at,ce.all_day,ce.location,cs.name AS category_name,os.colour AS section_colour FROM calendar_events ce JOIN calendar_sources cs ON cs.id=ce.source_id LEFT JOIN organiser_sections os ON os.id=cs.section_id WHERE ce.start_at<? AND ce.end_at>? ORDER BY ce.start_at', ((end+timedelta(days=1)).isoformat(), start.isoformat()))),
-            'shifts': shift_query(connection, start.isoformat(), end.isoformat()),
-            'annual_leave': rows_as_dicts(connection.execute(
-                'SELECT * FROM annual_leave WHERE leave_date BETWEEN ? AND ? ORDER BY leave_date',
-                (start.isoformat(), end.isoformat())))}
+            }
 
 
 
@@ -1378,6 +1380,16 @@ class AlignHandler(SimpleHTTPRequestHandler):
             self.send_json(401,{'error':'Sign-in is required.','code':'beta_login'})
         return None
 
+    def activate_user_database(self):
+        """Select the signed-in account's private database without granting owner rights."""
+        if not BETA_MODE:
+            return True
+        row = self.activate_beta_database()
+        if row:
+            return row
+        self.send_json(401, {'error': 'Sign-in is required.', 'code': 'beta_login'})
+        return None
+
     def beta_same_origin(self) -> bool:
         """Protect beta writes across local and Cloudflare reverse-proxy use.
 
@@ -1481,7 +1493,7 @@ class AlignHandler(SimpleHTTPRequestHandler):
         forwarded=self.headers.get('X-Forwarded-Proto','').split(',')[0].strip().lower()
         is_https = forwarded == 'https' or isinstance(self.connection, ssl.SSLSocket)
         secure = '; Secure' if is_https else ''
-        # Public beta runs behind Cloudflare HTTPS. SameSite=None keeps the
+        # Hosted tester access runs behind Cloudflare HTTPS. SameSite=None keeps the
         # session usable in Safari and embedded iPhone browsers opened from
         # another app; Secure is mandatory for None. Local HTTP diagnostics
         # deliberately stay Lax.
@@ -1716,9 +1728,9 @@ if __name__ == "__main__":
     if beta_mode:
         beta_store()
         restore_all_beta_icloud()
-        print(f"Align v1.3 Build {BUILD_VERSION} is ready locally at {scheme}://{host}:{port}")
+        print(f"Align V3.0 is ready locally at {scheme}://{host}:{port}")
     else:
-        print(f"Align v1.3 Build {BUILD_VERSION} is ready at {scheme}://{host}:{port}")
+        print(f"Align V3.0 is ready at {scheme}://{host}:{port}")
     LOG.info("Align server started mode=%s port=%s", "beta" if beta_mode else "normal", port)
     try:
         server.serve_forever()

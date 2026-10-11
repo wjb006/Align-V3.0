@@ -104,26 +104,32 @@ def upgrade(database):
 def upgrade_planner_schema(database, folder=ROOT):
     """Apply planner migrations after schema.sql has created its base tables."""
     folder = Path(folder)
+    applied = []
     with connect(database) as c:
-        c.execute('BEGIN IMMEDIATE')
         c.execute('CREATE TABLE IF NOT EXISTS schema_migrations(migration_id TEXT PRIMARY KEY, applied_at TEXT NOT NULL)')
-        migration_id = '150_calendar_links'
-        if c.execute('SELECT 1 FROM schema_migrations WHERE migration_id=?', (migration_id,)).fetchone():
-            return {'status': 'skipped'}
         if not c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='organiser_sections'").fetchone():
             raise RuntimeError('Base planner schema must be installed before planner migrations.')
-        columns = {row[1] for row in c.execute('PRAGMA table_info(calendar_sources)')}
-        for name in ('target_kind', 'target_key'):
-            if name not in columns:
-                c.execute(f"ALTER TABLE calendar_sources ADD COLUMN {name} TEXT NOT NULL DEFAULT ''")
-        for statement in statements((folder / '150_calendar_links.sql').read_text(encoding='utf-8-sig')):
-            c.execute(statement)
-        c.execute("""INSERT OR IGNORE INTO calendar_links
-            (target_kind,target_key,calendar_url,calendar_name,import_enabled,export_enabled)
-            SELECT 'organiser_section',CAST(id AS TEXT),calendar_url,calendar_name,import_enabled,export_enabled
-            FROM organiser_sections WHERE calendar_url<>''""")
-        c.execute("""UPDATE calendar_sources SET target_kind='organiser_section',target_key=CAST(section_id AS TEXT)
-            WHERE section_id IS NOT NULL AND target_kind=''""")
-        c.execute('INSERT INTO schema_migrations VALUES (?,CURRENT_TIMESTAMP)', (migration_id,))
-        c.commit()
-        return {'status': 'applied'}
+        for migration_id in ('150_calendar_links', '151_sections'):
+            if c.execute('SELECT 1 FROM schema_migrations WHERE migration_id=?', (migration_id,)).fetchone():
+                continue
+            c.execute('BEGIN IMMEDIATE')
+            if migration_id == '150_calendar_links':
+                columns = {row[1] for row in c.execute('PRAGMA table_info(calendar_sources)')}
+                for name in ('target_kind', 'target_key'):
+                    if name not in columns:
+                        c.execute(f"ALTER TABLE calendar_sources ADD COLUMN {name} TEXT NOT NULL DEFAULT ''")
+                for statement in statements((folder / '150_calendar_links.sql').read_text(encoding='utf-8-sig')):
+                    c.execute(statement)
+                c.execute("""INSERT OR IGNORE INTO calendar_links
+                    (target_kind,target_key,calendar_url,calendar_name,import_enabled,export_enabled)
+                    SELECT 'organiser_section',CAST(id AS TEXT),calendar_url,calendar_name,import_enabled,export_enabled
+                    FROM organiser_sections WHERE calendar_url<>''""")
+                c.execute("""UPDATE calendar_sources SET target_kind='organiser_section',target_key=CAST(section_id AS TEXT)
+                    WHERE section_id IS NOT NULL AND target_kind=''""")
+            else:
+                for statement in statements((folder / '151_sections.sql').read_text(encoding='utf-8-sig')):
+                    c.execute(statement)
+            c.execute('INSERT INTO schema_migrations VALUES (?,CURRENT_TIMESTAMP)', (migration_id,))
+            c.commit()
+            applied.append(migration_id)
+        return {'status': 'applied' if applied else 'skipped', 'migrations': applied}

@@ -1,6 +1,6 @@
 @echo off
 cd /d "%~dp0"
-title Align - Set Up Beta Owner
+title Align - Set Up Owner
 if exist ".venv\Scripts\python.exe" (
   ".venv\Scripts\python.exe" beta_setup.py
 ) else (

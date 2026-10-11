@@ -28,7 +28,7 @@ function Find-Python {
 }
 
 try {
-  Write-Log "Starting Align v1.3 Beta Build $ExpectedBuild installation."
+  Write-Log "Starting Align V3.0 Build $ExpectedBuild installation."
   Write-Log "Root: $Root"
   if ($env:OS -ne 'Windows_NT') { throw 'This installer is intended for Windows.' }
 
@@ -98,12 +98,12 @@ finally: con.close()
 
   $appVerify = @"
 import app
-if app.BUILD_VERSION != $ExpectedBuild: raise RuntimeError(f'Expected Build $ExpectedBuild, found {app.BUILD_VERSION}')
+if app.BUILD_VERSION != $ExpectedBuild`: raise RuntimeError(f'Expected Build $ExpectedBuild, found {app.BUILD_VERSION}')
 s=app.health_status()
 if not s['database']['available']: raise RuntimeError('Align database is not available')
 if s['database'].get('backend','sqlite') != 'sqlite': raise RuntimeError('Local installer expected SQLite backend')
 print('Application import: OK')
-print('Build $ExpectedBuild: OK')
+print('Build ${ExpectedBuild}: OK')
 print('SQLite backend: OK')
 print('Health check: OK')
 "@

@@ -6,10 +6,14 @@ otp-runtime/
 # Local accounts, planner data, credentials and runtime artefacts.
 *.sqlite3*
 *.db
+beta_secret.key
 *.pem
 *.key
 .env
 .env.*
+!.env.example
+dist/*.exe
+otp-runtime/
 .align_https/
 .align_beta/
 beta_data/
@@ -22,5 +26,8 @@ test-results/
 install-logs/
 
 Backups/
+
+# Temporary one-off development scripts; production source lives at the root.
+work/
 
 .align/

@@ -65,12 +65,16 @@ def translate(sql):
 
 def schema_for(path):
     path = Path(path)
-    if 'beta_data' in path.parts:
-        raise RuntimeError('Hosted tester persistence is not configured; refusing local storage')
-    schema = {'beta_users.sqlite3': 'align_auth', 'align.sqlite3': 'align_owner'}.get(path.name)
-    if schema is None:
+    # Tester storage paths are strictly per-user. Never let a file placed in
+    # beta_data route to the shared auth or owner schema by basename.
+    if path.parent.name == 'beta_data':
+        if re.fullmatch(r'[a-f0-9]{24}\.sqlite3', path.name, re.I):
+            return 'align_tester_' + path.stem.lower()
         raise RuntimeError('Unsupported hosted database path; refusing local storage')
-    return schema
+    schema = {'beta_users.sqlite3': 'align_auth', 'align.sqlite3': 'align_owner'}.get(path.name)
+    if schema:
+        return schema
+    raise RuntimeError('Unsupported hosted database path; refusing local storage')
 
 
 class Connection:
@@ -232,6 +236,61 @@ def connect(path):
     return Connection(raw, schema)
 
 
+def _bootstrap_statements():
+    source = Path(__file__).resolve().parent / 'migrations' / 'postgres' / 'bootstrap.sql'
+    pending = ''
+    for char in source.read_text(encoding='utf-8-sig'):
+        pending += char
+        if char == ';':
+            statement = pending.strip()
+            pending = ''
+            if statement:
+                yield statement
+    if pending.strip():
+        raise RuntimeError('Hosted schema bootstrap contains an incomplete SQL statement.')
+
+
+def provision_tester_schema(path):
+    """Create an empty per-tester schema from the reviewed static PostgreSQL DDL."""
+    schema = schema_for(path)
+    if not schema.startswith('align_tester_'):
+        raise RuntimeError('Only a tester schema can be provisioned by this operation.')
+    dsn = os.environ.get('DATABASE_URL', '').strip()
+    if not dsn:
+        raise RuntimeError('DATABASE_URL is required to provision hosted tester storage.')
+    try:
+        with psycopg.connect(dsn, connect_timeout=10) as raw, raw.cursor() as cursor:
+            cursor.execute('SELECT to_regnamespace(%s)', (schema,))
+            if cursor.fetchone()[0]:
+                return
+            cursor.execute(sql.SQL('CREATE SCHEMA {}').format(sql.Identifier(schema)))
+            for statement in _bootstrap_statements():
+                if statement.startswith('CREATE TABLE align_owner.') or statement.startswith('ALTER TABLE align_owner.'):
+                    cursor.execute(statement.replace('align_owner.', sql.Identifier(schema).as_string(raw) + '.'))
+            cursor.execute(sql.SQL("""INSERT INTO {}.schema_migrations(migration_id,applied_at)
+                VALUES('149_asset_studio',CURRENT_TIMESTAMP),('149_transport',CURRENT_TIMESTAMP),
+                ('150_calendar_links',CURRENT_TIMESTAMP),('151_sections',CURRENT_TIMESTAMP)
+                ON CONFLICT(migration_id) DO NOTHING""").format(sql.Identifier(schema)))
+    except psycopg.Error:
+        raise RuntimeError('Could not create the tester schema from the reviewed hosted schema.') from None
+
+
+def delete_tester_schema(path, user_id):
+    """Delete one tester schema and its account row in the same database transaction."""
+    schema = schema_for(path)
+    if not schema.startswith('align_tester_'):
+        raise RuntimeError('Only a tester schema can be deleted by this operation.')
+    dsn = os.environ.get('DATABASE_URL', '').strip()
+    if not dsn:
+        raise RuntimeError('DATABASE_URL is required to delete hosted tester storage.')
+    try:
+        with psycopg.connect(dsn, connect_timeout=10) as raw, raw.cursor() as cursor:
+            cursor.execute(sql.SQL('DROP SCHEMA IF EXISTS {} CASCADE').format(sql.Identifier(schema)))
+            cursor.execute('DELETE FROM align_auth.beta_users WHERE user_id=%s', (user_id,))
+    except psycopg.Error:
+        raise RuntimeError('Could not delete the tester account and its hosted data.') from None
+
+
 def validate_auth(c):
     for table in ('beta_users', 'beta_sessions', 'beta_invites', 'beta_password_resets',
                   'beta_idempotency', 'beta_audit_events', 'beta_rate_events',
@@ -245,8 +304,10 @@ def validate_planner(c):
                   'shift_types', 'location_shift_types', 'annual_leave', 'alert_rules', 'alerts',
                   'calendar_sources', 'calendar_events', 'organiser_sections', 'organiser_events',
                   'parent_menu_branches', 'menu_branches', 'builder_config', 'builder_records',
+                  'calendar_links', 'section_defs', 'section_fields',
                   'calendar_sync_state', 'icloud_config', 'icloud_items', 'shift_batches'):
         c.execute(f'SELECT * FROM {table} LIMIT 0')
+    c.execute('SELECT layout_json FROM section_defs LIMIT 0')
     c.execute('SELECT applicable_days, sub_shift_type FROM shift_templates LIMIT 0')
 
 

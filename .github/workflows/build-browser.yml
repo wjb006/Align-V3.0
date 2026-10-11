@@ -1,4 +1,4 @@
-name: Build 156 browser regressions
+name: Align V3.0 browser regressions
 on:
   pull_request:
     branches: [main]
@@ -34,21 +34,21 @@ jobs:
       - name: Install browser
         working-directory: browser-tests
         run: npx playwright install --with-deps ${{ matrix.browser }}
-      - name: Run Build 156 browser regressions
+      - name: Run browser regressions
         env:
           BROWSER: ${{ matrix.browser }}
           MOBILE_DEVICE: ${{ matrix.mobile_device }}
-        run: node browser-tests/build156.spec.js
+        run: node browser-tests/align.spec.js
       - name: Upload mobile visual evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: build156-visual-${{ matrix.browser }}-${{ matrix.mobile_device || 'desktop' }}
+          name: align-v3-visual-${{ matrix.browser }}-${{ matrix.mobile_device || 'desktop' }}
           path: test-results/*.png
           if-no-files-found: ignore
           retention-days: 14
   package:
-    name: Package successful Build 156
+    name: Package successful Align V3.0
     needs: browser
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -59,12 +59,12 @@ jobs:
       - name: Create source ZIP
         run: |
           SHORT_SHA="${GITHUB_SHA::7}"
-          VERSION="Build-156-${SHORT_SHA}"
+          VERSION="${SHORT_SHA}"
           mkdir -p dist
-          git archive --format=zip --prefix="Align-v1.3-${VERSION}/" HEAD -o "dist/Align-v1.3-${VERSION}.zip"
+          git archive --format=zip --prefix="Align-V3.0-${VERSION}/" HEAD -o "dist/Align-V3.0-${VERSION}.zip"
       - name: Upload successful build ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: Align-v1.3-Build-156-${{ github.sha }}
+          name: Align-V3.0-${{ github.sha }}
           path: dist/*.zip
           retention-days: 90

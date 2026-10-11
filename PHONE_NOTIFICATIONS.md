@@ -1,6 +1,6 @@
 # Phone notifications
 
-Opt-in Web Push for the hosted beta. Uses existing account-scoped `settings`
+Opt-in Web Push for hosted Align. Uses existing account-scoped `settings`
 storage, preserving SQLite and the hosted adapter without schema migrations.
 Includes personal reminders and pending work alerts only. Calendar/category
 reminders must create explicit due reminders before they can use this sender.
@@ -9,7 +9,7 @@ reminders must create explicit due reminders before they can use this sender.
 
 Set `ALIGN_PUSH_PRIVATE_KEY` (base64 DER P-256 private key),
 `ALIGN_PUSH_PUBLIC_KEY` (base64url uncompressed P-256 public key), and
-`ALIGN_PUSH_CRON_SECRET` (random 32-byte or stronger token) on the beta service.
+`ALIGN_PUSH_CRON_SECRET` (random 32-byte or stronger token) on the Align service.
 Keep keys stable across deployments. Never commit them or place them in URLs.
 The push library uses HTTPS with redirects disabled and allows only known
 Apple, Google and Mozilla push endpoints.
@@ -17,7 +17,7 @@ Apple, Google and Mozilla push endpoints.
 ## Free scheduler
 
 On cron-job.org, create **Align reminder delivery**, once per minute, HTTPS POST
-to `https://beta.getalign.co.uk/api/phone-push/dispatch` with custom header
+to the configured Align service's `/api/phone-push/dispatch` endpoint with custom header
 `Authorization: Bearer <ALIGN_PUSH_CRON_SECRET>`. Empty body. Do not save
 response bodies. Do not place Align login details or reminder data in the job.
 Keep disabled until the endpoint is deployed and manually tested. Check job
@@ -31,7 +31,7 @@ Overdue reminders are retried for 24 hours, but only when due after the device
 opted in. Accepted sends have durable per-device receipts; a crash between
 provider acceptance and saving may resend, using the same notification tag.
 404/410 subscriptions are removed. Other failures retry on the next run.
-This beta-sized sender is not a high-volume queue; monitor backlog before
+This sender is not a high-volume queue; monitor backlog before
 adding many accounts. Free hosting can sleep or hit limits; timing is not
 guaranteed and this must not be the sole medication or critical reminder.
 

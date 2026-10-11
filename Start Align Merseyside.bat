@@ -24,9 +24,5 @@ if errorlevel 1 (
 
 echo Merseyside routing is ready.
 echo Open http://127.0.0.1:%ALIGN_PORT%/ after Align starts.
-if exist ".venv\Scripts\python.exe" (
-  ".venv\Scripts\python.exe" launch.py
-) else (
-  py -3 launch.py
-)
+call "%~dp0Start-Align.bat"
 endlocal

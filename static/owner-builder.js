@@ -436,7 +436,7 @@ function workflowTree(layout) {
     const items=editIndex().filter(x=>(x.title+' '+x.detail).toLowerCase().includes(query));
     if(!query) return '';
     const shown=items;
-    const groups=[['Welcome','startup'],['Menus','menus'],['Lists','layouts'],['Home screen','home-nav']];
+    const groups=[['Welcome','startup'],['Menus','menus'],['Sections','layouts'],['Home screen','home-nav']];
     const jump=x=>`<button class="builder-jump" data-jump="${e(x.tab)}" data-select="${e(x.item||'')}" data-select-field="${e(x.field||'')}"><strong>${e(x.title)}</strong><small>${e(x.detail)}</small></button>`;
     const body=groups.map(([label,name])=>{
       const rows=shown.filter(x=>x.tab===name);
@@ -1577,10 +1577,10 @@ function render(previewOnly=false) {
 
     else {
       editor = `
-        <h2>Lists</h2>
+        <h2>Sections</h2>
 
         <p class="helper">
-          Choose a list to edit. Each list is a form people can fill in.
+          Create a section and its question matrix together. Each question becomes a column in the database and part of the guided entry form.
         </p>
 
         ${doc.layouts.map(item => `
@@ -1610,7 +1610,7 @@ function render(previewOnly=false) {
           class="secondary-button"
           data-add-layout
         >
-          Create a list
+          Create section + input matrix
         </button>
 
 
@@ -1650,6 +1650,9 @@ function render(previewOnly=false) {
                     layout.description
                   )}
 
+                  <p class="helper">Step 1 of 3 · Name this database. Next, add its questions and arrange the order people will answer them.</p>
+                  ${layout.id==='work' ? `<section class="builder-editor"><h3>Link Work answers to Align</h3><p class="helper">Choose which questions mean Work Location, Shift Area, work date, and start/end times. These links let Align use your custom fields consistently.</p>${[['location','Work Location'],['area','Shift Area'],['date','Work date'],['start_time','Start time'],['end_time','End time']].map(([role,label])=>`<div class="field"><label>${label}<select data-work-association="${role}"><option value="">Not linked</option>${(layout.fields||[]).filter(field=>role==='date'?field.type==='date':['text','textarea','select'].includes(field.type)).map(field=>`<option value="${e(field.id)}" ${(layout.work_associations||{})[role]===field.id?'selected':''}>${e(field.label)}</option>`).join('')}</select></label></div>`).join('')}</section>` : ''}
+
                   <div class="field">
                     <label>
                       Record display
@@ -1668,7 +1671,16 @@ function render(previewOnly=false) {
 
                 </div>
 
-                ${fieldList()}
+                <section class="section-matrix-setup">
+                  <h3>Step 2 of 3 · Build the input matrix</h3>
+                  <p class="helper">Add each piece of information people should enter. Choose a type, mark required answers, and move questions into the order that makes sense.</p>
+                  ${fieldList()}
+                </section>
+                <section class="section-matrix-preview">
+                  <h3>Step 3 of 3 · Review the entry form</h3>
+                  <p class="helper">This preview follows the same question order and required settings used when someone creates a record.</p>
+                  ${previewFields(layout.fields)}
+                </section>
               `
             : ''
         }
@@ -1921,6 +1933,7 @@ function render(previewOnly=false) {
     }
 
     if(el.dataset.conditionField){changed();const field=fields().find(f=>f.id===fieldId);field.show_when={};el.closest('[data-field-editor]').querySelectorAll('[data-condition-field]:checked').forEach(x=>{(field.show_when[x.dataset.conditionField]||=[]).push(JSON.parse(x.dataset.conditionValue));});render();return;}
+    if(el.dataset.workAssociation){changed();const layout=currentLayout();layout.work_associations=layout.work_associations||{};layout.work_associations[el.dataset.workAssociation]=el.value;status('Work association changed. Save the draft when ready.');return;}
     if(!key && !el.dataset.navProp && !el.dataset.sectionProp)return;
     if((tab==='home-nav'||tab==='base-structure') && key.startsWith('nav-title-')) { changed(); doc.navigation[Number(key.slice(10))].title=el.value; status('Unsaved changes. Save a draft or publish when ready.'); return; }
     if((tab==='home-nav'||tab==='base-structure') && key.startsWith('nav-icon-')) { changed(); doc.navigation[Number(key.slice(9))].icon=el.value; status('Unsaved changes. Save a draft or publish when ready.'); return; }
@@ -1948,6 +1961,20 @@ if(b.dataset.workflowNode) {
     return;
   }
 
+if(b.hasAttribute('data-preview-create-layout')) {
+  tab = 'layouts'; selected = ''; fieldId = '';
+  changed();
+  const layout = {id:id('layout'),title:'New section',description:'',view:'table',review_before_save:true,fields:[{id:id('field'),label:'Name',type:'text',required:true,help:'What should this entry be called?',options:[]},{id:id('field'),label:'Date',type:'date',required:false,help:'',options:[]}]};
+  doc.layouts.push(layout); selected=layout.id; render();
+  return;
+}
+
+if(b.dataset.previewEditLayout) {
+  tab = 'layouts'; selected = b.dataset.previewEditLayout; fieldId = '';
+  render();
+  return;
+}
+
   if(b.dataset.financeView) {
     financeView = b.dataset.financeView;
     workflowNodeId = '';
@@ -1971,7 +1998,7 @@ if(b.dataset.workflowNode) {
     if(b.dataset.move){changed();const m=doc.menus.find(x=>x.id===b.dataset.move),siblings=doc.menus.filter(x=>x.parent_id===m.parent_id),other=siblings[siblings.indexOf(m)+Number(b.dataset.dir)];if(other){const a=doc.menus.indexOf(m),c=doc.menus.indexOf(other);[doc.menus[a],doc.menus[c]]=[doc.menus[c],doc.menus[a]];}render();}
     if(b.hasAttribute('data-delete-menu')&&confirm('Delete this menu item? Its child items will move up one level. Records are retained.')){changed();const m=doc.menus.find(x=>x.id===selected);doc.menus.forEach(x=>{if(x.parent_id===selected)x.parent_id=m.parent_id;});doc.menus=doc.menus.filter(x=>x.id!==selected);selected='';render();}
     if(b.hasAttribute('data-bills-template')){changed();const l={id:id('layout'),title:'Bills',description:'Enter bill amounts and payments. Balance and totals calculate automatically.',view:'table',fields:[{id:'bill',label:'Bill',type:'text',required:true,help:'',options:[]},{id:'amount',label:'Amount',type:'number',required:true,help:'Amount due in pounds',options:[]},{id:'paid',label:'Paid',type:'number',required:true,help:'Enter 0 if unpaid',options:[]},{id:'balance',label:'Balance',type:'formula',formula:'[Amount] - [Paid]',required:false,help:'Calculated when saved',options:[]}]};doc.layouts.push(l);selected=l.id;fieldId='';doc.menus.push({id:id('menu'),parent_id:'',title:'Bills',description:'Bills and payments',icon:'£',colour:'#365CE6',destination:'layout',layout_id:l.id,content:'',active:true});render();}
-    if(b.hasAttribute('data-add-layout')){changed();const l={id:id('layout'),title:'New list',description:'',view:'table',fields:[{id:id('field'),label:'Title',type:'text',required:true,help:'',options:[]}]};doc.layouts.push(l);selected=l.id;fieldId='';render();}
+    if(b.hasAttribute('data-add-layout')){changed();const l={id:id('layout'),title:'New section',description:'',view:'table',review_before_save:true,fields:[{id:id('field'),label:'Name',type:'text',required:true,help:'What should this entry be called?',options:[]},{id:id('field'),label:'Date',type:'date',required:false,help:'',options:[]}]};doc.layouts.push(l);selected=l.id;fieldId='';render();}
     if(b.hasAttribute('data-duplicate-layout')){changed();const l=copy(currentLayout());l.id=id('layout');l.title+=' copy';doc.layouts.push(l);selected=l.id;render();}
     if(b.hasAttribute('data-link-layout')){const l=currentLayout();newMenu();const m=doc.menus.find(x=>x.id===selected);m.title=l.title;m.description=l.description;m.destination='layout';m.layout_id=l.id;tab='menus';render();}
     if(b.hasAttribute('data-delete-layout')&&confirm('Delete this layout and its linked menu items? Existing user records are retained. Export the configuration first if you want to restore this layout later.')){changed();doc.layouts=doc.layouts.filter(x=>x.id!==selected);doc.menus=doc.menus.filter(x=>x.layout_id!==selected);selected='';fieldId='';render();}
