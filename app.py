@@ -851,11 +851,9 @@ def fold_ics_line(line: str) -> str:
 
 
 def align_ics(connection: sqlite3.Connection) -> bytes:
-    settings = get_settings(connection)
     sync = connection.execute("SELECT * FROM calendar_sync_state WHERE id=1").fetchone()
-    calendar_name = "Align · " + (settings["default_calendar"] or "Work")
-    lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Align//Shift Planner//EN", "CALSCALE:GREGORIAN",
-             "X-WR-CALNAME:" + ics_escape(calendar_name), "X-WR-TIMEZONE:Europe/London",
+    lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Align//Align Calendar//EN", "CALSCALE:GREGORIAN",
+             "X-WR-CALNAME:Align", "X-WR-TIMEZONE:Europe/London",
              "REFRESH-INTERVAL;VALUE=DURATION:PT15M", "X-PUBLISHED-TTL:PT15M",
              "BEGIN:VTIMEZONE", "TZID:Europe/London",
              "BEGIN:DAYLIGHT", "DTSTART:19960331T010000", "TZOFFSETFROM:+0000", "TZOFFSETTO:+0100",
@@ -863,52 +861,27 @@ def align_ics(connection: sqlite3.Connection) -> bytes:
              "BEGIN:STANDARD", "DTSTART:19961027T020000", "TZOFFSETFROM:+0100", "TZOFFSETTO:+0000",
              "TZNAME:GMT", "RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU", "END:STANDARD", "END:VTIMEZONE"]
     revision_lines = [f"DTSTAMP:{sync['modified_at']}", f"LAST-MODIFIED:{sync['modified_at']}", f"SEQUENCE:{sync['revision']}"]
-    rules = alert_rules(connection, active_only=True) if settings["notifications"] else []
-    for shift in shift_query(connection, None, None):
-        start = datetime.fromisoformat(f"{shift['work_date']}T{shift['start_time']}")
-        end = datetime.fromisoformat(f"{shift['work_date']}T{shift['end_time']}")
-        if end <= start:
-            end += timedelta(days=1)
-        lines.extend(["BEGIN:VEVENT", f"UID:align-shift-{shift['id']}@local", *revision_lines,
-                      f"DTSTART;TZID=Europe/London:{start.strftime('%Y%m%dT%H%M%S')}",
-                      f"DTEND;TZID=Europe/London:{end.strftime('%Y%m%dT%H%M%S')}", "STATUS:CONFIRMED",
-                      f"SUMMARY:{ics_escape(shift['location_name'] + ' – ' + shift['shift_type_name'])}",
-                      f"LOCATION:{ics_escape(shift['location_address'] or shift['location_name'])}",
-                      f"DESCRIPTION:{ics_escape(travel_calendar.calendar_description(shift['notes']))}"])
-        journey = travel_calendar.plan(shift.get('notes'), start) if settings["notifications"] else None
-        shift_rules = travel_reminders.rules(shift.get('notes'), rules)
-        if journey:
-            lead = int((start - journey[0]).total_seconds() // 60)
-            lines.append(f"X-APPLE-TRAVEL-DURATION;VALUE=DURATION:PT{journey[1]}M")
-            if not any(r['minutes_before'] == lead for r in shift_rules):
-                shift_rules.append({
-                    'title': travel_calendar.leave_alert_title(
-                        journey[0], shift['location_name'] + ' – ' + shift['shift_type_name']),
-                    'minutes_before': lead,
-                })
-        for rule in shift_rules:
-            trigger = f"-PT{rule['minutes_before']}M" if rule["minutes_before"] else "PT0M"
-            lines.extend(["BEGIN:VALARM", f"TRIGGER:{trigger}", "ACTION:DISPLAY",
-                          f"DESCRIPTION:{ics_escape(rule['title'])}", "END:VALARM"])
+    # The Align subscription now exports the event records created through
+    # Sections. Legacy shift and annual-leave rows stay in their tables for
+    # backup/recovery, but are no longer published as part of the V3 calendar.
+    for event in connection.execute(
+        "SELECT id,title,start_at,end_at,all_day,location,notes FROM organiser_events ORDER BY start_at,id"
+    ):
+        start = datetime.fromisoformat(event["start_at"])
+        end = datetime.fromisoformat(event["end_at"])
+        lines.extend(["BEGIN:VEVENT", f"UID:align-event-{event['id']}@getalign.co.uk", *revision_lines])
+        if event["all_day"]:
+            lines.extend([f"DTSTART;VALUE=DATE:{start.strftime('%Y%m%d')}",
+                          f"DTEND;VALUE=DATE:{end.strftime('%Y%m%d')}"])
+        else:
+            lines.extend([f"DTSTART;TZID=Europe/London:{start.strftime('%Y%m%dT%H%M%S')}",
+                          f"DTEND;TZID=Europe/London:{end.strftime('%Y%m%dT%H%M%S')}"])
+        lines.extend(["STATUS:CONFIRMED", f"SUMMARY:{ics_escape(event['title'])}"])
+        if event["location"]:
+            lines.append(f"LOCATION:{ics_escape(event['location'])}")
+        if event["notes"]:
+            lines.append(f"DESCRIPTION:{ics_escape(event['notes'])}")
         lines.append("END:VEVENT")
-        if journey and journey[0] < start:
-            leave_title = travel_calendar.leave_alert_title(
-                journey[0], shift['location_name'] + ' – ' + shift['shift_type_name'])
-            lines.extend(["BEGIN:VEVENT", f"UID:align-travel-{shift['id']}@local", *revision_lines,
-                          f"DTSTART;TZID=Europe/London:{journey[0].strftime('%Y%m%dT%H%M%S')}",
-                          f"DTEND;TZID=Europe/London:{start.strftime('%Y%m%dT%H%M%S')}",
-                          "TRANSP:TRANSPARENT", "STATUS:CONFIRMED",
-                          f"SUMMARY:{ics_escape('Travel to ' + shift['location_name'])}",
-                          f"DESCRIPTION:{ics_escape('Leave at ' + journey[0].strftime('%H:%M') + ' (about ' + str(journey[1]) + ' minutes). Planned in Align.')}",
-                          "BEGIN:VALARM", "TRIGGER:PT0S", "ACTION:DISPLAY",
-                          f"DESCRIPTION:{ics_escape(leave_title)}", "END:VALARM",
-                          "END:VEVENT"])
-    for leave in connection.execute("SELECT * FROM annual_leave ORDER BY leave_date"):
-        start = date.fromisoformat(leave["leave_date"])
-        lines.extend(["BEGIN:VEVENT", f"UID:align-leave-{leave['id']}@local", *revision_lines,
-                      f"DTSTART;VALUE=DATE:{start.strftime('%Y%m%d')}",
-                      f"DTEND;VALUE=DATE:{(start + timedelta(days=1)).strftime('%Y%m%d')}",
-                      "SUMMARY:Annual leave", f"DESCRIPTION:{ics_escape(leave['notes'])}", "END:VEVENT"])
     lines.append("END:VCALENDAR")
     return ("\r\n".join(fold_ics_line(line) for line in lines) + "\r\n").encode("utf-8")
 

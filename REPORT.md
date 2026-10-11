@@ -25,15 +25,18 @@
 - Bumped coordinated web asset cache revision to `156-v35` after frontend changes.
 - Began replacing fixed shift setup with an optional Work database. Studio links custom questions to Work Location, Shift Area, work date, and start/end times; users can opt in and retain private records.
 - Updated Management Studio Work matrix to associate custom fields with location, area, work date, and start/end time; Work remains optional and records are private.
+- Changed the main Align calendar subscription to export timed and all-day Section events. Legacy shifts and annual-leave rows remain in the database for recovery but are no longer published in the V3 feed.
 - Consolidated Build 153/154/156 V2.1/V2.2 release notes into the Build 156 notes file, removed a duplicate SQL verification file, and removed one-off scratch scripts.
 - Added `.env.example`, environment/deployment documentation, `render.yaml`, a Postgres bootstrap, and separate hosted-persistence and three-device browser workflows.
 ## Verification
-- Last full Python run: 71 failed, 236 passed, 3 skipped, 16 subtests passed. The failure set was dominated by legacy shift/work-schedule tests targeting routes no longer exposed in V3; rerun and classify after test cleanup.
+- Latest full Python run: 70 failed, 237 passed, 3 skipped, 16 subtests passed. Remaining failures are old shift/work-schedule/iCloud tests calling removed routes or expecting the removed `bootstrap.master`; imported base test classes are collected repeatedly. These tests need replacement with V3 event and Work coverage.
+- New event-feed regression: passed. It covers timed/all-day event export, stable event UID, legacy-row preservation and excluding legacy shifts/leave from the published calendar.
 - Latest focused checks: 20 Python tests passed; navigation/Work, date, UI polish, Build 156 asset consistency, and `git diff --check` passed.
 - Fixed PowerShell installer interpolation so the embedded Build 156 verification command parses correctly.
 - Latest desktop Playwright: section records, calendar event list/month, Studio draft/publish, and phone preview passed. Pixel 7 Chromium and iPhone 13 WebKit need a fresh run after the current UI changes.
 - Fresh SQLite initialization succeeded; Python compilation and `git diff --check` succeeded.
 - Pushed development snapshot to private `wjb006/Align-V3.0`; no V3 Render service or dedicated Neon database has been provisioned.
+- Render reconfirmed to contain only the old `align-beta-preview` service on `wjb006/Align-app`; no Render Postgres exists. Neon tools currently require reauthentication. Existing service and IONOS DNS remain unchanged.
 ## Outstanding brief requirements
 - Remove all shift features, tables, APIs, alerts, UI, scripts, and related tests. This is a major unfinished requirement; the existing shift planner still runs.
 - Complete and verify the optional Work database flow, including user opt-in and custom field associations.
