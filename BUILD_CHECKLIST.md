@@ -5,7 +5,7 @@
 - **Workspace:** `C:\Users\wjboy\OneDrive\Documents\ChatGPT\Align V3.0`
 - **Original source (read-only):** `C:\Align\Align_App`
 - **Working branch:** `codex/align-v3-rebuild`
-- **Current commit at last check:** `e01478c` — `Update Align V3 build checklist` (event-feed work in progress)
+- **Current commit at last check:** `f53c182` — `Publish section events in Align calendar feed`
 **Scope:** Align V3.0 implementation from the supplied Codex brief, with the user's explicit Align V3.0 naming taking precedence over any older product name in the brief.
 **Domain:** `getalign.co.uk` is owned by the user through IONOS; current DNS still points to existing IONOS hosting. Do not change records until Render provides the verified target.
 ## How to use this document
@@ -16,7 +16,7 @@
 - Preserve `C:\Align\Align_App` as read-only. Preserve user data and unrelated working-tree changes.
 - GitHub remote is `origin` → private `wjb006/Align-V3.0`; no V3 Render service or dedicated database is provisioned yet.
 ## Current handoff: resume here
-- [~] Main rebuild work continues on `codex/align-v3-rebuild`; current event-feed changes are not committed yet.
+- [~] Main rebuild work continues on `codex/align-v3-rebuild`; tested event-feed changes are committed and pushed.
 - [x] Current work includes the Studio's phone-preview section-to-database input-matrix flow: create a section or open its editor; new sections start with required Name, optional Date, and review-before-save; the editor describes naming, matrix setup, and form review.
 - [!] Latest full Python run: `.venv\Scripts\python.exe -m pytest -q` — **70 failed, 237 passed, 3 skipped, 16 subtests passed**. The failing tests are legacy shift/work-schedule/iCloud tests calling retired APIs or expecting the removed `bootstrap.master`; several imported test base classes are also collected repeatedly. Replace these with V3 event/Work coverage and prevent duplicate collection before calling the suite green.
 - [x] Latest desktop Playwright run: `node browser-tests/align.spec.js` — passed, covering section records, calendar event list/month views, Studio draft/publish, and phone preview. Shift totals and annual-leave UI expectations were removed from the retained calendar check.
@@ -36,7 +36,7 @@
 - [x] Added the new repository as `origin`; reviewed ignore rules (local `.env` and SQLite databases excluded); latest pushed development commit is `c64fb25` on `codex/align-v3-rebuild`.
 - [~] Keep the pushed branch as development work only until legacy test expectations are retired/updated, browser checks pass on the final shift-free flow, and hosted persistence is verified.
 - [x] Domain ownership confirmed by user: `getalign.co.uk` is managed through IONOS; RDAP reports active registration to 9 September 2027. DNS currently resolves to IONOS hosting (`217.160.0.25` and `2001:8d8:100f:f000::200`).
-- [x] Commit and push the profile/Settings and event-only calendar regression updates after focused verification (`c64fb25`, `e01478c`; event-feed work is current).
+- [x] Commit and push the profile/Settings and event-only calendar regression updates after focused verification (`c64fb25`, `e01478c`, `f53c182`).
 ## 7. Hosted service, database, and custom domain
 - [x] Render workspace `Align-App` (`tea-dagsdf6k1f9s73dof7i0`) inspected read-only; no additional workspace is needed.
 - [~] Existing free Render service `align-beta-preview` uses `wjb006/Align-app` main and remains untouched. No Render Postgres instance exists in this workspace.
@@ -168,3 +168,4 @@
 - **2026-10-11:** Audited build/update grouping. Progress and acceptance status are grouped here and in `REPORT.md`; the Playwright matrix is grouped, but operational scripts remain separate and need a duplicate/purpose audit before consolidation.
 - **2026-10-11:** Grouped Align startup modes and optional integrations, merged OTP shutdown handling, renamed the account dependency bundle, and updated installer documentation. Beta remains only in legacy account/API/storage compatibility internals; the user-facing app is Align. Bumped coordinated cache revision to `156-v34`; focused verification is pending.
 - **2026-10-11:** Focused follow-up passed: core navigation, display-date, UI polish, Scriptable bridge, phone push, Build 156 asset verifier, and 16 Python UI/route/Owner tests. PowerShell parsing passed for the add-ons, remote-access, uninstaller, and cleanup scripts; git diff --check passed (line-ending warnings only).
+- **2026-10-11:** Re-ran full Python suite (70 retired schedule failures, 237 passed, 3 skipped, 16 subtests); replaced Align's published shift/leave feed with timed/all-day Section event export. New feed regression and desktop browser pass; old database rows are preserved. Render still has no V3 service/Postgres; Neon connection needs reauthentication.
