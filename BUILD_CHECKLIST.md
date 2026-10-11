@@ -5,7 +5,7 @@
 - **Workspace:** `C:\Users\wjboy\OneDrive\Documents\ChatGPT\Align V3.0`
 - **Original source (read-only):** `C:\Align\Align_App`
 - **Working branch:** `codex/align-v3-rebuild`
-- **Current commit at last check:** `347ab82` — `Retire obsolete shift tests and verify event flows`
+- **Current commit at last check:** `2b11599` — `Keep management controls in standalone Studio` (latest implementation remains local and uncommitted)
 **Scope:** Align V3.0 implementation from the supplied Codex brief, with the user's explicit Align V3.0 naming taking precedence over any older product name in the brief.
 **Domain:** `getalign.co.uk` is owned by the user through IONOS; current DNS still points to existing IONOS hosting. Do not change records until Render provides the verified target.
 ## How to use this document
@@ -18,9 +18,10 @@
 ## Current handoff: resume here
 - [~] Main rebuild work continues on `codex/align-v3-rebuild`; event-feed and test-retirement changes are committed and pushed (`347ab82`).
 - [x] Current work includes the Studio's phone-preview section-to-database input-matrix flow: create a section or open its editor; new sections start with required Name, optional Date, and review-before-save; the editor describes naming, matrix setup, and form review.
-- [x] Latest full Python run: `.venv\Scripts\python.exe -m pytest -q` — **222 passed, 3 skipped, 23 subtests passed** (11 October 2026); retired shift-only test modules were removed and shared test setup was moved to `test_support.py`.
+- [x] Latest full Python run: `.venv\Scripts\python.exe -m pytest -q` — **227 passed, 3 skipped, 23 subtests passed** (11 October 2026); latest Outlook and iCloud changes included.
 - [x] Latest desktop Playwright run: `node browser-tests/align.spec.js` — passed, covering section records, calendar event list/month views, Studio draft/publish, and phone preview. Shift totals and annual-leave UI expectations were removed from the retained calendar check.
-- [x] Latest focused verification: 20 Python tests passed across Builder defaults, Owner Builder, extracted routes, and UI polish; navigation, optional Work, date-format, UI-polish, cache verifier, and `git diff --check` passed.
+- [x] Latest focused verification: `node test_core_navigation.js`, `node test_display_dates.js`, `node test_ui_polish.js`, `python verify_align_build156.py`, desktop Chromium regression, and `git diff --check` passed (11 October 2026).
+- [~] iCloud calendar selection now lists all calendars in the connected account, lets users select existing calendars or create new ones, creates a matching quick-add Section, and offers an event/reminder calendar dropdown with a “Create New Calendar” option. Reminder entries also create/remove their linked Section calendar event. Focused regressions and desktop browser checks pass; verify with a real Apple account, connected calendar sync, and hosted user isolation before marking complete.
 - [~] Pixel 7 Chromium and iPhone 13 WebKit passed in an earlier browser matrix, before the newest database-matrix handoff changes. Re-run those profiles after the next meaningful UI changes.
 - [~] Shift removal remains the largest local brief requirement. The public V3 user flow and selected shift APIs are retired; legacy modules, local Admin UI and schema still contain shift functionality. Legacy shift data remains stored. Align's subscribed calendar and iCloud sync now use Section events only.
 - [~] Work is being replaced by an optional Studio database. Owner Studio field associations and per-user opt-in are implemented; focused server/navigation checks and desktop browser flow pass. Full mobile browser matrix and hosted privacy/isolation verification remain outstanding.
@@ -41,24 +42,25 @@
 - [x] Render workspace `Align-App` (`tea-dagsdf6k1f9s73dof7i0`) inspected read-only; no additional workspace is needed.
 - [~] Existing free Render service `align-beta-preview` uses `wjb006/Align-app` main and remains untouched. No Render Postgres instance exists in this workspace.
 - [x] Rechecked Render on 11 October: workspace `Align-App` still has only `align-beta-preview` on `wjb006/Align-app`; no Render Postgres exists. Existing service and IONOS DNS remain untouched.
-- [!] Neon connector requires reauthentication before existing projects can be inspected or a dedicated database can be created.
+- [!] Neon connector still requires reauthentication (confirmed 11 October 2026); cannot inspect or create the dedicated database or retrieve a connection string.
 - [~] `render.yaml` prepared for service `align-v3` with intended public URL `https://getalign.co.uk`; hosted authentication still uses legacy account-mode compatibility, which must be reviewed before public release.
-- [ ] Push reviewed V3 source to `wjb006/Align-V3.0` and connect Render to that repository/branch.
+- [ ] Push reviewed V3 source to `wjb006/Align-V3.0` and connect Render to that repository/branch. The latest source is local; do not deploy the previous commit as if it included these changes.
 - [ ] Create dedicated Neon Postgres 18 database and configure secrets without reusing existing Align credentials or databases.
 - [ ] Provision the Render service only after branch and database are ready; verify health, auth, migrations, and per-user isolation.
 - [ ] Add `getalign.co.uk` as the Render custom domain and verify TLS; then update IONOS DNS to Render's exact provided records and verify propagation.
-- [ ] Re-run full Python and desktop/Pixel/iPhone browser suites before inviting external testers.
+- [ ] Re-run desktop/Pixel/iPhone browser suites before inviting external testers; full Python suite passed locally on 11 October 2026, while PostgreSQL service-dependent cases remain skipped.
 ## 2. Retire the legacy shift planner — major outstanding work
 - [~] Initial code/schema inventory completed. Full repo search shows broad coupling remains; finish the path-by-path inventory during implementation, including scriptable bridge/widget/iCloud and asset event types.
 - [ ] Map and preserve any data the user needs to retain; do not drop user data as a side effect of feature removal.
-- [ ] Remove shift creation, editing, viewing, alerts, schedules, shift-specific configuration and old entry points.
-- [ ] Remove shift APIs and backend services that are no longer used.
+- [x] Remove the end-user shift scheduler surfaces from Home/calendar and replace the subscribed feed with Section events only; legacy schedules are not published.
+- [ ] Remove residual shift creation, editing, alert, configuration, admin, and old entry-point code.
+- [ ] Remove residual shift APIs and backend services after preserving legacy data and checking dependent travel/iCloud flows.
 - [ ] Remove shift tables and migration/bootstrap references safely for fresh installs and existing databases; decide/document a safe migration strategy before destructive database changes.
-- [ ] Remove shift-specific client files and update service-worker asset lists/cache versions.
+- [ ] Remove residual shift-specific client files after checking that shared calendar/event features remain intact.
 - [~] Removed obsolete shift-only test modules (`test_calendar_sync.py`, `test_work_setup.py`, `test_week_booking.py`, `test_shift_completions.py`, `test_work_settings.py`) after moving retained test setup into `test_support.py`; broader shift scripts, UI and documentation remain.
 - [ ] Run the full Python suite, JavaScript unit checks, browser suite, startup/schema checks, and fresh-database migration checks.
 - [ ] Verify searches show no active shift product functionality remains (distinguish unrelated identifiers such as JavaScript `shiftKey` or array `.shift()`).
-**Current release gate:** the app is not ready for external testers yet. The legacy shift planner still runs, the test suite still asserts shift behavior, and no hosted Align V3.0 database/service has been provisioned. Keep local regression checks green while completing the removal and hosted setup.
+**Current release gate:** not ready for external testers. Residual shift modules/admin/schema remain; no V3.0 database/service is provisioned; Neon requires reauthentication; Microsoft Graph and Apple credentials need real-account setup and verification.
 ## 3. Database-backed Sections and user input matrices
 - [x] Add numbered SQLite/Postgres migrations for `calendar_links`, `section_defs`, and `section_fields`; include them in migration expectations and hosted test fixture.
 - [x] Materialize published Builder layouts into database section definitions; keep submitted user data in private per-user `builder_records` storage.
@@ -106,6 +108,7 @@
 - [x] `verify_align_build156.py` passes for Align V3.0 and Build 156 cache identity.
 - [x] Full Python suite now passes after retiring obsolete shift-only tests: 222 passed, 3 skipped, 23 subtests.
 - [~] Removed Owner-only Asset Studio links from end-user More and Settings; removed Owner phrasing from Work and personal appearance guidance. User menus now expose personal Settings and Travel only. Standalone Align Management Studio retains Owner controls. Local Admin and backup/iCloud maintenance dependencies remain separate. Desktop browser, navigation, UI polish, date, cache verifier, JavaScript syntax, and full Python suite pass (222 passed, 3 skipped, 23 subtests).
+- [~] Outlook/Graph setup now has a Management Studio wizard, personal/work account selection, persistent encrypted token handling, test-mail control, automatic invitation/recovery codes, and account/password change notices. Microsoft app registration and mailbox authorization still need the account owner's Client ID and consent; live delivery remains unverified until then.
 - [x] Re-ran the full Python suite after shift-test retirement and end-user management-surface changes; 222 passed, 3 skipped, 23 subtests, no failures.
 - [x] Align calendar feed publishes timed and all-day Section events with stable UIDs; old shift/leave rows remain stored but are not published.
 - [x] `test_event_calendar_feed.py` verifies ICS output and preservation/non-publication of legacy schedule rows.
@@ -144,7 +147,7 @@
 ## Latest verification log
 | Date (Europe/London) | Check | Result |
 |---|---|---|
-| 2026-10-11 | Full Python suite, `.venv\Scripts\python.exe -m pytest -q` | 303 passed, 3 skipped, 16 subtests passed; PostgreSQL service-dependent cases skipped |
+| 2026-10-11 | Full Python suite, `.venv\Scripts\python.exe -m pytest -q` | 227 passed, 3 skipped, 23 subtests passed in 136.51s |
 | 2026-10-11 | Desktop Playwright browser regression, `node browser-tests/align.spec.js` | Passed; includes current section matrix create handoff |
 | 2026-10-11 | Focused Owner tests | 10 passed |
 | 2026-10-11 | `py verify_align_build156.py` | Passed |
@@ -173,3 +176,9 @@
 - **2026-10-11:** Re-ran full Python suite (70 retired schedule failures, 237 passed, 3 skipped, 16 subtests); replaced Align's published shift/leave feed with timed/all-day Section event export. New feed regression and desktop browser pass; old database rows are preserved. Render still has no V3 service/Postgres; Neon connection needs reauthentication.
 
 | 2026-10-11 | Separated user controls from Align Management Studio | Removed Asset Studio entry points from More/Settings, updated user copy, bumped cache revision to 156-v36; full Python 222 passed, 3 skipped, 23 subtests; desktop browser and focused checks passed |
+| 2026-10-11 | User-managed iCloud calendars | Added reusable calendar choices, selection checkboxes, quick-add Sections, event/reminder destination dropdowns with “Create New Calendar”, reminder-to-calendar event sync, and cache revision 156-v39; focused tests and desktop browser passed; real Apple account and hosted verification remain outstanding |
+| 2026-10-11 | Outlook and user-managed iCloud completion pass | Full Python suite 227 passed, 3 skipped, 23 subtests; desktop Chromium, navigation, display-date, UI, offline asset verifier, and diff check passed; Neon still requires reauthentication; Render has no V3 service and only the old Align-App service |
+| 2026-10-11 | GitHub publish readiness | Private repo and branch exist; local reviewed changes are not pushed; Render only has the unrelated old Align-app service; Neon connection is unauthorized |
+
+- **2026-10-11:** Added user-managed iCloud calendar selection and creation to existing Calendar settings; selected calendars become reusable Sections, and event/reminder forms offer calendar destinations plus a “Create New Calendar” option. Reminder deletion removes its linked Align calendar event. Bumped coordinated cache revision to `156-v39`; 11 focused Python tests, current two focused calendar regressions, JavaScript/cache checks, and desktop Chromium flow passed. Real Apple and hosted account checks are pending.
+- **2026-10-11:** Added the Outlook account-email setup and calendar integration work to the local release candidate; full Python/browser/focused checks pass. Shift planner code still remains, Neon access is unauthenticated, and Render's only service targets the old repository. These are launch blockers; the current local changes have not been pushed or deployed.

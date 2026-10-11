@@ -22,12 +22,20 @@ DEFAULTS = dict(travel_modes=['drive', 'bus'], default_travel='drive', show_todo
 
 def ensure(c):
     if postgres_enabled():
-        c.execute('SELECT id, kind, title, due_at, done, created_at FROM personal_items LIMIT 0')
+        c.execute("ALTER TABLE personal_items ADD COLUMN IF NOT EXISTS calendar_id TEXT NOT NULL DEFAULT ''")
+        c.execute('ALTER TABLE personal_items ADD COLUMN IF NOT EXISTS calendar_event_id INTEGER')
+        c.execute('SELECT id, kind, title, due_at, done, created_at, calendar_id, calendar_event_id FROM personal_items LIMIT 0')
         return
     c.execute('''CREATE TABLE IF NOT EXISTS personal_items (
         id TEXT PRIMARY KEY, kind TEXT NOT NULL, title TEXT NOT NULL,
         due_at TEXT NOT NULL DEFAULT '', done INTEGER NOT NULL DEFAULT 0,
+        calendar_id TEXT NOT NULL DEFAULT '', calendar_event_id INTEGER,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)''')
+    columns = {row['name'] for row in c.execute('PRAGMA table_info(personal_items)')}
+    if 'calendar_id' not in columns:
+        c.execute("ALTER TABLE personal_items ADD COLUMN calendar_id TEXT NOT NULL DEFAULT ''")
+    if 'calendar_event_id' not in columns:
+        c.execute('ALTER TABLE personal_items ADD COLUMN calendar_event_id INTEGER')
 
 def preferences(c):
     row = c.execute("SELECT setting_value FROM settings WHERE setting_key='personal_preferences'").fetchone()
@@ -475,14 +483,37 @@ def handle(handler,app,method):
                 rid=str(body.get('id','')); title=str(body.get('title','')).strip(); kind=body.get('kind'); due=str(body.get('due_at',''))
                 if not re.fullmatch(r'[a-zA-Z0-9-]{10,80}',rid) or not title or len(title)>2000 or kind not in ('note','reminder'): raise ValueError('Enter a note or reminder of up to 2,000 characters.')
                 if due: due=dt(due).isoformat(timespec='minutes')
+                calendar_id=str(body.get('calendar_id','')).strip()
                 if kind=='reminder' and not due: raise ValueError('Choose a reminder date and time.')
-                old=c.execute('SELECT kind,title,due_at FROM personal_items WHERE id=?',(rid,)).fetchone()
-                if old and tuple(old)!=(kind,title,due): raise ValueError('This item was already saved with different details.')
-                c.execute('INSERT OR IGNORE INTO personal_items(id,kind,title,due_at) VALUES(?,?,?,?)',(rid,kind,title,due))
+                if kind=='reminder' and calendar_id and not c.execute("SELECT 1 FROM calendar_links WHERE target_kind='icloud_calendar' AND target_key=?",(calendar_id,)).fetchone(): raise ValueError('Choose a calendar from your selected iCloud calendars.')
+                old=c.execute('SELECT kind,title,due_at,calendar_id FROM personal_items WHERE id=?',(rid,)).fetchone()
+                if old and tuple(old)!=(kind,title,due,calendar_id): raise ValueError('This item was already saved with different details.')
+                calendar_event_id = None
+                if kind == 'reminder' and calendar_id:
+                    from organiser_api import event_section_for_calendar
+                    section_id = event_section_for_calendar(c, calendar_id)
+                    start = dt(due)
+                    c.execute("""INSERT OR IGNORE INTO organiser_events
+                        (section_id,title,start_at,end_at,all_day,location,notes,request_id)
+                        VALUES(?,?,?,?,0,'','Align reminder',?)""",
+                        (section_id, title, start.isoformat(timespec='minutes'),
+                         (start + timedelta(minutes=15)).isoformat(timespec='minutes'), 'personal-reminder-' + rid))
+                    saved_event = c.execute('SELECT id FROM organiser_events WHERE request_id=?', ('personal-reminder-' + rid,)).fetchone()
+                    calendar_event_id = saved_event['id'] if saved_event else None
+                c.execute('INSERT OR IGNORE INTO personal_items(id,kind,title,due_at,calendar_id,calendar_event_id) VALUES(?,?,?,?,?,?)',(rid,kind,title,due,calendar_id,calendar_event_id))
+                if calendar_event_id:
+                    manager=handler.request_icloud_manager(handler.beta_user()) if app.BETA_MODE else app.ICLOUD_MANAGER
+                    if manager and manager.enabled: manager.wake.set()
                 result={'saved':True}
             elif re.fullmatch('/api/personal/items/[a-zA-Z0-9-]{10,80}',path) and method in ('PUT','DELETE'):
                 rid=path.rsplit('/',1)[1]
-                if method=='DELETE': c.execute('DELETE FROM personal_items WHERE id=?',(rid,))
+                if method=='DELETE':
+                    item=c.execute('SELECT calendar_event_id FROM personal_items WHERE id=?',(rid,)).fetchone()
+                    c.execute('DELETE FROM personal_items WHERE id=?',(rid,))
+                    if item and item['calendar_event_id']:
+                        c.execute('DELETE FROM organiser_events WHERE id=?',(item['calendar_event_id'],))
+                        manager=handler.request_icloud_manager(handler.beta_user()) if app.BETA_MODE else app.ICLOUD_MANAGER
+                        if manager and manager.enabled: manager.wake.set()
                 else:
                     if type(body.get('done')) is not bool: raise ValueError('Choose complete or incomplete.')
                     c.execute('UPDATE personal_items SET done=? WHERE id=?',(int(body['done']),rid))

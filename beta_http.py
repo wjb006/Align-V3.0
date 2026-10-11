@@ -13,6 +13,26 @@ from urllib.parse import parse_qs
 from beta_support import BetaError
 
 
+def _password_change_notice(store_factory, mailer_factory, email):
+    if not email:
+        return {'status': 'not_sent', 'safe_message': 'Account email is unavailable.'}
+    try:
+        result = mailer_factory().send_account_update(
+            email,
+            'Align — Your password was changed',
+            'The password for your Align account was changed. All existing sessions were signed out.',
+        )
+        status = result.get('status', 'failed')
+    except Exception:
+        result = {'status': 'failed', 'safe_message': 'The security notice could not be sent.'}
+        status = 'failed'
+    try:
+        store_factory().audit('password_change_notice_' + status, 'success' if status == 'sent' else 'failed', reason='password_reset_notice')
+    except Exception:
+        pass
+    return result
+
+
 def handle_get(handler, app, parsed) -> bool:
     self = handler
     APP_VERSION = app.APP_VERSION
@@ -44,6 +64,7 @@ def handle_form(handler, app, path) -> bool:
     self = handler
     BETA_MODE = app.BETA_MODE
     beta_store = app.beta_store
+    beta_mailer = app.beta_mailer
     # v1.3 keeps the proven Safari-safe browser-navigation handoff for
     # login, invite completion and password reset. Cookies are committed
     # before the 303 redirect is followed.
@@ -76,7 +97,8 @@ def handle_form(handler, app, path) -> bool:
             if password!=confirm:
                 self.send_response(303); self.send_header('Location','/reset?error=match'); self.send_header('Cache-Control','no-store'); self.end_headers(); return True
             try:
-                beta_store().reset_password(code,password,self.client_address[0])
+                result=beta_store().reset_password(code,password,self.client_address[0])
+                _password_change_notice(beta_store,beta_mailer,result.pop('_notification_email',''))
             except BetaError as error:
                 label='password' if error.code=='invalid_password' else ('throttled' if error.status==429 else 'code')
                 self.send_response(303); self.send_header('Location',f'/reset?error={label}'); self.send_header('Cache-Control','no-store'); self.end_headers(); return True
@@ -121,7 +143,9 @@ def handle_post(handler, app, path, payload) -> bool:
         self.send_json(202,{'accepted':True,'message':'If an Align account matches those details, password reset instructions have been created.'}); return True
     if BETA_MODE and path == '/api/beta/password/reset':
         if not self.beta_same_origin(): return True
-        self.send_json(200,beta_store().reset_password(payload.get('reset_code'),payload.get('password'),self.client_address[0])); return True
+        result=beta_store().reset_password(payload.get('reset_code'),payload.get('password'),self.client_address[0])
+        result['security_notice']=_password_change_notice(beta_store,beta_mailer,result.pop('_notification_email','')).get('status','failed')
+        self.send_json(200,result); return True
     if BETA_MODE and path == '/api/beta/logout':
         row=self.beta_user(); beta_store().logout(row, self.beta_cookie_token())
         body=b'{"ok":true}'; self.send_response(200); self.send_header('Content-Type','application/json'); self.send_header('Content-Length',str(len(body))); self.send_header('Cache-Control','no-store'); self.send_beta_cookie('',True); self.end_headers(); self.wfile.write(body); return True
@@ -178,7 +202,7 @@ def handle_post(handler, app, path, payload) -> bool:
         if not self.require_admin() or not self.beta_same_origin(): return True
         self.send_json(200,beta_store().revoke_invite(m.group(1),self.beta_user()['user_id'])); return True
 
-    # Outlook OAuth2/SMTP owner settings. Outlook.com requires Modern Auth.
+    # Microsoft Graph OAuth device flow and mail delivery controls.
     if BETA_MODE and path == '/api/beta/owner/email-oauth/start':
         if not self.require_admin() or not self.beta_same_origin(): return True
         self.send_json(200,beta_mailer().start_device_connection(self.beta_user()['user_id'])); return True
@@ -203,8 +227,22 @@ def handle_post(handler, app, path, payload) -> bool:
         match=re.fullmatch(r'/api/beta/admin/users/([^/]+)/(active|invite)',path); uid,action=match.groups()
         if action=='active': result={'user':beta_store().set_active(uid,bool(payload.get('active',True)))}
         else:
-            code=beta_store().reset_invite(uid); result={'access_code':code}
-        self.send_json(200,result); return True
+            user=beta_store().user(uid)
+            if not user or user['account_status']!='active':
+                raise BetaError('This account has no active password to reset. Use Replace & email for a pending invitation.','account_unavailable',409)
+            owner=self.beta_user()
+            beta_store().rate_check_and_record('owner_reset_hour',owner['user_id'],20,3600,'Too many account reset emails. Try again later.')
+            beta_store().rate_check_and_record('password_reset_email',user['email'],3,3600,'Too many reset emails have been sent to this account. Try again later.')
+            code,reset_id=beta_store().create_password_reset_for_user(uid)
+            try:
+                delivery=beta_mailer().send_reset(user['email'],code,self.beta_base_url())
+            except Exception as mail_error:
+                delivery={'status':'failed','attempts':0,'safe_message':str(mail_error)[:250]}
+            beta_store().update_reset_delivery(reset_id,delivery['status'],delivery.get('attempts',0),delivery.get('safe_message',''))
+            beta_store().audit('admin_password_reset_email_'+delivery['status'],'success' if delivery['status']=='sent' else 'failed',uid,reset_id=reset_id,reason='owner_reset')
+            result={'email':user['email'],'delivery':delivery,'reset_id':reset_id}
+        email_sent=result.get('delivery',{}).get('status')=='sent'
+        self.send_json(200 if email_sent or 'delivery' not in result else 207,result); return True
     return False
 
 
@@ -217,7 +255,18 @@ def handle_put(handler, app, path, payload) -> bool:
         self.send_json(200,beta_store().save_email_settings(payload)); return True
     if BETA_MODE and path == '/api/beta/owner/login-email':
         if not self.require_admin() or not self.beta_same_origin(): return True
-        self.send_json(200,beta_store().change_owner_email(self.beta_user(), payload.get('current_password'), payload.get('new_email'))); return True
+        result=beta_store().change_owner_email(self.beta_user(), payload.get('current_password'), payload.get('new_email'))
+        notices=[]
+        for address,details in ((result['old_email'],f'The Align login email was changed to {result["email"]}.'),
+                                (result['email'],'This address is now the login email for an Align account.')):
+            try:
+                delivery=app.beta_mailer().send_account_update(address,'Align — Login email updated',details)
+            except Exception:
+                delivery={'status':'failed'}
+            notices.append({'recipient':address,'status':delivery.get('status','failed')})
+        result.pop('old_email',None)
+        result['email_notices']=notices
+        self.send_json(200,result); return True
     return False
 
 

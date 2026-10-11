@@ -1,4 +1,11 @@
-## Build 156.2.2
+## Align V3.0 development release — 11 October 2026
+
+- Adds user-selected iCloud calendars, calendar creation, reusable quick-add Sections, and calendar destinations for events and reminders.
+- Sends account setup and recovery codes plus security notices through a connected Microsoft Outlook mailbox.
+- Keeps the existing end-user shift scheduler retired from the main event feed; legacy shift code and schema still need a preservation-safe removal plan.
+- Not deployed. Hosted database, Render V3 service, Microsoft mailbox authorization, and real Apple account checks are outstanding.
+
+## Legacy Build 156.2.2
 
 - Enables two-way iCloud Calendar sync for Align-owned shifts and section events.
 - Adds leave-at journey alerts to iCloud calendar entries and formats travel notes.

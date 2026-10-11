@@ -18,7 +18,7 @@ const modalRoot = document.querySelector('#modal-root');
 const toastElement = document.querySelector('#toast');
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 156;
-const ASSET_VERSION = `${BUILD_VERSION}-v36`;
+const ASSET_VERSION = `${BUILD_VERSION}-v39`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -784,10 +784,13 @@ function sectionModal(id = null) {
 
 function sectionEventModal(id = null) {
   const event = id ? state.sectionData?.events.find(item => item.source_kind === 'align' && item.id === id) : null;
+  const calendars = state.boot?.icloud_event_calendars || [];
+  const linked = state.boot?.sections.find(section => section.id === state.sectionId)?.calendar_id || '';
   const today = isoToday();
   const startAt = event?.start_at || `${today}T09:00`;
   const endAt = event?.end_at || `${today}T10:00`;
   modal(id ? 'Edit event' : `Add to ${state.sectionData?.name || 'section'}`, `<form class="form-grid" data-form="organiser-event" data-id="${id || ''}">
+    <div class="field"><label>Which calendar would you like to add this to?</label><select name="calendar_id" ${calendars.length?'required':''}><option value="" ${!calendars.length?'selected':''}>${calendars.length?'Choose a calendar':'Align only · no iCloud calendar connected'}</option>${calendars.map(calendar => `<option value="${escapeHtml(calendar.id)}" ${calendar.id===linked?'selected':''}>${escapeHtml(calendar.name)}</option>`).join('')}${state.boot?.icloud_public?.connected?'<option value="__create__">＋ Create New Calendar</option>':''}</select><button type="button" class="small-button" data-personal="new-event-calendar" ${state.boot?.icloud_public?.connected?'':'disabled'}>＋ Create new calendar</button><small class="helper">Events saved to a calendar appear in its matching Section for quick access. Connect iCloud in Settings to add or select calendars.</small></div>
     <div class="field"><label>Event title</label><input name="title" required maxlength="160" value="${escapeHtml(event?.title || '')}" placeholder="e.g. Dentist" /></div>
     <div class="field"><label>Date</label><input name="date" type="date" required value="${escapeHtml(startAt.slice(0,10))}" /></div>
     <div class="form-grid two"><div class="field"><label>Start</label><input name="start_time" type="time" value="${escapeHtml(event?.all_day ? '09:00' : startAt.slice(11,16))}" /></div><div class="field"><label>End</label><input name="end_time" type="time" value="${escapeHtml(event?.all_day ? '10:00' : endAt.slice(11,16))}" /></div></div>
@@ -1160,7 +1163,7 @@ document.addEventListener('submit', async event => {
       if (!state.sectionId) throw new Error('Open a section first.');
       const id = form.dataset.id;
       const allDay = form.all_day.checked;
-      const body = { title: values.title, all_day: allDay, location: values.location || '', notes: travelReminderNotes(values.notes, allDay ? '' : values.travel_reminder) };
+      const body = { title: values.title, all_day: allDay, calendar_id: values.calendar_id, location: values.location || '', notes: travelReminderNotes(values.notes, allDay ? '' : values.travel_reminder) };
       body.show_post_travel=form.show_post_travel.checked;body.post_travel_mode=form.post_travel_mode.value;
       if (allDay) body.date = values.date;
       else { body.start_at = `${values.date}T${values.start_time}`; body.end_at = `${values.date}T${values.end_time}`; }
@@ -1189,6 +1192,7 @@ document.addEventListener('submit', async event => {
       }
       const result = await api(id ? `/api/organiser-events/${id}` : `/api/sections/${state.sectionId}/events`, { method: id ? 'PUT' : 'POST', body });
       if(!result.offline){try{const warning=await savePostTravel('event',id||result.id,form);if(warning)travelWarning+=' Post event travel: '+warning;}catch(error){travelWarning+=' Post event travel could not be saved: '+error.message;}}
+      if (result.section_id) state.sectionId = Number(result.section_id);
       closeModal(); await refresh(); await reloadSection();       toast((id ? 'Event updated.' : (result.offline ? 'Saved offline. It will sync to iCloud when Align reconnects.' : 'Event added. iCloud sync will pick it up shortly.')) + travelWarning);
       return;
     }

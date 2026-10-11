@@ -433,12 +433,13 @@ class BetaStore:
             raise BetaError('Enter a valid Align login email address.', 'invalid_email')
         if not self.verify_password(row['password_hash'], str(current_password or '')):
             raise BetaError('Current Align password is incorrect.', 'invalid_credentials', 401)
+        old_email = str(row['email']).strip().casefold()
         with self._connect() as c:
             exists = c.execute('SELECT user_id FROM beta_users WHERE email=? AND user_id<>?', (new_email,row['user_id'])).fetchone()
             if exists: raise BetaError('That email is already in use.', 'email_in_use', 409)
             c.execute('UPDATE beta_users SET email=? WHERE user_id=?', (new_email,row['user_id']))
         self.revoke_sessions(row['user_id'])
-        return {'updated': True, 'email': new_email, 'signed_out': True}
+        return {'updated': True, 'old_email': old_email, 'email': new_email, 'signed_out': True}
 
     def accept_terms(self,row):
         with self._connect() as c:
@@ -795,7 +796,8 @@ class BetaStore:
         code_hash=self.digest(canonical); now=self.now(); pw_hash=self.hash_password(password)
         with self.lock,self._connect() as c:
             c.execute('BEGIN IMMEDIATE'); self._expire_invites(c)
-            reset=c.execute("SELECT * FROM beta_password_resets WHERE code_hash=?",(code_hash,)).fetchone()
+            reset=c.execute("""SELECT r.*,u.email AS account_email FROM beta_password_resets r
+                               JOIN beta_users u ON u.user_id=r.user_id WHERE r.code_hash=?""",(code_hash,)).fetchone()
             if not reset or reset['status']!='pending' or int(reset['expires_at'])<=now:
                 self._attempt_fail(self.reset_attempts,key)
                 raise BetaError('That reset code is unavailable.','reset_code_unavailable',400)
@@ -811,9 +813,10 @@ class BetaStore:
             c.execute("UPDATE beta_users SET session_hash='',session_expires=0 WHERE user_id=?",(reset['user_id'],))
         self._attempt_success(self.reset_attempts,key)
         self.audit('password_reset_completed','success',reset['user_id'],reset_id=reset['reset_id'],reason='reset_completed',details={'sessions_revoked':int(revoked)})
-        return {'password_reset':True,'sessions_revoked':True,'session_count_revoked':int(revoked),'next_step':'sign_in'}
+        return {'password_reset':True,'sessions_revoked':True,'session_count_revoked':int(revoked),
+                'next_step':'sign_in','_notification_email':str(reset['account_email'] or '')}
 
-    # ----- Outlook OAuth2 SMTP settings -----
+    # ----- Microsoft Graph Outlook sender settings -----
     def get_email_settings_internal(self):
         with self._connect() as c:
             return dict(c.execute("SELECT * FROM beta_email_settings WHERE singleton=1").fetchone())
@@ -832,10 +835,12 @@ class BetaStore:
         client_id=str(payload.get('oauth_client_id','')).strip()[:200]; authority=str(payload.get('oauth_authority','consumers')).strip()[:80] or 'consumers'
         if '@' not in email: raise BetaError('Enter the Outlook sender email address.','invalid_email_settings')
         if not client_id: raise BetaError('Enter the Microsoft application Client ID.','invalid_email_settings')
-        # V3.0 intentionally pins Outlook.com SMTP's published TLS endpoint.
+        if authority not in {'consumers','organizations','common'}:
+            raise BetaError('Choose a supported Microsoft account type.','invalid_email_settings')
+        # SMTP columns remain for old registry compatibility; Graph handles delivery.
         with self._connect() as c:
-            old=c.execute("SELECT oauth_client_id,sender_email FROM beta_email_settings WHERE singleton=1").fetchone()
-            clear_cache = old and (old['oauth_client_id']!=client_id or old['sender_email'].casefold()!=email)
+            old=c.execute("SELECT oauth_client_id,sender_email,oauth_authority FROM beta_email_settings WHERE singleton=1").fetchone()
+            clear_cache = old and (old['oauth_client_id']!=client_id or old['sender_email'].casefold()!=email or old['oauth_authority']!=authority)
             c.execute("""UPDATE beta_email_settings SET sender_email=?,sender_name=?,smtp_host='smtp-mail.outlook.com',smtp_port=587,
                          encryption='starttls',oauth_client_id=?,oauth_authority=?,oauth_cache_enc=CASE WHEN ? = 1 THEN '' ELSE oauth_cache_enc END,
                          connection_status='untested',last_error='',updated_at=CURRENT_TIMESTAMP WHERE singleton=1""",

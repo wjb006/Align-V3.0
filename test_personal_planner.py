@@ -28,6 +28,36 @@ class PersonalTests(unittest.TestCase):
         self.assertEqual(self.request('PUT','/api/personal/preferences',{'travel_modes':['bus'],'default_travel':'bus','show_todos':False},token)[0],200)
         self.assertTrue(self.request('GET','/api/bootstrap',token=other)[1]['personal']['preferences']['show_todos'])
 
+    def test_selected_icloud_calendar_adds_events_and_reminders_to_its_section(self):
+        user, token = self.users[0]
+        calendar_id = 'a' * 64
+        database = app.BETA_STORE.database_for(user)
+        with app.FixedDatabaseApp(database).db_connection() as c:
+            c.execute("""INSERT INTO calendar_links
+                (target_kind,target_key,calendar_url,calendar_name,import_enabled,export_enabled)
+                VALUES('icloud_calendar',?,?,?,1,1)""",
+                (calendar_id, 'https://caldav.icloud.com/test/appointments/', 'Appointments'))
+        reminder = dict(id='calendar-reminder-123',kind='reminder',title='Dentist',
+                        due_at='2030-01-02T12:00',calendar_id=calendar_id)
+        status, _ = self.request('POST','/api/personal/items',reminder,token)
+        self.assertEqual(status,200)
+        with app.FixedDatabaseApp(database).db_connection() as c:
+            item=c.execute('SELECT calendar_id,calendar_event_id FROM personal_items WHERE id=?',(reminder['id'],)).fetchone()
+            event=c.execute('SELECT section_id,title,start_at FROM organiser_events WHERE id=?',(item['calendar_event_id'],)).fetchone()
+            self.assertEqual(item['calendar_id'],calendar_id)
+            self.assertEqual(event['title'],'Dentist')
+            section_id=event['section_id']
+        status, response = self.request('POST',f'/api/sections/{section_id}/events',
+            {'title':'Eye test','start_at':'2030-01-03T09:00','end_at':'2030-01-03T09:30','calendar_id':calendar_id},token)
+        self.assertEqual(status,201,response)
+        self.assertEqual(response['section_id'],section_id)
+        with app.FixedDatabaseApp(database).db_connection() as c:
+            self.assertEqual(c.execute('SELECT COUNT(*) FROM organiser_events WHERE section_id=?',(section_id,)).fetchone()[0],2)
+        status, _ = self.request('DELETE','/api/personal/items/'+reminder['id'],{},token)
+        self.assertEqual(status,200)
+        with app.FixedDatabaseApp(database).db_connection() as c:
+            self.assertEqual(c.execute('SELECT COUNT(*) FROM organiser_events WHERE title=?',('Dentist',)).fetchone()[0],0)
+
     def test_overnight_and_buffer(self):
         day=date.today()+timedelta(days=15)
         with app.db_connection() as c:

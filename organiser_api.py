@@ -128,6 +128,42 @@ def organiser_event_values(payload: dict) -> tuple:
             (__import__("travel_refresh").clean(str(payload.get("notes", ""))) if all_day else str(payload.get("notes", "")).strip())[:4000])
 
 
+def event_section_for_calendar(connection: sqlite3.Connection, calendar_id: str, fallback_section: int | None = None) -> int:
+    """Find or create the quick-add Section for an explicitly chosen iCloud calendar."""
+    if not calendar_id:
+        if fallback_section and connection.execute(
+            'SELECT 1 FROM organiser_sections WHERE id=? AND active=1', (fallback_section,)
+        ).fetchone():
+            return fallback_section
+        raise ValueError('Choose a calendar or create a new calendar before saving this event.')
+    row = connection.execute(
+        "SELECT calendar_url,calendar_name FROM calendar_links WHERE target_kind='icloud_calendar' AND target_key=?",
+        (calendar_id,),
+    ).fetchone()
+    if not row:
+        raise ValueError('That calendar is no longer selected. Refresh your calendar list and try again.')
+    existing = connection.execute(
+        "SELECT s.id FROM organiser_sections s JOIN calendar_links l "
+        "ON l.target_kind='organiser_section' AND l.target_key=CAST(s.id AS TEXT) "
+        "WHERE s.active=1 AND l.calendar_url=? ORDER BY s.id LIMIT 1", (row['calendar_url'],)
+    ).fetchone()
+    if existing:
+        return existing['id']
+    name = (row['calendar_name'] or 'Calendar')[:80]
+    section = connection.execute(
+        "INSERT INTO organiser_sections(name,description,icon,colour,calendar_name,import_enabled,export_enabled) "
+        "VALUES(?,?,'▦','#365CE6',?,1,1)",
+        (name, 'Events saved to this iCloud calendar', name),
+    )
+    connection.execute("""INSERT INTO calendar_links
+        (target_kind,target_key,calendar_url,calendar_name,import_enabled,export_enabled)
+        VALUES('organiser_section',?,?,?,1,1)
+        ON CONFLICT(target_kind,target_key) DO UPDATE SET calendar_url=excluded.calendar_url,
+        calendar_name=excluded.calendar_name,import_enabled=1,export_enabled=1""",
+        (str(section.lastrowid), row['calendar_url'], name))
+    return section.lastrowid
+
+
 def _wake(handler, app, row) -> None:
     manager = handler.request_icloud_manager(row) if app.BETA_MODE else app.ICLOUD_MANAGER
     if manager and manager.enabled:
@@ -164,7 +200,8 @@ def handle(handler, app, method, connection, payload=None, row=None) -> bool:
         return True
     event_match = re.fullmatch(r"/api/sections/(\d+)/events", path)
     if method == "POST" and event_match:
-        section_id = int(event_match.group(1))
+        requested_calendar = str(payload.get('calendar_id', '')).strip()
+        section_id = event_section_for_calendar(connection, requested_calendar, int(event_match.group(1))) if requested_calendar else int(event_match.group(1))
         if not connection.execute("SELECT 1 FROM organiser_sections WHERE id=? AND active=1", (section_id,)).fetchone():
             raise ValueError("Section not found.")
         values = organiser_event_values(payload)
@@ -180,7 +217,7 @@ def handle(handler, app, method, connection, payload=None, row=None) -> bool:
         )
         if "show_post_travel" in payload:
             post_event_travel.handle(connection, dict(kind="event", id=cursor.lastrowid, enabled=payload["show_post_travel"], mode=payload.get("post_travel_mode", "transit")))
-        handler.send_json(201, {"id": cursor.lastrowid})
+        handler.send_json(201, {"id": cursor.lastrowid, "section_id": section_id})
         _wake(handler, app, row)
         return True
     section_match = re.fullmatch(r"/api/sections/(\d+)", path)
@@ -216,13 +253,17 @@ def handle(handler, app, method, connection, payload=None, row=None) -> bool:
         event_id = int(event_put.group(1))
         if not connection.execute("SELECT 1 FROM organiser_events WHERE id=?", (event_id,)).fetchone():
             raise ValueError("Event not found.")
+        requested_calendar = str(payload.get('calendar_id', '')).strip()
+        current_section = connection.execute('SELECT section_id FROM organiser_events WHERE id=?', (event_id,)).fetchone()['section_id']
+        section_id = event_section_for_calendar(connection, requested_calendar, current_section) if requested_calendar else current_section
         connection.execute(
             "UPDATE organiser_events SET title=?,start_at=?,end_at=?,all_day=?,location=?,notes=? WHERE id=?",
             (*organiser_event_values(payload), event_id),
         )
+        connection.execute('UPDATE organiser_events SET section_id=? WHERE id=?', (section_id, event_id))
         if "show_post_travel" in payload:
             post_event_travel.handle(connection, dict(kind="event", id=event_id, enabled=payload["show_post_travel"], mode=payload.get("post_travel_mode", "transit")))
-        handler.send_json(200, {"id": event_id})
+        handler.send_json(200, {"id": event_id, "section_id": section_id})
         _wake(handler, app, row)
         return True
     if method == "DELETE" and re.fullmatch(r"/api/sections/\d+", path):

@@ -145,6 +145,14 @@ class ICloudTests(unittest.TestCase):
         self.assertIsNone(recovered['retry_in_seconds'])
         self.assertEqual(recovered['calendars'][0]['status'], 'ok')
         self.assertEqual(recovered['calendars'][0]['event_count'], 0)
+
+    def test_private_status_lists_unselected_calendars_for_later_addition(self):
+        second='https://caldav.icloud.com/test/second-calendar/'
+        self.fake.calendars[second]=None
+        self.syncer.options=self.fake.discover()
+        status=self.syncer.status(True)
+        self.assertEqual(len(status['calendars']),2)
+        self.assertEqual({item['selected_for_sync'] for item in status['calendars']},{True,False})
     def test_uid_filter_transparency_and_url_guard(self):
         e=Event();e.add('uid','owned-123');e.add('dtstart',datetime(2026,9,7,8,tzinfo=timezone.utc));e.add('dtend',datetime(2026,9,7,9,tzinfo=timezone.utc))
         self.assertIsNone(busy_event(e,'owned-'))

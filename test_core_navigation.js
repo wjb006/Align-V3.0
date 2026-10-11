@@ -31,8 +31,8 @@ if (!app.includes("{ branch_key: 'calendar', title: 'Calendar'")) throw new Erro
 for (const [name, source] of [['app',app],['index',index],['service worker',worker]]) {
   if (source.includes('maps173')) throw new Error(`Stale maps173 asset version remains in ${name}`);
 }
-if (!app.includes('const ASSET_VERSION = `${BUILD_VERSION}-v36`;')) throw new Error('App asset version template is not the current Build 156 assets');
-if (!index.includes('156-v36')) throw new Error('Index asset version is not 156-v36');
+if (!app.includes('const ASSET_VERSION = `${BUILD_VERSION}-v39`;')) throw new Error('App asset version template is not the current Build 156 assets');
+if (!index.includes('156-v39')) throw new Error('Index asset version is not 156-v39');
 if (!worker.includes('align-v13-shell-${ASSET_VERSION}')) throw new Error('Shell cache template is missing');
 if (!worker.includes('align-v13-api-${ASSET_VERSION}')) throw new Error('API cache template is missing');
 console.log('core navigation and optional Work setup checks passed');

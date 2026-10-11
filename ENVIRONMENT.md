@@ -28,3 +28,9 @@ Set deployment secrets in the service environment. `.env.example` lists setting 
 | `ALIGN_DARWIN_LIVE_URL`, `ALIGN_DARWIN_TOKEN` | Darwin rail endpoint and token. |
 
 Local databases, credential files, `.env` files, built executables and the OTP JDK runtime are excluded from Git. Get the OTP runtime from a trusted JDK 21 distribution and keep the generated `dist` executables as release artifacts.
+
+## Outlook email delivery
+
+Align Management Studio → **Owner settings & integrations** contains the Outlook setup and test-message flow. Register an app in Microsoft Entra, enable its public-client/device-code flow, add Microsoft Graph delegated `Mail.Send` and `User.Read`, then enter the Application (client) ID, Outlook sender address, and matching account type in Studio. Save, connect the mailbox using Microsoft's device sign-in, check the connection, and send a test email before inviting users.
+
+Align sends through Microsoft Graph as the connected Outlook mailbox; it does not store a mailbox password or app client secret. The encrypted token cache uses `ALIGN_CREDENTIAL_KEY`. Hosted deployments must keep that key persistent across restarts. Invitations send the one-time account setup code, forgot-password requests send recovery codes, and successful password or login-email changes send security notices. Normal sign-in remains email and password.

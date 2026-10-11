@@ -106,6 +106,21 @@ class BetaV13Tests(unittest.TestCase):
             tables = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         self.assertTrue({"beta_invites", "beta_password_resets", "beta_email_settings", "beta_audit_events"} <= tables)
 
+    def test_outlook_settings_accept_only_supported_account_authorities(self):
+        for authority in ('consumers', 'organizations', 'common'):
+            saved = self.store.save_email_settings({
+                'sender_email': 'align@example.com',
+                'oauth_client_id': 'application-client-id',
+                'oauth_authority': authority,
+            })
+            self.assertEqual(saved['oauth_authority'], authority)
+        with self.assertRaises(BetaError):
+            self.store.save_email_settings({
+                'sender_email': 'align@example.com',
+                'oauth_client_id': 'application-client-id',
+                'oauth_authority': 'unknown',
+            })
+
 
 if __name__ == "__main__":
     unittest.main()

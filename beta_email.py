@@ -381,3 +381,11 @@ class BetaMailer:
         return self.send_email(
             to_email, 'Align — Reset your password', text, state_callback=state_callback
         )
+
+    def send_account_update(self, to_email, subject, details, state_callback=None):
+        text = (
+            f"{details}\n\n"
+            "If you did not make this change, contact Align support as soon as possible.\n"
+            "This is an automatic security message; replies are not monitored."
+        )
+        return self.send_email(to_email, subject, text, state_callback=state_callback)

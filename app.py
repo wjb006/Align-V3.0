@@ -663,6 +663,50 @@ def public_icloud_data(manager=None) -> dict:
                 'calendars': list(manager.options), 'message': manager.message, 'last_sync': manager.last_sync}
 
 
+def icloud_event_calendars(connection: sqlite3.Connection) -> list[dict]:
+    """Return user-selected destinations for new events and calendar sections."""
+    return rows_as_dicts(connection.execute(
+        "SELECT target_key AS id,calendar_name AS name FROM calendar_links "
+        "WHERE target_kind='icloud_calendar' ORDER BY calendar_name"
+    ))
+
+
+def save_icloud_event_calendars(calendar_ids, manager=None) -> dict:
+    if not isinstance(calendar_ids, list) or len(calendar_ids) > 100 or any(
+        not isinstance(value, str) or not re.fullmatch(r'[a-f0-9]{64}', value) for value in calendar_ids
+    ):
+        raise ValueError('Select valid calendars from your connected iCloud account.')
+    manager = manager or icloud_manager()
+    if not manager.client:
+        raise ValueError('Connect iCloud before selecting calendars.')
+    available = {item['id']: item for item in manager.options}
+    selected = list(dict.fromkeys(calendar_ids))
+    if any(value not in available for value in selected):
+        raise ValueError('Refresh your iCloud connection and select calendars from your current account.')
+    with db_connection() as connection:
+        existing = {row['target_key'] for row in connection.execute(
+            "SELECT target_key FROM calendar_links WHERE target_kind='icloud_calendar'"
+        )}
+        removed = existing - set(selected)
+        if removed:
+            connection.executemany(
+                "DELETE FROM calendar_links WHERE target_kind='icloud_calendar' AND target_key=?",
+                [(value,) for value in removed],
+            )
+        for value in selected:
+            calendar = available[value]
+            url, name = manager.resolve_calendar(value)
+            connection.execute("""INSERT INTO calendar_links
+                (target_kind,target_key,calendar_url,calendar_name,import_enabled,export_enabled)
+                VALUES('icloud_calendar',?,?,?,1,1)
+                ON CONFLICT(target_kind,target_key) DO UPDATE SET
+                calendar_url=excluded.calendar_url,calendar_name=excluded.calendar_name""",
+                (value, url, name or calendar['name']))
+            from organiser_api import event_section_for_calendar
+            event_section_for_calendar(connection, value)
+        return {'calendars': icloud_event_calendars(connection)}
+
+
 def shift_query(connection: sqlite3.Connection, start: str | None, end: str | None) -> list[dict]:
     clauses, parameters = [], []
     if start:

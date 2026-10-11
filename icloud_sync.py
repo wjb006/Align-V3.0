@@ -64,7 +64,7 @@ class AppleClient:
         calendar = self.client.get_principal().make_calendar(name=name)
         url = apple_url(calendar.url)
         self.calendars[url] = calendar
-        return {'id': digest(url), 'name': calendar.get_display_name() or name}
+        return {'id': digest(url), 'name': calendar.get_display_name() or name, 'url': url}
 
     def get(self, url):
         response = self.client.request(apple_url(url), 'GET')
@@ -255,8 +255,9 @@ class ICloudSync:
                 if result['target']:
                     selected.add(result['target'])
             result['calendars'] = [
-                {**calendar, **self.calendar_status.get(calendar['id'], {'status':'not_checked','last_success':None,'event_count':None,'error':None})}
-                for calendar in self.options if calendar['id'] in selected
+                {**calendar, 'selected_for_sync': calendar['id'] in selected,
+                 **self.calendar_status.get(calendar['id'], {'status':'not_checked','last_success':None,'event_count':None,'error':None})}
+                for calendar in self.options
             ]
         return result
 
