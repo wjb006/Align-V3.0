@@ -18,7 +18,7 @@ const modalRoot = document.querySelector('#modal-root');
 const toastElement = document.querySelector('#toast');
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 156;
-const ASSET_VERSION = `${BUILD_VERSION}-v35`;
+const ASSET_VERSION = `${BUILD_VERSION}-v36`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -329,7 +329,7 @@ function renderSectionsIndex() {
   const sections = state.sectionDefinitions || [];
   const work = sections.find(section => section.key === 'work');
   const visible = sections.filter(section => !section.optional || section.enabled);
-  return `<section class="page"><div class="add-head"><p class="eyebrow">Your data, organised your way</p><h1>Sections</h1><p class="subtle">Sections published by Align Studio appear here. Your records stay private to your account.</p></div><div class="quick-grid">${visible.map(section => `<button class="quick-action organiser-section-tile" data-section-key="${escapeHtml(section.key)}" style="border-left:4px solid ${escapeHtml(section.colour)}"><b>${escapeHtml(section.icon)}</b>${escapeHtml(section.name)}<small>${escapeHtml(section.description || 'Open your saved records')}</small></button>`).join('')}${!visible.length?'<div class="card empty">No sections have been added yet.</div>':''}</div>${!work || !work.enabled ? `<section class="section"><div class="card"><h2>Work (optional)</h2><p class="subtle">${work ? 'Add the Work database to your account. It can include locations, work areas, times, or any questions your Owner has configured.' : 'The Owner has not published the Work database yet. Once available, you can add it to your account and edit your records anytime.'}</p>${work ? '<button class="secondary-button" data-action="work-opt-in">Set up Work</button>' : ''}</div></section>` : ''}</section>`;
+  return `<section class="page"><div class="add-head"><p class="eyebrow">Your data, organised your way</p><h1>Sections</h1><p class="subtle">Sections set up in Align Management Studio appear here. Your records stay private to your account.</p></div><div class="quick-grid">${visible.map(section => `<button class="quick-action organiser-section-tile" data-section-key="${escapeHtml(section.key)}" style="border-left:4px solid ${escapeHtml(section.colour)}"><b>${escapeHtml(section.icon)}</b>${escapeHtml(section.name)}<small>${escapeHtml(section.description || 'Open your saved records')}</small></button>`).join('')}${!visible.length?'<div class="card empty">No sections have been added yet.</div>':''}</div>${!work || !work.enabled ? `<section class="section"><div class="card"><h2>Work (optional)</h2><p class="subtle">${work ? 'Add the Work database to your account. It can include locations, work areas, times, or any questions configured for Align.' : 'The Work database is not available yet. When it is ready, you can add it to your account and edit your records anytime.'}</p>${work ? '<button class="secondary-button" data-action="work-opt-in">Set up Work</button>' : ''}</div></section>` : ''}</section>`;
 }
 
 function installPanel() {
@@ -337,8 +337,7 @@ function installPanel() {
 }
 
 function renderMore() {
-  const ownerTools = isAdmin || state.boot.beta?.is_owner;
-  return `<section class="page"><div class="add-head"><p class="eyebrow">Everything else</p><h1>More</h1><p class="subtle">Settings and tools that do not need to sit in your main navigation.</p></div>${installPanel()}<div class="quick-grid"><button class="quick-action" data-nav="settings"><b>⚙</b>Settings<small>Profile, calendar and preferences</small></button><button class="quick-action" data-nav="transport"><b>↗</b>Travel<small>Saved places and journey planning</small></button>${(!state.boot.beta||state.boot.beta.is_owner)?'<button class="quick-action" data-nav="assets"><b>◈</b>Asset Studio<small>Manage Align visual assets</small></button>':''}</div></section>`;
+  return `<section class="page"><div class="add-head"><p class="eyebrow">Everything else</p><h1>More</h1><p class="subtle">Personal settings and tools.</p></div>${installPanel()}<div class="quick-grid"><button class="quick-action" data-nav="settings"><b>⚙</b>Settings<small>Your details and calendars</small></button><button class="quick-action" data-nav="transport"><b>↗</b>Travel<small>Saved places and journey planning</small></button></div></section>`;
 }
 
 function rootParentBranches() { return (state.boot?.master.parents || []).filter(branch => branch.active && !branch.parent_id); }
@@ -576,13 +575,13 @@ function renderUserSettings() {
   if (Object.values(permissions).some(Boolean)) {
     branches.push({
       branch_key: 'appearance', title: 'Personalise your app',
-      description: 'Change the options your Align owner has made available.',
+      description: 'Change the options made available for your account.',
       icon: '◐', branch_type: 'appearance'
     });
   }
   if (!branches.some(branch => branch.branch_key === state.settingsBranch)) state.settingsBranch = branches[0]?.branch_key || '';
   const selected = branches.find(branch => branch.branch_key === state.settingsBranch);
-  return `<section class="page"><div class="add-head"><p class="eyebrow">Your planner</p><h1>Settings</h1><div class="button-row"><button data-nav="transport" class="secondary-button">Travel</button>${(!state.boot.beta || state.boot.beta.is_owner)?'<button data-nav="assets" class="secondary-button">Asset Studio</button>':''}</div><p class="subtle">Manage your profile, calendars and preferences.</p></div>
+  return `<section class="page"><div class="add-head"><p class="eyebrow">Your planner</p><h1>Settings</h1><div class="button-row"><button data-nav="transport" class="secondary-button">Travel</button></div><p class="subtle">Your details, calendars and personal preferences.</p></div>
     <div class="settings-branch-list">${branches.map(branch => `<button class="card settings-branch ${branch.branch_key === state.settingsBranch ? 'selected' : ''}" data-action="settings-branch" data-branch="${escapeHtml(branch.branch_key)}"><span class="branch-icon">${escapeHtml(branch.icon)}</span><span><strong>${escapeHtml(branch.title)}</strong><small>${escapeHtml(branch.description)}</small></span><b>›</b></button>`).join('') || '<div class="card empty">No Settings branches are currently enabled.</div>'}</div>
     ${selected ? `<section class="section">${renderUserBranch(selected)}</section>` : ''}
     ${!isAdmin ? `<section class="section"><div class="card settings-form offline-tools-card"><div><p class="eyebrow">Offline support</p><h2>Offline diagnostics</h2></div><p class="helper">Check whether the app shell, phone database and saved planner responses are ready for use without the PC connection.</p><div class="button-row"><button type="button" class="secondary-button" data-action="offline-diagnostics">Open diagnostics</button><button type="button" class="primary-button" data-action="retry-offline-setup">Retry setup</button></div></div></section>` : ''}
@@ -611,13 +610,13 @@ function renderPersonalAppearance() {
   const colorFields = (category, labels, values, prefix) => Object.entries(labels).map(([key, label]) =>
     `<label class="field"><span>${escapeHtml(label)}</span><input type="color" name="${prefix}_${key}" value="${escapeHtml(saved[category]?.[key] || values?.[key] || '#365ce6')}"></label>`
   ).join('');
-  return `<section class="card settings-form"><h2>Personalise your app</h2><p class="helper">Your Align owner controls which parts can be changed here. Your choices apply only to your account.</p><form class="settings-form" data-form="user-appearance">
+  return `<section class="card settings-form"><h2>Personalise your app</h2><p class="helper">These choices apply only to your account.</p><form class="settings-form" data-form="user-appearance">
     ${permissions.colors ? `<fieldset><legend>App colours</legend>${colorFields('colors',{accent:'Accent',canvas:'Background',surface:'Cards',text:'Text'},current.colors,'color')}</fieldset>` : ''}
     ${permissions.banners ? `<fieldset><legend>Section banners</legend>${colorFields('banners',{today:'Today',upcoming:'Upcoming',annual_leave:'Annual leave',section_detail:'Personal sections'},current.banners,'banner')}</fieldset>` : ''}
     ${permissions.events ? `<fieldset><legend>Planner events</legend>${colorFields('events',{accent:'Event accent'},current.events,'event')}<label class="field">Event design<select name="events_style">${[['standard','Standard cards'],['compact','Compact'],['tinted','Tinted']].map(([key,label])=>`<option value="${key}" ${(saved.events?.style||current.events?.style)===key?'selected':''}>${label}</option>`).join('')}</select></label><label class="field">Spacing<select name="events_density">${[['comfortable','Comfortable'],['compact','Compact']].map(([key,label])=>`<option value="${key}" ${(saved.events?.density||current.events?.density)===key?'selected':''}>${label}</option>`).join('')}</select></label></fieldset>` : ''}
     ${permissions.calendar ? `<fieldset><legend>Calendar</legend>${colorFields('calendar',{month_cell:'Month day cells',month_weekend:'Month weekends',month_date_band:'Month date band',today_cell:'Today highlight',list_day:'List day cards',list_day_header:'List day headers'},current.calendar,'cal')}<label class="field">Week headings<select name="cal_week_headings">${[['show','Show'],['hide','Hide']].map(([key,label])=>`<option value="${key}" ${(saved.calendar?.week_headings||current.calendar?.week_headings)===key?'selected':''}>${label}</option>`).join('')}</select></label></fieldset>` : ''}
     ${permissions.type ? `<fieldset><legend>Text & shape</legend><label class="field">Text size<select name="type_scale">${[['default','Default'],['large','Larger']].map(([key,label])=>`<option value="${key}" ${(saved.type?.scale||current.type?.scale)===key?'selected':''}>${label}</option>`).join('')}</select></label><label class="field">Theme<select name="type_theme">${[['light','Light'],['dark','Dark'],['auto','Match my phone']].map(([key,label])=>`<option value="${key}" ${(saved.type?.theme||current.type?.theme)===key?'selected':''}>${label}</option>`).join('')}</select></label><label class="field">Font<select name="type_font">${[['system','Standard'],['serif','Serif'],['rounded','Rounded'],['mono','Monospace']].map(([key,label])=>`<option value="${key}" ${(saved.type?.font||current.type?.font)===key?'selected':''}>${label}</option>`).join('')}</select></label><label class="field">Headings<select name="type_heading">${[['bold','Bold'],['normal','Regular']].map(([key,label])=>`<option value="${key}" ${(saved.type?.heading||current.type?.heading)===key?'selected':''}>${label}</option>`).join('')}</select></label><label class="field">Corners<select name="type_corners">${[['soft','Soft'],['square','Square']].map(([key,label])=>`<option value="${key}" ${(saved.type?.corners||current.type?.corners)===key?'selected':''}>${label}</option>`).join('')}</select></label></fieldset>` : ''}
-    <div class="button-row"><button class="primary-button">Save my appearance</button><button type="button" class="secondary-button" data-action="reset-user-appearance">Use owner defaults</button></div><p class="helper" role="status" data-appearance-status></p>
+    <div class="button-row"><button class="primary-button">Save my appearance</button><button type="button" class="secondary-button" data-action="reset-user-appearance">Restore Align defaults</button></div><p class="helper" role="status" data-appearance-status></p>
   </form></section>`;
 }
 
@@ -775,7 +774,7 @@ function sectionModal(id = null) {
     <div class="form-grid two"><div class="field"><label>Section name</label><input name="name" required value="${escapeHtml(item.name)}" placeholder="e.g. Appointments" /></div><div class="field"><label>Icon</label><input name="icon" maxlength="4" value="${escapeHtml(item.icon || '•')}" /></div></div>
     <div class="field"><label>Description</label><input name="description" value="${escapeHtml(item.description || '')}" placeholder="What belongs here?" /></div>
     <div class="form-grid two"><div class="field"><label>Colour</label><input name="colour" type="color" value="${escapeHtml(item.colour || '#365CE6')}" /></div><div class="field"><label>Menu order</label><input name="sort_order" type="number" step="10" value="${item.sort_order || 100}" /></div></div>
-    <div class="field"><label>Menu location</label><select name="parent_branch_id"><option value="">Home</option>${folders.map(f => `<option value="${f.id}" ${Number(item.parent_branch_id)===Number(f.id)?'selected':''}>Inside ${escapeHtml(f.title)}</option>`).join('')}</select><small class="helper">You can keep this on Home or place it inside one of the owner-defined folders.</small></div>
+    <div class="field"><label>Menu location</label><select name="parent_branch_id"><option value="">Home</option>${folders.map(f => `<option value="${f.id}" ${Number(item.parent_branch_id)===Number(f.id)?'selected':''}>Inside ${escapeHtml(f.title)}</option>`).join('')}</select><small class="helper">You can keep this on Home or place it inside a folder.</small></div>
     <div class="field"><label>iCloud calendar</label><select name="calendar_id"><option value="">No linked calendar</option>${calendars.map(c => `<option value="${c.id}" ${item.calendar_id===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}</select><small class="helper">Connect your own iCloud account in Settings → Calendar before linking a section.</small><button type="button" class="small-button" data-personal="create-category-calendar">Create iCloud calendar for this category</button></div>
     <label class="switch-row"><span>Import iCloud events into this section</span><input class="switch" name="import_enabled" type="checkbox" ${item.import_enabled ? 'checked':''}/></label>
     <label class="switch-row"><span>Export Align events to this calendar</span><input class="switch" name="export_enabled" type="checkbox" ${item.export_enabled ? 'checked':''}/></label>
@@ -971,7 +970,7 @@ document.addEventListener('click', async event => {
   if (action === 'go-master') { state.tab = 'master'; render(); }
   if (action === 'work-opt-in') {
     const work = state.sectionDefinitions.find(section => section.key === 'work');
-    if (!work) { toast('Work setup is not available yet. The Owner must publish its database and form first.'); return; }
+    if (!work) { toast('Work setup is not available yet. The Work database will appear here when it is ready.'); return; }
     try {
       await api('/api/builder/records/work/enable', {method:'POST', body:{}});
       state.sectionDefinitions = (await api('/api/sections/definitions')).sections || [];
@@ -1015,7 +1014,7 @@ document.addEventListener('click', async event => {
       state.boot.builder.appearance = result.appearance;
       state.boot.builder.personal_appearance = result.personal_appearance;
       render();
-      toast('Your app is using the owner’s appearance defaults.');
+      toast('Align defaults restored.');
     } catch (error) { toast(error.message); }
     return;
   }

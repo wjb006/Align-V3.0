@@ -15,6 +15,10 @@ if (app.includes("title:'Planner'")) throw new Error('Legacy Planner should not 
 if (!app.includes("['planner','calendar','add']")) throw new Error('Legacy planner links must continue routing to Sections');
 if (!app.includes('Work (optional)')) throw new Error('Optional Work section prompt is missing');
 if (!app.includes("'/api/builder/records/work/enable'")) throw new Error('Work opt-in action is missing');
+const more = app.slice(app.indexOf('function renderMore()'), app.indexOf('function rootParentBranches()'));
+if (more.includes('Asset Studio') || more.includes("data-nav=\"assets\"")) throw new Error('Owner Asset Studio controls must stay in Align Management Studio, outside the user app');
+const settings = app.slice(app.indexOf('function renderUserSettings()'), app.indexOf('function renderUserBranch('));
+if (settings.includes('Asset Studio') || settings.includes('Management Studio')) throw new Error('Owner management controls must stay outside user settings');
 for (const role of ['location','area','date','start_time','end_time']) {
   if (!studio.includes(`'${role}'`)) throw new Error(`Work field association ${role} is missing from Studio`);
 }
@@ -27,8 +31,8 @@ if (!app.includes("{ branch_key: 'calendar', title: 'Calendar'")) throw new Erro
 for (const [name, source] of [['app',app],['index',index],['service worker',worker]]) {
   if (source.includes('maps173')) throw new Error(`Stale maps173 asset version remains in ${name}`);
 }
-if (!app.includes('const ASSET_VERSION = `${BUILD_VERSION}-v35`;')) throw new Error('App asset version template is not the current Build 156 assets');
-if (!index.includes('156-v35')) throw new Error('Index asset version is not 156-v35');
+if (!app.includes('const ASSET_VERSION = `${BUILD_VERSION}-v36`;')) throw new Error('App asset version template is not the current Build 156 assets');
+if (!index.includes('156-v36')) throw new Error('Index asset version is not 156-v36');
 if (!worker.includes('align-v13-shell-${ASSET_VERSION}')) throw new Error('Shell cache template is missing');
 if (!worker.includes('align-v13-api-${ASSET_VERSION}')) throw new Error('API cache template is missing');
 console.log('core navigation and optional Work setup checks passed');

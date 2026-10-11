@@ -22,7 +22,8 @@
 - Rebranded the user-facing app and setup/remote-access launchers as Align V3.0. `BUILD_VERSION=156` remains the internal build/cache identifier.
 - Retired the public Beta launchers and user-facing labels. Legacy `/api/beta/*`, `beta_*` database/module names, and `ALIGN_BETA_MODE` remain internal compatibility details; do not rename until a data/API migration can preserve existing accounts.
 - Updated the install guide and conservative uninstaller to include the grouped launch and add-ons files while preserving the database by default.
-- Bumped coordinated web asset cache revision to `156-v35` after frontend changes.
+- Bumped coordinated web asset cache revision to `156-v36` after frontend changes.
+- Removed Owner-only Asset Studio entry points from the end-user More and Settings pages. User-facing section text now refers to Align Management Studio, and management features remain in its standalone Owner-protected page.
 - Began replacing fixed shift setup with an optional Work database. Studio links custom questions to Work Location, Shift Area, work date, and start/end times; users can opt in and retain private records.
 - Updated Management Studio Work matrix to associate custom fields with location, area, work date, and start/end time; Work remains optional and records are private.
 - Changed the main Align calendar subscription to export timed and all-day Section events. Legacy shifts and annual-leave rows remain in the database for recovery but are no longer published in the V3 feed.
@@ -30,6 +31,7 @@
 - Added `.env.example`, environment/deployment documentation, `render.yaml`, a Postgres bootstrap, and separate hosted-persistence and three-device browser workflows.
 ## Verification
 - Latest full Python run: 222 passed, 3 skipped, 23 subtests passed (11 October 2026). Removed five obsolete shift-only test modules and moved the retained isolated HTTP/SQLite fixture to `test_support.py`.
+- User app management-surface checks: added assertions that More and Settings do not expose Asset Studio or Management Studio controls; desktop browser and full Python checks pass: 222 passed, 3 skipped, 23 subtests.
 - New event-feed regression: passed. It covers timed/all-day event export, stable event UID, legacy-row preservation and excluding legacy shifts/leave from the published calendar.
 - Latest focused checks: 20 Python tests passed; navigation/Work, date, UI polish, Build 156 asset consistency, and `git diff --check` passed.
 - Fixed PowerShell installer interpolation so the embedded Build 156 verification command parses correctly.
@@ -48,7 +50,9 @@
 - Add `getalign.co.uk` to the new Render service and only then change IONOS DNS to Render's verified target records.
 ## Follow-up verification (2026-10-11)
 - Focused Node checks passed: core navigation, display dates, UI polish, Scriptable bridge, and phone push worker.
-- `verify_align_build156.py` passed with coordinated 156-v35 cache identity.
+- `verify_align_build156.py` passed with coordinated 156-v36 cache identity.
 - Focused Python checks passed: 20 tests across Builder defaults, UI polish, extracted routes, and Owner Builder.
 - PowerShell parser accepted the installer, uninstaller, cleanup, live-folder, add-ons, and remote-access scripts. git diff --check passed; Git emitted line-ending normalization warnings.
-- Full Python and multi-device browser suites have not been rerun after the latest Work and Settings changes.
+- Pixel 7 and iPhone browser profiles still need rerunning after the latest end-user menu changes; desktop browser passed.
+
+- Full Python suite after separating user-facing settings: 222 passed, 3 skipped, 23 subtests (11 October 2026). Desktop browser, core navigation, UI polish, display date, cache consistency, JavaScript syntax, and whitespace checks passed.

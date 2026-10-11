@@ -102,10 +102,11 @@
 - [x] Rename browser workflow/spec to `.github/workflows/build-browser.yml` and `browser-tests/align.spec.js`.
 - [x] Add browser coverage for desktop Chromium, Pixel 7 Chromium, and iPhone 13 WebKit profiles.
 - [x] Most recent local desktop browser regression passes; earlier full device matrix passed before the newest matrix work.
-- [x] Align app and service-worker asset cache version at `156-v35`; update Studio-specific asset references and verifier.
+- [x] Align app and service-worker asset cache version at `156-v36`; update Studio-specific asset references and verifier.
 - [x] `verify_align_build156.py` passes for Align V3.0 and Build 156 cache identity.
 - [x] Full Python suite now passes after retiring obsolete shift-only tests: 222 passed, 3 skipped, 23 subtests.
-- [ ] Re-run full Python suite after shift-test retirement/update and classify any remaining non-shift failures.
+- [~] Removed Owner-only Asset Studio links from end-user More and Settings; removed Owner phrasing from Work and personal appearance guidance. User menus now expose personal Settings and Travel only. Standalone Align Management Studio retains Owner controls. Local Admin and backup/iCloud maintenance dependencies remain separate. Desktop browser, navigation, UI polish, date, cache verifier, JavaScript syntax, and full Python suite pass (222 passed, 3 skipped, 23 subtests).
+- [x] Re-ran the full Python suite after shift-test retirement and end-user management-surface changes; 222 passed, 3 skipped, 23 subtests, no failures.
 - [x] Align calendar feed publishes timed and all-day Section events with stable UIDs; old shift/leave rows remain stored but are not published.
 - [x] `test_event_calendar_feed.py` verifies ICS output and preservation/non-publication of legacy schedule rows.
 - [ ] Re-run desktop, Pixel 7, and iPhone 13 browser profiles after final implementation.
@@ -170,3 +171,5 @@
 - **2026-10-11:** Grouped Align startup modes and optional integrations, merged OTP shutdown handling, renamed the account dependency bundle, and updated installer documentation. Beta remains only in legacy account/API/storage compatibility internals; the user-facing app is Align. Bumped coordinated cache revision to `156-v34`; focused verification is pending.
 - **2026-10-11:** Focused follow-up passed: core navigation, display-date, UI polish, Scriptable bridge, phone push, Build 156 asset verifier, and 16 Python UI/route/Owner tests. PowerShell parsing passed for the add-ons, remote-access, uninstaller, and cleanup scripts; git diff --check passed (line-ending warnings only).
 - **2026-10-11:** Re-ran full Python suite (70 retired schedule failures, 237 passed, 3 skipped, 16 subtests); replaced Align's published shift/leave feed with timed/all-day Section event export. New feed regression and desktop browser pass; old database rows are preserved. Render still has no V3 service/Postgres; Neon connection needs reauthentication.
+
+| 2026-10-11 | Separated user controls from Align Management Studio | Removed Asset Studio entry points from More/Settings, updated user copy, bumped cache revision to 156-v36; full Python 222 passed, 3 skipped, 23 subtests; desktop browser and focused checks passed |
