@@ -281,8 +281,10 @@ async function verifyManagementStudio(browser) {
       const editor = await page.locator('#management-editor').innerText().catch(() => 'missing');
       throw new Error(`${error.message}; Management Studio status: ${status}; editor: ${editor.slice(0,500)}; page errors: ${pageErrors.join(' | ') || 'none'}; failed requests: ${failedRequests.join(' | ') || 'none'}`);
     }
-    await page.evaluate(() => window.dispatchEvent(new CustomEvent('align-builder-tab',{detail:{tab:'startup'}})));
-    await page.waitForFunction(() => document.querySelector('[data-startup-editor]'));
+    // Switch the real unified navigation to the startup editor before editing it.
+    // Dispatching the builder event alone renders the editor behind the currently active Colours pane.
+    await page.locator('[data-unified-tab="startup"]').click();
+    await page.locator('[data-startup-editor] input[data-prop="title"]').waitFor({state:'visible'});
     await page.locator('[data-startup-editor] input[data-prop="title"]').fill('Welcome V2');
     await page.locator('#save').click();
     await page.waitForFunction(() => document.querySelector('#builder-status')?.textContent.startsWith('Draft saved'));
