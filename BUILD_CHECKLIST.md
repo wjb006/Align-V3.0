@@ -16,7 +16,7 @@
 - Preserve `C:\Align\Align_App` as read-only. Preserve user data and unrelated working-tree changes.
 - GitHub remote is `origin` → private `wjb006/Align-V3.0`; a dedicated Neon project now exists, but its schema and connection are not yet installed in Render.
 ## Current handoff: resume here
-- [~] Main rebuild work continues on `codex/align-v3-rebuild`; event-feed and test-retirement changes are committed and pushed (`347ab82`).
+- [x] Main rebuild source is pushed on `codex/align-v3-rebuild`; latest code commit `a7cb16d` passed GitHub Actions and was packaged; checklist-only follow-up `3e04af3` is pending its CI/package run.
 - [x] Current work includes the Studio's phone-preview section-to-database input-matrix flow: create a section or open its editor; new sections start with required Name, optional Date, and review-before-save; the editor describes naming, matrix setup, and form review.
 - [x] Latest full Python run: `.venv\Scripts\python.exe -m pytest -q` — **227 passed, 3 skipped, 23 subtests passed** (11 October 2026); latest Outlook and iCloud changes included.
 - [x] Latest desktop Playwright run: `node browser-tests/align.spec.js` — passed, covering section records, calendar event list/month views, Studio draft/publish, and phone preview. Shift totals and annual-leave UI expectations were removed from the retained calendar check.
@@ -46,7 +46,7 @@
 - [!] Neon MCP connection still requires reauthentication; the web SQL editor is available but schema bootstrap has not been executed.
 - [~] `render.yaml` prepared for service `align-v3` with intended public URL `https://getalign.co.uk`; hosted authentication still uses legacy account-mode compatibility, which must be reviewed before public release.
 - [x] Push reviewed V3 source to `wjb006/Align-V3.0` branch `codex/align-v3-rebuild`; connect Render to this source only after the Neon and release gates are ready.
-- [~] Dedicated Neon PostgreSQL 18 database exists (`shy-mud-29198551` / `align_v3`); execute `migrations/postgres/bootstrap.sql`, then configure its connection string only in the new Render service.
+- [~] Dedicated Neon PostgreSQL 18 project exists (`shy-mud-29198551` / `align_v3`); bootstrap schema is from the legacy shift-era model and must be updated after the optional Work/shift retirement before a fresh V3 install.
 - [!] Render workspace `Align-App` still contains only the unrelated `align-beta-preview` (`srv-dagshc6k1f9s73dout5g`) on `wjb006/Align-app`; do not modify it. No V3 Render service exists. Need configure new service secrets and choose a paid plan for custom-domain/no-sleep production hosting.
 - [ ] After creating the V3 Render service, attach `getalign.co.uk`, verify TLS, then update IONOS DNS to Render's exact provided records and verify propagation.
 - [x] GitHub Actions run `38171142813` passed Desktop Chromium, Pixel 7 Chrome, iPhone 13 Safari, navigation, hosted PostgreSQL persistence, and release packaging on exact commit `a7cb16d41755ee9cfa1a0a39c843191efce8ad5e`. ZIP artifact `Align-V3.0-a7cb16d41755ee9cfa1a0a39c843191efce8ad5e` (1,207,256 bytes) is available until 9 January 2027. This verifies CI, not the new Neon/Render deployment.
@@ -61,7 +61,7 @@
 - [~] Removed obsolete shift-only test modules (`test_calendar_sync.py`, `test_work_setup.py`, `test_week_booking.py`, `test_shift_completions.py`, `test_work_settings.py`) after moving retained test setup into `test_support.py`; broader shift scripts, UI and documentation remain.
 - [ ] Run the full Python suite, JavaScript unit checks, browser suite, startup/schema checks, and fresh-database migration checks.
 - [ ] Verify searches show no active shift product functionality remains (distinguish unrelated identifiers such as JavaScript `shiftKey` or array `.shift()`).
-**Current release gate:** not ready for external testers. Residual shift modules/admin/schema remain; no V3.0 database/service is provisioned; Neon schema/deployment connection remains incomplete; Render requires paid-tier choice for the domain; Microsoft Graph and Apple credentials need real-account setup and verification.
+**Current release gate:** not ready for external testers. The optional Work replacement and legacy shift retirement are incomplete; the available PostgreSQL bootstrap still contains shift tables; Neon schema is not installed; no V3 Render service exists; Microsoft Graph and Apple credentials need real-account setup and verification. Paid Render tier and initial Owner password setup also remain.
 ## 3. Database-backed Sections and user input matrices
 - [x] Add numbered SQLite/Postgres migrations for `calendar_links`, `section_defs`, and `section_fields`; include them in migration expectations and hosted test fixture.
 - [x] Materialize published Builder layouts into database section definitions; keep submitted user data in private per-user `builder_records` storage.
@@ -186,8 +186,8 @@
 | 2026-10-11 | Hosted PostgreSQL migration correction | CI found runtime DDL blocked by the hosted adapter; moved calendar fields to additive migration 152 and aligned bootstrap/fixture/validation; hosted rerun pending |
 | 2026-10-11 | Hosted integration configuration | CI then caught the PostgreSQL integration test using disposable SQLite mode; corrected its mode to persistent, matching the startup guard; hosted rerun pending |
 | 2026-10-11 | GitHub Actions release verification | All checks and release packaging passed on `a7cb16d`; browser matrix covered desktop, Pixel 7 Chrome, and iPhone 13 Safari; hosted integration ran 230 tests plus 23 subtests |
-| 2026-10-12 | Hosting setup | Created isolated Neon PostgreSQL 18 project in London; schema bootstrap and Render provisioning are still outstanding; old Render service and IONOS DNS unchanged |
-| 2026-10-12 | Release artifact | GitHub Actions package `Align-V3.0-a7cb16d41755ee9cfa1a0a39c843191efce8ad5e` is ready (1,207,256 bytes; expires 9 January 2027) |
+| 2026-10-12 | Hosting setup | Created isolated Neon PostgreSQL 18 project in London; its checked-in bootstrap is still shift-era and schema install is deferred until Work/shift retirement is complete; Render service and IONOS DNS unchanged |
+| 2026-10-12 | Release artifact | Package `Align-V3.0-a7cb16d41755ee9cfa1a0a39c843191efce8ad5e` passed on commit `a7cb16d` (1,207,256 bytes); checklist follow-up commit `3e04af3` is awaiting its own green CI/package |
 
 - **2026-10-11:** Added user-managed iCloud calendar selection and creation to existing Calendar settings; selected calendars become reusable Sections, and event/reminder forms offer calendar destinations plus a “Create New Calendar” option. Reminder deletion removes its linked Align calendar event. Bumped coordinated cache revision to `156-v39`; 11 focused Python tests, current two focused calendar regressions, JavaScript/cache checks, and desktop Chromium flow passed. Real Apple and hosted account checks are pending.
 - **2026-10-11:** Added the Outlook account-email setup and calendar integration work to the local release candidate; full Python/browser/focused checks pass. Shift planner code still remains, Neon access is unauthenticated, and Render's only service targets the old repository. These are launch blockers; the current local changes have not been pushed or deployed.
