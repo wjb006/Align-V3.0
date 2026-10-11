@@ -31,8 +31,9 @@
 - [x] Use branch `codex/align-v3-rebuild` for this work.
 - [x] Rename user-facing product identity and local Owner/remote-access launchers to Align V3.0 / Align names; update known launcher references.
 - [~] Internal legacy module/file names still include `beta_*` and internal `BUILD_VERSION=156`; review remaining names as shift and admin functionality are retired.
-- [x] Created the new private repository `wjb006/Align-V3.0` (empty; no source uploaded). Existing private `wjb006/Align-app` remains untouched.
-- [ ] Add the new repository as this checkout's `origin`, review secrets/data exclusions, resolve or reclassify legacy test failures, then commit and push the reviewed source to `codex/align-v3-rebuild`.
+- [x] Created the new private repository `wjb006/Align-V3.0`; existing private `wjb006/Align-app` remains untouched.
+- [x] Added the new repository as `origin`; reviewed ignore rules (local `.env` and SQLite databases excluded); committed and pushed V3 snapshot `15374ee` to `codex/align-v3-rebuild`.
+- [~] Keep the pushed commit as development work only until legacy test expectations are retired/updated, browser checks pass on the final shift-free flow, and hosted persistence is verified.
 - [x] Domain ownership confirmed by user: `getalign.co.uk` is managed through IONOS; RDAP reports active registration to 9 September 2027. DNS currently resolves to IONOS hosting (`217.160.0.25` and `2001:8d8:100f:f000::200`).
 - [ ] Commit the completed, reviewed implementation to the dedicated repository; preserve any unrelated changes.
 ## 7. Hosted service, database, and custom domain
