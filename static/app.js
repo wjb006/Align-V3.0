@@ -18,7 +18,7 @@ const modalRoot = document.querySelector('#modal-root');
 const toastElement = document.querySelector('#toast');
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 156;
-const ASSET_VERSION = `${BUILD_VERSION}-v41`;
+const ASSET_VERSION = `${BUILD_VERSION}-v42`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -613,18 +613,9 @@ function renderPersonalAppearance() {
   </form></section>`;
 }
 
-function beforeLabel(minutes) {
-  if (!minutes) return 'At event start';
-  return `${travel_reminders_label(minutes)} before`;
-}
-
 function renderAlertSettings() {
-  const rules = state.boot.calendar.alert_rules;
-  return `<div class="section-head"><h2>Event reminders</h2><button class="text-button" data-action="new-alert-rule">Add reminder</button></div>
-    <form class="card settings-form" data-form="user-settings"><div class="switch-row"><label for="user-notifications">Enable event reminders</label><input class="switch" id="user-notifications" name="notifications" type="checkbox" ${state.boot.settings.notifications ? 'checked' : ''}/></div><p class="helper">Your calendar app delivers these reminders when you subscribe to Align or sync with iCloud. Enable alerts for that calendar on your iPhone.</p><div class="button-row"><button type="button" class="secondary-button" data-action="enable-browser-notifications">Enable browser notifications</button><span class="helper">Browser reminders work while Align stays open. For reminders when it is closed, use calendar alerts.</span><button class="primary-button">Save reminder preference</button></div></form>
-    <div class="master-list section">${rules.map(rule => `<article class="card master-item ${rule.active ? '' : 'inactive'}"><span class="branch-icon">◌</span><div class="item-content"><h3>${escapeHtml(rule.title)}</h3><p>${escapeHtml(beforeLabel(rule.minutes_before))}${rule.active ? '' : ' · disabled'}</p></div><button class="small-button" data-action="edit-alert-rule" data-id="${rule.id}">Edit</button></article>`).join('') || '<p class="helper">Add a reminder such as Time to Leave, 1 hour before an event.</p>'}<button class="secondary-button" data-action="new-alert-rule">＋ Add reminder</button></div>
-    <p class="helper">Reminder rules apply to upcoming events. A journey reminder uses its planned leave time; other reminders use a fixed time before the event.</p>
-    <div class="section-head"><h2>Upcoming reminders</h2></div><div class="master-list">${state.boot.dashboard.alerts.map(alert => `<article class="card master-item"><div class="item-content"><h3><img src="${reminderIcon(alert.title)}" alt="" width="28" height="28"> ${escapeHtml(alert.title)}</h3><p>${escapeHtml(formatDisplayDateTime(alert.alert_at))}</p></div></article>`).join('') || '<p class="helper">No upcoming reminders.</p>'}</div>`;
+  return `<div class="section-head"><h2>Notifications</h2></div>
+    <form class="card settings-form" data-form="user-settings"><div class="switch-row"><label for="user-notifications">Enable Align notifications</label><input class="switch" id="user-notifications" name="notifications" type="checkbox" ${state.boot.settings.notifications ? 'checked' : ''}/></div><p class="helper">This preference controls Align notifications for your account. Reminder times for events in an iCloud calendar are managed by that calendar.</p><div class="button-row"><button type="button" class="secondary-button" data-action="enable-browser-notifications">Enable notifications on this device</button><button class="primary-button">Save notification preference</button></div></form>`;
 }
 
 function renderCalendarSettings() {
