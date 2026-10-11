@@ -161,7 +161,7 @@ class PostgresIntegrationTests(unittest.TestCase):
 
     def setUp(self):
         self.env = patch.dict(os.environ, {'ALIGN_DATABASE_BACKEND': 'postgres', 'DATABASE_URL': self.dsn,
-                                           'ALIGN_HOSTING_MODE': 'disposable-preview', 'ALIGN_PREVIEW_PASSWORD': 'IntegrationOnlyPassword123!'})
+                                           'ALIGN_HOSTING_MODE': 'persistent', 'ALIGN_PREVIEW_PASSWORD': 'IntegrationOnlyPassword123!'})
         self.env.start()
         self.addCleanup(self.env.stop)
         pg.prepare_calendar_locations()
