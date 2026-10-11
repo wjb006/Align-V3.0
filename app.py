@@ -56,7 +56,6 @@ restore_local_database = health_backup.restore_local_database
 MAX_LOCAL_BACKUP_BYTES = health_backup.MAX_LOCAL_BACKUP_BYTES
 get_settings = align_settings.get_settings
 save_settings = align_settings.save_settings
-save_user_colours = align_settings.save_user_colours
 USER_EDITABLE_SETTINGS = align_settings.USER_EDITABLE_SETTINGS
 organiser_sections = organiser_api.organiser_sections
 organiser_section = organiser_api.organiser_section

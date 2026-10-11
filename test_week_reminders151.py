@@ -2,7 +2,7 @@ import unittest
 from datetime import timedelta
 from icalendar import Calendar
 import app, icloud_sync, travel_reminders
-from test_work_setup import WorkSetupTests
+from test_support import IsolatedAppServer
 class ReminderTests(unittest.TestCase):
     def test_range_and_existing_rules(self):
         self.assertIsNone(travel_reminders.minutes('[Align travel reminder: 20000 minutes before]'))
@@ -19,13 +19,9 @@ class ReminderTests(unittest.TestCase):
         event['all_day']=True
         raw,_=icloud_sync.organiser_event(event,'test')
         self.assertEqual(Calendar.from_ical(raw).walk('VALARM'),[])
-    def test_shift_calendar_override(self):
-        shift={'work_date':'2026-10-25','start_time':'09:00','end_time':'13:00','location_name':'Work','shift_type_name':'Office','notes':'[Align travel reminder: 30 minutes before]'}
-        raw,_=icloud_sync.shift_event(shift,'shift',[])
-        self.assertEqual(Calendar.from_ical(raw).walk('VALARM')[0].decoded('TRIGGER'),timedelta(minutes=-30))
 class WeekEventsTests(unittest.TestCase):
-    setUp=WorkSetupTests.setUp
-    tearDown=WorkSetupTests.tearDown
+    setUp=IsolatedAppServer.setUp
+    tearDown=IsolatedAppServer.tearDown
     def test_week_events_are_scoped_to_dates_and_account(self):
         with app.db_connection() as c:
             section=c.execute("INSERT INTO organiser_sections(name) VALUES('Personal')").lastrowid

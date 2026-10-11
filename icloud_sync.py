@@ -138,48 +138,16 @@ def local_times(component):
     return local(start), local(end), all_day
 
 
-def shift_event(shift, uid, rules):
-    from icalendar import Calendar, Event, Alarm, vText
-    zone = ZoneInfo('Europe/London')
-    start = datetime.fromisoformat(f"{shift['work_date']}T{shift['start_time']}").replace(tzinfo=zone)
-    end = datetime.fromisoformat(f"{shift['work_date']}T{shift['end_time']}").replace(tzinfo=zone)
-    if end <= start:
-        end += timedelta(days=1)
-    event = Event()
-    event.add('uid', uid)
-    event.add('dtstamp', datetime.now(timezone.utc))
-    event.add('dtstart', start.astimezone(timezone.utc))
-    event.add('dtend', end.astimezone(timezone.utc))
-    event.add('summary', shift['location_name'] + ' – ' + shift['shift_type_name'])
-    event.add('location', shift.get('location_address') or shift['location_name'])
-    event.add('description', travel_calendar.calendar_description(shift.get('notes')))
-    event.add('status','CONFIRMED')
-    journey = travel_calendar.plan(shift.get('notes'), start.replace(tzinfo=None)) if rules is not None else None
-    rules = travel_reminders.rules(shift.get('notes'), rules or [])
-    if journey:
-        lead = int((start.replace(tzinfo=None) - journey[0]).total_seconds() // 60)
-        duration = vText(f'PT{journey[1]}M'); duration.params['VALUE'] = 'DURATION'; event.add('x-apple-travel-duration', duration)
-        title = travel_calendar.leave_alert_title(journey[0], shift['location_name'] + ' – ' + shift['shift_type_name'])
-        if not any(r['minutes_before'] == lead for r in rules):
-            rules.append({'title': title, 'minutes_before': lead})
-    for rule in rules:
-        alarm = Alarm(); alarm.add('action','DISPLAY'); alarm.add('description',rule['title'])
-        alarm.add('trigger',timedelta(minutes=-rule['minutes_before'])); event.add_component(alarm)
-    calendar = Calendar(); calendar.add('version','2.0'); calendar.add('prodid','-//Align//iCloud Calendar//EN'); calendar.add_component(event)
-    return calendar.to_ical(), event_content(event)
-
-
-def travel_block(shift, uid, rules):
-    """A free-time 'Travel to ...' entry from the planned leave time to the shift start."""
+def travel_block(event, uid, rules):
+    """Build an optional travel block for a timed Section event."""
     from icalendar import Alarm, Calendar, Event
     if rules is None:
         return None
     zone = ZoneInfo('Europe/London')
-    if shift.get('all_day'):
+    if event.get('all_day'):
         return None
-    start = (datetime.fromisoformat(shift['start_at']) if 'start_at' in shift
-             else datetime.fromisoformat(f"{shift['work_date']}T{shift['start_time']}"))
-    journey = travel_calendar.plan(shift.get('notes'), start)
+    start = datetime.fromisoformat(event['start_at'])
+    journey = travel_calendar.plan(event.get('notes'), start)
     if not journey or journey[0] >= start:
         return None
     item = Event()
@@ -187,13 +155,14 @@ def travel_block(shift, uid, rules):
     item.add('dtstamp', datetime.now(timezone.utc))
     item.add('dtstart', journey[0].replace(tzinfo=zone).astimezone(timezone.utc))
     item.add('dtend', start.replace(tzinfo=zone).astimezone(timezone.utc))
-    item.add('summary', 'Travel to ' + (shift.get('location_name') or shift.get('title') or 'event'))
+    destination = event.get('location') or event.get('title') or 'event'
+    item.add('summary', 'Travel to ' + destination)
     item.add('description', f"Leave at {journey[0].strftime('%H:%M')} (about {journey[1]} minutes). Planned in Align.")
     item.add('transp', 'TRANSPARENT')
     item.add('status', 'CONFIRMED')
     alarm = Alarm()
     alarm.add('action', 'DISPLAY')
-    alarm.add('description', travel_calendar.leave_alert_title(journey[0], shift.get('location_name') or shift.get('title') or 'event'))
+    alarm.add('description', travel_calendar.leave_alert_title(journey[0], destination))
     alarm.add('trigger', timedelta(0))
     item.add_component(alarm)
     calendar = Calendar(); calendar.add('version','2.0'); calendar.add('prodid','-//Align//iCloud Calendar//EN'); calendar.add_component(item)
@@ -304,7 +273,7 @@ class ICloudSync:
                 with self.app.db_connection() as c:
                     old = c.execute('SELECT account_hash FROM icloud_config WHERE id=1').fetchone()[0]
                     if old and old != account and c.execute('SELECT 1 FROM icloud_items LIMIT 1').fetchone():
-                        raise CloudError('This installation already manages shifts in another iCloud account. Reconnect that account.')
+                        raise CloudError('This installation already syncs a different Align calendar. Reconnect the same iCloud account.')
                 if self.client: self.client.close()
                 self.client, self.options, self.account = client, options, account
                 self.calendar_status = {}; self.last_error = None; self.consecutive_failures = 0
@@ -384,7 +353,7 @@ class ICloudSync:
             if self.client: self.client.close()
             self.client = None; self.options = []; self.account = ''
             self.calendar_status = {}; self.last_error = None; self.consecutive_failures = 0
-            self.message = 'Disconnected. Existing iCloud shifts are kept.'
+            self.message = 'Disconnected. Existing iCloud calendar copies are kept.'
             with self.app.db_connection() as c:
                 c.execute("DELETE FROM calendar_sources WHERE source_kind='icloud'")
         return self.status(True)
@@ -404,7 +373,6 @@ class ICloudSync:
             self.last_attempt = datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00','Z')
             with self.app.db_connection() as c:
                 config = dict(c.execute('SELECT * FROM icloud_config WHERE id=1').fetchone())
-                shifts = self.app.shift_query(c,None,None)
                 notifications = bool(self.app.get_settings(c)['notifications'])
                 rules = self.app.alert_rules(c,True) if notifications else []
                 mappings = {r['local_key']:dict(r) for r in c.execute('SELECT * FROM icloud_items')}
@@ -476,22 +444,9 @@ class ICloudSync:
                     )
 
             wanted = set()
-            # Existing Work shift export remains backward-compatible: numeric
-            # local keys are preserved so upgrades do not duplicate old events.
-            for shift in shifts:
-                key = str(shift['id']); wanted.add(key)
-                uid = prefix + key + '@align.local'
-                url = config['target_url'].rstrip('/') + '/' + uid + '.ics'
-                payload, content_hash = shift_event(shift,uid,rules if notifications else None)
-                sync_owned_item(key, uid, url, payload, content_hash, mappings.get(key))
-                block = travel_block(shift, prefix + 'travel-' + key + '@align.local', rules if notifications else None)
-                if block:
-                    tkey = 'travel:' + key; wanted.add(tkey)
-                    tuid = prefix + 'travel-' + key + '@align.local'
-                    sync_owned_item(tkey, tuid, config['target_url'].rstrip('/') + '/' + tuid + '.ics', block[0], block[1], mappings.get(tkey))
-
-            # Custom Home-section events export into that section's linked iCloud
-            # calendar. They use a separate key namespace from Work shifts.
+            # V3 only manages Section events. Numeric legacy shift mappings and
+            # their travel entries are intentionally left untouched, including
+            # their iCloud copies, so this transition cannot delete user data.
             for event in organiser_events:
                 if not event['export_enabled']:
                     continue
@@ -499,7 +454,7 @@ class ICloudSync:
                 uid = prefix + 'event-' + str(event['id']) + '@align.local'
                 url = event['calendar_url'].rstrip('/') + '/' + uid + '.ics'
                 payload, content_hash = organiser_event(event,uid)
-                self._sync_owned_item(key, uid, url, payload, content_hash, mappings.get(key))
+                sync_owned_item(key, uid, url, payload, content_hash, mappings.get(key))
                 tuid = prefix + 'travel-event-' + str(event['id']) + '@align.local'
                 block = travel_block(event, tuid, rules if notifications else None)
                 if block:
@@ -508,6 +463,9 @@ class ICloudSync:
 
             for key,saved in mappings.items():
                 if key in wanted: continue
+                if (str(key).isdigit() or
+                    (str(key).startswith('travel:') and not str(key).startswith('travel:event:'))):
+                    continue
                 with self.app.db_connection() as c:
                     if key.startswith('travel:'):
                         exists = None
@@ -532,16 +490,14 @@ class ICloudSync:
             self.conflicts = conflicts
             if conflicts:
                 self.message = (
-                    f'Synced {len(shifts)} Work shifts and '
-                    f'{sum(1 for e in organiser_events if e["export_enabled"])} section events. '
+                    f'Synced {sum(1 for e in organiser_events if e["export_enabled"])} Section events. '
                     f'Read {sum(len(v) for v in events_by_url.values())} iCloud events. '
                     f'{len(conflicts)} Align event{"s" if len(conflicts) != 1 else ""} need review '
                     'after edits in both Align and iCloud. Other events continued syncing both ways.'
                 )
             else:
                 self.message = (
-                    f'Two-way sync complete: {len(shifts)} Work shifts and '
-                    f'{sum(1 for e in organiser_events if e["export_enabled"])} section events. '
+                    f'Two-way sync complete: {sum(1 for e in organiser_events if e["export_enabled"])} Section events. '
                     f'Read {sum(len(v) for v in events_by_url.values())} iCloud events.'
                 )
         except CloudError as error:
@@ -571,7 +527,7 @@ class ICloudSync:
 
     def _apply_inbound(self, key, raw, uid):
         """Pull an iCloud edit of an Align-owned event back into Align (2-way sync)."""
-        if str(key).startswith('travel:'):
+        if str(key).startswith('travel:') or not str(key).startswith('event:'):
             return False
         component = owned_component(raw, uid)
         start, end, all_day = local_times(component)
@@ -604,27 +560,10 @@ class ICloudSync:
                     (summary or 'Event', start_at, end_at, 1 if all_day else 0, location, description, event_id),
                 )
                 return True
-            # Work shifts: sync times and notes; keep location/type from Align.
-            shift_id = int(key)
-            row = c.execute('SELECT id,break_minutes FROM shifts WHERE id=?', (shift_id,)).fetchone()
-            if not row or all_day or not isinstance(start, datetime) or not isinstance(end, datetime):
-                return False
-            work_date = start.date().isoformat()
-            start_time = start.strftime('%H:%M')
-            end_time = end.strftime('%H:%M')
-            break_minutes = int(row['break_minutes'] or 0)
-            hours = self.app.hours_between(start_time, end_time, break_minutes) if hasattr(self.app, 'hours_between') else max(0, (end - start).total_seconds() / 3600 - break_minutes / 60)
-            c.execute(
-                "UPDATE shifts SET work_date=?,start_time=?,end_time=?,hours=?,notes=? WHERE id=?",
-                (work_date, start_time, end_time, hours, description, shift_id),
-            )
-            if hasattr(self.app, 'create_shift_alert'):
-                c.execute('DELETE FROM alerts WHERE shift_id=?', (shift_id,))
-                self.app.create_shift_alert(c, shift_id, work_date, start_time)
-            return True
+            return False
 
     def _sync_owned_item(self, key, uid, url, payload, content_hash, saved):
-        # Same conflict-safe algorithm for Work shifts and section events.
+        # Conflict-safe two-way sync for Section events.
         # Two-way: when Align is unchanged and iCloud changed, pull the edit in.
         if not saved:
             with self.app.db_connection() as c:

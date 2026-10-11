@@ -9,7 +9,7 @@ import personal_otp as otp
 import transport_places
 import transport_service
 from icloud_sync import busy_event
-import test_work_setup as setup_fixture
+import test_support as setup_fixture
 from test_personal_otp import Connection
 
 
@@ -29,10 +29,10 @@ def test_driving_notes_match_buffered_arrival():
 
 
 class CalendarTravelTests(unittest.TestCase):
-    setUp = setup_fixture.WorkSetupTests.setUp
-    tearDown = setup_fixture.WorkSetupTests.tearDown
-    json_request = setup_fixture.WorkSetupTests.json_request
-    request = setup_fixture.WorkSetupTests.request
+    setUp = setup_fixture.IsolatedAppServer.setUp
+    tearDown = setup_fixture.IsolatedAppServer.tearDown
+    json_request = setup_fixture.IsolatedAppServer.json_request
+    request = setup_fixture.IsolatedAppServer.request
     def test_import_location_and_account_scoped_travel_key(self):
         with app.db_connection() as c:
             app.import_ics_calendar(c,'Test', 'BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:test-location\nDTSTART:20300702T120000\nDTEND:20300702T130000\nSUMMARY:Station visit\nLOCATION:Liverpool Lime Street\nEND:VEVENT\nEND:VCALENDAR')

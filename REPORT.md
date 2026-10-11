@@ -29,7 +29,7 @@
 - Consolidated Build 153/154/156 V2.1/V2.2 release notes into the Build 156 notes file, removed a duplicate SQL verification file, and removed one-off scratch scripts.
 - Added `.env.example`, environment/deployment documentation, `render.yaml`, a Postgres bootstrap, and separate hosted-persistence and three-device browser workflows.
 ## Verification
-- Latest full Python run: 70 failed, 237 passed, 3 skipped, 16 subtests passed. Remaining failures are old shift/work-schedule/iCloud tests calling removed routes or expecting the removed `bootstrap.master`; imported base test classes are collected repeatedly. These tests need replacement with V3 event and Work coverage.
+- Latest full Python run: 222 passed, 3 skipped, 23 subtests passed (11 October 2026). Removed five obsolete shift-only test modules and moved the retained isolated HTTP/SQLite fixture to `test_support.py`.
 - New event-feed regression: passed. It covers timed/all-day event export, stable event UID, legacy-row preservation and excluding legacy shifts/leave from the published calendar.
 - Latest focused checks: 20 Python tests passed; navigation/Work, date, UI polish, Build 156 asset consistency, and `git diff --check` passed.
 - Fixed PowerShell installer interpolation so the embedded Build 156 verification command parses correctly.
@@ -38,7 +38,7 @@
 - Pushed development snapshot to private `wjb006/Align-V3.0`; no V3 Render service or dedicated Neon database has been provisioned.
 - Render reconfirmed to contain only the old `align-beta-preview` service on `wjb006/Align-app`; no Render Postgres exists. Neon tools currently require reauthentication. Existing service and IONOS DNS remain unchanged.
 ## Outstanding brief requirements
-- Remove all shift features, tables, APIs, alerts, UI, scripts, and related tests. This is a major unfinished requirement; the existing shift planner still runs.
+- Remove remaining shift features, tables, APIs, alerts, UI, scripts, and documentation safely. Shift-specific test modules are retired; the legacy Admin planner and schema still need removal.
 - Complete and verify the optional Work database flow, including user opt-in and custom field associations.
 - Continue source-file grouping only where runtime compatibility and upgrade history are preserved.
 - Complete direct creation of home blocks from the phone preview. Section creation/editing now starts directly from the preview, but the actual matrix fields are designed in the guided builder panel. Validate the full history/restore flow against the deployed Owner portal.

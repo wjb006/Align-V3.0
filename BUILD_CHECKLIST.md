@@ -5,7 +5,7 @@
 - **Workspace:** `C:\Users\wjboy\OneDrive\Documents\ChatGPT\Align V3.0`
 - **Original source (read-only):** `C:\Align\Align_App`
 - **Working branch:** `codex/align-v3-rebuild`
-- **Current commit at last check:** `f53c182` — `Publish section events in Align calendar feed`
+- **Current commit at last check:** working tree — shared test fixture cleanup verified locally; commit pending
 **Scope:** Align V3.0 implementation from the supplied Codex brief, with the user's explicit Align V3.0 naming taking precedence over any older product name in the brief.
 **Domain:** `getalign.co.uk` is owned by the user through IONOS; current DNS still points to existing IONOS hosting. Do not change records until Render provides the verified target.
 ## How to use this document
@@ -18,11 +18,11 @@
 ## Current handoff: resume here
 - [~] Main rebuild work continues on `codex/align-v3-rebuild`; tested event-feed changes are committed and pushed.
 - [x] Current work includes the Studio's phone-preview section-to-database input-matrix flow: create a section or open its editor; new sections start with required Name, optional Date, and review-before-save; the editor describes naming, matrix setup, and form review.
-- [!] Latest full Python run: `.venv\Scripts\python.exe -m pytest -q` — **70 failed, 237 passed, 3 skipped, 16 subtests passed**. The failing tests are legacy shift/work-schedule/iCloud tests calling retired APIs or expecting the removed `bootstrap.master`; several imported test base classes are also collected repeatedly. Replace these with V3 event/Work coverage and prevent duplicate collection before calling the suite green.
+- [x] Latest full Python run: `.venv\Scripts\python.exe -m pytest -q` — **222 passed, 3 skipped, 23 subtests passed** (11 October 2026); retired shift-only test modules were removed and shared test setup was moved to `test_support.py`.
 - [x] Latest desktop Playwright run: `node browser-tests/align.spec.js` — passed, covering section records, calendar event list/month views, Studio draft/publish, and phone preview. Shift totals and annual-leave UI expectations were removed from the retained calendar check.
 - [x] Latest focused verification: 20 Python tests passed across Builder defaults, Owner Builder, extracted routes, and UI polish; navigation, optional Work, date-format, UI-polish, cache verifier, and `git diff --check` passed.
 - [~] Pixel 7 Chromium and iPhone 13 WebKit passed in an earlier browser matrix, before the newest database-matrix handoff changes. Re-run those profiles after the next meaningful UI changes.
-- [~] Shift removal remains the largest local brief requirement. The public V3 user flow and shift APIs are retired; legacy modules, local Admin UI and schema still contain shift functionality. Legacy shift data remains stored. Align's subscribed calendar now exports Section events only.
+- [~] Shift removal remains the largest local brief requirement. The public V3 user flow and selected shift APIs are retired; legacy modules, local Admin UI and schema still contain shift functionality. Legacy shift data remains stored. Align's subscribed calendar and iCloud sync now use Section events only.
 - [~] Work is being replaced by an optional Studio database. Owner Studio field associations and per-user opt-in are implemented; focused server/navigation checks and desktop browser flow pass. Full mobile browser matrix and hosted privacy/isolation verification remain outstanding.
 - [x] Removed fixed pay, default-work-calendar, and shift-alert questions from the fallback first-run screen; Settings now uses account-safe profile/calendar/appearance sections without requiring the legacy admin master payload.
 - [x] Re-read the supplied brief and scoped the shift-removal dependency map before edits. It spans `app.py`, `planner_api.py`, `admin_api.py`, `align_settings.py`, `work_setup.py`, `transport_places.py`, `transport_service.py`, `travel_refresh.py`, `icloud_sync.py`, `static/app.js`, `static/week-planner.js`, `static/work-setup.js`, schema/migrations, service-worker routes, and shift/work tests. Shift data tables are still present and must be handled with a preservation-safe migration.
@@ -55,7 +55,7 @@
 - [ ] Remove shift APIs and backend services that are no longer used.
 - [ ] Remove shift tables and migration/bootstrap references safely for fresh installs and existing databases; decide/document a safe migration strategy before destructive database changes.
 - [ ] Remove shift-specific client files and update service-worker asset lists/cache versions.
-- [ ] Remove obsolete shift scripts, installer references, tests, sample fixtures, and docs; keep unrelated transport/travel behavior that the brief says to retain.
+- [~] Removed obsolete shift-only test modules (`test_calendar_sync.py`, `test_work_setup.py`, `test_week_booking.py`, `test_shift_completions.py`, `test_work_settings.py`) after moving retained test setup into `test_support.py`; broader shift scripts, UI and documentation remain.
 - [ ] Run the full Python suite, JavaScript unit checks, browser suite, startup/schema checks, and fresh-database migration checks.
 - [ ] Verify searches show no active shift product functionality remains (distinguish unrelated identifiers such as JavaScript `shiftKey` or array `.shift()`).
 **Current release gate:** the app is not ready for external testers yet. The legacy shift planner still runs, the test suite still asserts shift behavior, and no hosted Align V3.0 database/service has been provisioned. Keep local regression checks green while completing the removal and hosted setup.
@@ -104,7 +104,7 @@
 - [x] Most recent local desktop browser regression passes; earlier full device matrix passed before the newest matrix work.
 - [x] Align app and service-worker asset cache version at `156-v35`; update Studio-specific asset references and verifier.
 - [x] `verify_align_build156.py` passes for Align V3.0 and Build 156 cache identity.
-- [!] Last full-suite snapshot: 71 failed, 236 passed, 3 skipped, 16 subtests; latest focused subset is green, but a fresh full run is outstanding.
+- [x] Full Python suite now passes after retiring obsolete shift-only tests: 222 passed, 3 skipped, 23 subtests.
 - [ ] Re-run full Python suite after shift-test retirement/update and classify any remaining non-shift failures.
 - [x] Align calendar feed publishes timed and all-day Section events with stable UIDs; old shift/leave rows remain stored but are not published.
 - [x] `test_event_calendar_feed.py` verifies ICS output and preservation/non-publication of legacy schedule rows.
@@ -154,6 +154,7 @@
 | 2026-10-11 | Updated first-run and Settings flow | Removed fixed Work/pay/shift-alert prompts; account-safe Settings; optional Work stays in Sections |
 | 2026-10-11 | Current local verification | 20 focused Python tests, core navigation/Work, dates, UI polish, Build 156 cache verifier, diff check, and desktop Playwright passed; full suite not rerun |
 | 2026-10-11 | Current full Python suite | 70 failed, 237 passed, 3 skipped, 16 subtests passed; remaining failures all trace to retired shift/work-schedule/iCloud behavior and duplicate collection of imported test base classes |
+| 2026-10-11 | Retired schedule-only tests and centralized isolated server fixture | Removed five obsolete shift test modules; retained backup/journey coverage now uses test_support.py; full suite 222 passed, 3 skipped, 23 subtests |
 | 2026-10-11 | Event calendar feed | New event-only feed regression passed; desktop Chromium flow passed after feed change; `py_compile` and `git diff --check` passed |
 | 2026-10-11 | Hosting refresh | Render connector works; only old `align-beta-preview` exists and no Render Postgres; Neon connector requires reauthentication |
 | 2026-10-11 | Script grouping and stale-reference audit | Launch/add-ons grouping implemented; final runtime/browser verification pending |

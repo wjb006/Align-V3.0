@@ -7,14 +7,14 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import app
-from test_calendar_sync import CalendarSyncTests
+from test_support import IsolatedAppServer
 
 
 class LocalBackupTests(unittest.TestCase):
-    setUp = CalendarSyncTests.setUp
-    tearDown = CalendarSyncTests.tearDown
-    request = CalendarSyncTests.request
-    json_request = CalendarSyncTests.json_request
+    setUp = IsolatedAppServer.setUp
+    tearDown = IsolatedAppServer.tearDown
+    request = IsolatedAppServer.request
+    json_request = IsolatedAppServer.json_request
 
     def binary_request(self, method, path, body, headers):
         client = HTTPConnection("127.0.0.1", self.server.server_port, timeout=10)

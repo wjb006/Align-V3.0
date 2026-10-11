@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from icalendar import Event
 import app
 from icloud_sync import ICloudSync, CloudError, digest, busy_event, apple_url, AppleClient
-from test_work_setup import WorkSetupTests
+from test_support import IsolatedAppServer
 
 class FakeApple:
     def __init__(self, username, password):
@@ -30,57 +30,63 @@ class FakeApple:
         del self.objects[url]; self.calls.append(('DELETE',url))
 
 class ICloudTests(unittest.TestCase):
-    setUpBase=WorkSetupTests.setUp
-    tearDown=WorkSetupTests.tearDown
-    request=WorkSetupTests.request
-    json_request=WorkSetupTests.json_request
-    configuration=WorkSetupTests.configuration
+    setUpBase=IsolatedAppServer.setUp
+    tearDown=IsolatedAppServer.tearDown
+    request=IsolatedAppServer.request
+    json_request=IsolatedAppServer.json_request
     def setUp(self):
         self.setUpBase()
-        self.json_request('PUT','/api/work-setup',self.configuration())
         self.syncer=ICloudSync(app,FakeApple)
         self.syncer.discover('test@example.invalid','fake-test-password')
         self.fake=self.syncer.client
         self.url=next(iter(self.fake.calendars))
         with app.db_connection() as c:
             c.execute('UPDATE icloud_config SET account_hash=?,target_url=?,read_urls=? WHERE id=1',(self.syncer.account,self.url,'["'+self.url+'"]'))
+            self.section_id=c.execute("INSERT INTO organiser_sections(name) VALUES('Personal')").lastrowid
+            c.execute("INSERT INTO calendar_links(target_kind,target_key,calendar_url,calendar_name,import_enabled,export_enabled) VALUES('organiser_section',?,?, 'Personal',1,1)",(str(self.section_id),self.url))
         self.syncer.enabled=True
-    def add_shift(self):
-        t=next(t for t in self.json_request('GET','/api/bootstrap')['master']['templates'] if t['shift_type_name']=='Wards')
-        return self.json_request('POST','/api/shifts',{'shifts':[{'work_date':'2026-09-07','template_id':t['id']}]})['shifts'][0]['id']
+    def add_event(self, notes='Original Align note'):
+        result=self.json_request('POST',f'/api/sections/{self.section_id}/events',{
+            'title':'Personal appointment','start_at':'2026-11-07T09:00','end_at':'2026-11-07T10:00',
+            'location':'Town Centre','notes':notes,
+        })
+        return result['id']
+    def update_event(self, event_id, **changes):
+        value={'title':'Personal appointment','start_at':'2026-11-07T09:00','end_at':'2026-11-07T10:00',
+               'location':'Town Centre','notes':'Original Align note',**changes}
+        self.json_request('PUT',f'/api/organiser-events/{event_id}',value)
     def test_create_retry_update_delete_only_owned_events(self):
-        sid=self.add_shift()
+        event_id=self.add_event()
         unrelated=self.url+'unrelated.ics'; self.fake.objects[unrelated]=(b'not ours','"1"')
         self.fake.fail_after_put=True; self.syncer.sync()
         self.assertEqual(len(self.fake.calls),1)
         self.syncer.sync(); self.assertEqual(len(self.fake.calls),1)
-        self.json_request('PUT',f'/api/shifts/{sid}',{'work_date':'2026-09-08','start_time':'07:30','end_time':'11:30','notes':'Changed','break_minutes':0})
+        self.update_event(event_id,notes='Changed in Align')
         self.syncer.sync(); self.assertEqual(len(self.fake.calls),2)
-        self.json_request('DELETE',f'/api/shifts/{sid}')
+        self.json_request('DELETE',f'/api/organiser-events/{event_id}')
         self.syncer.sync(); self.assertEqual(self.fake.calls[-1][0],'DELETE')
         self.assertEqual(list(self.fake.objects),[unrelated])
-    def test_saved_journey_syncs_travel_block_alert_and_cleans_up(self):
-        sid=self.add_shift()
-        notes='[Align travel]\nLeave home: 07 Sep 06:40\nBus from home · approximately 35 minutes travelling\n[/Align travel]'
-        self.json_request('PUT',f'/api/shifts/{sid}',{'work_date':'2026-09-07','start_time':'07:30','end_time':'11:30','notes':notes,'break_minutes':0})
+    def test_event_journey_syncs_travel_block_and_cleans_up(self):
+        notes='[Align travel]\nLeave home: 07 Nov 08:10\nBus from home · approximately 35 minutes travelling\n[/Align travel]'
+        event_id=self.add_event(notes=notes)
         self.syncer.sync()
         bodies=[raw for raw,_ in self.fake.objects.values()]
         self.assertEqual(len(bodies),2)
         shift=next(x for x in bodies if b'Travel to' not in x); block=next(x for x in bodies if b'Travel to' in x)
         self.assertIn(b'X-APPLE-TRAVEL-DURATION;VALUE=DURATION:PT35M',shift)
         self.assertIn(b'TRIGGER:-PT50M',shift)
-        self.assertIn(b'Leave at 06:40 for "', shift)
-        self.assertIn(b'- Leave: 06:40', shift)
+        self.assertIn(b'Leave at 08:10 for "', shift)
+        self.assertIn(b'- Leave: 08:10', shift)
         self.assertIn(b'TRANSP:TRANSPARENT',block)
         self.assertIn(b'BEGIN:VALARM', block)
-        self.assertIn(b'Leave at 06:40 for "', block)
+        self.assertIn(b'Leave at 08:10 for "', block)
         before=len(self.fake.calls); self.syncer.sync(); self.assertEqual(len(self.fake.calls),before)
-        self.json_request('PUT',f'/api/shifts/{sid}',{'work_date':'2026-09-07','start_time':'07:30','end_time':'11:30','notes':'No journey','break_minutes':0})
+        self.update_event(event_id,notes='No journey')
         self.syncer.sync()
         self.assertEqual(len(self.fake.objects),1)
         self.assertNotIn(b'X-APPLE-TRAVEL-DURATION',next(iter(self.fake.objects.values()))[0])
     def test_icloud_edit_pulls_back_into_align_two_way(self):
-        sid=self.add_shift(); self.syncer.sync()
+        event_id=self.add_event(); self.syncer.sync()
         url=next(iter(self.fake.objects)); raw,_=self.fake.objects[url]
         edited = raw.replace(b'DESCRIPTION:', b'DESCRIPTION:Edited in iCloud\\n')
         self.fake.objects[url]=(edited,'"external"')
@@ -89,33 +95,31 @@ class ICloudTests(unittest.TestCase):
         self.assertIsNone(self.syncer.last_error)
         self.assertIn('Two-way sync', self.syncer.message)
         with app.db_connection() as c:
-            notes = c.execute('SELECT notes FROM shifts WHERE id=?', (sid,)).fetchone()[0]
+            notes = c.execute('SELECT notes FROM organiser_events WHERE id=?', (event_id,)).fetchone()[0]
         self.assertIn('Edited in iCloud', notes)
-        # Concurrent Align + iCloud edits still conflict; other events keep syncing.
+        # Concurrent Align + iCloud edits still conflict; other Section events keep syncing.
         with app.db_connection() as c:
-            c.execute("UPDATE shifts SET notes=? WHERE id=?", ('Changed in Align', sid))
-            c.execute("UPDATE icloud_items SET content_hash=? WHERE local_key=?", ('stale-align-hash', str(sid)))
+            c.execute("UPDATE organiser_events SET notes=? WHERE id=?", ('Changed in Align', event_id))
         cloud_again = edited.replace(b'Edited in iCloud', b'Edited again in iCloud')
         self.fake.objects[url]=(cloud_again,'"external2"')
         before=copy.deepcopy(self.fake.objects)
         self.syncer.sync()
-        self.assertEqual(len(self.syncer.conflicts),1)
+        self.assertEqual(len(self.syncer.conflicts),1,self.syncer.message+' '+repr(self.syncer.conflicts))
         self.assertIn('both Align and iCloud', self.syncer.conflicts[0]['message'])
         self.assertIn('need review', self.syncer.message)
         self.assertIn('continued syncing both ways', self.syncer.message)
         self.assertEqual(self.fake.objects[url], before[url])
-        t = next(t for t in self.json_request('GET','/api/bootstrap')['master']['templates'] if t['shift_type_name']=='Wards')
-        other_sid = self.json_request('POST','/api/shifts',{'shifts':[{'work_date':'2026-09-08','template_id':t['id']}]})['shifts'][0]['id']
+        other_id = self.add_event(notes='Second appointment')
         self.syncer.sync()
-        self.assertIn(str(other_sid), ''.join(url for method,url in self.fake.calls if method == 'PUT'))
+        self.assertIn(f'event-{other_id}', ''.join(url for method,url in self.fake.calls if method == 'PUT'))
         self.assertEqual(self.fake.objects[url], before[url])
-        self.json_request('DELETE',f'/api/shifts/{sid}')
+        self.json_request('DELETE',f'/api/organiser-events/{event_id}')
         preserved = copy.deepcopy(self.fake.objects)
         self.syncer.sync()
         # Conflicted cloud copy must not be deleted; the other synced event stays.
         self.assertEqual(self.fake.objects, preserved)
         self.assertEqual(self.fake.objects[url], before[url])
-        self.assertTrue(any(str(other_sid) in object_url for object_url in self.fake.objects))
+        self.assertTrue(any(f'event-{other_id}' in object_url for object_url in self.fake.objects))
     def test_read_clashes_and_disconnect_do_not_touch_remote(self):
         e=Event(); e.add('uid','external'); e.add('dtstart',datetime(2026,9,7,6,30,tzinfo=timezone.utc)); e.add('dtend',datetime(2026,9,7,10,30,tzinfo=timezone.utc)); e.add('summary','Busy')
         self.fake.read_events=[e]; self.syncer.sync()

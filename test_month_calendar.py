@@ -2,36 +2,35 @@
 import unittest
 from datetime import date
 import app
-from test_work_setup import WorkSetupTests
+from test_support import IsolatedAppServer
 
 class MonthCalendarTests(unittest.TestCase):
-    setUp = WorkSetupTests.setUp
-    tearDown = WorkSetupTests.tearDown
-    request = WorkSetupTests.request
-    json_request = WorkSetupTests.json_request
-    configuration = WorkSetupTests.configuration
+    setUp = IsolatedAppServer.setUp
+    tearDown = IsolatedAppServer.tearDown
+    request = IsolatedAppServer.request
+    json_request = IsolatedAppServer.json_request
 
     def test_month_grids_cover_whole_monday_sunday_weeks(self):
         for month, start, end in [('2024-02','2024-01-29','2024-03-03'), ('2027-02','2027-02-01','2027-02-28'), ('2026-12','2026-11-30','2027-01-03')]:
             result = self.json_request('GET', '/api/month?month=' + month)
             self.assertEqual((result['start'],result['end']), (start,end))
-            self.assertEqual(result['shifts'], [])
+            self.assertEqual(result['events'], [])
+            self.assertEqual(result['imported_events'], [])
             self.assertEqual((date.fromisoformat(end)-date.fromisoformat(start)).days % 7, 6)
         for month in ['2026-13','2026-00','not-a-month','2026-1']:
             self.json_request('GET', '/api/month?month=' + month, expected=400)
 
-    def test_shifts_leave_and_colours_are_visible_without_writes(self):
-        self.json_request('PUT', '/api/work-setup', self.configuration())
-        template = next(t for t in self.json_request('GET', '/api/bootstrap')['master']['templates'] if t['shift_type_name']=='Wards')
-        self.json_request('POST', '/api/shifts', {'shifts':[{'work_date':'2026-12-31','template_id':template['id']}]})
-        with app.db_connection() as connection:
-            connection.execute("INSERT INTO annual_leave(leave_date,notes) VALUES('2027-01-01','Test')")
-        before = self.json_request('GET', '/api/shifts')
+    def test_section_events_are_visible_without_legacy_schedule_rows(self):
+        section_id = self.json_request('POST', '/api/sections', {'name': 'Personal'})['id']
+        event = {'title': 'New Year appointment', 'start_at': '2026-12-31T10:00',
+                 'end_at': '2026-12-31T10:45', 'location': 'Town Centre'}
+        self.json_request('POST', f'/api/sections/{section_id}/events', event)
         result = self.json_request('GET', '/api/month?month=2026-12')
-        self.assertEqual(len(result['shifts']),1)
-        self.assertEqual(result['shifts'][0]['location_colour'], '#23AA88')
-        self.assertEqual(result['annual_leave'][0]['leave_date'], '2027-01-01')
-        self.assertEqual(self.json_request('GET', '/api/shifts'),before)
+        self.assertEqual([item['title'] for item in result['events']], ['New Year appointment'])
+        self.assertNotIn('shifts', result)
+        self.assertNotIn('annual_leave', result)
+        with app.db_connection() as connection:
+            self.assertEqual(connection.execute('SELECT COUNT(*) FROM organiser_events').fetchone()[0], 1)
 
 if __name__ == '__main__':
     unittest.main()
