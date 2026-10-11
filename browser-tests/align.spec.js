@@ -204,7 +204,9 @@ async function verifyManagementStudio(browser) {
   const context = await browser.newContext({viewport:{width:1440,height:1000}});
   const page = await context.newPage();
   const pageErrors = [];
+  const failedRequests = [];
   page.on('pageerror', error => pageErrors.push(error.message));
+  page.on('requestfailed', request => failedRequests.push(`${request.method()} ${request.url()}: ${request.failure()?.errorText || 'request failed'}`));
   const document = {
     startup:{title:'Welcome',description:'',button:'Continue',fields:[]},
     menus:[],layouts:[],
@@ -265,7 +267,12 @@ async function verifyManagementStudio(browser) {
     await page.addScriptTag({content:fs.readFileSync(path.join(ROOT,'static','owner-builder.js'),'utf8')});
     await page.addScriptTag({content:fs.readFileSync(path.join(ROOT,'static','management-studio.js'),'utf8')});
     await page.addScriptTag({content:fs.readFileSync(path.join(ROOT,'static','management-studio-nav.js'),'utf8')});
-    await page.waitForFunction(() => /live design/.test(document.querySelector('#management-status')?.textContent || ''));
+    try {
+      await page.waitForFunction(() => /live design/i.test(document.querySelector('#management-status')?.textContent || ''), null, {timeout:30000});
+    } catch (error) {
+      const status = await page.locator('#management-status').textContent().catch(() => 'missing');
+      throw new Error(`${error.message}; Management Studio status: ${status}; page errors: ${pageErrors.join(' | ') || 'none'}; failed requests: ${failedRequests.join(' | ') || 'none'}`);
+    }
     await page.evaluate(() => window.dispatchEvent(new CustomEvent('align-builder-tab',{detail:{tab:'startup'}})));
     await page.waitForFunction(() => document.querySelector('[data-startup-editor]'));
     await page.locator('[data-startup-editor] input[data-prop="title"]').fill('Welcome V2');

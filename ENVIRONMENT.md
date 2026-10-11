@@ -11,6 +11,7 @@ Set deployment secrets in the service environment. `.env.example` lists setting 
 | `ALIGN_BETA_MODE` | Legacy configuration name for Align's account-scoped hosted mode. The user-facing product is Align in both local and hosted use. |
 | `ALIGN_DATABASE_BACKEND` | Selects SQLite or PostgreSQL. |
 | `DATABASE_URL` | Connection string for this Align installation's own Neon database. |
+| `AWS_ENDPOINT_URL_S3`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `ALIGN_ASSET_BUCKET` | S3-compatible persistent storage for Management Studio image uploads. Keep credentials in the hosting provider's secret settings; hosted uploads are disabled until the bucket is configured. |
 | `ALIGN_PREVIEW_PASSWORD` | Initial Owner password during hosted bootstrap. |
 | `ALIGN_ADMIN_PASSWORD` | Local network administration password. |
 | `ALIGN_ADMIN_PORT` | Local PC-only administration port. |

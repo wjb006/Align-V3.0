@@ -1194,6 +1194,8 @@ def handle(handler, app, method):
             'ALIGN_GOOGLE_ROUTES_KEY', 'ALIGN_OTP_URL', 'ALIGN_NAPTAN_CSV',
             'ALIGN_BODS_LIVE_URL', 'ALIGN_BODS_TOKEN', 'ALIGN_DARWIN_LIVE_URL',
             'ALIGN_DARWIN_TOKEN', 'ALIGN_CREDENTIAL_KEY', 'DATABASE_URL',
+            'AWS_ENDPOINT_URL_S3', 'AWS_REGION', 'AWS_ACCESS_KEY_ID',
+            'AWS_SECRET_ACCESS_KEY', 'ALIGN_ASSET_BUCKET',
         )
         try:
             import here_quota

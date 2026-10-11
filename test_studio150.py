@@ -1,4 +1,5 @@
 import base64,io,sqlite3,tempfile,unittest
+from contextlib import nullcontext
 from pathlib import Path
 from unittest.mock import Mock,patch
 from PIL import Image
@@ -31,10 +32,30 @@ class Studio150Tests(unittest.TestCase):
   with self.assertRaises(ValueError): asset_studio.change(self.c,{'id':ident,'version':999,'action':'rename','name':'x'})
  def test_account_image_directories_differ(self):
   self.assertNotEqual(asset_studio.image_root(self.db),asset_studio.image_root(self.db.with_name('tester.sqlite3')))
+ def test_object_storage_keeps_upload_variants_out_of_ephemeral_disk(self):
+  objects={};client=Mock()
+  client.put_object.side_effect=lambda **args: objects.__setitem__(args['Key'],args['Body'])
+  client.get_object.side_effect=lambda **args: {'Body':io.BytesIO(objects[args['Key']])}
+  env={'AWS_ENDPOINT_URL_S3':'https://objects.example.test','AWS_REGION':'auto','AWS_ACCESS_KEY_ID':'test','AWS_SECRET_ACCESS_KEY':'test-secret','ALIGN_ASSET_BUCKET':'align-assets'}
+  with patch.dict('os.environ',env,clear=True),patch('asset_studio._s3_client',return_value=client):
+   with self.c: ident=asset_studio.create(self.c,self.db,self.body())['asset_id']
+   variants=self.c.execute('SELECT storage_path FROM asset_variants WHERE asset_id=?',(ident,)).fetchall()
+   self.assertEqual(len(objects),4)
+   self.assertEqual(len(variants),4)
+   for variant in variants:
+    self.assertEqual(asset_studio._load_variant(self.db,variant[0]),objects[variant[0]])
+  self.assertEqual(client.put_object.call_count,4)
+  self.assertEqual(client.get_object.call_count,4)
  def test_non_owner_rejected_before_database(self):
   h=Mock();h.path='/api/asset-studio';h.require_beta_user.return_value=True;h.require_admin.return_value=False
   app=Mock();app.BETA_MODE=True
   self.assertTrue(asset_studio.handle(h,app,'GET'));app.db_connection.assert_not_called()
+ def test_hosted_upload_requires_persistent_object_storage(self):
+  h=Mock();h.path='/api/asset-studio/upload';h.require_beta_user.return_value=True;h.require_admin.return_value=True;h.beta_same_origin.return_value=True
+  app=Mock();app.BETA_MODE=True;app.db_connection.return_value=nullcontext(self.c)
+  with patch.dict('os.environ',{},clear=True):
+   self.assertTrue(asset_studio.handle(h,app,'POST'))
+  self.assertEqual(h.send_json.call_args.args[0],503)
  def test_local_stops_no_external_request(self):
   with patch('transport_places.request_json') as request:
    result=transport_places.lookup({'query':'Lime Street'})

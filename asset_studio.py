@@ -1,5 +1,6 @@
 """Owner Asset Studio. Images are decoded and re-encoded; no user paths served."""
-import base64,hashlib,io,json,re,sqlite3,uuid,warnings
+import base64,hashlib,io,json,os,re,sqlite3,uuid,warnings
+from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlparse
 from PIL import Image,ImageOps,UnidentifiedImageError
@@ -8,6 +9,43 @@ Image.MAX_IMAGE_PIXELS=20000000
 def image_root(database):
     db=Path(database).resolve()
     return db.parent/(db.stem+'_assets')
+
+def object_storage_configured():
+    return all(os.environ.get(key, '').strip() for key in (
+        'AWS_ENDPOINT_URL_S3', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'ALIGN_ASSET_BUCKET'
+    ))
+
+@lru_cache(maxsize=1)
+def _s3_client():
+    if not object_storage_configured(): raise OSError('Persistent image storage is not configured')
+    import boto3
+    from botocore.config import Config
+    return boto3.client(
+        's3', endpoint_url=os.environ['AWS_ENDPOINT_URL_S3'].strip(),
+        region_name=os.environ.get('AWS_REGION', 'auto').strip() or 'auto',
+        aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'].strip(),
+        aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'].strip(),
+        config=Config(signature_version='s3v4', s3={'addressing_style': 'path'}),
+    )
+
+def _store_variant(database, filename, payload):
+    if object_storage_configured():
+        try:
+            _s3_client().put_object(Bucket=os.environ['ALIGN_ASSET_BUCKET'].strip(), Key=filename,
+                                    Body=payload, ContentType='image/png', CacheControl='private, max-age=31536000')
+        except Exception as exc: raise OSError('Persistent image upload failed') from exc
+    else:
+        root=image_root(database); root.mkdir(exist_ok=True); (root/filename).write_bytes(payload)
+
+def _load_variant(database, filename):
+    if object_storage_configured():
+        try:
+            response=_s3_client().get_object(Bucket=os.environ['ALIGN_ASSET_BUCKET'].strip(), Key=filename)
+            return response['Body'].read()
+        except Exception as exc: raise OSError('Persistent image could not be read') from exc
+    root=image_root(database).resolve(); file=(root/filename).resolve()
+    if file.parent!=root: raise ValueError('Invalid image path')
+    return file.read_bytes()
 
 def listing(c):
     return {'assets':[dict(r) for r in c.execute('SELECT asset_id,display_name,asset_type,category_id,status,version FROM assets ORDER BY asset_id DESC LIMIT 500')], 'categories':[dict(r) for r in c.execute('SELECT category_id,display_name,category_group,default_asset_id FROM asset_categories ORDER BY category_group,sort_order,display_name')]}
@@ -26,7 +64,7 @@ def create(c,database,body):
             im.thumbnail((1024,1024))
     if body.get('crop')=='square': im=ImageOps.fit(im,(512,512))
     elif body.get('crop','fit')!='fit': raise ValueError('Choose fit or square crop')
-    token=uuid.uuid4().hex; root=image_root(database); root.mkdir(exist_ok=True)
+    token=uuid.uuid4().hex
     category=int(body['category']) if body.get('category') else None
     group=c.execute('SELECT category_group FROM asset_categories WHERE category_id=?',(category,)).fetchone() if category else None
     if category and not group: raise ValueError('Choose an existing category')
@@ -36,7 +74,7 @@ def create(c,database,body):
     ident=c.execute("""INSERT INTO assets(asset_key,display_name,asset_type,category_id,original_filename,original_mime_type,original_width,original_height,original_file_size,content_sha256,created_by,updated_by,created_at,updated_at) VALUES(?,?,?,?,?,'image/png',?,?,?,?, 'owner','owner',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)""",(token,name,kind,category,token+'.png',im.width,im.height,len(data),hashlib.sha256(data).hexdigest())).lastrowid
     for variant,size in [('original',1024),('small',64),('medium',192),('large',512)]:
         image=im.copy(); image.thumbnail((size,size)); buf=io.BytesIO(); image.save(buf,format='PNG'); payload=buf.getvalue()
-        filename=token+'_'+variant+'.png'; (root/filename).write_bytes(payload)
+        filename=token+'_'+variant+'.png'; _store_variant(database,filename,payload)
         c.execute("INSERT INTO asset_variants(asset_id,variant_type,width,height,mime_type,stored_filename,storage_path,file_size,content_sha256,created_at) VALUES(?,?,?,?, 'image/png',?,?,?,?,CURRENT_TIMESTAMP)",(ident,variant,image.width,image.height,filename,filename,len(payload),hashlib.sha256(payload).hexdigest()))
     for area in ('today','planner','event_editor','workplace_selector','saved_places','sections','travel'):
         c.execute('INSERT INTO asset_usage_rules VALUES(?,?,1)',(ident,area))
@@ -78,14 +116,15 @@ def handle(h,app,method):
                 h.send_json(403,{'error':'Use the current Align site'}); return True
         with app.db_connection() as c:
             if path=='/api/asset-studio' and method=='GET': result=listing(c)
-            elif path=='/api/asset-studio/upload' and method=='POST': result=create(c,app.current_database(),body)
+            elif path=='/api/asset-studio/upload' and method=='POST':
+                if app.BETA_MODE and not object_storage_configured():
+                    h.send_json(503,{'error':'Persistent image storage is not configured. Ask the Align owner to finish storage setup.'}); return True
+                result=create(c,app.current_database(),body)
             elif path=='/api/asset-studio/change' and method=='POST': result=change(c,body)
             elif method=='GET' and re.fullmatch(r'/api/asset-studio/image/\d+',path):
                 row=c.execute("SELECT storage_path FROM asset_variants WHERE asset_id=? AND variant_type='medium'",(int(path.rsplit('/',1)[1]),)).fetchone()
                 if not row: h.send_json(404,{'error':'Image not found'}); return True
-                root=image_root(app.current_database()).resolve(); file=(root/row[0]).resolve()
-                if file.parent!=root: raise ValueError('Invalid image path')
-                payload=file.read_bytes(); h.send_response(200); h.send_header('Content-Type','image/png'); h.send_header('Content-Length',str(len(payload))); h.send_header('Cache-Control','private, no-store'); h.send_header('X-Content-Type-Options','nosniff'); h.end_headers(); h.wfile.write(payload); return True
+                payload=_load_variant(app.current_database(),row[0]); h.send_response(200); h.send_header('Content-Type','image/png'); h.send_header('Content-Length',str(len(payload))); h.send_header('Cache-Control','private, no-store'); h.send_header('X-Content-Type-Options','nosniff'); h.end_headers(); h.wfile.write(payload); return True
             else: h.send_json(404,{'error':'Not found'}); return True
         h.send_json(200,result)
     except (ValueError,TypeError,KeyError,sqlite3.IntegrityError,UnidentifiedImageError,Image.DecompressionBombError,Image.DecompressionBombWarning): h.send_json(400,{'error':'Check the image and fields. Activate an image before making it a category default.'})
