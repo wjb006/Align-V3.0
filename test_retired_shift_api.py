@@ -34,6 +34,9 @@ class RetiredShiftApiTests(unittest.TestCase):
             ("POST", "/api/templates", {}),
             ("PUT", "/api/templates/1", {}),
             ("POST", "/api/templates/1/apply", {}),
+            ("DELETE", "/api/locations/1", {}),
+            ("DELETE", "/api/shift-types/1", {}),
+            ("DELETE", "/api/templates/1", {}),
         )
         for method, path, payload in retired_requests:
             with self.subTest(method=method, path=path):
