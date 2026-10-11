@@ -1,7 +1,5 @@
 name: Live site health
 on:
-  schedule:
-    - cron: '*/30 * * * *'
   workflow_dispatch:
 jobs:
   health:

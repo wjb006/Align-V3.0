@@ -1,9 +1,9 @@
 name: Align V3.0 browser regressions
 on:
   pull_request:
-    branches: [main]
+    branches: [codex/align-v3-rebuild]
   push:
-    branches: [main]
+    branches: [codex/align-v3-rebuild]
 
 jobs:
   browser:

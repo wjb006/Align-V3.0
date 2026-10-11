@@ -2,7 +2,9 @@ name: PR navigation checks
 
 on:
   pull_request:
-    branches: [main]
+    branches: [codex/align-v3-rebuild]
+  push:
+    branches: [codex/align-v3-rebuild]
 
 jobs:
   navigation:

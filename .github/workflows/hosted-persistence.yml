@@ -1,9 +1,9 @@
 name: Hosted persistence
 on:
   pull_request:
-    branches: [main]
+    branches: [codex/align-v3-rebuild]
   push:
-    branches: [main]
+    branches: [codex/align-v3-rebuild]
 jobs:
   persistence:
     runs-on: ubuntu-latest

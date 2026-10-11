@@ -5,7 +5,7 @@
 - **Workspace:** `C:\Users\wjboy\OneDrive\Documents\ChatGPT\Align V3.0`
 - **Original source (read-only):** `C:\Align\Align_App`
 - **Working branch:** `codex/align-v3-rebuild`
-- **Current commit at last check:** `2b11599` — `Keep management controls in standalone Studio` (latest implementation remains local and uncommitted)
+- **Current commit at last check:** `b280346` — `Complete Outlook and iCloud setup flows`; follow-up email-roster/cache/CI workflow fixes are in progress locally
 **Scope:** Align V3.0 implementation from the supplied Codex brief, with the user's explicit Align V3.0 naming taking precedence over any older product name in the brief.
 **Domain:** `getalign.co.uk` is owned by the user through IONOS; current DNS still points to existing IONOS hosting. Do not change records until Render provides the verified target.
 ## How to use this document
@@ -42,7 +42,7 @@
 - [x] Render workspace `Align-App` (`tea-dagsdf6k1f9s73dof7i0`) inspected read-only; no additional workspace is needed.
 - [~] Existing free Render service `align-beta-preview` uses `wjb006/Align-app` main and remains untouched. No Render Postgres instance exists in this workspace.
 - [x] Rechecked Render on 11 October: workspace `Align-App` still has only `align-beta-preview` on `wjb006/Align-app`; no Render Postgres exists. Existing service and IONOS DNS remain untouched.
-- [!] Neon connector still requires reauthentication (confirmed 11 October 2026); cannot inspect or create the dedicated database or retrieve a connection string.
+- [!] Neon connector still requires reauthentication (confirmed 11 October 2026); browser sign-in is open for the user to authenticate, then the connector can inspect/create the dedicated database and retrieve a connection string.
 - [~] `render.yaml` prepared for service `align-v3` with intended public URL `https://getalign.co.uk`; hosted authentication still uses legacy account-mode compatibility, which must be reviewed before public release.
 - [ ] Push reviewed V3 source to `wjb006/Align-V3.0` and connect Render to that repository/branch. The latest source is local; do not deploy the previous commit as if it included these changes.
 - [ ] Create dedicated Neon Postgres 18 database and configure secrets without reusing existing Align credentials or databases.
@@ -109,6 +109,7 @@
 - [x] Full Python suite now passes after retiring obsolete shift-only tests: 222 passed, 3 skipped, 23 subtests.
 - [~] Removed Owner-only Asset Studio links from end-user More and Settings; removed Owner phrasing from Work and personal appearance guidance. User menus now expose personal Settings and Travel only. Standalone Align Management Studio retains Owner controls. Local Admin and backup/iCloud maintenance dependencies remain separate. Desktop browser, navigation, UI polish, date, cache verifier, JavaScript syntax, and full Python suite pass (222 passed, 3 skipped, 23 subtests).
 - [~] Outlook/Graph setup now has a Management Studio wizard, personal/work account selection, persistent encrypted token handling, test-mail control, automatic invitation/recovery codes, and account/password change notices. Microsoft app registration and mailbox authorization still need the account owner's Client ID and consent; live delivery remains unverified until then.
+- [x] Invited and active accounts are included in the required account-email list shown in Management Studio; disabled accounts are marked paused. This list covers setup, recovery, and security emails, not marketing.
 - [x] Re-ran the full Python suite after shift-test retirement and end-user management-surface changes; 222 passed, 3 skipped, 23 subtests, no failures.
 - [x] Align calendar feed publishes timed and all-day Section events with stable UIDs; old shift/leave rows remain stored but are not published.
 - [x] `test_event_calendar_feed.py` verifies ICS output and preservation/non-publication of legacy schedule rows.
@@ -179,6 +180,9 @@
 | 2026-10-11 | User-managed iCloud calendars | Added reusable calendar choices, selection checkboxes, quick-add Sections, event/reminder destination dropdowns with “Create New Calendar”, reminder-to-calendar event sync, and cache revision 156-v39; focused tests and desktop browser passed; real Apple account and hosted verification remain outstanding |
 | 2026-10-11 | Outlook and user-managed iCloud completion pass | Full Python suite 227 passed, 3 skipped, 23 subtests; desktop Chromium, navigation, display-date, UI, offline asset verifier, and diff check passed; Neon still requires reauthentication; Render has no V3 service and only the old Align-App service |
 | 2026-10-11 | GitHub publish readiness | Private repo and branch exist; local reviewed changes are not pushed; Render only has the unrelated old Align-app service; Neon connection is unauthorized |
+| 2026-10-11 | Account email list and cache refresh | Management Studio shows which invited/active accounts receive required account emails; disabled accounts are paused; 156-v40 cache check and desktop Chromium passed |
+| 2026-10-11 | GitHub workflow targets | Updated CI triggers to the repository's current default branch; old preview health check is manual only until a V3 service exists |
 
 - **2026-10-11:** Added user-managed iCloud calendar selection and creation to existing Calendar settings; selected calendars become reusable Sections, and event/reminder forms offer calendar destinations plus a “Create New Calendar” option. Reminder deletion removes its linked Align calendar event. Bumped coordinated cache revision to `156-v39`; 11 focused Python tests, current two focused calendar regressions, JavaScript/cache checks, and desktop Chromium flow passed. Real Apple and hosted account checks are pending.
 - **2026-10-11:** Added the Outlook account-email setup and calendar integration work to the local release candidate; full Python/browser/focused checks pass. Shift planner code still remains, Neon access is unauthenticated, and Render's only service targets the old repository. These are launch blockers; the current local changes have not been pushed or deployed.
+- **2026-10-11:** Added the requested automatic account-email subscription roster to the existing Management Studio account list and bumped the coordinated asset cache identity to `156-v40`; required account emails are distinguished from marketing. Updated GitHub Actions to run on the repository's current default branch and disabled the unrelated old-service health schedule.
