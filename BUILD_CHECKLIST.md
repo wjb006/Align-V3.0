@@ -207,3 +207,13 @@
 - **2026-10-11:** Added the Outlook account-email setup and calendar integration work to the local release candidate; full Python/browser/focused checks pass. Shift planner code still remains, Neon access is unauthenticated, and Render's only service targets the old repository. These are launch blockers; the current local changes have not been pushed or deployed.
 - **2026-10-11:** Added the requested automatic account-email subscription roster to the existing Management Studio account list and bumped the coordinated asset cache identity to `156-v40`; required account emails are distinguished from marketing. Updated GitHub Actions to run on the repository's current default branch and disabled the unrelated old-service health schedule.
 - **2026-10-11:** Fixed the final remaining Actions branch filter so successful pushes to the repository's default branch create a V3.0 source ZIP after the browser matrix passes.
+
+## Align V3.0 engineering follow-through — 2026-10-11
+
+- [x] Verified GitHub Actions for commit `bae12862`: browser regression matrix passed (Desktop Chromium, Pixel 7 Chrome, iPhone 13 Safari), hosted persistence passed, and navigation checks passed.
+- [x] Added `migrations/postgres/HOSTED_SCHEMA_PREFLIGHT.sql`, a read-only compatibility-schema preflight. Its table/column checks and migration-marker checks passed in PostgreSQL CI on commit `c0a47095`; this is not a claim that the live Neon database has been provisioned or verified.
+- [x] Added `migrations/postgres/V3_SCHEMA_RETIREMENT_PLAN.md` documenting why the current bootstrap is still compatibility-era and defining a data-preserving path to a genuinely fresh V3 schema.
+- [ ] Separate active V3 startup validation from legacy shift-planner validation only after the remaining startup, API, calendar, backup/restore, and offline references have been audited.
+- [ ] Add a fresh-V3 PostgreSQL fixture with no shift-planner tables and prove startup and retained organiser/Studio/auth flows work against it.
+- [ ] Keep a separate legacy-data fixture proving existing schedule/leave rows are preserved; do not drop or truncate these tables as part of release preparation.
+- [ ] Provision and verify Neon schema, Render V3 service/secrets, and durable S3-compatible object storage. Existing `align-beta-preview` and DNS remain untouched until release gates pass.
