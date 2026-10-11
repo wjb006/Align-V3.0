@@ -5,7 +5,7 @@
 - **Workspace:** `C:\Users\wjboy\OneDrive\Documents\ChatGPT\Align V3.0`
 - **Original source (read-only):** `C:\Align\Align_App`
 - **Working branch:** `codex/align-v3-rebuild`
-- **Latest verified CI baseline:** `594cd085` — browser regressions, hosted persistence/PostgreSQL integration, and navigation checks all passed in GitHub Actions on 11 October 2026. Live hosting is still not verified; see the release blockers below.
+- **Latest verified CI baseline:** `7a200038` — browser regressions, hosted persistence/PostgreSQL integration, and navigation checks all passed in GitHub Actions on 11 October 2026. Live hosting is still not verified; see the release blockers below.
 **Scope:** Align V3.0 implementation from the supplied Codex brief, with the user's explicit Align V3.0 naming taking precedence over any older product name in the brief.
 **Domain:** `getalign.co.uk` is owned by the user through IONOS; current DNS still points to existing IONOS hosting. Do not change records until Render provides the verified target.
 ## How to use this document
@@ -171,6 +171,7 @@
 | 2026-10-11 | GitHub Actions latest commit `594cd085` | Browser regressions passed; hosted persistence/PostgreSQL integration passed; navigation checks passed |
 | 2026-10-11 | GitHub Actions documentation refresh commit `66d84689` | Browser regressions passed; hosted persistence/PostgreSQL integration passed; navigation checks passed |
 | 2026-10-11 | Hosted PostgreSQL preflight | Added read-only schema/table/column/migration-marker/Owner-count preflight; must be run only against the dedicated V3 database after provisioning |
+| 2026-10-11 | GitHub Actions commit `7a200038` | Browser regressions, hosted persistence, and navigation workflows all passed; legacy schedule-management write-route retirement is covered by regression tests |
 | 2026-10-11 | Live release readiness | Not ready for production: fresh shift-free schema/migrations, Neon/Render setup, persistent object-storage credentials, and live auth/sync/backup/device verification remain open |
 | 2026-10-11 | Script grouping and stale-reference audit | Launch/add-ons grouping implemented; final runtime/browser verification pending |
 | 2026-10-11 | File cleanup inventory | Release note duplicates consolidated; duplicate migration check removed; one-off scripts removed; targeted checks pending |
@@ -213,6 +214,7 @@
 - [x] Verified GitHub Actions for commit `bae12862`: browser regression matrix passed (Desktop Chromium, Pixel 7 Chrome, iPhone 13 Safari), hosted persistence passed, and navigation checks passed.
 - [x] Added `migrations/postgres/HOSTED_SCHEMA_PREFLIGHT.sql`, a read-only compatibility-schema preflight. Its table/column checks and migration-marker checks passed in PostgreSQL CI on commit `c0a47095`; this is not a claim that the live Neon database has been provisioned or verified.
 - [x] Added `migrations/postgres/V3_SCHEMA_RETIREMENT_PLAN.md` documenting why the current bootstrap is still compatibility-era and defining a data-preserving path to a genuinely fresh V3 schema.
+- [x] Retired legacy location, shift-type, and template write endpoints: they now return 404 before database access, including template-apply routes; added regression tests and verified all three latest GitHub Actions workflows on `7a200038`.
 - [ ] Separate active V3 startup validation from legacy shift-planner validation only after the remaining startup, API, calendar, backup/restore, and offline references have been audited.
 - [ ] Add a fresh-V3 PostgreSQL fixture with no shift-planner tables and prove startup and retained organiser/Studio/auth flows work against it.
 - [ ] Keep a separate legacy-data fixture proving existing schedule/leave rows are preserved; do not drop or truncate these tables as part of release preparation.
