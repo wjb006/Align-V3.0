@@ -38,9 +38,13 @@ class RetiredShiftApiTests(unittest.TestCase):
             ("DELETE", "/api/shift-types/1", {}),
             ("DELETE", "/api/templates/1", {}),
         )
+        from unittest.mock import patch
         for method, path, payload in retired_requests:
             with self.subTest(method=method, path=path):
-                status, _, body = self.request(method, path, payload)
+                # The route must be rejected before opening SQLite/Postgres. This
+                # matters for a clean V3 database that has no schedule tables.
+                with patch("app.db_connection", side_effect=AssertionError("database accessed")):
+                    status, _, body = self.request(method, path, payload)
                 self.assertEqual(status, 404)
                 self.assertIn("no longer available", body.decode("utf-8").lower())
 
