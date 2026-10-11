@@ -29,6 +29,7 @@
 - [x] Removed legacy shift-alert rules from the user Notifications screen; kept the account notification preference and preserved underlying legacy tables/data for the migration plan.
 - [x] Removed fixed pay, default-work-calendar, and shift-alert questions from the fallback first-run screen; Settings now uses account-safe profile/calendar/appearance sections without requiring the legacy admin master payload.
 - [x] Re-read the supplied brief and scoped the shift-removal dependency map before edits. It spans `app.py`, `planner_api.py`, `admin_api.py`, `align_settings.py`, `work_setup.py`, `transport_places.py`, `transport_service.py`, `travel_refresh.py`, `icloud_sync.py`, `static/app.js`, `static/week-planner.js`, `static/work-setup.js`, schema/migrations, service-worker routes, and shift/work tests. Shift data tables are still present and must be handled with a preservation-safe migration.
+- [x] Added a read-only PostgreSQL hosted-schema preflight at `migrations/postgres/HOSTED_SCHEMA_PREFLIGHT.sql`. It inventories the current runtime's required tables/columns, migration markers, Owner count and record-count baselines; it performs no DDL or data changes. It explicitly flags that current compatibility runtime still expects legacy shift-era tables, so this is not a final fresh-V3 schema acceptance test.
 - [x] Keep this file current as each checklist item changes.
 ## 1. Project identity, source and Git hygiene
 - [x] Establish a separate Align V3.0 workspace; leave `C:\Align\Align_App` unmodified.
@@ -168,6 +169,8 @@
 | 2026-10-11 | Event calendar feed | New event-only feed regression passed; desktop Chromium flow passed after feed change; `py_compile` and `git diff --check` passed |
 | 2026-10-11 | Hosting refresh | Render connector works; only old `align-beta-preview` exists and no Render Postgres; Neon connector requires reauthentication |
 | 2026-10-11 | GitHub Actions latest commit `594cd085` | Browser regressions passed; hosted persistence/PostgreSQL integration passed; navigation checks passed |
+| 2026-10-11 | GitHub Actions documentation refresh commit `66d84689` | Browser regressions passed; hosted persistence/PostgreSQL integration passed; navigation checks passed |
+| 2026-10-11 | Hosted PostgreSQL preflight | Added read-only schema/table/column/migration-marker/Owner-count preflight; must be run only against the dedicated V3 database after provisioning |
 | 2026-10-11 | Live release readiness | Not ready for production: fresh shift-free schema/migrations, Neon/Render setup, persistent object-storage credentials, and live auth/sync/backup/device verification remain open |
 | 2026-10-11 | Script grouping and stale-reference audit | Launch/add-ons grouping implemented; final runtime/browser verification pending |
 | 2026-10-11 | File cleanup inventory | Release note duplicates consolidated; duplicate migration check removed; one-off scripts removed; targeted checks pending |
