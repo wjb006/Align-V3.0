@@ -5,7 +5,7 @@
 - **Workspace:** `C:\Users\wjboy\OneDrive\Documents\ChatGPT\Align V3.0`
 - **Original source (read-only):** `C:\Align\Align_App`
 - **Working branch:** `codex/align-v3-rebuild`
-- **Current commit at last check:** `a7cb16d` — `Package releases from default branch`; pushed to `codex/align-v3-rebuild`, with all GitHub Actions checks passing
+- **Current commit at last check:** source changes are still uncommitted after `5a421cf`; the latest committed source passed CI, and the current local edits have passed their local verification only.
 **Scope:** Align V3.0 implementation from the supplied Codex brief, with the user's explicit Align V3.0 naming taking precedence over any older product name in the brief.
 **Domain:** `getalign.co.uk` is owned by the user through IONOS; current DNS still points to existing IONOS hosting. Do not change records until Render provides the verified target.
 ## How to use this document
@@ -16,15 +16,16 @@
 - Preserve `C:\Align\Align_App` as read-only. Preserve user data and unrelated working-tree changes.
 - GitHub remote is `origin` → private `wjb006/Align-V3.0`; a dedicated Neon project now exists, but its schema and connection are not yet installed in Render.
 ## Current handoff: resume here
-- [x] Main rebuild source is pushed on `codex/align-v3-rebuild`; latest code commit `a7cb16d` passed GitHub Actions and was packaged; checklist-only follow-up `3e04af3` is pending its CI/package run.
+- [~] Main rebuild source is pushed on `codex/align-v3-rebuild`; latest committed source `5a421cf` passed navigation, hosted PostgreSQL, and browser/device CI. Current optional Work, Home-feed, calendar copy and checklist edits are local; repeat verification, then commit/push and wait for CI.
 - [x] Current work includes the Studio's phone-preview section-to-database input-matrix flow: create a section or open its editor; new sections start with required Name, optional Date, and review-before-save; the editor describes naming, matrix setup, and form review.
-- [x] Latest full Python run: `.venv\Scripts\python.exe -m pytest -q` — **227 passed, 3 skipped, 23 subtests passed** (11 October 2026); latest Outlook and iCloud changes included.
+- [x] Latest full Python run: `.venv\Scripts\python.exe -m pytest -q` — **231 passed, 3 skipped, 23 subtests passed** (12 October 2026); includes the default Work database and legacy shift-free Home feed.
 - [x] Latest desktop Playwright run: `node browser-tests/align.spec.js` — passed, covering section records, calendar event list/month views, Studio draft/publish, and phone preview. Shift totals and annual-leave UI expectations were removed from the retained calendar check.
-- [x] Latest focused verification: `ode test_core_navigation.js`, `ode test_display_dates.js`, `ode test_ui_polish.js`, `python verify_align_build156.py`, desktop Chromium regression, and `git diff --check` passed (11 October 2026).
+- [x] Latest focused verification: `node test_core_navigation.js`, `node test_display_dates.js`, `node test_ui_polish.js`, `python verify_align_build156.py`, desktop Chromium regression, and `git diff --check` passed (12 October 2026).
 - [~] iCloud calendar selection now lists all calendars in the connected account, lets users select existing calendars or create new ones, creates a matching quick-add Section, and offers an event/reminder calendar dropdown with a “Create New Calendar” option. Reminder entries also create/remove their linked Section calendar event. Focused regressions and desktop browser checks pass; verify with a real Apple account, connected calendar sync, and hosted user isolation before marking complete.
 - [~] Pixel 7 Chromium and iPhone 13 WebKit passed in an earlier browser matrix, before the newest database-matrix handoff changes. Re-run those profiles after the next meaningful UI changes.
 - [~] Shift removal remains the largest local brief requirement. The public V3 user flow and selected shift APIs are retired; legacy modules, local Admin UI and schema still contain shift functionality. Legacy shift data remains stored. Align's subscribed calendar and iCloud sync now use Section events only.
-- [~] Work is being replaced by an optional Studio database. Owner Studio field associations and per-user opt-in are implemented; focused server/navigation checks and desktop browser flow pass. Full mobile browser matrix and hosted privacy/isolation verification remain outstanding.
+- [x] Added a default optional Work database form with Location, Shift Area, date, start/end time, and Notes fields, linked to the stable Work associations in Management Studio. It appears in Sections for users to opt in and manage private records. Owners can edit its questions and associations in Studio. Focused builder/privacy tests and desktop Chromium pass; hosted deployment verification remains outstanding.
+- [x] Updated end-user calendar, reminder, and iCloud wording to describe Section events and event reminders instead of the retired shift planner; the iCloud sync data path already syncs Section events.
 - [x] Removed fixed pay, default-work-calendar, and shift-alert questions from the fallback first-run screen; Settings now uses account-safe profile/calendar/appearance sections without requiring the legacy admin master payload.
 - [x] Re-read the supplied brief and scoped the shift-removal dependency map before edits. It spans `app.py`, `planner_api.py`, `admin_api.py`, `align_settings.py`, `work_setup.py`, `transport_places.py`, `transport_service.py`, `travel_refresh.py`, `icloud_sync.py`, `static/app.js`, `static/week-planner.js`, `static/work-setup.js`, schema/migrations, service-worker routes, and shift/work tests. Shift data tables are still present and must be handled with a preservation-safe migration.
 - [x] Keep this file current as each checklist item changes.
@@ -40,28 +41,28 @@
 - [x] Commit and push the profile/Settings and event-only calendar regression updates after focused verification (`c64fb25`, `e01478c`, `f53c182`).
 ## 7. Hosted service, database, and custom domain
 - [x] Render workspace `Align-App` (`tea-dagsdf6k1f9s73dof7i0`) inspected read-only; no additional workspace is needed.
-- [~] Existing free Render service `align-beta-preview` uses `wjb006/Align-app` main and remains untouched. No Render Postgres instance exists in this workspace.
+- [~] Existing free Render service `align-beta-preview` uses `wjb006/Align-app` main and remains untouched. It can be repointed to V3 after launch gates pass; no Render Postgres instance exists.
 - [x] Rechecked Render on 11 October: workspace `Align-App` still has only `align-beta-preview` on `wjb006/Align-app`; no Render Postgres exists. Existing service and IONOS DNS remain untouched.
 - [x] Created a separate Neon project `Align V3.0` (`shy-mud-29198551`), PostgreSQL 18, London (`aws-eu-west-2`), branch `production`, database `align_v3`, on the free tier. No existing Align database was reused.
-- [!] Neon MCP connection still requires reauthentication; the web SQL editor is available but schema bootstrap has not been executed.
+- [!] Neon MCP connection requires reauthentication; schema installation is deferred because the checked-in bootstrap still contains the legacy shift model.
 - [~] `render.yaml` prepared for service `align-v3` with intended public URL `https://getalign.co.uk`; hosted authentication still uses legacy account-mode compatibility, which must be reviewed before public release.
 - [x] Push reviewed V3 source to `wjb006/Align-V3.0` branch `codex/align-v3-rebuild`; connect Render to this source only after the Neon and release gates are ready.
 - [~] Dedicated Neon PostgreSQL 18 project exists (`shy-mud-29198551` / `align_v3`); bootstrap schema is from the legacy shift-era model and must be updated after the optional Work/shift retirement before a fresh V3 install.
-- [!] Render workspace `Align-App` still contains only the unrelated `align-beta-preview` (`srv-dagshc6k1f9s73dout5g`) on `wjb006/Align-app`; do not modify it. No V3 Render service exists. Need configure new service secrets and choose a paid plan for custom-domain/no-sleep production hosting.
-- [ ] After creating the V3 Render service, attach `getalign.co.uk`, verify TLS, then update IONOS DNS to Render's exact provided records and verify propagation.
+- [~] Render workspace `Align-App` contains the existing free `align-beta-preview` (`srv-dagshc6k1f9s73dout5g`) on `wjb006/Align-app`; user has agreed to repoint it after V3 is ready. Render Free supports custom domains and managed TLS; it sleeps after 15 idle minutes (about one minute to wake) and has an ephemeral filesystem.
+- [ ] After V3 launch gates pass, repoint the existing free Render service, attach `getalign.co.uk`, verify TLS, then update IONOS DNS to Render's exact provided records. Resolve persistence for uploaded Studio images before enabling asset uploads on an ephemeral service.
 - [x] GitHub Actions run `38171142813` passed Desktop Chromium, Pixel 7 Chrome, iPhone 13 Safari, navigation, hosted PostgreSQL persistence, and release packaging on exact commit `a7cb16d41755ee9cfa1a0a39c843191efce8ad5e`. ZIP artifact `Align-V3.0-a7cb16d41755ee9cfa1a0a39c843191efce8ad5e` (1,207,256 bytes) is available until 9 January 2027. This verifies CI, not the new Neon/Render deployment.
 ## 2. Retire the legacy shift planner — major outstanding work
 - [~] Initial code/schema inventory completed. Full repo search shows broad coupling remains; finish the path-by-path inventory during implementation, including scriptable bridge/widget/iCloud and asset event types.
 - [ ] Map and preserve any data the user needs to retain; do not drop user data as a side effect of feature removal.
-- [x] Remove the end-user shift scheduler surfaces from Home/calendar and replace the subscribed feed with Section events only; legacy schedules are not published.
-- [ ] Remove residual shift creation, editing, alert, configuration, admin, and old entry-point code.
+- [x] Remove shift rows from the active Home Upcoming feed and use Section events only in the subscribed calendar; legacy schedules remain stored.
+- [ ] Remove residual shift creation/editing/alerts and local admin endpoints; the active public Home feed no longer displays shift rows.
 - [ ] Remove residual shift APIs and backend services after preserving legacy data and checking dependent travel/iCloud flows.
 - [ ] Remove shift tables and migration/bootstrap references safely for fresh installs and existing databases; decide/document a safe migration strategy before destructive database changes.
 - [ ] Remove residual shift-specific client files after checking that shared calendar/event features remain intact.
 - [~] Removed obsolete shift-only test modules (`test_calendar_sync.py`, `test_work_setup.py`, `test_week_booking.py`, `test_shift_completions.py`, `test_work_settings.py`) after moving retained test setup into `test_support.py`; broader shift scripts, UI and documentation remain.
 - [ ] Run the full Python suite, JavaScript unit checks, browser suite, startup/schema checks, and fresh-database migration checks.
 - [ ] Verify searches show no active shift product functionality remains (distinguish unrelated identifiers such as JavaScript `shiftKey` or array `.shift()`).
-**Current release gate:** not ready for external testers. The optional Work replacement and legacy shift retirement are incomplete; the available PostgreSQL bootstrap still contains shift tables; Neon schema is not installed; no V3 Render service exists; Microsoft Graph and Apple credentials need real-account setup and verification. Paid Render tier and initial Owner password setup also remain.
+**Current release gate:** not ready for external testers. The optional Work database form and Section-event calendar are implemented, but residual shift/admin code and the shift-era Postgres bootstrap remain. Neon schema is not installed; Render must be repointed and configured; uploaded asset storage must survive free-tier restarts; Microsoft Graph/Apple live account setup and initial Owner password are pending. Render Free supports custom domains, with cold-start and ephemeral-file limitations.
 ## 3. Database-backed Sections and user input matrices
 - [x] Add numbered SQLite/Postgres migrations for `calendar_links`, `section_defs`, and `section_fields`; include them in migration expectations and hosted test fixture.
 - [x] Materialize published Builder layouts into database section definitions; keep submitted user data in private per-user `builder_records` storage.
@@ -186,8 +187,10 @@
 | 2026-10-11 | Hosted PostgreSQL migration correction | CI found runtime DDL blocked by the hosted adapter; moved calendar fields to additive migration 152 and aligned bootstrap/fixture/validation; hosted rerun pending |
 | 2026-10-11 | Hosted integration configuration | CI then caught the PostgreSQL integration test using disposable SQLite mode; corrected its mode to persistent, matching the startup guard; hosted rerun pending |
 | 2026-10-11 | GitHub Actions release verification | All checks and release packaging passed on `a7cb16d`; browser matrix covered desktop, Pixel 7 Chrome, and iPhone 13 Safari; hosted integration ran 230 tests plus 23 subtests |
-| 2026-10-12 | Hosting setup | Created isolated Neon PostgreSQL 18 project in London; its checked-in bootstrap is still shift-era and schema install is deferred until Work/shift retirement is complete; Render service and IONOS DNS unchanged |
-| 2026-10-12 | Release artifact | Package `Align-V3.0-a7cb16d41755ee9cfa1a0a39c843191efce8ad5e` passed on commit `a7cb16d` (1,207,256 bytes); checklist follow-up commit `3e04af3` is awaiting its own green CI/package |
+| 2026-10-12 | Hosting setup | Created isolated Neon PostgreSQL 18 project in London; schema install is deferred until the fresh-install schema is aligned; existing free Render service and IONOS DNS unchanged |
+| 2026-10-12 | CI and release | Commit `5a421cf` passed hosted PostgreSQL, navigation, and browser/device workflows. Earlier package is from green code commit `a7cb16d`; package the new Work/Home changes after they are pushed and green |
+| 2026-10-12 | Optional Work and Home | Default Work input matrix and user opt-in implemented; legacy shifts removed from active Home feed; full Python suite 231 passed, 3 skipped, 23 subtests; desktop regression passed |
+| 2026-10-12 | User calendar copy cleanup | Updated reminder, calendar subscription, import and iCloud screens to describe Section events; local verification is pending after these copy changes |
 
 - **2026-10-11:** Added user-managed iCloud calendar selection and creation to existing Calendar settings; selected calendars become reusable Sections, and event/reminder forms offer calendar destinations plus a “Create New Calendar” option. Reminder deletion removes its linked Align calendar event. Bumped coordinated cache revision to `156-v39`; 11 focused Python tests, current two focused calendar regressions, JavaScript/cache checks, and desktop Chromium flow passed. Real Apple and hosted account checks are pending.
 - **2026-10-11:** Added the Outlook account-email setup and calendar integration work to the local release candidate; full Python/browser/focused checks pass. Shift planner code still remains, Neon access is unauthenticated, and Render's only service targets the old repository. These are launch blockers; the current local changes have not been pushed or deployed.

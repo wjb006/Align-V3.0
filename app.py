@@ -932,12 +932,7 @@ def align_ics(connection: sqlite3.Connection) -> bytes:
 def dashboard(connection: sqlite3.Connection) -> dict:
     now = datetime.now(ZoneInfo('Europe/London'))
     today = now.date().isoformat()
-    horizon = (date.today() + timedelta(days=42)).isoformat()
-    current_monday = monday_for(date.today())
-    week_end = (current_monday + timedelta(days=6)).isoformat()
-    from post_event_travel import event_end, instant
-    upcoming = [s for s in shift_query(connection, (now.date()-timedelta(days=1)).isoformat(), horizon) if event_end(s) > now]
-    this_week = shift_query(connection, current_monday.isoformat(), week_end)
+    from post_event_travel import instant
     upcoming_events = rows_as_dicts(connection.execute(
         """SELECT oe.id,oe.section_id,oe.title,oe.start_at,oe.end_at,oe.all_day,oe.location,oe.notes,
                   os.name AS category_name, os.colour AS section_colour, 'Event' AS origin
@@ -954,20 +949,18 @@ def dashboard(connection: sqlite3.Connection) -> dict:
            WHERE ce.end_at>=?""", (today,)))
     upcoming_events = sorted((e for e in upcoming_events if instant(e['end_at']) > now), key=lambda e: instant(e['start_at']))[:50]
     post_event_travel.decorate(connection, upcoming_events)
-    leave = rows_as_dicts(connection.execute(
-        "SELECT * FROM annual_leave WHERE leave_date >= ? ORDER BY leave_date LIMIT 20", (today,)
-    ))
-    settings = get_settings(connection)
     return {
         "today": today,
-        "week_start": current_monday.isoformat(),
-        "upcoming": upcoming,
+        # Keep legacy response keys empty for older installed clients while
+        # removing the shift/leave planner from the active V3 experience.
+        "week_start": "",
+        "upcoming": [],
         "upcoming_events": upcoming_events,
-        "annual_leave": leave,
-        "leave_balance": leave_balance(connection, now.date()),
-        "alerts": upcoming_alerts(connection),
-        "reminder_alerts": upcoming_alerts(connection, include_due=True),
-        "summary": week_hours_summary(this_week, settings["contracted_hours"], settings["rate_of_pay"]),
+        "annual_leave": [],
+        "leave_balance": None,
+        "alerts": [],
+        "reminder_alerts": [],
+        "summary": week_hours_summary([], 0, 0),
     }
 
 

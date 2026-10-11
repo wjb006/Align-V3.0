@@ -210,12 +210,12 @@ class BuilderTests(unittest.TestCase):
         current, doc = self.fixture()
         status, draft = self.request('PUT','/api/builder/config',{'revision':current['revision'],'document':doc},self.owner_token)
         self.assertEqual(status,200,draft)
-        self.assertEqual(builder.config(app.DATABASE)['published']['layouts'],[])
+        self.assertEqual([layout['id'] for layout in builder.config(app.DATABASE)['published']['layouts']], ['work'])
         self.assertEqual(self.request('PUT','/api/builder/config',{'revision':current['revision'],'document':doc},self.owner_token)[0],409)
         self.assertEqual(self.request('POST','/api/builder/publish',{'revision':draft['revision'],'document':doc},self.owner_token)[0],200)
         for user, token in self.users:
             with builder.connect(app.BETA_STORE.database_for(user)) as c:
-                self.assertEqual(builder.bootstrap(app.DATABASE,c)['document']['layouts'][0]['id'],'contacts')
+                self.assertIn('contacts', [layout['id'] for layout in builder.bootstrap(app.DATABASE,c)['document']['layouts']])
 
     def test_cycles_and_missing_layout_rejected(self):
         current, doc = self.fixture()
@@ -239,7 +239,8 @@ class BuilderTests(unittest.TestCase):
     def test_optional_work_database_and_field_associations_are_private(self):
         current = builder.config(app.DATABASE)
         doc = copy.deepcopy(current['draft'])
-        doc['layouts'].append({'id':'work','title':'Work','description':'Work details','view':'table','optional':True,
+        work_layout = next(item for item in doc['layouts'] if item['id'] == 'work')
+        work_layout.update({'title':'Work','description':'Work details','view':'table','optional':True,
             'work_associations':{'location':'location','area':'area','date':'date','start_time':'start','end_time':'end'},
             'fields':[{'id':'name','type':'text','label':'Name','required':True,'help':'','options':[]},
                       {'id':'location','type':'select','label':'Work Location','required':True,'help':'','options':['Main site']},
@@ -264,6 +265,18 @@ class BuilderTests(unittest.TestCase):
         self.assertEqual(self.request('GET','/api/builder/records/work',token=self.users[1][1])[0],403)
         self.assertEqual(self.request('GET','/api/builder/records/work',token=token)[1]['records'][0]['values']['location'],'Main site')
 
+    def test_work_database_is_available_by_default_and_optional(self):
+        published = builder.published_layouts(app.DATABASE)
+        work = next(item for item in published if item['id'] == 'work')
+        self.assertTrue(work['optional'])
+        self.assertEqual(work['work_associations'], {
+            'location':'work_location','area':'shift_area','date':'work_date',
+            'start_time':'start_time','end_time':'end_time',
+        })
+        token = self.users[0][1]
+        definitions = self.request('GET','/api/sections/definitions',token=token)[1]['sections']
+        self.assertFalse(next(item for item in definitions if item['key']=='work')['enabled'])
+
     def test_personal_setup_private_and_no_work_required(self):
         token = self.users[0][1]
         self.assertEqual(self.request('PUT','/api/builder/profile',{'values':{'user_name':'','user_phone':'0123'}},token)[0],400)
@@ -280,9 +293,10 @@ class BuilderTests(unittest.TestCase):
         path = '/api/builder/records/contacts'
         self.request('POST',path,{'id':'record_keep','values':{'name':'Keep','phone':'123'}},token)
         doc = copy.deepcopy(current['published'])
-        doc['layouts'][0]['fields'][0]['type']='number'
+        contacts = next(layout for layout in doc['layouts'] if layout['id']=='contacts')
+        contacts['fields'][0]['type']='number'
         self.assertEqual(self.request('POST','/api/builder/publish',{'revision':current['revision'],'document':doc},self.owner_token)[0],400)
-        doc = copy.deepcopy(current['published']);doc['layouts'][0]['fields'].pop()
+        doc = copy.deepcopy(current['published']);next(layout for layout in doc['layouts'] if layout['id']=='contacts')['fields'].pop()
         self.assertEqual(self.request('POST','/api/builder/publish',{'revision':current['revision'],'document':doc},self.owner_token)[0],200)
         self.request('PUT',path+'/record_keep',{'revision':1,'values':{'name':'Updated'}},token)
         self.assertEqual(self.request('GET',path,token=token)[1]['records'][0]['values']['phone'],'123')

@@ -27,6 +27,27 @@ class BuilderError(ValueError):
 BASE_STRUCTURE_VERSION = 1
 
 
+def default_work_layout():
+    """Optional Work form; Owners can change its fields in Management Studio."""
+    return {
+        'id': 'work', 'title': 'Work',
+        'description': 'Keep the work details you choose, in your own private Work records.',
+        'view': 'table', 'review_before_save': True, 'optional': True,
+        'work_associations': {
+            'location': 'work_location', 'area': 'shift_area', 'date': 'work_date',
+            'start_time': 'start_time', 'end_time': 'end_time',
+        },
+        'fields': [
+            dict(id='work_location', label='Work Location', type='text', required=True, help='Where you are working.', options=[]),
+            dict(id='shift_area', label='Shift Area', type='text', required=False, help='Team, department, or area.', options=[]),
+            dict(id='work_date', label='Work date', type='date', required=True, help='', options=[]),
+            dict(id='start_time', label='Start time', type='text', required=True, help='For example, 08:00.', options=[]),
+            dict(id='end_time', label='End time', type='text', required=True, help='For example, 16:00.', options=[]),
+            dict(id='work_notes', label='Notes', type='textarea', required=False, help='', options=[]),
+        ],
+    }
+
+
 @contextmanager
 def connect(path):
     c = sqlite_connect(path)
@@ -64,7 +85,7 @@ def defaults(c):
                                    dict(id='travel_bus', label='Use bus journeys', type='checkbox', required=False, help='', options=[]),
                                    dict(id='travel_rail', label='Use train journeys', type='checkbox', required=False, help='', options=[]),
                                    dict(id='travel_walk', label='Use walking journeys', type='checkbox', required=False, help='', options=[])]},
-            'menus': menus, 'layouts': [],
+            'menus': menus, 'layouts': [default_work_layout()],
             'navigation': [dict(id='today', title='Today', icon='⌂', destination='today', active=True), dict(id='inbox', title='Inbox', icon='☑', destination='inbox', active=True), dict(id='sections', title='Sections', icon='◫', destination='sections', active=True), dict(id='more', title='More', icon='•••', destination='more', active=True)],
             'home_sections': [
                 dict(id='today', title='Today at a glance', visible=True, sort_order=10,
@@ -134,6 +155,15 @@ def config(path):
                     if isinstance(base, dict):
                         base['home_sections'] = json.loads(json.dumps(fixed_sections))
         for target in (draft, published):
+            layouts = target.get('layouts')
+            if isinstance(layouts, list) and not any(
+                isinstance(layout, dict) and layout.get('id') == 'work'
+                for layout in layouts
+            ):
+                # Add the optional Work database to existing installations too.
+                # Users opt in themselves; this creates no Work records.
+                layouts.append(default_work_layout())
+                changed = True
             for layout in target.get('layouts', []):
                 if (
                     isinstance(layout, dict)
@@ -933,7 +963,12 @@ def published_layouts(owner_path):
     with connect(owner_path) as c:
         ensure(c)
         layouts = section_layouts(c)
-    configured = layouts or config(owner_path)['published'].get('layouts', [])
+    published_config = config(owner_path)['published'].get('layouts', [])
+    configured = layouts or published_config
+    # Older databases can already have materialised other sections without a
+    # Work definition. Keep the new optional Work section visible in that case.
+    if layouts and not any(layout.get('id') == 'work' for layout in configured):
+        configured = [*configured, *(layout for layout in published_config if layout.get('id') == 'work')]
     # Work is an optional, user-owned database template. It is materialized
     # only after the owner publishes it and users may edit its form through
     # the same private section-record flow as other databases.

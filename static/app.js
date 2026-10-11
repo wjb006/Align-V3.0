@@ -18,7 +18,7 @@ const modalRoot = document.querySelector('#modal-root');
 const toastElement = document.querySelector('#toast');
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 156;
-const ASSET_VERSION = `${BUILD_VERSION}-v40`;
+const ASSET_VERSION = `${BUILD_VERSION}-v41`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -458,31 +458,24 @@ function renderGroupedEventRows(events, options = {}) {
   }).join('');
 }
 function renderUpcomingGrouped(dashboard) {
-  const shifts = (dashboard.upcoming || []).filter(upcomingNow);
   const events = (dashboard.upcoming_events || []).filter(upcomingNow);
-  const items = [
-    ...shifts.map(shift => ({ kind: 'shift', day: shift.work_date, sort: `${shift.work_date}T${shift.start_time}`, shift })),
-    ...events.map(event => ({ kind: 'event', day: event.start_at.slice(0, 10), sort: event.start_at, event })),
-  ].sort((a, b) => a.sort.localeCompare(b.sort)).slice(0, 8);
+  const items = events.slice(0, 8);
   if (!items.length) {
     return '<div class="card empty">No upcoming events yet. Add your first one above.</div>';
   }
   const groupByDay = homeSectionContent('upcoming', 'group_by_day', true);
   if (!groupByDay) {
-    return `<div class="upcoming-day-list"><div class="upcoming-day-items">${items.map((item, index) => item.kind === 'shift'
-      ? renderShiftList([item.shift], false)
-      : renderUpcomingEvent(item.event, index, { showDate: true })).join('')}</div></div>`;
+    return `<div class="upcoming-day-list"><div class="upcoming-day-items">${items.map((event, index) => renderUpcomingEvent(event, index, { showDate: true })).join('')}</div></div>`;
   }
   const groups = [];
-  for (const item of items) {
+  for (const event of items) {
     const last = groups[groups.length - 1];
-    if (!last || last.day !== item.day) groups.push({ day: item.day, items: [item] });
-    else last.items.push(item);
+    const day = event.start_at.slice(0, 10);
+    if (!last || last.day !== day) groups.push({ day, events: [event] });
+    else last.events.push(event);
   }
   return `<div class="upcoming-day-list">${groups.map(group => {
-    const dayShifts = group.items.filter(item => item.kind === 'shift').map(item => item.shift);
-    const dayEvents = group.items.filter(item => item.kind === 'event');
-    return `<section class="upcoming-day"><h3 class="upcoming-day-heading">${escapeHtml(dayHeading(group.day))}</h3><div class="upcoming-day-items">${dayShifts.length ? renderShiftList(dayShifts, false) : ''}${dayEvents.map((item, index) => renderUpcomingEvent(item.event, index, { showDate: false })).join('')}</div></section>`;
+    return `<section class="upcoming-day"><h3 class="upcoming-day-heading">${escapeHtml(dayHeading(group.day))}</h3><div class="upcoming-day-items">${group.events.map((event, index) => renderUpcomingEvent(event, index, { showDate: false })).join('')}</div></section>`;
   }).join('')}</div>`;
 }
 
@@ -621,17 +614,17 @@ function renderPersonalAppearance() {
 }
 
 function beforeLabel(minutes) {
-  if (!minutes) return 'At shift start';
+  if (!minutes) return 'At event start';
   return `${travel_reminders_label(minutes)} before`;
 }
 
 function renderAlertSettings() {
   const rules = state.boot.calendar.alert_rules;
-  return `<div class="section-head"><h2>Shift alerts</h2><button class="text-button" data-action="new-alert-rule">Add alert</button></div>
-    <form class="card settings-form" data-form="user-settings"><div class="switch-row"><label for="user-notifications">Enable shift alerts</label><input class="switch" id="user-notifications" name="notifications" type="checkbox" ${state.boot.settings.notifications ? 'checked' : ''}/></div><p class="helper">Your calendar app delivers these reminders when you subscribe to Align or sync with iCloud. Enable Event Alerts for that calendar on your iPhone.</p><div class="button-row"><button type="button" class="secondary-button" data-action="enable-browser-notifications">Enable browser notifications</button><span class="helper">Browser reminders work while Align stays open. For reminders when it is closed, use calendar alerts.</span><button class="primary-button">Save alert preference</button></div></form>
-    <div class="master-list section">${rules.map(rule => `<article class="card master-item ${rule.active ? '' : 'inactive'}"><span class="branch-icon">◌</span><div class="item-content"><h3>${escapeHtml(rule.title)}</h3><p>${escapeHtml(beforeLabel(rule.minutes_before))}${rule.active ? '' : ' · disabled'}</p></div><button class="small-button" data-action="edit-alert-rule" data-id="${rule.id}">Edit</button></article>`).join('') || '<p class="helper">Add an alert such as Time to Leave, 1 hour before your shift.</p>'}<button class="secondary-button" data-action="new-alert-rule">＋ Add alert</button></div>
-    <p class="helper">Rules apply to all upcoming events and shifts. When a journey is saved on a shift, the leave alert uses that planned leave time. Other alerts stay a fixed time before the start.</p>
-    <div class="section-head"><h2>Upcoming reminders</h2></div><div class="master-list">${state.boot.dashboard.alerts.map(alert => `<article class="card master-item"><div class="item-content"><h3><img src="${reminderIcon(alert.title)}" alt="" width="28" height="28"> ${escapeHtml(alert.title)}</h3><p>${escapeHtml(alert.location_name)} · ${escapeHtml(alert.shift_type_name)}<br>${escapeHtml(formatDisplayDateTime(alert.alert_at))}</p></div></article>`).join('') || '<p class="helper">No upcoming reminders.</p>'}</div>`;
+  return `<div class="section-head"><h2>Event reminders</h2><button class="text-button" data-action="new-alert-rule">Add reminder</button></div>
+    <form class="card settings-form" data-form="user-settings"><div class="switch-row"><label for="user-notifications">Enable event reminders</label><input class="switch" id="user-notifications" name="notifications" type="checkbox" ${state.boot.settings.notifications ? 'checked' : ''}/></div><p class="helper">Your calendar app delivers these reminders when you subscribe to Align or sync with iCloud. Enable alerts for that calendar on your iPhone.</p><div class="button-row"><button type="button" class="secondary-button" data-action="enable-browser-notifications">Enable browser notifications</button><span class="helper">Browser reminders work while Align stays open. For reminders when it is closed, use calendar alerts.</span><button class="primary-button">Save reminder preference</button></div></form>
+    <div class="master-list section">${rules.map(rule => `<article class="card master-item ${rule.active ? '' : 'inactive'}"><span class="branch-icon">◌</span><div class="item-content"><h3>${escapeHtml(rule.title)}</h3><p>${escapeHtml(beforeLabel(rule.minutes_before))}${rule.active ? '' : ' · disabled'}</p></div><button class="small-button" data-action="edit-alert-rule" data-id="${rule.id}">Edit</button></article>`).join('') || '<p class="helper">Add a reminder such as Time to Leave, 1 hour before an event.</p>'}<button class="secondary-button" data-action="new-alert-rule">＋ Add reminder</button></div>
+    <p class="helper">Reminder rules apply to upcoming events. A journey reminder uses its planned leave time; other reminders use a fixed time before the event.</p>
+    <div class="section-head"><h2>Upcoming reminders</h2></div><div class="master-list">${state.boot.dashboard.alerts.map(alert => `<article class="card master-item"><div class="item-content"><h3><img src="${reminderIcon(alert.title)}" alt="" width="28" height="28"> ${escapeHtml(alert.title)}</h3><p>${escapeHtml(formatDisplayDateTime(alert.alert_at))}</p></div></article>`).join('') || '<p class="helper">No upcoming reminders.</p>'}</div>`;
 }
 
 function renderCalendarSettings() {
@@ -639,7 +632,7 @@ function renderCalendarSettings() {
   const webcal = feed.replace(/^https?:/, 'webcal:');
   const localOnly = ['localhost', '127.0.0.1'].includes(window.location.hostname);
   return `${renderICloud()}<div class="section-head"><h2>Connect your calendar</h2></div><div class="card settings-form">
-    <h3>Subscribe to Align</h3><p class="helper">Added, changed and removed shifts update in your calendar when it refreshes this subscription. Make schedule changes in Align; this connection sends updates one way to Calendar.</p>
+    <h3>Subscribe to Align</h3><p class="helper">Events added, changed or removed in Align are reflected when your calendar refreshes this subscription. Make changes in Align; this connection sends updates one way to Calendar.</p>
     <a class="primary-button calendar-link" href="${escapeHtml(webcal)}">Subscribe on iPhone</a>
     <div class="field"><label for="calendar-feed-url">Calendar subscription address</label><input id="calendar-feed-url" readonly value="${escapeHtml(feed)}"/><button type="button" class="secondary-button" data-action="copy-calendar-link">Copy subscription address</button></div>
     ${localOnly ? '<p class="apply-note">On your iPhone, open Align using the PC’s Wi-Fi address first. A 127.0.0.1 address points to the device viewing this page.</p>' : ''}
@@ -1228,7 +1221,7 @@ document.addEventListener('submit', async event => {
     if (form.dataset.form === 'location') { const id = form.dataset.id; values.active = form.active ? form.active.checked : true; values.shift_type_ids = [...form.querySelectorAll('input[name="shift_type_ids"]:checked')].map(input => Number(input.value)); await api(id ? `/api/locations/${id}` : '/api/locations', { method: id ? 'PUT' : 'POST', body: values }); closeModal(); await refresh(); toast('Location saved.'); }
     if (form.dataset.form === 'menu-branch') { const id = form.dataset.id; values.active = form.active.checked; await api(id ? `/api/menu-branches/${id}` : '/api/menu-branches', { method: id ? 'PUT' : 'POST', body: values }); closeModal(); await refresh(); toast('User menu branch saved.'); }
     if (form.dataset.form === 'parent-menu-branch') { const id = form.dataset.id; values.active = form.active.checked; values.locked=form.locked.checked; values.optional=form.optional.checked; values.parent_id=values.parent_id ? Number(values.parent_id) : null; values.sort_order=Number(values.sort_order || 100); await api(id ? `/api/parent-menu-branches/${id}` : '/api/parent-menu-branches', { method: id ? 'PUT' : 'POST', body: values }); closeModal(); await refresh(); toast('Parent Menu branch saved.'); }
-    if (form.dataset.form === 'calendar-import') { const file = form.ics_file.files[0]; if (!file) throw new Error('Choose an .ics calendar file first.'); const ics = await file.text(); await api('/api/calendars/import', { method: 'POST', body: { name: values.name || file.name.replace(/\.ics$/i, ''), ics } }); await refresh(); toast('Calendar imported. New shifts will avoid its clashes.'); }
+    if (form.dataset.form === 'calendar-import') { const file = form.ics_file.files[0]; if (!file) throw new Error('Choose an .ics calendar file first.'); const ics = await file.text(); await api('/api/calendars/import', { method: 'POST', body: { name: values.name || file.name.replace(/\.ics$/i, ''), ics } }); await refresh(); toast('Calendar imported. Events can now be checked against it.'); }
     if (form.dataset.form === 'shift-type') { const id = form.dataset.id; values.active = form.active ? form.active.checked : true; await api(id ? `/api/shift-types/${id}` : '/api/shift-types', { method: id ? 'PUT' : 'POST', body: values }); closeModal(); await refresh(); toast('Shift type saved.'); }
     if (form.dataset.form === 'template') { const id = form.dataset.id; values.active = form.active ? form.active.checked : true; values.applicable_days = [...form.querySelectorAll('input[name="applicable_days"]:checked')].map(input => input.value); if (!values.applicable_days.length) throw new Error('Choose at least one day for this shift pattern.'); await api(id ? `/api/templates/${id}` : '/api/templates', { method: id ? 'PUT' : 'POST', body: values }); closeModal(); await refresh(); toast('Shift pattern saved.'); }
     if (form.dataset.form === 'leave') {
