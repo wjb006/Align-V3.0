@@ -269,7 +269,8 @@ def provision_tester_schema(path):
                     cursor.execute(statement.replace('align_owner.', sql.Identifier(schema).as_string(raw) + '.'))
             cursor.execute(sql.SQL("""INSERT INTO {}.schema_migrations(migration_id,applied_at)
                 VALUES('149_asset_studio',CURRENT_TIMESTAMP),('149_transport',CURRENT_TIMESTAMP),
-                ('150_calendar_links',CURRENT_TIMESTAMP),('151_sections',CURRENT_TIMESTAMP)
+                ('150_calendar_links',CURRENT_TIMESTAMP),('151_sections',CURRENT_TIMESTAMP),
+                ('152_personal_item_calendars',CURRENT_TIMESTAMP)
                 ON CONFLICT(migration_id) DO NOTHING""").format(sql.Identifier(schema)))
     except psycopg.Error:
         raise RuntimeError('Could not create the tester schema from the reviewed hosted schema.') from None
@@ -309,6 +310,7 @@ def validate_planner(c):
         c.execute(f'SELECT * FROM {table} LIMIT 0')
     c.execute('SELECT layout_json FROM section_defs LIMIT 0')
     c.execute('SELECT applicable_days, sub_shift_type FROM shift_templates LIMIT 0')
+    c.execute('SELECT calendar_id, calendar_event_id FROM personal_items LIMIT 0')
 
 
 def prepare_calendar_locations():

@@ -370,6 +370,8 @@ CREATE TABLE align_owner.personal_items (
   "kind" text NOT NULL,
   "title" text NOT NULL,
   "due_at" text DEFAULT ''::text NOT NULL,
+  "calendar_id" text DEFAULT ''::text NOT NULL,
+  "calendar_event_id" integer,
   "done" integer DEFAULT 0 NOT NULL,
   "created_at" text DEFAULT CURRENT_TIMESTAMP NOT NULL
 );

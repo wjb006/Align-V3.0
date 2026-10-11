@@ -562,4 +562,4 @@ ALTER TABLE align_auth.beta_password_resets ADD FOREIGN KEY (user_id) REFERENCES
 ALTER TABLE align_auth.beta_icloud_credentials ADD FOREIGN KEY (user_id) REFERENCES align_auth.beta_users(user_id) ON DELETE CASCADE;
 ALTER TABLE align_auth.beta_password_resets ADD FOREIGN KEY (replaced_by_reset_id) REFERENCES align_auth.beta_password_resets(reset_id);
 
-INSERT INTO align_owner.schema_migrations(migration_id, applied_at) VALUES ('149_asset_studio',CURRENT_TIMESTAMP),('149_transport',CURRENT_TIMESTAMP),('150_calendar_links',CURRENT_TIMESTAMP),('151_sections',CURRENT_TIMESTAMP) ON CONFLICT(migration_id) DO NOTHING;
+INSERT INTO align_owner.schema_migrations(migration_id, applied_at) VALUES ('149_asset_studio',CURRENT_TIMESTAMP),('149_transport',CURRENT_TIMESTAMP),('150_calendar_links',CURRENT_TIMESTAMP),('151_sections',CURRENT_TIMESTAMP),('152_personal_item_calendars',CURRENT_TIMESTAMP) ON CONFLICT(migration_id) DO NOTHING;

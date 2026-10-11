@@ -22,8 +22,6 @@ DEFAULTS = dict(travel_modes=['drive', 'bus'], default_travel='drive', show_todo
 
 def ensure(c):
     if postgres_enabled():
-        c.execute("ALTER TABLE personal_items ADD COLUMN IF NOT EXISTS calendar_id TEXT NOT NULL DEFAULT ''")
-        c.execute('ALTER TABLE personal_items ADD COLUMN IF NOT EXISTS calendar_event_id INTEGER')
         c.execute('SELECT id, kind, title, due_at, done, created_at, calendar_id, calendar_event_id FROM personal_items LIMIT 0')
         return
     c.execute('''CREATE TABLE IF NOT EXISTS personal_items (

@@ -84,7 +84,7 @@ BETA_ICLOUD_LOCK = threading.Lock()
 BETA_STORE = None
 BETA_MAILER = None
 LOG = logging.getLogger("align")
-EXPECTED_MIGRATIONS = ("149_asset_studio", "149_transport", "150_calendar_links", "151_sections")
+EXPECTED_MIGRATIONS = ("149_asset_studio", "149_transport", "150_calendar_links", "151_sections", "152_personal_item_calendars")
 
 
 def icloud_manager():
