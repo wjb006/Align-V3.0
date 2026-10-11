@@ -50,7 +50,7 @@ jobs:
   package:
     name: Package successful Align V3.0
     needs: browser
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/codex/align-v3-rebuild'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

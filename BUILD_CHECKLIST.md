@@ -5,7 +5,7 @@
 - **Workspace:** `C:\Users\wjboy\OneDrive\Documents\ChatGPT\Align V3.0`
 - **Original source (read-only):** `C:\Align\Align_App`
 - **Working branch:** `codex/align-v3-rebuild`
-- **Current commit at last check:** `b280346` — `Complete Outlook and iCloud setup flows`; follow-up email-roster/cache/CI workflow fixes are in progress locally
+- **Current commit at last check:** `20034a7` — `Align hosted integration test mode`; GitHub Actions browser, navigation, and PostgreSQL persistence checks passed
 **Scope:** Align V3.0 implementation from the supplied Codex brief, with the user's explicit Align V3.0 naming taking precedence over any older product name in the brief.
 **Domain:** `getalign.co.uk` is owned by the user through IONOS; current DNS still points to existing IONOS hosting. Do not change records until Render provides the verified target.
 ## How to use this document
@@ -44,7 +44,7 @@
 - [x] Rechecked Render on 11 October: workspace `Align-App` still has only `align-beta-preview` on `wjb006/Align-app`; no Render Postgres exists. Existing service and IONOS DNS remain untouched.
 - [!] Neon connector still requires reauthentication (confirmed 11 October 2026); browser sign-in is open for the user to authenticate, then the connector can inspect/create the dedicated database and retrieve a connection string.
 - [~] `render.yaml` prepared for service `align-v3` with intended public URL `https://getalign.co.uk`; hosted authentication still uses legacy account-mode compatibility, which must be reviewed before public release.
-- [ ] Push reviewed V3 source to `wjb006/Align-V3.0` and connect Render to that repository/branch. The latest source is local; do not deploy the previous commit as if it included these changes.
+- [x] Push reviewed V3 source to `wjb006/Align-V3.0` branch `codex/align-v3-rebuild`; connect Render to this source only after the Neon and release gates are ready.
 - [ ] Create dedicated Neon Postgres 18 database and configure secrets without reusing existing Align credentials or databases.
 - [ ] Provision the Render service only after branch and database are ready; verify health, auth, migrations, and per-user isolation.
 - [ ] Add `getalign.co.uk` as the Render custom domain and verify TLS; then update IONOS DNS to Render's exact provided records and verify propagation.
@@ -184,7 +184,9 @@
 | 2026-10-11 | GitHub workflow targets | Updated CI triggers to the repository's current default branch; old preview health check is manual only until a V3 service exists |
 | 2026-10-11 | Hosted PostgreSQL migration correction | CI found runtime DDL blocked by the hosted adapter; moved calendar fields to additive migration 152 and aligned bootstrap/fixture/validation; hosted rerun pending |
 | 2026-10-11 | Hosted integration configuration | CI then caught the PostgreSQL integration test using disposable SQLite mode; corrected its mode to persistent, matching the startup guard; hosted rerun pending |
+| 2026-10-11 | GitHub Actions release verification | Browser, navigation, and hosted PostgreSQL jobs passed on `20034a7`; hosted integration ran 230 tests plus 23 subtests |
 
 - **2026-10-11:** Added user-managed iCloud calendar selection and creation to existing Calendar settings; selected calendars become reusable Sections, and event/reminder forms offer calendar destinations plus a “Create New Calendar” option. Reminder deletion removes its linked Align calendar event. Bumped coordinated cache revision to `156-v39`; 11 focused Python tests, current two focused calendar regressions, JavaScript/cache checks, and desktop Chromium flow passed. Real Apple and hosted account checks are pending.
 - **2026-10-11:** Added the Outlook account-email setup and calendar integration work to the local release candidate; full Python/browser/focused checks pass. Shift planner code still remains, Neon access is unauthenticated, and Render's only service targets the old repository. These are launch blockers; the current local changes have not been pushed or deployed.
 - **2026-10-11:** Added the requested automatic account-email subscription roster to the existing Management Studio account list and bumped the coordinated asset cache identity to `156-v40`; required account emails are distinguished from marketing. Updated GitHub Actions to run on the repository's current default branch and disabled the unrelated old-service health schedule.
+- **2026-10-11:** Fixed the final remaining Actions branch filter so successful pushes to the repository's default branch create a V3.0 source ZIP after the browser matrix passes.
