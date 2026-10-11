@@ -154,11 +154,11 @@ def handle(handler, app, method, connection=None, payload=None) -> bool:
     # before touching legacy tables, including writes from stale clients.
     retired_schedule_paths = (
         path == "/api/locations"
-        or re.fullmatch(r"/api/locations/\\d+", path)
+        or re.fullmatch(r"/api/locations/[0-9]+", path)
         or path == "/api/shift-types"
-        or re.fullmatch(r"/api/shift-types/\\d+", path)
+        or re.fullmatch(r"/api/shift-types/[0-9]+", path)
         or path == "/api/templates"
-        or re.fullmatch(r"/api/templates/\\d+(?:/apply)?", path)
+        or re.fullmatch(r"/api/templates/[0-9]+(?:/apply)?", path)
     )
     if retired_schedule_paths:
         handler.send_json(HTTPStatus.NOT_FOUND, {"error": "This schedule-planning endpoint is no longer available."})
