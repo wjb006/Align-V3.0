@@ -246,9 +246,9 @@ def reject_retired_schedule_endpoint(handler) -> bool:
 
 def initialise_database_at(database: Path) -> None:
     if postgres_enabled():
-        from postgres_support import validate_planner
+        from postgres_support import validate_v3_storage
         with connect(database) as connection:
-            validate_planner(connection)
+            validate_v3_storage(connection)
         return
     schema = (ROOT / "schema.sql").read_text(encoding="utf-8")
     database = Path(database)
