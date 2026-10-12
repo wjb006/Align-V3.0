@@ -8,7 +8,7 @@ class Build152Tests(unittest.TestCase):
     def setUp(self):
         self.db = sqlite3.connect(":memory:")
         self.db.row_factory = sqlite3.Row
-        build152.ensure(self.db)
+        self.db.executescript((Path(__file__).parent / 'migrations' / '154_user_favourites_contacts.sql').read_text(encoding='utf-8'))
 
     def test_favourite_upsert_and_remove_shape(self):
         now="2026-10-01T12:00:00+00:00"
@@ -34,7 +34,7 @@ class Build152Tests(unittest.TestCase):
         self.assertEqual(self.db.execute("SELECT label FROM user_favourites").fetchone()[0],"Dentist appointment")
 
     def test_saved_contact_can_be_edited_without_creating_a_duplicate(self):
-        self.db.execute(build152.CONTACT_SCHEMA)
+
         original = build152._save_contact(
             self.db,
             build152._contact_payload(json.dumps({
