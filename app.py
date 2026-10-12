@@ -234,9 +234,14 @@ def monday_for(value: date) -> date:
 
 
 def retired_schedule_endpoint(path: str) -> bool:
-    """Identify retired schedule-management routes before opening a database."""
+    """Reject retired schedule routes before opening a database."""
     return bool(
-        path in ("/api/locations", "/api/shift-types", "/api/templates")
+        path in {
+            "/api/shifts", "/api/week", "/api/annual-leave", "/api/work-setup",
+            "/api/alerts", "/api/shift-completions", "/api/locations",
+            "/api/shift-types", "/api/templates",
+        }
+        or re.fullmatch(r"/api/(?:shifts|annual-leave|alerts|shift-completions)/[0-9]+", path)
         or re.fullmatch(r"/api/(?:locations|shift-types)/[0-9]+", path)
         or re.fullmatch(r"/api/templates/[0-9]+(?:/apply)?", path)
     )
