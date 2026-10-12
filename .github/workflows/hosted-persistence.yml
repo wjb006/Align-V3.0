@@ -26,18 +26,18 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install -r requirements.txt pytest
-      - name: Verify hosted PostgreSQL schema fixture and read-only preflight
+      - name: Verify fresh V3 PostgreSQL schema and read-only preflight
         env:
           PGPASSWORD: local_test_only
         run: |
           createdb -h 127.0.0.1 -U align_test align_schema_preflight
-          psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -U align_test -d align_schema_preflight -f migrations/postgres/bootstrap.sql
+          psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -U align_test -d align_schema_preflight -f migrations/postgres/fresh_v3_schema.sql
           psql -X -A -t -q -v ON_ERROR_STOP=1 -h 127.0.0.1 -U align_test -d align_schema_preflight -f migrations/postgres/HOSTED_SCHEMA_PREFLIGHT.sql | tee /tmp/align-schema-preflight.txt
           if grep -q '^missing required' /tmp/align-schema-preflight.txt; then
             echo "Schema preflight reported missing tables or columns."
             exit 1
           fi
-          for marker in 149_asset_studio 149_transport 150_calendar_links 151_sections 152_personal_item_calendars; do
+          for marker in 149_asset_studio 149_transport 150_calendar_links 151_sections 152_personal_item_calendars 153_hosted_travel_and_calendar_location; do
             if ! grep -Fxq "${marker}|1" /tmp/align-schema-preflight.txt; then
               echo "Expected exactly one migration marker for ${marker}."
               exit 1
