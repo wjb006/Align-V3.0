@@ -252,3 +252,10 @@
 
 - [x] Removed the now-unreferenced `work_setup.py` backend after confirming the active app no longer imports it and the fixed Work Settings API returns 404.
 - [ ] Verify CI against commit `67256105`. GitHub reports the previous run attempts failed with zero executed steps and no downloadable logs; latest workflows were re-triggered on this commit. No pass is claimed until a run actually executes the steps.
+
+
+### 2026-10-12 — Remove remaining request-time schema writes
+
+- [x] Contacts and favourites now rely on explicit SQLite/PostgreSQL migration 154 rather than request-time `CREATE TABLE`/`CREATE INDEX`; installer verifies the migration is packaged.
+- [x] HERE transit quota now requires the explicitly provisioned shared `align_auth.align_here_transit_usage` table; added PostgreSQL migration 155, fresh-schema DDL, startup validation, read-only preflight, fixture coverage, and CI marker checks.
+- [ ] Runtime test acceptance remains blocked by GitHub Actions jobs failing before runner assignment (runner ID 0, no steps or logs). Keep release blocked until a runner executes the full checks.
