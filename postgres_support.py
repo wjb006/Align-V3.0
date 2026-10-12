@@ -309,10 +309,13 @@ def validate_v3_storage(c):
     for table in ('settings', 'personal_items', 'calendar_sources', 'calendar_events',
                   'organiser_sections', 'organiser_events', 'parent_menu_branches',
                   'menu_branches', 'builder_config', 'builder_records', 'calendar_links',
-                  'section_defs', 'section_fields', 'icloud_config', 'icloud_items'):
+                  'section_defs', 'section_fields', 'icloud_config', 'icloud_items',
+                  'assets', 'asset_categories', 'asset_variants', 'asset_usage_rules',
+                  'asset_audit_log', 'transport_preferences', 'transport_journey_cache'):
         c.execute(f'SELECT * FROM {table} LIMIT 0')
     c.execute('SELECT layout_json FROM section_defs LIMIT 0')
     c.execute('SELECT calendar_id, calendar_event_id FROM personal_items LIMIT 0')
+    c.execute('SELECT id, source_id, event_uid, start_at, end_at, title, all_day, location FROM calendar_events LIMIT 0')
 
 
 def validate_planner(c):
@@ -323,12 +326,6 @@ def validate_planner(c):
                   'calendar_sync_state', 'shift_batches'):
         c.execute(f'SELECT * FROM {table} LIMIT 0')
     c.execute('SELECT applicable_days, sub_shift_type FROM shift_templates LIMIT 0')
-
-
-def prepare_calendar_locations():
-    with connect('align.sqlite3') as c:
-        c.raw.execute('SELECT pg_advisory_xact_lock(151202628)')
-        c.raw.execute("ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS location TEXT NOT NULL DEFAULT ''")
 
 
 def verify_hosted_storage():
