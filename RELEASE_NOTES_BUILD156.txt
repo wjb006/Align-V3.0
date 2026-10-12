@@ -1,3 +1,12 @@
+## Align V3.0 development release — 12 October 2026
+
+- Added separate shift-free fresh PostgreSQL and SQLite schemas. Existing SQLite/hosted legacy schemas are retained for compatibility and are never destructively rewritten at startup.
+- Made hosted schema startup validation-only; calendar destinations and persistent Travel tables are installed by explicit migration 153.
+- Removed active legacy schedule-table reads from Home/availability, Travel refresh and onward travel, iCloud sync, phone push, calendar export, and the Scriptable widget.
+- Retired schedule APIs now reject before storage access. The old Admin URL leads to Management Studio; unused fixed week-planner and work-setup client files are removed.
+- The offline store no longer creates or replays shift batches. Existing queued legacy batches remain stored locally and are not silently deleted.
+- Not deployed. Latest source verification is blocked because GitHub Actions jobs terminate before running steps and provide no logs. Dedicated Neon/Render/R2 setup, live account checks, and device verification remain outstanding.
+
 ## Align V3.0 development release — 11 October 2026
 
 - Adds user-selected iCloud calendars, calendar creation, reusable quick-add Sections, and calendar destinations for events and reminders.
