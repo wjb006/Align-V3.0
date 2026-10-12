@@ -37,10 +37,7 @@ def reserve():
         with connect(Path('beta_users.sqlite3')) as c:
             # Serialize creation, counting and reservations across all workers.
             c.execute('SELECT pg_advisory_xact_lock(151202625)')
-            # PostgreSQL-specific DDL; the SQLite compatibility API rejects DDL.
-            c.raw.execute('''CREATE TABLE IF NOT EXISTS align_here_transit_usage (
-                requested_at BIGINT NOT NULL
-            )''')
+            # This table is provisioned by migration 155; request-time DDL is forbidden.
             now = int(datetime.now(timezone.utc).timestamp())
             c.execute('DELETE FROM align_here_transit_usage WHERE requested_at<?',
                       (now - WINDOW_SECONDS,))
