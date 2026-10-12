@@ -723,7 +723,7 @@ document.addEventListener('click', async event => {
   const element = event.target.closest('[data-action], [data-nav], [data-section-key]');
   if (!element) return;
   if (element.dataset.sectionKey) { await builderOpenLayout(element.dataset.sectionKey); return; }
-  if (element.dataset.nav) { if (workSetup?.saving) return; if (workSetup?.editor && !window.confirm('Discard this unsaved Work Settings edit?')) return; workSetup = null; state.tab = element.dataset.nav; render(); return; }
+  if (element.dataset.nav) { state.tab = element.dataset.nav; render(); return; }
   const action = element.dataset.action;
   if (action === 'prompt-install') { void promptAlignInstall(); return; }
   if (action === 'download-local-backup') {
@@ -767,19 +767,12 @@ document.addEventListener('click', async event => {
   if (action === 'work-setup') { state.tab='sections'; render(); return; }
   if (action === 'reload-app') { window.location.reload(); return; }
   if (action === 'go-calendar-settings') { state.settingsBranch = 'calendar'; state.tab = 'settings'; render(); }
-  if (action === 'new-alert-rule') alertRuleModal();
-  if (action === 'edit-alert-rule') alertRuleModal(Number(element.dataset.id));
-  if (action === 'delete-alert-rule') {
-    if (!window.confirm('Remove this alert from upcoming events and the Align calendar?')) return;
-    try { await api(`/api/alert-rules/${element.dataset.id}`, { method: 'DELETE' }); closeModal(); await refresh(); toast('Alert removed.'); } catch (error) { toast(error.message); }
-  }
   if (action === 'copy-calendar-link') {
     const input = document.querySelector('#calendar-feed-url');
     try { await navigator.clipboard.writeText(input.value); toast('Subscription address copied.'); }
     catch (_) { input.focus(); input.select(); toast(document.execCommand('copy') ? 'Subscription address copied.' : 'Select and copy the subscription address above.'); }
   }
 
-  if (action === 'go-master') { state.tab = 'master'; render(); }
   if (action === 'work-opt-in') {
     const work = state.sectionDefinitions.find(section => section.key === 'work');
     if (!work) { toast('Work setup is not available yet. The Work database will appear here when it is ready.'); return; }
@@ -791,13 +784,6 @@ document.addEventListener('click', async event => {
     return;
   }
   if (action === 'go-settings') { state.tab = 'settings'; render(); }
-  if (action === 'parent-menu') {
-    const branch = state.boot.master.parents.find(item => item.id === Number(element.dataset.id));
-    if (!branch) return;
-    if (branch.destination === 'note') parentInfoModal(branch.id);
-    else if (branch.destination === 'submenu') submenuModal(branch.id);
-    else { state.tab = branch.destination; render(); }
-  }
   if (action === 'close-modal') {
     if (element.classList.contains('modal-backdrop') && event.target !== element) return;
     closeModal();
@@ -818,7 +804,6 @@ document.addEventListener('click', async event => {
     const input = document.getElementById(element.dataset.addressSearchTarget);
     if (input) searchAddresses(input);
   }
-  if (action === 'master-tab') { state.masterTab = element.dataset.masterTab; render(); }
     if (action === 'settings-branch') { state.settingsBranch = element.dataset.branch; render(); }
   if (action === 'reset-user-appearance') {
     try {
@@ -830,27 +815,7 @@ document.addEventListener('click', async event => {
     } catch (error) { toast(error.message); }
     return;
   }
-  if (action === 'new-location') locationModal();
-  if (action === 'edit-location') locationModal(Number(element.dataset.id));
-  if (action === 'new-user-location') userLocationModal();
-  if (action === 'edit-user-location') userLocationModal(Number(element.dataset.id));
-  if (action === 'new-menu-branch') menuBranchModal();
-  if (action === 'edit-menu-branch') menuBranchModal(Number(element.dataset.id));
-  if (action === 'new-parent-branch') parentMenuBranchModal();
-  if (action === 'edit-parent-branch') parentMenuBranchModal(Number(element.dataset.id));
-  if (action === 'new-type') typeModal();
-  if (action === 'edit-type') typeModal(Number(element.dataset.id));
-  if (action === 'new-template') templateModal();
-  if (action === 'edit-template') templateModal(Number(element.dataset.id));
 
-  if (action === 'delete-leave') {
-    const ids = String(element.dataset.leave || '').split(',').filter(Boolean);
-    if (!ids.length || !window.confirm(ids.length > 1 ? 'Remove this annual leave?' : 'Remove this annual leave day?')) return;
-    try {
-      for (const id of ids) await api(`/api/leave/${id}`, { method: 'DELETE' });
-      await refresh(); toast('Annual leave removed.');
-    } catch (error) { toast(error.message); }
-  }
   if (action === 'remove-calendar') {
     if (!window.confirm('Remove this imported calendar and its clash checks?')) return;
     try { await api(`/api/calendars/${element.dataset.id}`, { method: 'DELETE' }); await refresh(); toast('Imported calendar removed.'); } catch (error) { toast(error.message); }
