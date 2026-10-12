@@ -6,6 +6,7 @@ const index = fs.readFileSync('static/index.html', 'utf8');
 const worker = fs.readFileSync('static/service-worker.js', 'utf8');
 const personal = fs.readFileSync('static/personal-planner.js', 'utf8');
 const admin = fs.readFileSync('static/admin.html', 'utf8');
+const widget = fs.readFileSync('static/align-widget.js', 'utf8');
 
 for (const label of ['Today', 'Inbox', 'Sections', 'More']) {
   if (!app.includes(`title:'${label}'`)) throw new Error(`Missing core navigation item: ${label}`);
@@ -32,6 +33,9 @@ if (!onboarding.includes('Work as an optional database in Sections')) throw new 
 if (app.includes("state.boot.master = await api('/api/master')")) throw new Error('Legacy shift Master Edit must not load in V3');
 if (personal.includes('regular_work')) throw new Error('Legacy regular-work shift-pattern preference must be retired');
 if (!admin.includes('/management-studio.html')) throw new Error('Legacy Admin entrypoint must lead to Management Studio');
+if (widget.includes('/api/shifts')) throw new Error('Scriptable widget must use the retained V3 event feed');
+if (!widget.includes("b.dashboard?.upcoming_events")) throw new Error('Scriptable widget must read V3 dashboard events');
+if (widget.includes('NEXT SHIFT')) throw new Error('Scriptable widget must not label events as shifts');
 if (!app.includes("{ branch_key: 'calendar', title: 'Calendar'")) throw new Error('Account Settings is missing calendar controls');
 for (const [name, source] of [['app',app],['index',index],['service worker',worker]]) {
   if (source.includes('maps173')) throw new Error(`Stale maps173 asset version remains in ${name}`);
