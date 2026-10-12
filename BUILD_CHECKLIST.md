@@ -232,7 +232,7 @@
 - [x] Removed shift-table reads from personal planner availability, Home bootstrap, Travel refresh, iCloud sync, onward-travel selection and calendar/admin compatibility responses; routed the old Admin URL to Management Studio and bumped the offline asset cache to v45.
 - [x] Removed the active app's imports of the retired work-pattern module and the obsolete hosted legacy-schema validator; shared colour validation now lives in `colour_utils.py`.
 - [x] Updated the Windows installer to verify the retained V3 schema instead of requiring retired schedule tables; backup validation recognises legacy data without requiring it for V3 backups.
-- [ ] Verify the latest source commit through GitHub Actions. Runs through `cd3e7c52` terminate before any job steps start, with no logs available; no current-branch test pass is claimed.
+- [ ] Verify the latest source commit through GitHub Actions. Runs through `e671bffb` terminate before any job steps start (runner ID 0, no steps, no downloadable logs); no current-branch test pass is claimed.
 - [x] Scriptable widget is event-based; old week/work-setup client files and the unreachable `work_setup.py` legacy backend are removed. Retired schedule helper functions are no longer exported from `app.py`; the legacy schema remains only for compatibility and recovery.
 - [ ] Provision and verify the dedicated Neon schema, Render V3 service/secrets, and persistent object storage only after CI and release gates pass. Existing Align-App service and DNS remain untouched.
 
@@ -251,7 +251,7 @@
 ### 2026-10-12 retry
 
 - [x] Removed the now-unreferenced `work_setup.py` backend after confirming the active app no longer imports it and the fixed Work Settings API returns 404.
-- [ ] Verify CI against commit `67256105`. GitHub reports the previous run attempts failed with zero executed steps and no downloadable logs; latest workflows were re-triggered on this commit. No pass is claimed until a run actually executes the steps.
+- [ ] Verify CI against the latest source commit. GitHub reports run attempts on `e671bffb` failed before runner assignment (runner ID 0, zero steps, no downloadable logs); the source has since gained explicit contacts/favourites and HERE quota migrations. No pass is claimed until a run actually executes the steps.
 
 
 ### 2026-10-12 — Remove remaining request-time schema writes
