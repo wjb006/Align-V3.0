@@ -1,11 +1,11 @@
 # Align V3.0 build checklist
 **Live project handoff document**
 
-- **Last updated:** 11 October 2026
+- **Last updated:** 12 October 2026
 - **Workspace:** `C:\Users\wjboy\OneDrive\Documents\ChatGPT\Align V3.0`
 - **Original source (read-only):** `C:\Align\Align_App`
 - **Working branch:** `codex/align-v3-rebuild`
-- **Latest verified CI baseline:** `7a200038` — browser regressions, hosted persistence/PostgreSQL integration, and navigation checks all passed in GitHub Actions on 11 October 2026. Live hosting is still not verified; see the release blockers below.
+- **Latest fully verified historical CI baseline:** `7a200038` — browser regressions, hosted persistence/PostgreSQL integration, and navigation checks passed on 11 October 2026. GitHub Actions runs on newer commits currently terminate before any steps start and expose no logs; the current branch is not accepted as green. Live hosting is also not verified.
 **Scope:** Align V3.0 implementation from the supplied Codex brief, with the user's explicit Align V3.0 naming taking precedence over any older product name in the brief.
 **Domain:** `getalign.co.uk` is owned by the user through IONOS; current DNS still points to existing IONOS hosting. Do not change records until Render provides the verified target.
 ## How to use this document
@@ -18,18 +18,18 @@
 ## Current handoff: resume here
 - [~] Main rebuild source is pushed on `codex/align-v3-rebuild`; latest CI baseline `594cd085` passed browser regressions, hosted persistence/PostgreSQL integration, and navigation checks in GitHub Actions. The latest browser matrix is green on CI. S3-compatible Studio image-storage code is present, but durable cloud bucket provisioning and live upload verification remain external release gates.
 - [x] Current work includes the Studio's phone-preview section-to-database input-matrix flow: create a section or open its editor; new sections start with required Name, optional Date, and review-before-save; the editor describes naming, matrix setup, and form review.
-- [x] Latest full Python run: `.venv\Scripts\python.exe -m pytest -q` — **231 passed, 3 skipped, 23 subtests passed** (12 October 2026); includes the default Work database and legacy shift-free Home feed.
-- [x] Latest desktop Playwright run: `node browser-tests/align.spec.js` — passed, covering section records, calendar event list/month views, Studio draft/publish, and phone preview. Shift totals and annual-leave UI expectations were removed from the retained calendar check.
-- [x] Latest focused verification: `node test_core_navigation.js`, `node test_display_dates.js`, `node test_ui_polish.js`, `python verify_align_build156.py`, desktop Chromium regression, and `git diff --check` passed (12 October 2026).
+- [~] Historical full Python run: `.venv\Scripts\python.exe -m pytest -q` — **231 passed, 3 skipped, 23 subtests passed** before the fresh-schema/legacy-isolation edits. Re-run on the current commit when a runner is available.
+- [~] Historical desktop Playwright run passed section records, calendar event list/month views, Studio draft/publish, and phone preview before the latest legacy-isolation edits. Re-run on the current commit.
+- [~] Historical focused verification passed navigation, date, UI polish, cache consistency, desktop Chromium, and diff checks before the latest legacy-isolation edits. Current checks are pending because GitHub Actions jobs are not starting.
 - [~] iCloud calendar selection now lists all calendars in the connected account, lets users select existing calendars or create new ones, creates a matching quick-add Section, and offers an event/reminder calendar dropdown with a “Create New Calendar” option. Reminder entries also create/remove their linked Section calendar event. Focused regressions and desktop browser checks pass; verify with a real Apple account, connected calendar sync, and hosted user isolation before marking complete.
 - [~] Pixel 7 Chromium and iPhone 13 WebKit passed in an earlier browser matrix, before the newest database-matrix handoff changes. Re-run those profiles after the next meaningful UI changes.
-- [~] Shift removal remains the largest local brief requirement. The public V3 user flow and selected shift APIs are retired; legacy modules, local Admin UI and schema still contain shift functionality. Legacy shift data remains stored. Align's subscribed calendar and iCloud sync now use Section events only.
+- [~] Shift retirement is implemented at the active-flow boundary: public schedule APIs reject before storage access; fresh schemas omit schedule tables; Home, availability, Travel, iCloud, phone push, calendar export, and Scriptable use retained event/reminder data. Legacy helper functions and compatibility schemas remain for data preservation and need final dead-code review.
 - [x] Added a default optional Work database form with Location, Shift Area, date, start/end time, and Notes fields, linked to the stable Work associations in Management Studio. It appears in Sections for users to opt in and manage private records. Owners can edit its questions and associations in Studio. Focused builder/privacy tests and desktop Chromium pass; hosted deployment verification remains outstanding.
 - [x] Updated end-user calendar, reminder, and iCloud wording to describe Section events and event reminders instead of the retired shift planner; the iCloud sync data path already syncs Section events.
 - [x] Removed legacy shift-alert rules from the user Notifications screen; kept the account notification preference and preserved underlying legacy tables/data for the migration plan.
 - [x] Removed fixed pay, default-work-calendar, and shift-alert questions from the fallback first-run screen; Settings now uses account-safe profile/calendar/appearance sections without requiring the legacy admin master payload.
-- [x] Re-read the supplied brief and scoped the shift-removal dependency map before edits. It spans `app.py`, `planner_api.py`, `admin_api.py`, `align_settings.py`, `work_setup.py`, `transport_places.py`, `transport_service.py`, `travel_refresh.py`, `icloud_sync.py`, `static/app.js`, `static/week-planner.js`, `static/work-setup.js`, schema/migrations, service-worker routes, and shift/work tests. Shift data tables are still present and must be handled with a preservation-safe migration.
-- [x] Added a read-only PostgreSQL hosted-schema preflight at `migrations/postgres/HOSTED_SCHEMA_PREFLIGHT.sql`. It inventories the current runtime's required tables/columns, migration markers, Owner count and record-count baselines; it performs no DDL or data changes. It explicitly flags that current compatibility runtime still expects legacy shift-era tables, so this is not a final fresh-V3 schema acceptance test.
+- [x] Audited the dependency map across app/API, Travel, iCloud, phone push, offline storage, Scriptable, installer, schemas, and migrations. Removed unused `static/week-planner.js` and `static/work-setup.js`; retained legacy schemas only for compatibility/data recovery.
+- [x] Added read-only preflight checks for the fresh V3 PostgreSQL schema and kept a separate compatibility preflight for legacy-data rehearsals. Neither is a live Neon acceptance claim.
 - [x] Keep this file current as each checklist item changes.
 ## 1. Project identity, source and Git hygiene
 - [x] Establish a separate Align V3.0 workspace; leave `C:\Align\Align_App` unmodified.
@@ -57,15 +57,15 @@
 - [x] GitHub Actions run `38171142813` passed Desktop Chromium, Pixel 7 Chrome, iPhone 13 Safari, navigation, hosted PostgreSQL persistence, and release packaging on exact commit `a7cb16d41755ee9cfa1a0a39c843191efce8ad5e`. ZIP artifact `Align-V3.0-a7cb16d41755ee9cfa1a0a39c843191efce8ad5e` (1,207,256 bytes) is available until 9 January 2027. This verifies CI, not the new Neon/Render deployment.
 ## 2. Retire the legacy shift planner — major outstanding work
 - [~] Initial code/schema inventory completed. Full repo search shows broad coupling remains; finish the path-by-path inventory during implementation, including scriptable bridge/widget/iCloud and asset event types.
-- [ ] Map and preserve any data the user needs to retain; do not drop user data as a side effect of feature removal.
+- [x] Preserve existing schedule, leave, settings, and pending offline records; no legacy tables are dropped or truncated, and startup no longer reseeds/rebuilds legacy schedule data. Keep any further archival/removal behind a separate reviewed migration.
 - [x] Remove shift rows from the active Home Upcoming feed and use Section events only in the subscribed calendar; legacy schedules remain stored.
-- [ ] Remove residual shift creation/editing/alerts and local admin endpoints; the active public Home feed no longer displays shift rows.
-- [ ] Remove residual shift APIs and backend services after preserving legacy data and checking dependent travel/iCloud flows.
-- [ ] Remove shift tables and migration/bootstrap references safely for fresh installs and existing databases; decide/document a safe migration strategy before destructive database changes.
-- [ ] Remove residual shift-specific client files after checking that shared calendar/event features remain intact.
+- [x] Retire public shift creation/editing/leave/alert/work-setup endpoints before storage access; old Admin page redirects to Management Studio. Dead helper functions still need final cleanup.
+- [~] Active shift API paths are retired and dependent Travel/iCloud/phone-push paths are event-only. Remaining unreferenced legacy helper functions in `app.py` need a final safe-removal pass.
+- [x] Fresh PostgreSQL/SQLite schemas omit schedule tables. Legacy `schema.sql` and PostgreSQL bootstrap remain explicitly compatibility-only; existing legacy data is preserved.
+- [~] Removed unused week-planner and fixed work-setup clients; converted Scriptable widget/guide to V3 calendar events and retired offline shift queue creation/replay. Some unreachable shift markup remains in the shared legacy JS file pending final pruning.
 - [~] Removed obsolete shift-only test modules (`test_calendar_sync.py`, `test_work_setup.py`, `test_week_booking.py`, `test_shift_completions.py`, `test_work_settings.py`) after moving retained test setup into `test_support.py`; broader shift scripts, UI and documentation remain.
 - [ ] Run the full Python suite, JavaScript unit checks, browser suite, startup/schema checks, and fresh-database migration checks.
-- [ ] Verify searches show no active shift product functionality remains (distinguish unrelated identifiers such as JavaScript `shiftKey` or array `.shift()`).
+- [~] Active route/source audit is complete for Travel, phone push, iCloud, offline storage and Scriptable; final scan still needs to classify unreferenced legacy helpers and old release/docs references.
 **Current release gate:** not ready for external testers. The optional Work database form and Section-event calendar are implemented, but residual shift/admin code and the shift-era Postgres bootstrap remain. Neon schema is not installed; Render must be repointed and configured; uploaded asset storage must survive free-tier restarts; Microsoft Graph/Apple live account setup and initial Owner password are pending. Render Free supports custom domains, with cold-start and ephemeral-file limitations.
 ## 3. Database-backed Sections and user input matrices
 - [x] Add numbered SQLite/Postgres migrations for `calendar_links`, `section_defs`, and `section_fields`; include them in migration expectations and hosted test fixture.
@@ -215,9 +215,9 @@
 - [x] Added `migrations/postgres/HOSTED_SCHEMA_PREFLIGHT.sql`, a read-only compatibility-schema preflight. Its table/column checks and migration-marker checks passed in PostgreSQL CI on commit `c0a47095`; this is not a claim that the live Neon database has been provisioned or verified.
 - [x] Added `migrations/postgres/V3_SCHEMA_RETIREMENT_PLAN.md` documenting why the current bootstrap is still compatibility-era and defining a data-preserving path to a genuinely fresh V3 schema.
 - [x] Retired legacy location, shift-type, and template write endpoints: they now return 404 before database access, including template-apply routes; added regression tests and verified all three latest GitHub Actions workflows on `7a200038`.
-- [ ] Separate active V3 startup validation from legacy shift-planner validation only after the remaining startup, API, calendar, backup/restore, and offline references have been audited.
-- [ ] Add a fresh-V3 PostgreSQL fixture with no shift-planner tables and prove startup and retained organiser/Studio/auth flows work against it.
-- [ ] Keep a separate legacy-data fixture proving existing schedule/leave rows are preserved; do not drop or truncate these tables as part of release preparation.
+- [x] Separated active V3 startup validation from legacy compatibility schema validation; fresh PostgreSQL startup is read-only and fresh SQLite startup uses the clean V3 schema.
+- [~] Added the clean fresh-V3 PostgreSQL schema and integration test that asserts startup, personal items, dashboard, calendar, and Studio data work without schedule tables. Current GitHub Actions runner failure prevents re-verifying this on the latest source commit.
+- [x] Kept the separate legacy fixture and expanded the regression to verify shift rows, leave notes, shift templates, and legacy settings remain unchanged after reinitialisation.
 - [ ] Provision and verify Neon schema, Render V3 service/secrets, and durable S3-compatible object storage. Existing `align-beta-preview` and DNS remain untouched until release gates pass.
 
 
@@ -232,6 +232,17 @@
 - [x] Removed shift-table reads from personal planner availability, Home bootstrap, Travel refresh, iCloud sync, onward-travel selection and calendar/admin compatibility responses; routed the old Admin URL to Management Studio and bumped the offline asset cache to v43.
 - [x] Removed the active app's imports of the retired work-pattern module and the obsolete hosted legacy-schema validator; shared colour validation now lives in `colour_utils.py`.
 - [x] Updated the Windows installer to verify the retained V3 schema instead of requiring retired schedule tables; backup validation recognises legacy data without requiring it for V3 backups.
-- [ ] Verify the latest source commit through GitHub Actions. Runs after `153f4ef2` are currently failing before any job steps start, with no logs available; the latest source-level green hosted run predates the fresh-schema test and is not final acceptance.
-- [ ] Finish the static reference audit for the legacy Scriptable shift widget, unused schedule helper functions, and older installation/upgrade documentation; keep compatibility data intact.
+- [ ] Verify the latest source commit through GitHub Actions. Runs through `cd3e7c52` terminate before any job steps start, with no logs available; no current-branch test pass is claimed.
+- [~] Scriptable widget is now event-based and old week/work-setup client files are removed. Finish pruning unreachable schedule helpers from `app.py` and update remaining historical release notes without deleting compatibility data.
 - [ ] Provision and verify the dedicated Neon schema, Render V3 service/secrets, and persistent object storage only after CI and release gates pass. Existing Align-App service and DNS remain untouched.
+
+
+## 2026-10-12 — Additional legacy isolation
+
+- [x] Removed active shift-alert table reads from phone push; personal reminders now work without an `alerts` table.
+- [x] Updated the Scriptable Home Screen widget and setup page to consume `dashboard.upcoming_events`; added event-window/all-day/overnight regression coverage.
+- [x] Removed creation and automatic replay of new offline shift batches. Existing IndexedDB `shift-batch` entries remain stored and are excluded from automatic replay/counts rather than silently deleted.
+- [x] Removed the unused fixed week planner and work-setup client files; the service worker no longer caches `/api/week` or treats shift/leave APIs as offline-safe.
+- [x] Added route regressions asserting retired shift/week/leave/work-setup requests return 404 before database access.
+- [ ] Re-run Python, JavaScript, browser/device, PostgreSQL and installer checks on the latest source commit. GitHub Actions currently fails before starting any steps and provides no job logs.
+- [ ] Finish removing unreachable legacy schedule helpers from `app.py`; keep the compatibility schema and stored legacy data until the reviewed archival decision.
