@@ -93,9 +93,9 @@ def icloud_manager():
         if ICLOUD_MANAGER is None:
             from icloud_sync import ICloudSync
             from types import SimpleNamespace
-            ICLOUD_MANAGER = ICloudSync(SimpleNamespace(db_connection=db_connection, shift_query=shift_query,
-                alert_rules=alert_rules, get_settings=get_settings, hours_between=hours_between,
-                create_shift_alert=create_shift_alert))
+            ICLOUD_MANAGER = ICloudSync(SimpleNamespace(
+                db_connection=db_connection, get_settings=get_settings
+            ))
     return ICLOUD_MANAGER
 # Set ALIGN_ADMIN_PASSWORD before exposing Align to a home/work network.  When it
 # is left unset, the admin page remains convenient for a local single-user setup.
