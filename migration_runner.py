@@ -98,6 +98,11 @@ def upgrade(database):
             for sql in statements((ROOT/'149_transport.sql').read_text(encoding='utf-8')):
                 c.execute(sql)
             c.execute("INSERT INTO schema_migrations VALUES('149_transport',CURRENT_TIMESTAMP)")
+        if not c.execute("SELECT 1 FROM schema_migrations WHERE migration_id='154_user_favourites_contacts'").fetchone():
+            backup(database)
+            for sql in statements((ROOT/'154_user_favourites_contacts.sql').read_text(encoding='utf-8-sig')):
+                c.execute(sql)
+            c.execute("INSERT INTO schema_migrations VALUES('154_user_favourites_contacts',CURRENT_TIMESTAMP)")
     return result
 
 
