@@ -317,4 +317,15 @@ INSERT OR IGNORE INTO icloud_config(id) VALUES(1);
 
 INSERT OR IGNORE INTO calendar_sync_state(id,modified_at) VALUES(1,strftime('%Y%m%dT%H%M%SZ','now'));
 
-INSERT OR IGNORE INTO schema_migrations(migration_id,applied_at) VALUES ('149_asset_studio',CURRENT_TIMESTAMP),('149_transport',CURRENT_TIMESTAMP),('150_calendar_links',CURRENT_TIMESTAMP),('151_sections',CURRENT_TIMESTAMP),('152_personal_item_calendars',CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS user_favourites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, entity_type TEXT NOT NULL, entity_key TEXT NOT NULL,
+    label TEXT NOT NULL, value TEXT NOT NULL DEFAULT '', metadata_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(entity_type, entity_key)
+);
+CREATE INDEX IF NOT EXISTS idx_user_favourites_type_updated ON user_favourites(entity_type, updated_at DESC);
+CREATE TABLE IF NOT EXISTS align_contacts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT NOT NULL DEFAULT '',
+    phone TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL, UNIQUE(name,address,phone)
+);
+INSERT OR IGNORE INTO schema_migrations(migration_id,applied_at) VALUES ('149_asset_studio',CURRENT_TIMESTAMP),('149_transport',CURRENT_TIMESTAMP),('150_calendar_links',CURRENT_TIMESTAMP),('151_sections',CURRENT_TIMESTAMP),('152_personal_item_calendars',CURRENT_TIMESTAMP),('154_user_favourites_contacts',CURRENT_TIMESTAMP);
