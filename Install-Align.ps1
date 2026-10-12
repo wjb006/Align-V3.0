@@ -32,7 +32,7 @@ try {
   Write-Log "Root: $Root"
   if ($env:OS -ne 'Windows_NT') { throw 'This installer is intended for Windows.' }
 
-  $required = @('app.py','launch.py','schema.sql','schema_v3.sqlite.sql','requirements.txt','build152.py','static\app.js','static\service-worker.js','static\build152.js')
+  $required = @('app.py','launch.py','schema.sql','schema_v3.sqlite.sql','requirements.txt','migrations\154_user_favourites_contacts.sql','build152.py','static\app.js','static\service-worker.js','static\build152.js')
   foreach ($f in $required) { if (-not (Test-Path -LiteralPath (Join-Path $Root $f) -PathType Leaf)) { throw "Required file is missing: $f" } }
   foreach ($d in @('migrations','static')) { if (-not (Test-Path -LiteralPath (Join-Path $Root $d) -PathType Container)) { throw "Required folder is missing: $d" } }
 
