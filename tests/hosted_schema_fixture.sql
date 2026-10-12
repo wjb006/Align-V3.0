@@ -101,6 +101,10 @@ CREATE TABLE align_auth.beta_sessions (
   "created_at" timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
   "last_seen" timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
+CREATE TABLE align_auth.align_here_transit_usage (
+    requested_at BIGINT NOT NULL
+);
+CREATE INDEX idx_align_here_transit_usage_requested_at ON align_auth.align_here_transit_usage(requested_at);
 CREATE TABLE align_auth.beta_users (
   "user_id" text NOT NULL,
   "email" text NOT NULL,
@@ -592,4 +596,4 @@ CREATE TABLE align_owner.align_contacts (
 
 INSERT INTO align_owner.calendar_sync_state(id,revision,modified_at) VALUES (1,0,CURRENT_TIMESTAMP) ON CONFLICT(id) DO NOTHING;
 
-INSERT INTO align_owner.schema_migrations(migration_id,applied_at) VALUES ('154_user_favourites_contacts',CURRENT_TIMESTAMP) ON CONFLICT(migration_id) DO NOTHING;
+INSERT INTO align_owner.schema_migrations(migration_id,applied_at) VALUES ('154_user_favourites_contacts',CURRENT_TIMESTAMP),('155_here_transit_usage',CURRENT_TIMESTAMP) ON CONFLICT(migration_id) DO NOTHING;
