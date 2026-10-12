@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import sqlite3
 from urllib.parse import urlparse
+from sqlite_support import postgres_enabled
 
 USER_EDITABLE_SETTINGS = {
     "user_name", "user_address", "default_calendar", "onboarding_completed",
@@ -16,27 +17,43 @@ def _stored_number(values: dict, key: str, default: str = "0") -> float:
     return float(raw)
 
 
+def _has_legacy_schedule(connection) -> bool:
+    if postgres_enabled():
+        return bool(connection.execute(
+            "SELECT 1 FROM information_schema.tables WHERE table_schema=current_schema() AND table_name='shifts'"
+        ).fetchone())
+    return bool(connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='shifts'"
+    ).fetchone())
+
+
 def get_settings(connection: sqlite3.Connection) -> dict:
     values = {row["setting_key"]: row["setting_value"] for row in connection.execute("SELECT * FROM settings")}
-    return {
+    result = {
         **values,
         "user_name": values.get("user_name") or "",
         "user_address": values.get("user_address") or "",
-        "contracted_hours": _stored_number(values, "contracted_hours"),
-        "rate_of_pay": _stored_number(values, "rate_of_pay"),
         "notifications": (values.get("notifications") or "1") == "1",
         "onboarding_completed": values.get("onboarding_completed", "0") == "1",
-        "leave_allowance_days": int(_stored_number(values, "leave_allowance_days")),
-        "leave_year_start": values.get("leave_year_start") or "01-01",
-        "minimum_rest_hours": _stored_number(values, "minimum_rest_hours"),
     }
+    if _has_legacy_schedule(connection):
+        result.update({
+            "contracted_hours": _stored_number(values, "contracted_hours"),
+            "rate_of_pay": _stored_number(values, "rate_of_pay"),
+            "leave_allowance_days": int(_stored_number(values, "leave_allowance_days")),
+            "leave_year_start": values.get("leave_year_start") or "01-01",
+            "minimum_rest_hours": _stored_number(values, "minimum_rest_hours"),
+        })
+    return result
 
 
 def save_settings(connection: sqlite3.Connection, payload: dict, allowed: set[str]) -> dict:
     import app as align
 
+    legacy_keys = {"contracted_hours", "rate_of_pay", "leave_allowance_days", "leave_year_start", "minimum_rest_hours"}
+    legacy = _has_legacy_schedule(connection)
     for key, value in payload.items():
-        if key not in allowed:
+        if key not in allowed or (key in legacy_keys and not legacy):
             continue
         if key in {"contracted_hours", "rate_of_pay"}:
             value = str(float(value))
