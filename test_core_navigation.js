@@ -39,6 +39,10 @@ if (!widget.includes("b.dashboard?.upcoming_events")) throw new Error('Scriptabl
 if (offline.includes('queueShiftBatch')) throw new Error('New offline writes must not queue retired shift batches');
 if (!offline.includes("if (item.kind === 'shift-batch') continue;")) throw new Error('Legacy offline shift batches must be retained without replay');
 if (widget.includes('NEXT SHIFT')) throw new Error('Scriptable widget must not label events as shifts');
+if (fs.existsSync('static/week-planner.js')) throw new Error('Retired week-planner client must not ship in V3');
+if (fs.existsSync('static/work-setup.js')) throw new Error('Retired fixed work-setup client must not ship in V3');
+if (offline.includes('pendingShifts(') || offline.includes("path: '/api/shifts'")) throw new Error('Offline V3 must not construct or overlay retired shift records');
+if (worker.includes("url.pathname === '/api/week'")) throw new Error('Retired week endpoint must not be cached as an offline-safe API');
 if (!app.includes("{ branch_key: 'calendar', title: 'Calendar'")) throw new Error('Account Settings is missing calendar controls');
 for (const [name, source] of [['app',app],['index',index],['service worker',worker]]) {
   if (source.includes('maps173')) throw new Error(`Stale maps173 asset version remains in ${name}`);
