@@ -15,12 +15,13 @@ def handle_get(handler, app, connection, parsed, row) -> bool:
     find_addresses = app.find_addresses
     get_settings = app.get_settings
     month_data = app.month_data
+    navigation_data = app.navigation_data
     organiser_sections = app.organiser_sections
     owner_builder = app.owner_builder
     personal_planner = app.personal_planner
     public_icloud_data = app.public_icloud_data
     if parsed.path == "/api/bootstrap":
-        self.send_json(200, {"build_version": BUILD_VERSION, "personal": personal_planner.bootstrap(connection), "builder": owner_builder.bootstrap(DATABASE, connection), "settings": get_settings(connection), "dashboard": dashboard(connection), "calendar": calendar_data(connection), "sections": organiser_sections(connection), "icloud_public": public_icloud_data(self.request_icloud_manager(row) if BETA_MODE else None), "icloud_event_calendars": app.icloud_event_calendars(connection), "beta": ({"email":row["email"],"is_owner":bool(row["is_owner"])} if row else None)})
+        self.send_json(200, {"build_version": BUILD_VERSION, "personal": personal_planner.bootstrap(connection), "builder": owner_builder.bootstrap(DATABASE, connection), "settings": get_settings(connection), "dashboard": dashboard(connection), "calendar": calendar_data(connection), "sections": organiser_sections(connection), "navigation": navigation_data(connection), "icloud_public": public_icloud_data(self.request_icloud_manager(row) if BETA_MODE else None), "icloud_event_calendars": app.icloud_event_calendars(connection), "beta": ({"email":row["email"],"is_owner":bool(row["is_owner"])} if row else None)})
         return True
     if parsed.path == '/api/month':
         self.send_json(200, month_data(connection, parse_qs(parsed.query).get('month', [date.today().strftime('%Y-%m')])[0]))
