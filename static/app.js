@@ -695,13 +695,6 @@ function renderLeaveRange(group) {
   return `<article class="card leave-card"><div class="leave-icon">☼</div><div style="flex:1"><h3>${escapeHtml(leaveRangeLabel(group))}</h3><p>${escapeHtml(group[0].notes || 'Annual leave')}</p></div><button class="small-button" data-action="delete-leave" data-leave="${group.map(leave => leave.id).join(',')}">Remove</button></article>`;
 }
 
-function renderMaster() {
-  const titles = { icloud: ['iCloud Calendar', 'Connect selected calendars on this PC'], setup: ['Work Settings', 'Hours, areas, locations and days'], settings: ['Master edit', 'Personal & work defaults'], parent: ['Parent menu', 'Top-level User home menu'], locations: ['Locations', 'Where you work'], types: ['Shift types', 'Labels and colours'], templates: ['Shift patterns', 'Location, type, sub-shift, hours and days'], menus: ['User settings menu', 'Settings branches and information'] };
-  const [title, subtitle] = titles[state.masterTab];
-  const tabs = Object.entries(titles).map(([key, value]) => `<button class="master-tab ${key === state.masterTab ? 'active' : ''}" data-action="master-tab" data-master-tab="${key}">${escapeHtml(value[0])}</button>`).join('');
-  return `<section class="page"><div class="add-head"><p class="eyebrow">Control centre</p><h1>${escapeHtml(title)}</h1><p class="subtle">${escapeHtml(subtitle)}</p></div><div class="master-banner"><strong>Your master settings feed the planner.</strong> Changes to locations and patterns appear when you add a new shift. Use “Apply to future shifts” only when you want an explicit update to already-scheduled entries.</div><div class="master-tabs">${tabs}</div>${renderMasterPanel()}</section>`;
-}
-
 function renderMasterPanel() {
   if (state.masterTab === 'icloud') return renderICloud();
   const { settings, master } = state.boot;
