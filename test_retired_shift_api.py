@@ -68,8 +68,24 @@ class RetiredShiftApiTests(unittest.TestCase):
         self.assertTrue(connection.statements)
         self.assertTrue(all("LIMIT 0" in statement for statement in connection.statements))
 
+    def test_fresh_local_v3_schema_has_no_legacy_schedule_tables(self):
+        with app.db_connection() as connection:
+            tables = {row[0] for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )}
+            self.assertTrue({'personal_items', 'organiser_events', 'assets',
+                             'transport_preferences', 'transport_journey_cache'} <= tables)
+            self.assertFalse(tables & {'locations', 'shift_types', 'location_shift_types',
+                                       'shift_templates', 'shifts', 'shift_batches',
+                                       'annual_leave', 'alerts', 'alert_rules'})
+            settings = app.get_settings(connection)
+            self.assertNotIn('contracted_hours', settings)
+            self.assertNotIn('leave_allowance_days', settings)
+
     def test_reinitializing_the_schema_keeps_legacy_schedule_data(self):
         with app.db_connection() as connection:
+            # Model an existing pre-V3 database before proving its records survive reinitialisation.
+            connection.executescript((app.ROOT / 'schema.sql').read_text(encoding='utf-8'))
             connection.execute(
                 "INSERT INTO shifts(work_date,location_name,shift_type_name,colour,start_time,end_time,hours) "
                 "VALUES('2026-10-12','Old location','AM','#365CE6','08:00','12:00',4)"

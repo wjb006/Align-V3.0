@@ -1,7 +1,7 @@
 import unittest
-from datetime import timedelta
+from datetime import date, timedelta
 from icalendar import Calendar
-import app, icloud_sync, travel_reminders
+import app, icloud_sync, personal_planner, travel_reminders
 from test_support import IsolatedAppServer
 class ReminderTests(unittest.TestCase):
     def test_range_and_existing_rules(self):
@@ -27,4 +27,8 @@ class WeekEventsTests(unittest.TestCase):
             section=c.execute("INSERT INTO organiser_sections(name) VALUES('Personal')").lastrowid
             for title,start,end in [('Overnight','2026-09-06T23:00','2026-09-07T02:00'),('Appointment','2026-09-09T10:00','2026-09-09T11:00'),('Outside','2026-09-14T10:00','2026-09-14T11:00')]:
                 c.execute('INSERT INTO organiser_events(section_id,title,start_at,end_at) VALUES(?,?,?,?)',(section,title,start,end))
-            self.assertEqual([e['title'] for e in app.week_data(c,'2026-09-07')['events']],['Overnight','Appointment'])
+            titles=set()
+            first=date.fromisoformat('2026-09-07')
+            for offset in range(7):
+                titles.update(event['title'] for event in personal_planner.events(c,first+timedelta(days=offset)))
+            self.assertEqual(titles,{'Overnight','Appointment'})
