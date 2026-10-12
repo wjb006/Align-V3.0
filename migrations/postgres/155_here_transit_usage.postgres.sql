@@ -1,4 +1,5 @@
 -- Provision the shared HERE transit allowance in the auth schema.
+SET search_path TO align_auth, align_owner;
 -- Apply with search_path=align_auth,align_owner; the marker is stored with owner migrations.
 -- Runtime requests reserve quota but never create or alter schema.
 CREATE TABLE IF NOT EXISTS align_here_transit_usage (
