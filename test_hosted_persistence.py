@@ -246,7 +246,7 @@ class PostgresIntegrationTests(unittest.TestCase):
                 self.assertFalse(tables & retired)
                 self.assertTrue({'personal_items', 'organiser_events', 'section_defs',
                                  'assets', 'asset_audit_log', 'transport_preferences',
-                                 'transport_journey_cache'} <= tables)
+                                 'transport_journey_cache', 'user_favourites', 'align_contacts'} <= tables)
                 self.assertEqual(raw.execute(f'SELECT COUNT(*) FROM {schema}.icloud_config WHERE id=1').fetchone()[0], 1)
                 raw.execute(
                     f"INSERT INTO {schema}.personal_items(id,kind,title) VALUES (%s,%s,%s)",
@@ -273,7 +273,7 @@ class PostgresIntegrationTests(unittest.TestCase):
                 self.assertEqual(c.execute(
                     'SELECT arrival_buffer FROM transport_preferences WHERE id=1').fetchone()[0], 10)
                 self.assertTrue({'personal_items', 'organiser_events', 'assets',
-                                 'transport_journey_cache'} <= names)
+                                 'transport_journey_cache', 'user_favourites', 'align_contacts'} <= names)
         finally:
             with pg.psycopg.connect(self.dsn) as raw:
                 raw.execute(f'DROP SCHEMA IF EXISTS {schema} CASCADE')
