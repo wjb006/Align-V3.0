@@ -637,7 +637,7 @@ def dashboard(connection: sqlite3.Connection) -> dict:
         "leave_balance": None,
         "alerts": [],
         "reminder_alerts": [],
-        "summary": week_hours_summary([], 0, 0),
+        "summary": {"week_hours": 0, "shift_count": 0, "regular_hours": 0, "overtime_hours": 0, "pay_estimate": 0, "contracted_hours": 0, "rate_of_pay": 0},
     }
 
 
