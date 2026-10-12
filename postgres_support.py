@@ -265,7 +265,9 @@ def provision_tester_schema(path):
                 return
             cursor.execute(sql.SQL('CREATE SCHEMA {}').format(sql.Identifier(schema)))
             for statement in _bootstrap_statements():
-                if statement.startswith('CREATE TABLE align_owner.') or statement.startswith('ALTER TABLE align_owner.'):
+                if (statement.startswith('CREATE TABLE align_owner.')
+                        or statement.startswith('ALTER TABLE align_owner.')
+                        or statement.startswith('CREATE INDEX') and 'align_owner.' in statement):
                     cursor.execute(statement.replace('align_owner.', sql.Identifier(schema).as_string(raw) + '.'))
             cursor.execute(sql.SQL('INSERT INTO {}.transport_preferences(id) VALUES (1) ON CONFLICT(id) DO NOTHING').format(sql.Identifier(schema)))
             cursor.execute(sql.SQL('INSERT INTO {}.icloud_config(id,instance_id) VALUES (1,md5(random()::text || clock_timestamp()::text)) ON CONFLICT(id) DO NOTHING').format(sql.Identifier(schema)))
@@ -274,7 +276,8 @@ def provision_tester_schema(path):
                 VALUES('149_asset_studio',CURRENT_TIMESTAMP),('149_transport',CURRENT_TIMESTAMP),
                 ('150_calendar_links',CURRENT_TIMESTAMP),('151_sections',CURRENT_TIMESTAMP),
                 ('152_personal_item_calendars',CURRENT_TIMESTAMP),
-                ('153_hosted_travel_and_calendar_location',CURRENT_TIMESTAMP)
+                ('153_hosted_travel_and_calendar_location',CURRENT_TIMESTAMP),
+                ('154_user_favourites_contacts',CURRENT_TIMESTAMP)
                 ON CONFLICT(migration_id) DO NOTHING""").format(sql.Identifier(schema)))
     except psycopg.Error:
         raise RuntimeError('Could not create the tester schema from the reviewed hosted schema.') from None
