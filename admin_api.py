@@ -7,28 +7,6 @@ import sqlite3
 from http import HTTPStatus
 from urllib.parse import urlparse
 
-from colour_utils import colour as valid_colour
-
-BRANCH_TYPES = {"profile", "work", "locations", "alerts", "calendar", "colours", "note"}
-PARENT_DESTINATIONS = {"add", "calendar", "settings", "note", "submenu"}
-
-
-def branch_values(payload: dict, existing_key: str | None = None) -> tuple:
-    branch_type = str(payload.get("branch_type", "note"))
-    if branch_type not in BRANCH_TYPES:
-        raise ValueError("That menu branch type is not supported.")
-    title = str(payload.get("title", "")).strip()[:80]
-    if not title:
-        raise ValueError("Menu branch title is required.")
-    key = existing_key or "custom-" + secrets.token_hex(5)
-    return (
-        key, title, str(payload.get("description", "")).strip()[:200],
-        str(payload.get("icon", "○")).strip()[:4] or "○", branch_type,
-        str(payload.get("content", "")).strip()[:2000],
-        1 if payload.get("active", True) else 0, int(payload.get("sort_order", 100)),
-    )
-
-
 def validate_parent_branch(connection: sqlite3.Connection, parent_id: int | None, item_id: int | None = None) -> int | None:
     if not parent_id:
         return None
@@ -78,6 +56,10 @@ def handle(handler, app, method, connection=None, payload=None) -> bool:
         or re.fullmatch(r"/api/shift-types/[0-9]+", path)
         or path == "/api/templates"
         or re.fullmatch(r"/api/templates/[0-9]+(?:/apply)?", path)
+        or path == "/api/menu-branches"
+        or re.fullmatch(r"/api/menu-branches/[0-9]+", path)
+        or path == "/api/parent-menu-branches"
+        or re.fullmatch(r"/api/parent-menu-branches/[0-9]+", path)
     )
     if retired_schedule_paths:
         handler.send_json(HTTPStatus.NOT_FOUND, {"error": "This schedule-planning endpoint is no longer available."})
@@ -96,62 +78,4 @@ def handle(handler, app, method, connection=None, payload=None) -> bool:
         return True
     if connection is None:
         return False
-    if method == "POST" and path == "/api/menu-branches":
-        if not _require(handler):
-            return True
-        values = branch_values(payload)
-        cursor = connection.execute(
-            """INSERT INTO menu_branches
-               (branch_key,title,description,icon,branch_type,content,active,sort_order)
-               VALUES (?,?,?,?,?,?,?,?)""",
-            values,
-        )
-        handler.send_json(201, {"id": cursor.lastrowid})
-        return True
-    if method == "POST" and path == "/api/parent-menu-branches":
-        if not _require(handler):
-            return True
-        values = parent_branch_values(payload)
-        validate_parent_branch(connection, values[8])
-        cursor = connection.execute(
-            """INSERT INTO parent_menu_branches
-               (branch_key,title,description,icon,destination,content,active,sort_order,parent_id,colour,locked,optional)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""", values)
-        handler.send_json(201, {"id": cursor.lastrowid})
-        return True
-    if method == "PUT" and path.startswith("/api/menu-branches/"):
-        if not _require(handler):
-            return True
-        item_id = int(path.rsplit("/", 1)[1])
-        current = connection.execute(
-            "SELECT branch_key FROM menu_branches WHERE id=?", (item_id,)
-        ).fetchone()
-        if not current:
-            raise ValueError("Menu branch not found.")
-        values = branch_values(payload, current["branch_key"])
-        connection.execute(
-            """UPDATE menu_branches SET title=?,description=?,icon=?,branch_type=?,content=?,active=?,sort_order=?
-               WHERE id=?""",
-            (*values[1:], item_id),
-        )
-        connection.commit()
-        handler.send_json(200, {"id": item_id})
-        return True
-    if method == "PUT" and path.startswith("/api/parent-menu-branches/"):
-        if not _require(handler):
-            return True
-        item_id = int(path.rsplit("/", 1)[1])
-        current = connection.execute(
-            "SELECT branch_key FROM parent_menu_branches WHERE id=?", (item_id,)
-        ).fetchone()
-        if not current:
-            raise ValueError("Parent menu item not found.")
-        values = parent_branch_values(payload, current["branch_key"])
-        validate_parent_branch(connection, values[8], item_id)
-        connection.execute(
-            """UPDATE parent_menu_branches SET title=?,description=?,icon=?,destination=?,content=?,active=?,sort_order=?,parent_id=?,colour=?,locked=?,optional=?
-               WHERE id=?""", (*values[1:], item_id))
-        connection.commit()
-        handler.send_json(200, {"id": item_id})
-        return True
     return False
