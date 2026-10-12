@@ -1,4 +1,4 @@
-"""Planner schedule, shift, leave, alert, and calendar routes."""
+"""Personal organiser, dashboard, and calendar routes."""
 from __future__ import annotations
 
 from datetime import date

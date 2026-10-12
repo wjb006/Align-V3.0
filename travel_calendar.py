@@ -1,4 +1,4 @@
-"""Turns the journey plan saved in a shift's notes into calendar travel data."""
+"""Turns a saved event journey plan into calendar travel data."""
 import re
 from datetime import datetime, timedelta
 

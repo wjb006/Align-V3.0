@@ -149,7 +149,6 @@ async function api(path, options = {}) {
 async function refresh() {
   state.boot = await api('/api/bootstrap');
   state.sectionDefinitions = (await api('/api/sections/definitions')).sections || [];
-  if (isAdmin) state.boot.master = await api('/api/master');
   if (state.sectionData) await openSection(state.sectionId);
   if(typeof travel150!=='undefined'){travel150.items=null;travel150.result=null;}
   render();
@@ -213,7 +212,7 @@ function render() {
   AlignFormatting.apply(document.body,state.boot?.builder?.document?.formatting);
   applyManagementAppearance();
   renderBottomNavigation();
-  if (!isAdmin && state.tab === 'master') state.tab = 'more';
+  if (state.tab === 'master') state.tab = 'more';
   const activeCoreTab = coreNavDestination(state.tab);
   document.querySelectorAll('[data-nav]').forEach(button => button.classList.toggle('active', button.dataset.nav === activeCoreTab));
   if (!state.boot) {
@@ -233,7 +232,7 @@ function render() {
     return;
   }
   if (['planner','calendar','add','work-setup'].includes(state.tab)) state.tab = 'sections';
-  const content = { today: renderHome, home: renderHome, inbox: renderInbox, sections: renderSectionsIndex, section: renderSection, more: renderMore, transport: renderTransport, assets: renderAssets150, settings: renderUserSettings, master: renderMaster, 'builder-records': builderRecordsPage, 'builder-profile': () => builderStartup(true) }[state.tab]?.() || renderHome();
+  const content = { today: renderHome, home: renderHome, inbox: renderInbox, sections: renderSectionsIndex, section: renderSection, more: renderMore, transport: renderTransport, assets: renderAssets150, settings: renderUserSettings, 'builder-records': builderRecordsPage, 'builder-profile': () => builderStartup(true) }[state.tab]?.() || renderHome();
   const cloudNotice = state.boot.icloud_public?.reconnect_required ? `<div class="card" role="status"><strong>iCloud needs reconnecting</strong><p>${escapeHtml(state.boot.icloud_public.message)}</p><button class="small-button" data-nav="settings">Open settings</button></div>` : '';
   app.innerHTML = cloudNotice + content;
   app.focus({ preventScroll: true });
