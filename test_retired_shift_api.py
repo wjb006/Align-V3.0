@@ -90,6 +90,25 @@ class RetiredShiftApiTests(unittest.TestCase):
                 "INSERT INTO shifts(work_date,location_name,shift_type_name,colour,start_time,end_time,hours) "
                 "VALUES('2026-10-12','Old location','AM','#365CE6','08:00','12:00',4)"
             )
+            location_id = connection.execute(
+                "INSERT INTO locations(name,address) VALUES('Legacy clinic','Legacy address')"
+            ).lastrowid
+            type_id = connection.execute(
+                "INSERT INTO shift_types(name) VALUES('Legacy AM')"
+            ).lastrowid
+            template_id = connection.execute(
+                """INSERT INTO shift_templates(location_id,shift_type_id,label,sub_shift_type,start_time,end_time,applicable_days)
+                   VALUES(?,?,?,?,?,?,?)""",
+                (location_id, type_id, 'Keep this template', 'AM', '08:30', '12:30', '["Monday"]'),
+            ).lastrowid
+            connection.execute(
+                "INSERT INTO settings(setting_key,setting_value) VALUES('contracted_hours','37') "
+                "ON CONFLICT(setting_key) DO UPDATE SET setting_value='37'"
+            )
+            connection.execute(
+                "INSERT INTO settings(setting_key,setting_value) VALUES('user_name','Your schedule') "
+                "ON CONFLICT(setting_key) DO UPDATE SET setting_value='Your schedule'"
+            )
             connection.execute(
                 "INSERT INTO annual_leave(leave_date,notes) VALUES('2026-10-13','Keep for recovery')"
             )
@@ -99,6 +118,12 @@ class RetiredShiftApiTests(unittest.TestCase):
         with app.db_connection() as connection:
             self.assertEqual(connection.execute("SELECT COUNT(*) FROM shifts").fetchone()[0], 1)
             self.assertEqual(connection.execute("SELECT notes FROM annual_leave").fetchone()[0], "Keep for recovery")
+            template = connection.execute("SELECT label,sub_shift_type,applicable_days FROM shift_templates WHERE id=?", (template_id,)).fetchone()
+            self.assertEqual(tuple(template), ('Keep this template', 'AM', '["Monday"]'))
+            settings = {row['setting_key']:row['setting_value'] for row in connection.execute(
+                "SELECT setting_key,setting_value FROM settings WHERE setting_key IN ('contracted_hours','user_name')"
+            )}
+            self.assertEqual(settings, {'contracted_hours':'37','user_name':'Your schedule'})
 
 
 if __name__ == "__main__":
