@@ -578,4 +578,18 @@ ALTER TABLE align_auth.beta_icloud_credentials ADD FOREIGN KEY (user_id) REFEREN
 ALTER TABLE align_auth.beta_password_resets ADD FOREIGN KEY (replaced_by_reset_id) REFERENCES align_auth.beta_password_resets(reset_id);
 
 INSERT INTO align_owner.icloud_config(id,instance_id) VALUES (1,md5(random()::text || clock_timestamp()::text)) ON CONFLICT(id) DO NOTHING;
+CREATE TABLE align_owner.user_favourites (
+    id BIGSERIAL PRIMARY KEY, entity_type TEXT NOT NULL, entity_key TEXT NOT NULL,
+    label TEXT NOT NULL, value TEXT NOT NULL DEFAULT '', metadata_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(entity_type, entity_key)
+);
+CREATE INDEX idx_user_favourites_type_updated ON align_owner.user_favourites(entity_type, updated_at DESC);
+CREATE TABLE align_owner.align_contacts (
+    id BIGSERIAL PRIMARY KEY, name TEXT NOT NULL, address TEXT NOT NULL DEFAULT '',
+    phone TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL, UNIQUE(name,address,phone)
+);
+
 INSERT INTO align_owner.calendar_sync_state(id,revision,modified_at) VALUES (1,0,CURRENT_TIMESTAMP) ON CONFLICT(id) DO NOTHING;
+
+INSERT INTO align_owner.schema_migrations(migration_id,applied_at) VALUES ('154_user_favourites_contacts',CURRENT_TIMESTAMP) ON CONFLICT(migration_id) DO NOTHING;
