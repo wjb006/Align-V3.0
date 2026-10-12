@@ -30,6 +30,13 @@ def test_hosted_driving_and_geocoding_reserve_before_request():
         request.assert_not_called()
 
 
+def test_reservation_module_does_not_create_schema_at_request_time():
+    from pathlib import Path
+    source = (Path(__file__).parent / 'here_quota.py').read_text(encoding='utf-8')
+    assert 'CREATE TABLE' not in source
+    assert 'ALTER TABLE' not in source
+
+
 def test_shared_quota_survives_connections_and_concurrency():
     dsn = os.environ.get('ALIGN_TEST_POSTGRES_URL')
     if not dsn:
@@ -40,6 +47,8 @@ def test_shared_quota_survives_connections_and_concurrency():
     schema = 'test_here_' + uuid.uuid4().hex
     with psycopg.connect(dsn, autocommit=True) as c:
         c.execute(sql.SQL('CREATE SCHEMA {}').format(sql.Identifier(schema)))
+        c.execute(sql.SQL('CREATE TABLE {}.align_here_transit_usage (requested_at BIGINT NOT NULL)').format(sql.Identifier(schema)))
+        c.execute(sql.SQL('CREATE INDEX idx_test_here_usage_requested_at ON {}.align_here_transit_usage(requested_at)').format(sql.Identifier(schema)))
     try:
         with patch.dict(os.environ, {'DATABASE_URL': dsn, 'ALIGN_DATABASE_BACKEND': 'postgres'}), patch.object(postgres_support, 'schema_for', return_value=schema), patch.object(quota, 'LIMIT', 3):
             def attempt(_):
