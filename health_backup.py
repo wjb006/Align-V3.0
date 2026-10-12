@@ -126,7 +126,9 @@ def restore_local_database(database: Path, payload: bytes) -> None:
                     "SELECT name FROM sqlite_master WHERE type='table'"
                 )
             }
-            if not {"schema_migrations", "settings", "shifts"} <= tables:
+            has_legacy_planner = "shifts" in tables
+            has_v3_core = {"personal_items", "organiser_sections"} <= tables
+            if "schema_migrations" not in tables or "settings" not in tables or not (has_legacy_planner or has_v3_core):
                 raise ValueError("This SQLite file does not contain a complete Align database.")
 
             safety_copy = local_database_backup(database)
