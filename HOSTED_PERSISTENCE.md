@@ -48,7 +48,6 @@ Keep DATABASE_URL and passwords in Render secrets, never in logs or this reposit
    FROM align_auth.beta_users WHERE is_owner=1;
    SELECT 'owners' AS metric, COUNT(*) FROM align_auth.beta_users WHERE is_owner=1
    UNION ALL SELECT 'inbox', COUNT(*) FROM align_owner.personal_items
-   UNION ALL SELECT 'shifts', COUNT(*) FROM align_owner.shifts
    UNION ALL SELECT 'settings', COUNT(*) FROM align_owner.settings
    UNION ALL SELECT 'sections', COUNT(*) FROM align_owner.organiser_sections;
    ```

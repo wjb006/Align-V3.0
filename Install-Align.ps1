@@ -32,7 +32,7 @@ try {
   Write-Log "Root: $Root"
   if ($env:OS -ne 'Windows_NT') { throw 'This installer is intended for Windows.' }
 
-  $required = @('app.py','launch.py','schema.sql','requirements.txt','build152.py','static\app.js','static\service-worker.js','static\build152.js')
+  $required = @('app.py','launch.py','schema_v3.sqlite.sql','requirements.txt','build152.py','static\app.js','static\service-worker.js','static\build152.js')
   foreach ($f in $required) { if (-not (Test-Path -LiteralPath (Join-Path $Root $f) -PathType Leaf)) { throw "Required file is missing: $f" } }
   foreach ($d in @('migrations','static')) { if (-not (Test-Path -LiteralPath (Join-Path $Root $d) -PathType Container)) { throw "Required folder is missing: $d" } }
 
@@ -86,7 +86,7 @@ import sqlite3
 con=sqlite3.connect('align.sqlite3')
 try:
     if con.execute('PRAGMA integrity_check').fetchone()[0] != 'ok': raise RuntimeError('SQLite integrity check failed')
-    required={'settings','locations','shift_types','shift_templates','shifts','annual_leave','calendar_sources','calendar_events','organiser_sections','organiser_events','user_favourites','align_contacts'}
+    required={'settings','schema_migrations','personal_items','calendar_sources','calendar_events','organiser_sections','organiser_events','calendar_links','assets','asset_categories','asset_variants','asset_usage_rules','asset_audit_log','transport_preferences','transport_journey_cache','icloud_config','calendar_sync_state','user_favourites','align_contacts'}
     tables={r[0] for r in con.execute('SELECT name FROM sqlite_master WHERE type=?',('table',))}
     missing=sorted(required-tables)
     if missing: raise RuntimeError('Missing required tables: '+', '.join(missing))

@@ -64,9 +64,6 @@ organiser_event_values = organiser_api.organiser_event_values
 branch_values = admin_api.branch_values
 validate_parent_branch = admin_api.validate_parent_branch
 parent_branch_values = admin_api.parent_branch_values
-shift_pattern_values = admin_api.shift_pattern_values
-normalise_shift_type_ids = admin_api.normalise_shift_type_ids
-save_location_categories = admin_api.save_location_categories
 BRANCH_TYPES = admin_api.BRANCH_TYPES
 PARENT_DESTINATIONS = admin_api.PARENT_DESTINATIONS
 
@@ -200,11 +197,8 @@ def db_connection() -> sqlite3.Connection:
 class FixedDatabaseApp:
     def __init__(self, database: Path):
         self.database = Path(database)
-        self.shift_query = shift_query
-        self.alert_rules = alert_rules
+        # iCloud sync now depends only on retained V3 calendar and settings data.
         self.get_settings = get_settings
-        self.hours_between = hours_between
-        self.create_shift_alert = create_shift_alert
 
     def db_connection(self):
         if not postgres_enabled():

@@ -38,7 +38,13 @@ class EventChangesTests(unittest.TestCase):
         ids=[e['id'] for e in app.dashboard(self.c)['upcoming_events']]
         self.assertNotIn(past,ids);self.assertIn(current,ids);self.assertIn(future,ids)
         self.assertEqual(self.c.execute('SELECT COUNT(*) FROM organiser_events').fetchone()[0],3)
-        self.assertEqual(post.event_end(dict(work_date='2030-10-01',start_time='22:00',end_time='06:00')).day,2)
+
+    def test_event_lookup_and_travel_work_without_legacy_schedule_tables(self):
+        # A fresh V3 schema deliberately has no shifts or locations tables.
+        items = post.events(self.c)
+        self.assertTrue(any(item['kind'] == 'event' for item in items))
+        with self.assertRaisesRegex(ValueError, 'saved Align or imported calendar event'):
+            post.handle(self.c, {'kind': 'shift', 'id': 1})
 
     def test_import_creates_one_category_and_preserves_locations(self):
         ics='BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:example\nDTSTART:20301001T090000\nDTEND:20301001T100000\nSUMMARY:Example\nLOCATION:Test L1 1JD\nEND:VEVENT\nEND:VCALENDAR'

@@ -12,20 +12,16 @@ def instant(value):
     return value.astimezone(ZONE) if value.tzinfo else value.replace(tzinfo=ZONE)
 
 
-def event_end(event):
-    if event.get('end_at'): return instant(event['end_at'])
-    start = instant(event['work_date']+'T'+event['start_time'])
-    end = instant(event['work_date']+'T'+event['end_time'])
-    return end + timedelta(days=1) if end <= start else end
-
-
 def events(c):
+    """Return only retained V3 organiser and imported-calendar events."""
     result = []
-    for kind, table in [('event','organiser_events'), ('calendar','calendar_events')]:
-        result.extend({**dict(row), 'kind':kind} for row in c.execute(f'SELECT id,title,start_at,end_at,all_day,location FROM {table}'))
-    for row in c.execute('SELECT s.id,s.work_date,s.start_time,s.end_time,l.name,l.address FROM shifts s JOIN locations l ON l.id=s.location_id'):
-        shift = dict(row)
-        result.append(dict(id=shift['id'],kind='shift',title=shift['name'],start_at=shift['work_date']+'T'+shift['start_time'],end_at=event_end(shift).isoformat(),location=shift['address'] or shift['name'],all_day=0))
+    for kind, table in (('event', 'organiser_events'), ('calendar', 'calendar_events')):
+        result.extend(
+            {**dict(row), 'kind': kind}
+            for row in c.execute(
+                f'SELECT id,title,start_at,end_at,all_day,location FROM {table}'
+            )
+        )
     return result
 
 
@@ -47,7 +43,7 @@ def target(c, kind, ident, items=None, home=None):
 def handle(c, body):
     from personal_planner import preferences
     kind = body.get('kind')
-    if kind not in ('event','calendar','shift'): raise ValueError('Choose an event.')
+    if kind not in ('event','calendar'): raise ValueError('Choose a saved Align or imported calendar event.')
     ident = int(body.get('id',0))
     event, route = target(c,kind,ident)
     key = f'post_event_travel:{kind}:{ident}'
