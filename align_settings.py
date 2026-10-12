@@ -29,6 +29,12 @@ def _has_legacy_schedule(connection) -> bool:
 
 def get_settings(connection: sqlite3.Connection) -> dict:
     values = {row["setting_key"]: row["setting_value"] for row in connection.execute("SELECT * FROM settings")}
+    legacy = _has_legacy_schedule(connection)
+    if not legacy:
+        for key in ("contracted_hours", "standard_shift_minutes", "work_setup_completed",
+                    "rate_of_pay", "leave_allowance_days", "leave_year_start",
+                    "minimum_rest_hours", "alert_rules_configured", "work_settings_menu_v122"):
+            values.pop(key, None)
     result = {
         **values,
         "user_name": values.get("user_name") or "",
@@ -36,7 +42,7 @@ def get_settings(connection: sqlite3.Connection) -> dict:
         "notifications": (values.get("notifications") or "1") == "1",
         "onboarding_completed": values.get("onboarding_completed", "0") == "1",
     }
-    if _has_legacy_schedule(connection):
+    if legacy:
         result.update({
             "contracted_hours": _stored_number(values, "contracted_hours"),
             "rate_of_pay": _stored_number(values, "rate_of_pay"),
