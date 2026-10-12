@@ -708,19 +708,6 @@ function sectionEventModal(id = null) {
   if(event?.notes?.includes('[Align travel]'))journeyForm.journeySignature=journeyFormSignature(journeyForm);
 }
 
-function locationModal(id = null) {
-  const item = id ? state.boot.master.locations.find(location => location.id === id) : { name: '', address: '', active: 1 };
-  modal(id ? 'Edit location' : 'New location', `<form class="form-grid" data-form="location" data-id="${id || ''}"><div class="field"><label>Location name</label><input name="name" required value="${escapeHtml(item.name)}" placeholder="e.g. Main office" /></div>${addressFields('admin-location-address', 'address', item.address)}${locationColourField(item)}${locationCategoryPicker(id)}${id ? `<label class="switch-row"><span>Available for new shifts</span><input class="switch" name="active" type="checkbox" ${item.active ? 'checked' : ''}/></label>` : ''}<div class="modal-actions"><button type="button" class="secondary-button" data-action="close-modal">Cancel</button><button class="primary-button">Save location</button></div></form>`);
-}
-function userLocationModal(id = null) {
-  const item = id ? state.boot.master.locations.find(location => location.id === id) : { name: '', address: '' };
-  modal(id ? 'Edit work location' : 'Add work location', `<form class="form-grid" data-form="user-location" data-id="${id || ''}"><p class="helper">Set the address, colour and categories. Use Work Settings to assign times and days.</p><div class="field"><label>Location name</label><input name="name" required value="${escapeHtml(item.name)}" placeholder="e.g. Main office" /></div>${addressFields('user-location-address', 'address', item.address)}${locationColourField(item)}${locationCategoryPicker(id)}<div class="modal-actions"><button type="button" class="secondary-button" data-action="close-modal">Cancel</button><button class="primary-button">Save location</button></div></form>`);
-}
-function locationColourField(item) { return `<label class="field">Location colour<input name="colour" type="color" value="${escapeHtml(item.colour || '#365CE6')}"></label>`; }
-function typeModal(id = null) {
-  const item = id ? state.boot.master.shift_types.find(type => type.id === id) : { name: '', colour: '#3B82F6', active: 1 };
-  modal(id ? 'Edit shift type' : 'New shift type', `<form class="form-grid" data-form="shift-type" data-id="${id || ''}"><div class="field"><label>Type name</label><input name="name" required value="${escapeHtml(item.name)}" placeholder="e.g. Clinic" /></div><div class="field"><label>Colour</label><input name="colour" type="color" value="${escapeHtml(item.colour)}" /></div>${id ? `<label class="switch-row"><span>Available for new shifts</span><input class="switch" name="active" type="checkbox" ${item.active ? 'checked' : ''}/></label>` : ''}<div class="modal-actions"><button type="button" class="secondary-button" data-action="close-modal">Cancel</button><button class="primary-button">Save shift type</button></div></form>`);
-}
 function menuBranchModal(id = null) {
   const item = id ? state.boot.master.branches.find(branch => branch.id === id) : { title: '', description: '', icon: '○', branch_type: 'note', content: '', active: 1, sort_order: 100 };
   const types = [['profile', 'Your details'], ['work', 'Work Settings'], ['locations', 'Work locations'], ['colours', 'Colours'], ['alerts', 'Alerts'], ['calendar', 'Calendar'], ['note', 'Information only']];
@@ -755,27 +742,6 @@ function parentInfoModal(id) {
   if (!item) return;
   modal(item.title, `<div class="info-card"><p class="helper">${escapeHtml(item.description)}</p><p>${escapeHtml(item.content || 'No information has been added to this menu branch yet.').replace(/\n/g, '<br>')}</p><div class="modal-actions"><button class="primary-button" data-action="close-modal">Done</button></div></div>`);
 }
-function locationCategoryIds(locationId) {
-  return (state.boot.master.location_categories || {})[String(locationId)] || [];
-}
-function locationCategoryNames(locationId) {
-  const ids = locationCategoryIds(locationId).map(Number);
-  return state.boot.master.shift_types.filter(type => ids.includes(type.id)).map(type => type.name);
-}
-function locationCategoryPicker(locationId) {
-  const selected = locationId ? locationCategoryIds(locationId).map(Number) : [];
-  return `<div class="field"><label>Shift categories at this location</label><div class="category-picker">${state.boot.master.shift_types.filter(type => type.active).map(type => `<label class="category-option"><input name="shift_type_ids" type="checkbox" value="${type.id}" ${selected.includes(type.id) ? 'checked' : ''}/><span class="colour-dot" style="background:${escapeHtml(type.colour)}"></span><span>${escapeHtml(type.name)}</span></label>`).join('')}</div><small class="helper">Choose the categories used here. Admin then adds the saved AM/PM shift patterns and hours.</small></div>`;
-}
-function templateModal(id = null) {
-  const item = id ? state.boot.master.templates.find(template => template.id === id) : { location_id: state.boot.master.locations[0]?.id, shift_type_id: state.boot.master.shift_types[0]?.id, sub_shift_type: '', applicable_days: [], start_time: '09:00', end_time: '17:00', break_minutes: 0, active: 1 };
-  if (!item.location_id || !item.shift_type_id) { toast('Add a location and a shift type first.'); return; }
-  const locations = optionList(state.boot.master.locations.filter(location => location.active), item.location_id, item => item.name);
-  const types = optionList(state.boot.master.shift_types.filter(type => type.active), item.shift_type_id, item => item.name);
-  const selectedDays = templateDays(item);
-  const dayChoices = WEEK_DAYS.map(day => `<label class="weekday-option"><input name="applicable_days" type="checkbox" value="${day}" ${selectedDays.includes(day) ? 'checked' : ''}/><span>${day.slice(0, 3)}</span></label>`).join('');
-  modal(id ? 'Edit shift pattern' : 'New shift pattern', `<form class="form-grid" data-form="template" data-id="${id || ''}"><p class="helper">Set the exact choices users see in this order: location, shift type, sub-shift, then times.</p><div class="field"><label>Where</label><select name="location_id">${locations}</select></div><div class="field"><label>Shift type</label><select name="shift_type_id">${types}</select></div><div class="field"><label>Sub-shift type</label><input name="sub_shift_type" required value="${escapeHtml(subShiftName(item))}" placeholder="e.g. AM or PM" /></div><div class="form-grid two"><div class="field"><label>Start time</label><input name="start_time" required type="time" value="${escapeHtml(item.start_time)}" /></div><div class="field"><label>End time</label><input name="end_time" required type="time" value="${escapeHtml(item.end_time)}" /></div></div><div class="field"><label>Days this pattern applies to</label><div class="weekday-picker">${dayChoices}</div></div><div class="field"><label>Unpaid break (minutes)</label><input name="break_minutes" min="0" type="number" value="${item.break_minutes}" /></div>${id ? `<label class="switch-row"><span>Available for new shifts</span><input class="switch" name="active" type="checkbox" ${item.active ? 'checked' : ''}/></label><div class="apply-note">Changing a pattern affects future selections only. You can separately apply its details to future scheduled shifts.</div>` : ''}<div class="modal-actions"><button type="button" class="secondary-button" data-action="close-modal">Cancel</button><button class="primary-button">Save shift pattern</button></div></form>${id ? `<button class="text-button" style="margin-top:11px" data-action="apply-template" data-id="${id}">Apply this pattern to future scheduled shifts</button>` : ''}`);
-}
-function applyTemplateModal(id) { modal('Apply master template', `<form class="form-grid" data-form="apply-template" data-id="${id}"><p class="helper">This is deliberate: it updates the times, type and location on future shifts made from this template. Notes stay unchanged.</p><div class="field"><label>Update shifts on or after</label><input name="from_date" type="date" value="${isoToday()}" /></div><div class="modal-actions"><button type="button" class="secondary-button" data-action="close-modal">Cancel</button><button class="primary-button">Apply to future shifts</button></div></form>`); }
 async function searchAddresses(input) {
   const target = input.dataset.addressTarget;
   const results = document.querySelector(`[data-address-results="${target}"]`);
