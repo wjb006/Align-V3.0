@@ -966,7 +966,7 @@ document.addEventListener('submit', async event => {
         const permissions = state.boot.builder?.appearance_permissions || {};
         const appearance = {};
         if (permissions.colors) appearance.colors = Object.fromEntries(['accent', 'canvas', 'surface', 'text'].map(key => [key, values[`color_${key}`]]));
-        if (permissions.banners) appearance.banners = Object.fromEntries(['today', 'upcoming', 'annual_leave', 'section_detail'].map(key => [key, values[`banner_${key}`]]));
+        if (permissions.banners) appearance.banners = Object.fromEntries(['today', 'upcoming', 'section_detail'].map(key => [key, values[`banner_${key}`]]));
         if (permissions.events) appearance.events = {
           accent: values.event_accent, style: values.events_style, density: values.events_density
         };
