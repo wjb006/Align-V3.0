@@ -11,20 +11,10 @@ from zoneinfo import ZoneInfo
 from transport_providers import OTPProvider, NaptanProvider, StatusHook, ProviderUnavailable
 from transport_ranking import rank, timestamp
 
-def prepare_hosted_storage():
-    """Add the Travel tables without changing existing planner or legacy caches."""
-    from sqlite_support import connect
-    with connect('align.sqlite3') as c:
-        c.raw.execute('SELECT pg_advisory_xact_lock(151202627)')
-        c.raw.execute("""CREATE TABLE IF NOT EXISTS transport_preferences (
-            id INTEGER PRIMARY KEY CHECK(id=1),
-            arrival_buffer INTEGER NOT NULL DEFAULT 10 CHECK(arrival_buffer BETWEEN 0 AND 120),
-            modes TEXT NOT NULL DEFAULT '["bus","rail","walk"]',
-            home_lat DOUBLE PRECISION, home_lon DOUBLE PRECISION)""")
-        c.raw.execute('INSERT INTO transport_preferences(id) VALUES(1) ON CONFLICT DO NOTHING')
-        c.raw.execute('''CREATE TABLE IF NOT EXISTS transport_journey_cache (
-            event_key TEXT PRIMARY KEY, payload TEXT NOT NULL,
-            updated_at TEXT NOT NULL, expires_at TEXT NOT NULL)''')
+def validate_hosted_storage(c):
+    """Validate explicitly provisioned Travel tables; never mutate hosted schema."""
+    c.execute('SELECT id, arrival_buffer, modes, home_lat, home_lon FROM transport_preferences LIMIT 0')
+    c.execute('SELECT event_key, payload, updated_at, expires_at FROM transport_journey_cache LIMIT 0')
 
 def enabled(): return os.environ.get('ALIGN_TRANSPORT_ENABLED','0')=='1'
 
