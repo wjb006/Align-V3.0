@@ -640,27 +640,6 @@ function alertRuleModal(id = null) {
 }
 
 
-function renderLeaveCard(leave) { return `<article class="card leave-card"><div class="leave-icon">☼</div><div style="flex:1"><h3>${escapeHtml(prettyDate(leave.leave_date, { weekday: 'long', day: 'numeric', month: 'long' }))}</h3><p>${escapeHtml(leave.notes || 'Annual leave')}</p></div><button class="small-button" data-action="delete-leave" data-leave="${leave.id}">Remove</button></article>`; }
-function groupLeaveRanges(days) {
-  const groups = [];
-  for (const leave of [...(days || [])].sort((a, b) => String(a.leave_date).localeCompare(String(b.leave_date)))) {
-    const last = groups[groups.length - 1];
-    const previous = last && last[last.length - 1];
-    const sameNote = previous && (previous.notes || 'Annual leave') === (leave.notes || 'Annual leave');
-    const nextDay = previous && (fromIso(leave.leave_date) - fromIso(previous.leave_date) === 86400000);
-    if (sameNote && nextDay) last.push(leave);
-    else groups.push([leave]);
-  }
-  return groups;
-}
-function leaveRangeLabel(group) {
-  const format = date => fromIso(date).toLocaleDateString('en-GB');
-  return group.length === 1 ? format(group[0].leave_date) : `${format(group[0].leave_date)}–${format(group[group.length - 1].leave_date)}`;
-}
-function renderLeaveRange(group) {
-  return `<article class="card leave-card"><div class="leave-icon">☼</div><div style="flex:1"><h3>${escapeHtml(leaveRangeLabel(group))}</h3><p>${escapeHtml(group[0].notes || 'Annual leave')}</p></div><button class="small-button" data-action="delete-leave" data-leave="${group.map(leave => leave.id).join(',')}">Remove</button></article>`;
-}
-
 function optionList(items, selectedId, label) { return items.map(item => `<option value="${item.id}" ${item.id === selectedId ? 'selected' : ''}>${escapeHtml(label(item))}</option>`).join(''); }
 let modalReturnFocus = null;
 function modal(title, content) {
@@ -797,16 +776,6 @@ function templateModal(id = null) {
   modal(id ? 'Edit shift pattern' : 'New shift pattern', `<form class="form-grid" data-form="template" data-id="${id || ''}"><p class="helper">Set the exact choices users see in this order: location, shift type, sub-shift, then times.</p><div class="field"><label>Where</label><select name="location_id">${locations}</select></div><div class="field"><label>Shift type</label><select name="shift_type_id">${types}</select></div><div class="field"><label>Sub-shift type</label><input name="sub_shift_type" required value="${escapeHtml(subShiftName(item))}" placeholder="e.g. AM or PM" /></div><div class="form-grid two"><div class="field"><label>Start time</label><input name="start_time" required type="time" value="${escapeHtml(item.start_time)}" /></div><div class="field"><label>End time</label><input name="end_time" required type="time" value="${escapeHtml(item.end_time)}" /></div></div><div class="field"><label>Days this pattern applies to</label><div class="weekday-picker">${dayChoices}</div></div><div class="field"><label>Unpaid break (minutes)</label><input name="break_minutes" min="0" type="number" value="${item.break_minutes}" /></div>${id ? `<label class="switch-row"><span>Available for new shifts</span><input class="switch" name="active" type="checkbox" ${item.active ? 'checked' : ''}/></label><div class="apply-note">Changing a pattern affects future selections only. You can separately apply its details to future scheduled shifts.</div>` : ''}<div class="modal-actions"><button type="button" class="secondary-button" data-action="close-modal">Cancel</button><button class="primary-button">Save shift pattern</button></div></form>${id ? `<button class="text-button" style="margin-top:11px" data-action="apply-template" data-id="${id}">Apply this pattern to future scheduled shifts</button>` : ''}`);
 }
 function applyTemplateModal(id) { modal('Apply master template', `<form class="form-grid" data-form="apply-template" data-id="${id}"><p class="helper">This is deliberate: it updates the times, type and location on future shifts made from this template. Notes stay unchanged.</p><div class="field"><label>Update shifts on or after</label><input name="from_date" type="date" value="${isoToday()}" /></div><div class="modal-actions"><button type="button" class="secondary-button" data-action="close-modal">Cancel</button><button class="primary-button">Apply to future shifts</button></div></form>`); }
-function renderLeaveBalance(balance) {
-  if (!balance?.allowance) return '';
-  const over = balance.remaining < 0;
-  return `<p class="helper">${balance.booked} days booked from ${escapeHtml(prettyDate(balance.year_start))} to ${escapeHtml(prettyDate(balance.year_end))}. ${over ? `${-balance.remaining} over the ${balance.allowance}-day allowance` : `${balance.remaining} of ${balance.allowance} days left`}.</p>`;
-}
-function leaveModal() {
-  const balance = state.boot.dashboard.leave_balance;
-  const note = balance?.allowance ? renderLeaveBalance(balance) : '<p class="helper">Set a yearly leave allowance in Work Settings to see how many days are left.</p>';
-  modal('Book annual leave', `<form class="form-grid" data-form="leave">${note}<div class="form-grid two"><div class="field"><label>From</label><input name="start_date" required type="date" min="${isoToday()}" value="${isoToday()}" /></div><div class="field"><label>To</label><input name="end_date" required type="date" min="${isoToday()}" value="${isoToday()}" /></div></div><div class="field"><label>Notes (optional)</label><textarea name="notes" placeholder="e.g. Holiday"></textarea></div><div class="modal-actions"><button type="button" class="secondary-button" data-action="close-modal">Cancel</button><button class="primary-button">Book leave</button></div></form>`);
-}
 async function searchAddresses(input) {
   const target = input.dataset.addressTarget;
   const results = document.querySelector(`[data-address-results="${target}"]`);
