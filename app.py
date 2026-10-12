@@ -125,6 +125,19 @@ DEFAULT_SETTINGS = {
     "minimum_rest_hours": "0",
 }
 
+V3_DEFAULT_SETTINGS = {
+    "user_name": "",
+    "user_address": "",
+    "user_phone": "",
+    "user_home_location": "",
+    "travel_bus": "true",
+    "travel_rail": "true",
+    "travel_walk": "true",
+    "default_calendar": "Align",
+    "notifications": "1",
+    "onboarding_completed": "0",
+}
+
 WEEK_DAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 WEEKDAY_DAYS = WEEK_DAYS[:5]
 WEEKEND_DAYS = WEEK_DAYS[5:]
@@ -250,9 +263,31 @@ def initialise_database_at(database: Path) -> None:
         with connect(database) as connection:
             validate_v3_storage(connection)
         return
-    schema = (ROOT / "schema.sql").read_text(encoding="utf-8")
     database = Path(database)
     database.parent.mkdir(parents=True, exist_ok=True)
+    legacy_schema = False
+    if database.exists() and database.stat().st_size:
+        with sqlite3.connect(str(database)) as probe:
+            legacy_schema = bool(probe.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='shifts'"
+            ).fetchone())
+    if not legacy_schema:
+        schema = (ROOT / "schema_v3.sqlite.sql").read_text(encoding="utf-8")
+        connection = connect(database, factory=ClosingConnection)
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA foreign_keys = ON")
+        with connection:
+            connection.executescript(schema)
+            connection.executemany(
+                "INSERT OR IGNORE INTO settings(setting_key, setting_value) VALUES (?, ?)",
+                V3_DEFAULT_SETTINGS.items(),
+            )
+            connection.execute(
+                "UPDATE icloud_config SET instance_id=? WHERE id=1 AND instance_id=''",
+                (secrets.token_hex(16),),
+            )
+        return
+    schema = (ROOT / "schema.sql").read_text(encoding="utf-8")
     migration_runner.upgrade(database)
     connection = connect(database, factory=ClosingConnection)
     connection.row_factory = sqlite3.Row
