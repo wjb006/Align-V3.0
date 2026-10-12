@@ -319,10 +319,10 @@ class PostgresIntegrationTests(unittest.TestCase):
             with sqlite_support.connect('align.sqlite3') as c:
                 self.assertEqual(app.personal_planner.bootstrap(c)['items'], [])
                 self.assertEqual(app.dashboard(c)['summary']['shift_count'], 0)
-                self.assertEqual(app.master_data(c)['templates'], [])
+                self.assertIsInstance(app.navigation_data(c)['parents'], list)
                 c.execute('INSERT OR IGNORE INTO personal_items(id,kind,title) VALUES(?,?,?)', ('persistence-test', 'note', 'Test 50% ?'))
                 self.assertEqual(c.execute('INSERT OR IGNORE INTO personal_items(id,kind,title) VALUES(?,?,?)', ('persistence-test', 'note', 'duplicate')).rowcount, 0)
-                ident = c.execute('INSERT INTO locations(name,address) VALUES(?,?)', ('Test location', '')).lastrowid
+                ident = c.execute('INSERT INTO organiser_sections(name) VALUES(?)', ('Test section',)).lastrowid
                 self.assertIsInstance(ident, int)
             with patch.object(app, 'BETA_STORE'), patch.object(app, 'DATABASE'), patch.object(app, 'BETA_MODE'):
                 render_start.prepare_preview()
