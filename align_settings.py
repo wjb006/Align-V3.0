@@ -3,79 +3,34 @@ from __future__ import annotations
 
 import sqlite3
 from urllib.parse import urlparse
-from sqlite_support import postgres_enabled
 
 USER_EDITABLE_SETTINGS = {
     "user_name", "user_address", "default_calendar", "onboarding_completed",
 }
 
 
-def _stored_number(values: dict, key: str, default: str = "0") -> float:
-    raw = values.get(key, default)
-    if raw is None or str(raw).strip() == "":
-        raw = default
-    return float(raw)
-
-
-def _has_legacy_schedule(connection) -> bool:
-    if postgres_enabled():
-        return bool(connection.execute(
-            "SELECT 1 FROM information_schema.tables WHERE table_schema=current_schema() AND table_name IN ('shifts','shift_templates','shift_types','locations','annual_leave','alert_rules','alerts','shift_batches')"
-        ).fetchone())
-    return bool(connection.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name IN ('shifts','shift_templates','shift_types','locations','annual_leave','alert_rules','alerts','shift_batches') LIMIT 1"
-    ).fetchone())
-
-
 def get_settings(connection: sqlite3.Connection) -> dict:
+    # Legacy schedule values remain stored for recovery, but are never returned
+    # to the V3 client, including when opening a pre-V3 database.
     values = {row["setting_key"]: row["setting_value"] for row in connection.execute("SELECT * FROM settings")}
-    legacy = _has_legacy_schedule(connection)
-    if not legacy:
-        for key in ("contracted_hours", "standard_shift_minutes", "work_setup_completed",
-                    "rate_of_pay", "leave_allowance_days", "leave_year_start",
-                    "minimum_rest_hours", "alert_rules_configured", "work_settings_menu_v122"):
-            values.pop(key, None)
-    result = {
+    for key in ("contracted_hours", "standard_shift_minutes", "work_setup_completed",
+                "rate_of_pay", "leave_allowance_days", "leave_year_start",
+                "minimum_rest_hours", "alert_rules_configured", "work_settings_menu_v122"):
+        values.pop(key, None)
+    return {
         **values,
         "user_name": values.get("user_name") or "",
         "user_address": values.get("user_address") or "",
         "notifications": (values.get("notifications") or "1") == "1",
         "onboarding_completed": values.get("onboarding_completed", "0") == "1",
     }
-    if legacy:
-        result.update({
-            "contracted_hours": _stored_number(values, "contracted_hours"),
-            "rate_of_pay": _stored_number(values, "rate_of_pay"),
-            "leave_allowance_days": int(_stored_number(values, "leave_allowance_days")),
-            "leave_year_start": values.get("leave_year_start") or "01-01",
-            "minimum_rest_hours": _stored_number(values, "minimum_rest_hours"),
-        })
-    return result
 
 
 def save_settings(connection: sqlite3.Connection, payload: dict, allowed: set[str]) -> dict:
-    import app as align
-
-    legacy_keys = {"contracted_hours", "rate_of_pay", "leave_allowance_days", "leave_year_start", "minimum_rest_hours"}
-    legacy = _has_legacy_schedule(connection)
     for key, value in payload.items():
-        if key not in allowed or (key in legacy_keys and not legacy):
+        if key not in allowed:
             continue
-        if key in {"contracted_hours", "rate_of_pay"}:
-            value = str(float(value))
-        if key == "leave_allowance_days":
-            number = int(float(value))
-            if not 0 <= number <= 366:
-                raise ValueError("Leave allowance must be between 0 and 366 days.")
-            value = str(number)
-        if key == "minimum_rest_hours":
-            number = float(value)
-            if not 0 <= number <= 24:
-                raise ValueError("Minimum rest must be between 0 and 24 hours.")
-            value = str(number)
-        if key == "leave_year_start":
-            value = align.normalise_leave_year_start(value)
-        if key in {"notifications", "onboarding_completed"}:
+        if key == "onboarding_completed":
             value = "1" if bool(value) else "0"
         connection.execute(
             "UPDATE settings SET setting_value=? WHERE setting_key=?",
@@ -89,17 +44,7 @@ def save_settings(connection: sqlite3.Connection, payload: dict, allowed: set[st
 
 def handle(handler, app, method, connection, payload=None) -> bool:
     path = urlparse(handler.path).path
-    if method == "GET" and path == "/api/settings":
-        handler.send_json(200, get_settings(connection))
-        return True
-    if method != "PUT":
+    if method != "PUT" or path != "/api/user-settings":
         return False
-    if path == "/api/user-settings":
-        handler.send_json(200, save_settings(connection, payload, USER_EDITABLE_SETTINGS))
-        return True
-    if path == "/api/settings":
-        if not handler.require_admin():
-            return True
-        handler.send_json(200, save_settings(connection, payload, set(app.DEFAULT_SETTINGS)))
-        return True
-    return False
+    handler.send_json(200, save_settings(connection, payload, USER_EDITABLE_SETTINGS))
+    return True
