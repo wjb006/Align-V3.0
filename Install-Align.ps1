@@ -68,11 +68,10 @@ print(f'Compiled {len(files)} Python files successfully.')
   Run-Step $venvPython @('-c',$compile) 'Compile Python sources'
 
   $db = @"
-import app, build152, json
+import app, json
 app.initialise_database()
 with app.db_connection() as connection:
-    build152.ensure(connection)
-    connection.execute(build152.CONTACT_SCHEMA)
+
     connection.commit()
 status=app.health_status()
 print(json.dumps(status,indent=2,sort_keys=True))
