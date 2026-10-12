@@ -10,6 +10,7 @@ WITH required_tables(schema_name, table_name) AS (
       ('align_auth','beta_idempotency'), ('align_auth','beta_audit_events'),
       ('align_auth','beta_rate_events'), ('align_auth','beta_feedback'),
       ('align_auth','beta_email_settings'), ('align_auth','beta_icloud_credentials'),
+      ('align_auth','align_here_transit_usage'),
       ('align_owner','settings'), ('align_owner','personal_items'),
       ('align_owner','calendar_sources'), ('align_owner','calendar_events'),
       ('align_owner','organiser_sections'), ('align_owner','organiser_events'),
@@ -53,6 +54,12 @@ WHERE NOT EXISTS (
     WHERE table_schema='align_owner' AND table_name='calendar_events' AND column_name='location'
 )
 UNION ALL
+SELECT 'missing required column: align_auth.align_here_transit_usage.requested_at', 1
+WHERE NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='align_auth' AND table_name='align_here_transit_usage' AND column_name='requested_at'
+)
+UNION ALL
 SELECT 'missing required column: align_owner.transport_preferences.' || c.column_name, 1
 FROM (VALUES ('arrival_buffer'), ('modes'), ('home_lat'), ('home_lon')) AS c(column_name)
 WHERE NOT EXISTS (
@@ -64,7 +71,7 @@ WHERE NOT EXISTS (
 SELECT m.migration_id, COUNT(sm.migration_id)::bigint AS applied_count
 FROM (VALUES ('149_asset_studio'), ('149_transport'), ('150_calendar_links'),
              ('151_sections'), ('152_personal_item_calendars'),
-             ('153_hosted_travel_and_calendar_location'), ('154_user_favourites_contacts')) AS m(migration_id)
+             ('153_hosted_travel_and_calendar_location'), ('154_user_favourites_contacts'), ('155_here_transit_usage')) AS m(migration_id)
 LEFT JOIN align_owner.schema_migrations sm ON sm.migration_id=m.migration_id
 GROUP BY m.migration_id
 ORDER BY m.migration_id;
