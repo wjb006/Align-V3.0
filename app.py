@@ -317,124 +317,17 @@ def initialise_database_at(database: Path) -> None:
         if 'parent_branch_id' not in section_columns:
             connection.execute('ALTER TABLE organiser_sections ADD COLUMN parent_branch_id INTEGER REFERENCES parent_menu_branches(id) ON DELETE SET NULL')
         connection.execute('CREATE INDEX IF NOT EXISTS idx_parent_menu_tree ON parent_menu_branches(active,parent_id,sort_order,title)')
-        for table in ("shifts", "annual_leave", "locations", "alert_rules"):
-            for operation in ("INSERT", "UPDATE", "DELETE"):
-                connection.execute(f"""CREATE TRIGGER IF NOT EXISTS sync_{table}_{operation.lower()}
-                    AFTER {operation} ON {table} BEGIN
-                    UPDATE calendar_sync_state SET revision=revision+1,
-                        modified_at=strftime('%Y%m%dT%H%M%SZ','now') WHERE id=1;
-                    END""")
+        # Keep calendar revision tracking for retained V3 settings only. Legacy
+        # schedule/leave rows are preserved as archival data and never rewritten.
         connection.execute("""CREATE TRIGGER IF NOT EXISTS sync_calendar_settings
             AFTER UPDATE ON settings
             WHEN NEW.setting_key IN ('notifications','default_calendar')
             BEGIN UPDATE calendar_sync_state SET revision=revision+1,
                 modified_at=strftime('%Y%m%dT%H%M%SZ','now') WHERE id=1; END""")
-        template_columns = {
-            row["name"] for row in connection.execute("PRAGMA table_info(shift_templates)")
-        }
-        # SQLite does not add columns to an existing table from CREATE TABLE IF
-        # NOT EXISTS, so migrate earlier local Align databases explicitly.
-        migrating_pattern_days = "applicable_days" not in template_columns
-        if "sub_shift_type" not in template_columns:
-            connection.execute("ALTER TABLE shift_templates ADD COLUMN sub_shift_type TEXT NOT NULL DEFAULT ''")
-        if migrating_pattern_days:
-            connection.execute("ALTER TABLE shift_templates ADD COLUMN applicable_days TEXT NOT NULL DEFAULT '[]'")
-        for template in connection.execute(
-            """SELECT t.id, t.label, t.sub_shift_type, s.name AS shift_type_name
-               FROM shift_templates t JOIN shift_types s ON s.id=t.shift_type_id"""
-        ):
-            if not template["sub_shift_type"].strip():
-                connection.execute(
-                    "UPDATE shift_templates SET sub_shift_type=? WHERE id=?",
-                    (sub_shift_from_label(template["label"], template["shift_type_name"]), template["id"]),
-                )
-        if migrating_pattern_days:
-            # Existing personalised patterns remain available every day until
-            # edited.  The old starter example gets the requested weekend-only
-            # wards pattern; its companion prototype patterns are weekday-only.
-            connection.execute(
-                "UPDATE shift_templates SET applicable_days=?", (json.dumps(list(WEEK_DAYS)),)
-            )
-            connection.execute(
-                """UPDATE shift_templates SET applicable_days=?
-                   WHERE id IN (
-                     SELECT t.id FROM shift_templates t
-                     JOIN locations l ON l.id=t.location_id
-                     JOIN shift_types s ON s.id=t.shift_type_id
-                     WHERE l.name='Arrowe Park' AND s.name='Wards'
-                       AND t.start_time='07:30' AND t.end_time='11:30'
-                       AND t.sub_shift_type='AM'
-                   )""",
-                (json.dumps(list(WEEKEND_DAYS)),),
-            )
-            connection.execute(
-                """UPDATE shift_templates SET applicable_days=?
-                   WHERE id IN (
-                     SELECT t.id FROM shift_templates t
-                     JOIN locations l ON l.id=t.location_id
-                     WHERE l.name IN ('Arrowe Park', 'Clatterbridge')
-                   )
-                   AND NOT (start_time='07:30' AND end_time='11:30'
-                            AND sub_shift_type='AM'
-                            AND location_id=(SELECT id FROM locations WHERE name='Arrowe Park'))""",
-                (json.dumps(list(WEEKDAY_DAYS)),),
-            )
         connection.executemany(
             "INSERT OR IGNORE INTO settings(setting_key, setting_value) VALUES (?, ?)",
-            DEFAULT_SETTINGS.items(),
+            V3_DEFAULT_SETTINGS.items(),
         )
-        # Earlier builds used a placeholder name.  Treat that as a first use so
-        # existing local databases also receive the new setup experience.
-        connection.execute(
-            "UPDATE settings SET setting_value='' WHERE setting_key='user_name' AND setting_value='Your schedule'"
-        )
-        # New installs intentionally start with no work locations, shift types,
-        # or shift templates.  The admin configures those to match the user.
-        # Remove an unused prototype choice; historic shifts keep their stored
-        # location/type/time snapshot even if their template is no longer used.
-        connection.execute("DELETE FROM shift_templates WHERE label='Wards AM late'")
-        # Existing patterns define the starting categories for their locations.
-        connection.execute(
-            """INSERT OR IGNORE INTO location_shift_types(location_id, shift_type_id)
-               SELECT location_id, shift_type_id FROM shift_templates"""
-        )
-        connection.executemany(
-            """INSERT OR IGNORE INTO menu_branches
-               (branch_key, title, description, icon, branch_type, content, sort_order)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            [
-                ("profile", "Your details", "Name and home address", "◉", "profile", "", 10),
-                ("work", "Work Settings", "Locations, shift areas, start times and working hours", "◫", "work", "", 20),
-                ("locations", "Work locations", "Add or amend the places you work", "⌖", "locations", "", 30),
-                ("alerts", "Notifications", "Shift reminder preference", "◌", "alerts", "", 40),
-                ("calendar", "Calendar", "Import a calendar or create an Align calendar file", "▦", "calendar", "", 50),
-                ("colours", "Colours", "Location stripes and shift-area badges", "◐", "colours", "", 35),
-            ],
-        )
-        # One-time menu consolidation. Preserve custom labels and any later
-        # Admin decision to restore the separate location shortcut.
-        if not connection.execute("SELECT 1 FROM settings WHERE setting_key='work_settings_menu_v122'").fetchone():
-            connection.execute("""UPDATE menu_branches SET title='Work Settings',
-                description='Locations, shift areas, start times and working hours'
-                WHERE branch_key='work' AND branch_type='work'
-                AND title IN ('Work details','Work setup','Work Settings')""")
-            connection.execute("""UPDATE menu_branches SET active=0
-                WHERE branch_key='locations' AND branch_type='locations' AND title='Work locations'""")
-            connection.execute("INSERT INTO settings VALUES('work_settings_menu_v122','1')")
-        connection.executemany(
-            """INSERT OR IGNORE INTO parent_menu_branches
-               (branch_key, title, description, icon, destination, content, sort_order)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            [
-                ("work", "Work", "Plan and add shifts", "＋", "add", "", 10),
-                ("summary", "Summary", "View scheduled shifts and overtime", "▦", "calendar", "", 20),
-                ("settings", "Settings", "Your details and preferences", "⚙", "settings", "", 30),
-            ],
-        )
-        if not connection.execute("SELECT 1 FROM settings WHERE setting_key='alert_rules_configured'").fetchone():
-            connection.execute("INSERT INTO alert_rules(title,minutes_before) VALUES('Time to Leave',60)")
-            connection.execute("INSERT INTO settings(setting_key,setting_value) VALUES('alert_rules_configured','1')")
-            rebuild_shift_alerts(connection)
     migration_runner.upgrade_planner_schema(database)
 
 
@@ -466,10 +359,7 @@ def apply_owner_template_to_database(target: Path) -> None:
         source.row_factory = sqlite3.Row
         dest.execute('PRAGMA foreign_keys=ON')
         # Defaults/settings useful to a new tester, but never name/address/pay/calendar.
-        safe_settings = {'contracted_hours':'0','standard_shift_minutes':'240','work_setup_completed':'0',
-                         'rate_of_pay':'0','default_calendar':'Work','notifications':'1','onboarding_completed':'0',
-                         'user_name':'','user_address':'','leave_allowance_days':'0','leave_year_start':'01-01',
-                         'minimum_rest_hours':'0'}
+        safe_settings = {**V3_DEFAULT_SETTINGS}
         for key,value in safe_settings.items():
             dest.execute('UPDATE settings SET setting_value=? WHERE setting_key=?',(value,key))
         # Replace the parent tree, preserving hierarchy through branch_key mapping.
