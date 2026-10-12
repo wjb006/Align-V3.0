@@ -157,6 +157,18 @@ class StartupTests(unittest.TestCase):
             pg.verify_hosted_storage()
         self.assertFalse(any("shifts" in statement for statement in owner.statements))
         self.assertTrue(any("COUNT(*) FROM personal_items" in statement for statement in owner.statements))
+        self.assertTrue(any('asset_audit_log' in statement for statement in owner.statements))
+        self.assertTrue(any('transport_preferences' in statement for statement in owner.statements))
+        self.assertTrue(any('transport_journey_cache' in statement for statement in owner.statements))
+        self.assertTrue(any('location FROM calendar_events' in statement for statement in owner.statements))
+
+    def test_travel_schema_validation_is_read_only(self):
+        connection = MagicMock()
+        import transport_service
+        transport_service.validate_hosted_storage(connection)
+        statements = [call.args[0] for call in connection.execute.call_args_list]
+        self.assertEqual(len(statements), 2)
+        self.assertTrue(all(statement.lstrip().upper().startswith('SELECT') for statement in statements))
 
     def test_tester_routes_fail_clearly(self):
         store = BetaStore.__new__(BetaStore)
@@ -168,7 +180,7 @@ class StartupTests(unittest.TestCase):
                 store._create_pending_user('test@example.com', '', None)
 
     def test_failed_probe_prevents_ready_message_and_server(self):
-        with patch.dict(os.environ, {'ALIGN_DATABASE_BACKEND': 'postgres', 'ALIGN_HOSTING_MODE': 'disposable-preview'}), patch('app.initialise_database'), patch('postgres_support.prepare_calendar_locations'), patch('beta_support.BetaStore'), patch('render_start.bootstrap_hosted_owner'), patch('postgres_support.verify_hosted_storage', side_effect=RuntimeError('probe failed')), patch('app.AlignServer') as server, patch('builtins.print') as output, patch.object(app, 'BETA_STORE'), patch.object(app, 'DATABASE'), patch.object(app, 'BETA_MODE'):
+        with patch.dict(os.environ, {'ALIGN_DATABASE_BACKEND': 'postgres', 'ALIGN_HOSTING_MODE': 'disposable-preview'}), patch('app.initialise_database'), patch('beta_support.BetaStore'), patch('render_start.bootstrap_hosted_owner'), patch('postgres_support.verify_hosted_storage', side_effect=RuntimeError('probe failed')), patch('app.AlignServer') as server, patch('builtins.print') as output, patch.object(app, 'BETA_STORE'), patch.object(app, 'DATABASE'), patch.object(app, 'BETA_MODE'):
             with self.assertRaises(RuntimeError):
                 render_start.main()
             server.assert_not_called()
@@ -192,7 +204,6 @@ class PostgresIntegrationTests(unittest.TestCase):
                                            'ALIGN_HOSTING_MODE': 'persistent', 'ALIGN_PREVIEW_PASSWORD': 'IntegrationOnlyPassword123!'})
         self.env.start()
         self.addCleanup(self.env.stop)
-        pg.prepare_calendar_locations()
 
     def test_schema_survives_commit_rollback_and_sql_boundaries(self):
         for path, schema, table in [('align.sqlite3', 'align_owner', 'personal_items'),
@@ -207,9 +218,8 @@ class PostgresIntegrationTests(unittest.TestCase):
     def test_owner_restart_inbox_and_adapter_contract(self):
         import transport_places
         import transport_service
-        transport_service.prepare_hosted_storage()
-        transport_service.prepare_hosted_storage()
         with sqlite_support.connect('align.sqlite3') as c:
+            transport_service.validate_hosted_storage(c)
             self.assertIsInstance(transport_places.items(c)['items'], list)
             self.assertEqual(transport_service.preferences(c)['arrival_buffer'], 10)
             source, _ = app.import_ics_calendar(c, 'Location test', 'BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:hosted-location-test\nDTSTART:20300702T120000\nDTEND:20300702T130000\nSUMMARY:Hosted journey test\nLOCATION:Liverpool Lime Street\nEND:VEVENT\nEND:VCALENDAR')
