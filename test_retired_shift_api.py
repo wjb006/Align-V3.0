@@ -27,6 +27,14 @@ class RetiredShiftApiTests(unittest.TestCase):
 
     def test_legacy_schedule_admin_writes_are_retired_before_database_access(self):
         retired_requests = (
+            ("GET", "/api/shifts", {}),
+            ("GET", "/api/week?start=2026-10-12", {}),
+            ("GET", "/api/annual-leave", {}),
+            ("GET", "/api/work-setup", {}),
+            ("POST", "/api/shifts", {}),
+            ("POST", "/api/annual-leave", {}),
+            ("PUT", "/api/shifts/1", {}),
+            ("DELETE", "/api/shifts/1", {}),
             ("POST", "/api/locations", {}),
             ("PUT", "/api/locations/1", {"name": "Legacy"}),
             ("POST", "/api/shift-types", {"name": "Legacy"}),
