@@ -66,24 +66,12 @@ def event(c, key):
         when=datetime.fromisoformat(row[2])
         if when.tzinfo is None: when=when.replace(tzinfo=ZoneInfo('Europe/London'))
         return when.astimezone(timezone.utc),row[3]
-    match=re.fullmatch(r'(shift|event):(\d+)',str(key))
-    if not match: raise ValueError('Choose a saved shift or Align event')
-    kind,ident=match.groups()
-    if kind=='shift':
-        # Shifts keep the stable location_id plus a display snapshot. Resolve the
-        # current address from locations instead of assuming a non-existent
-        # location_address column on the shifts table.
-        row=c.execute('''SELECT s.work_date,s.start_time,
-                                COALESCE(l.address,s.location_name,'') AS destination
-                           FROM shifts s
-                           LEFT JOIN locations l ON l.id=s.location_id
-                          WHERE s.id=?''',(ident,)).fetchone()
-        if not row: raise ValueError('Shift not found in this account')
-        start=row[0]+'T'+row[1]; destination=row[2]
-    else:
-        row=c.execute('SELECT start_at,location,all_day FROM organiser_events WHERE id=?',(ident,)).fetchone()
-        if not row or row[2]: raise ValueError('Choose an event with a start time')
-        start,destination=row[:2]
+    match=re.fullmatch(r'event:(\d+)',str(key))
+    if not match: raise ValueError('Choose an Align event or imported calendar event')
+    ident=match.group(1)
+    row=c.execute('SELECT start_at,location,all_day FROM organiser_events WHERE id=?',(ident,)).fetchone()
+    if not row or row[2]: raise ValueError('Choose an event with a start time')
+    start,destination=row[:2]
     if not destination.strip(): raise ValueError('Save a destination on this item first')
     when=datetime.fromisoformat(start)
     if when.tzinfo is None: when=when.replace(tzinfo=ZoneInfo('Europe/London'))
