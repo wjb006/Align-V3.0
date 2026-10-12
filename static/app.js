@@ -640,27 +640,6 @@ function alertRuleModal(id = null) {
 }
 
 
-function areaLabel(template) { return `${template.shift_type_name}${areaHasBothPeriods(template) ? ` (${shiftPeriod(template)})` : ''}`; }
-function savedTimeLabel(template) { return `${template.start_time} + ${hours(timeHours(template.start_time, template.end_time))} → ${template.end_time}${template.break_minutes ? ` · ${template.break_minutes}m break` : ''}`; }
-function templateSummary(template, includeTimes = true) {
-  if (!template) return 'Shift';
-  return `${template.location_name} · ${areaLabel(template)}${includeTimes ? ` · ${savedTimeLabel(template)}` : ''}`;
-}
-function draftFor(template, workDate) { return { work_date: workDate, template_id: template.id, start_time: template.start_time, end_time: template.end_time, break_minutes: template.break_minutes, notes: '' }; }
-function assignedShifts() { return Object.values(state.add.assignments).flat(); }
-function availableDraftTemplates(workDate, index = null) {
-  const siblings = [...Object.entries(state.add.assignments).flatMap(([day, shifts]) => shifts.filter((_, i) => day !== workDate || i !== index)), ...(state.add.context?.busy_shifts || [])];
-  if (state.add.context?.annual_leave.some(l => l.leave_date === workDate)) return [];
-  return state.boot.master.templates
-    // Add shifts is an explicit manual booking flow: a saved shift pattern
-    // may be placed on any chosen date. Its configured weekdays remain useful
-    // for recurring/setup views, but must not block one-off bookings.
-    .filter(template => template.active)
-    .filter(template => !siblings.some(draft => (draft.work_date === workDate && shiftPeriod(template) === shiftPeriod(draft)) || datedOverlap(draftFor(template, workDate), draft)))
-    .filter(template => !(state.add.context?.imported_events || []).some(event => overlapsImported(draftFor(template, workDate), event)))
-    .filter(template => !(state.add.context?.events || []).some(event => overlapsImported(draftFor(template, workDate), event)));
-}
-
 function renderLeaveCard(leave) { return `<article class="card leave-card"><div class="leave-icon">☼</div><div style="flex:1"><h3>${escapeHtml(prettyDate(leave.leave_date, { weekday: 'long', day: 'numeric', month: 'long' }))}</h3><p>${escapeHtml(leave.notes || 'Annual leave')}</p></div><button class="small-button" data-action="delete-leave" data-leave="${leave.id}">Remove</button></article>`; }
 function groupLeaveRanges(days) {
   const groups = [];
@@ -680,11 +659,6 @@ function leaveRangeLabel(group) {
 }
 function renderLeaveRange(group) {
   return `<article class="card leave-card"><div class="leave-icon">☼</div><div style="flex:1"><h3>${escapeHtml(leaveRangeLabel(group))}</h3><p>${escapeHtml(group[0].notes || 'Annual leave')}</p></div><button class="small-button" data-action="delete-leave" data-leave="${group.map(leave => leave.id).join(',')}">Remove</button></article>`;
-}
-
-function timeHours(start, end) {
-  const [sh, sm] = start.split(':').map(Number); const [eh, em] = end.split(':').map(Number);
-  let total = eh * 60 + em - sh * 60 - sm; if (total <= 0) total += 1440; return total / 60;
 }
 
 function optionList(items, selectedId, label) { return items.map(item => `<option value="${item.id}" ${item.id === selectedId ? 'selected' : ''}>${escapeHtml(label(item))}</option>`).join(''); }
@@ -828,21 +802,11 @@ function renderLeaveBalance(balance) {
   const over = balance.remaining < 0;
   return `<p class="helper">${balance.booked} days booked from ${escapeHtml(prettyDate(balance.year_start))} to ${escapeHtml(prettyDate(balance.year_end))}. ${over ? `${-balance.remaining} over the ${balance.allowance}-day allowance` : `${balance.remaining} of ${balance.allowance} days left`}.</p>`;
 }
-function coverFromNotes(notes = '') {
-  const match = String(notes || '').match(/\[Align cover: (given|extra)(?:\s+([^\]]+))?\]/i);
-  return {cover: match ? match[1].toLowerCase() : '', name: match ? (match[2] || '').trim() : ''};
-}
 function leaveModal() {
   const balance = state.boot.dashboard.leave_balance;
   const note = balance?.allowance ? renderLeaveBalance(balance) : '<p class="helper">Set a yearly leave allowance in Work Settings to see how many days are left.</p>';
   modal('Book annual leave', `<form class="form-grid" data-form="leave">${note}<div class="form-grid two"><div class="field"><label>From</label><input name="start_date" required type="date" min="${isoToday()}" value="${isoToday()}" /></div><div class="field"><label>To</label><input name="end_date" required type="date" min="${isoToday()}" value="${isoToday()}" /></div></div><div class="field"><label>Notes (optional)</label><textarea name="notes" placeholder="e.g. Holiday"></textarea></div><div class="modal-actions"><button type="button" class="secondary-button" data-action="close-modal">Cancel</button><button class="primary-button">Book leave</button></div></form>`);
 }
-function localShiftsOverlap(first, second) {
-  const range = value => { const [startHour, startMinute] = value.start_time.split(':').map(Number); const [endHour, endMinute] = value.end_time.split(':').map(Number); const start = startHour * 60 + startMinute; let end = endHour * 60 + endMinute; if (end <= start) end += 1440; return [start, end]; };
-  const [aStart, aEnd] = range(first); const [bStart, bEnd] = range(second); return aStart < bEnd && bStart < aEnd;
-}
-
-const addressSearchTimers = new WeakMap();
 async function searchAddresses(input) {
   const target = input.dataset.addressTarget;
   const results = document.querySelector(`[data-address-results="${target}"]`);
