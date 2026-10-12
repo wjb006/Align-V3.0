@@ -10,6 +10,25 @@ class Build152Tests(unittest.TestCase):
         self.db.row_factory = sqlite3.Row
         self.db.executescript((Path(__file__).parent / 'migrations' / '154_user_favourites_contacts.sql').read_text(encoding='utf-8'))
 
+    def test_provisioning_migration_is_idempotent_and_preserves_existing_rows(self):
+        self.db.execute("""INSERT INTO user_favourites
+            (entity_type,entity_key,label,value,metadata_json,created_at,updated_at)
+            VALUES ('location','existing','Existing','Value','{}','x','x')""")
+        self.db.execute("""INSERT INTO align_contacts
+            (name,address,phone,notes,created_at,updated_at)
+            VALUES ('Existing contact','Old address','01234','Keep','x','x')""")
+        self.db.commit()
+        self.db.executescript((Path(__file__).parent / 'migrations' / '154_user_favourites_contacts.sql').read_text(encoding='utf-8'))
+        self.assertEqual(self.db.execute("SELECT label FROM user_favourites WHERE entity_key='existing'").fetchone()[0], 'Existing')
+        self.assertEqual(self.db.execute("SELECT address FROM align_contacts WHERE name='Existing contact'").fetchone()[0], 'Old address')
+
+    def test_request_handlers_do_not_contain_runtime_schema_creation(self):
+        source = (Path(__file__).parent / 'build152.py').read_text(encoding='utf-8')
+        self.assertNotIn('CREATE TABLE', source)
+        self.assertNotIn('CREATE INDEX', source)
+        self.assertNotIn('CONTACT_SCHEMA', source)
+        self.assertNotIn('def ensure(', source)
+
     def test_favourite_upsert_and_remove_shape(self):
         now="2026-10-01T12:00:00+00:00"
         self.db.execute("""INSERT INTO user_favourites
