@@ -5,9 +5,6 @@ Then open: http://127.0.0.1:8001
 """
 
 from __future__ import annotations
-import display_dates
-import travel_calendar
-import travel_reminders
 import post_event_travel
 
 import json
@@ -102,26 +99,6 @@ ADDRESS_CACHE: dict[str, tuple[float, list[dict]]] = {}
 ADDRESS_LOCK = threading.Lock()
 ADDRESS_LAST_REQUEST = 0.0
 
-DEFAULT_SETTINGS = {
-    "user_name": "",
-    "user_address": "",
-    "user_phone": "",
-    "user_home_location": "",
-    "travel_bus": "true",
-    "travel_rail": "true",
-    "travel_walk": "true",
-    "contracted_hours": "0",
-    "standard_shift_minutes": "240",
-    "work_setup_completed": "0",
-    "rate_of_pay": "0",
-    "default_calendar": "Work",
-    "notifications": "1",
-    "onboarding_completed": "0",
-    "leave_allowance_days": "0",
-    "leave_year_start": "01-01",
-    "minimum_rest_hours": "0",
-}
-
 V3_DEFAULT_SETTINGS = {
     "user_name": "",
     "user_address": "",
@@ -134,43 +111,6 @@ V3_DEFAULT_SETTINGS = {
     "notifications": "1",
     "onboarding_completed": "0",
 }
-
-WEEK_DAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
-WEEKDAY_DAYS = WEEK_DAYS[:5]
-WEEKEND_DAYS = WEEK_DAYS[5:]
-
-
-def normalise_applicable_days(value: object, required: bool = True) -> list[str]:
-    """Return a safe, ordered list of weekday names from API or database input."""
-    if isinstance(value, str):
-        try:
-            value = json.loads(value)
-        except json.JSONDecodeError:
-            value = [item.strip() for item in value.split(",")]
-    if not isinstance(value, list):
-        value = []
-    selected = [day for day in WEEK_DAYS if day in value]
-    if required and not selected:
-        raise ValueError("Choose at least one day for this shift pattern.")
-    return selected
-
-
-def sub_shift_from_label(label: str, shift_type_name: str) -> str:
-    """Give legacy patterns a clean sub-shift label such as AM or PM."""
-    cleaned = label.strip()
-    prefix = shift_type_name.strip()
-    if cleaned.casefold().startswith(prefix.casefold()):
-        cleaned = cleaned[len(prefix):].lstrip(" -–—·:/")
-    return cleaned or label.strip()
-
-
-def template_applies_to(template: sqlite3.Row | dict, work_date: str) -> bool:
-    days = normalise_applicable_days(template["applicable_days"], required=False)
-    # Legacy patterns with no day information remain usable while Admin finishes
-    # configuring them; newly saved patterns must always select days.
-    if not days:
-        return True
-    return date.fromisoformat(work_date).strftime("%A") in days
 
 
 class ClosingConnection(sqlite3.Connection):
@@ -213,20 +153,8 @@ def rows_as_dicts(cursor: sqlite3.Cursor) -> list[dict]:
     return [dict(row) for row in cursor.fetchall()]
 
 
-def hours_between(start_time: str, end_time: str, break_minutes: int = 0) -> float:
-    start = datetime.strptime(start_time, "%H:%M")
-    end = datetime.strptime(end_time, "%H:%M")
-    if end <= start:
-        end += timedelta(days=1)
-    return round((end - start).total_seconds() / 3600 - break_minutes / 60, 2)
-
-
 def valid_iso_date(value: str) -> str:
     return datetime.strptime(value, "%Y-%m-%d").date().isoformat()
-
-
-def valid_time(value: str) -> str:
-    return datetime.strptime(value, "%H:%M").strftime("%H:%M")
 
 
 def monday_for(value: date) -> date:
@@ -436,92 +364,6 @@ def normalise_leave_year_start(value) -> str:
     return f"{month:02d}-{day:02d}"
 
 
-def leave_year_bounds(today: date, start_text: str) -> tuple[date, date]:
-    """Return the leave year that contains today. 29 February clamps in other years."""
-    try:
-        month, day = map(int, (start_text or "01-01").split("-"))
-    except ValueError:
-        month, day = 1, 1
-
-    def on(year: int) -> date:
-        for candidate in range(min(day, 31), 0, -1):
-            try:
-                return date(year, month, candidate)
-            except ValueError:
-                continue
-        return date(year, month, 1)
-
-    start = on(today.year)
-    if today < start:
-        start = on(today.year - 1)
-    return start, on(start.year + 1) - timedelta(days=1)
-
-
-def leave_balance(connection: sqlite3.Connection, today: date | None = None) -> dict:
-    settings = get_settings(connection)
-    today = today or datetime.now(ZoneInfo("Europe/London")).date()
-    start, end = leave_year_bounds(today, settings.get("leave_year_start") or "01-01")
-    booked = connection.execute(
-        "SELECT COUNT(*) FROM annual_leave WHERE leave_date BETWEEN ? AND ?",
-        (start.isoformat(), end.isoformat()),
-    ).fetchone()[0]
-    allowance = int(settings.get("leave_allowance_days") or 0)
-    return {
-        "allowance": allowance,
-        "booked": booked,
-        "remaining": allowance - booked if allowance else None,
-        "year_start": start.isoformat(),
-        "year_end": end.isoformat(),
-    }
-
-
-COVER_GIVEN = re.compile(r"\[Align cover: given\b", re.IGNORECASE)
-COVER_TAG = re.compile(r"\[Align cover:[^\]]*\]\s*", re.IGNORECASE)
-
-
-def counts_toward_pay(shift: dict) -> bool:
-    return COVER_GIVEN.search(shift.get("notes") or "") is None
-
-
-def apply_cover_note(notes: str, cover, name) -> str:
-    cleaned = COVER_TAG.sub("", notes or "").strip()
-    kind = str(cover or "").strip().lower()
-    if kind in {"", "mine"}:
-        return cleaned
-    if kind not in {"given", "extra"}:
-        raise ValueError("Choose whether this shift is yours, given away, or extra cover.")
-    who = re.sub(r"[\[\]]", "", str(name or "")).strip()[:40]
-    tag = f"[Align cover: {kind}" + (f" {who}" if who else "") + "]"
-    return f"{tag}\n{cleaned}".strip()
-
-
-def week_hours_summary(shifts: list[dict], contracted_hours, rate_of_pay) -> dict:
-    """Hours above the saved weekly contract, and a single-rate pay estimate.
-
-    Shifts marked given away stay on the calendar but are left out of the hours.
-    With no contracted hours saved, overtime stays at zero rather than treating
-    later shift rows as overtime.
-    """
-    counted = [shift for shift in shifts if counts_toward_pay(shift)]
-    total = round(sum(float(shift["hours"]) for shift in counted), 2)
-    contracted = float(contracted_hours or 0)
-    rate = float(rate_of_pay or 0)
-    if contracted > 0:
-        regular = round(min(total, contracted), 2)
-        overtime = round(max(0, total - contracted), 2)
-    else:
-        regular, overtime = total, 0.0
-    return {
-        "week_hours": total,
-        "shift_count": len(shifts),
-        "regular_hours": regular,
-        "overtime_hours": overtime,
-        "pay_estimate": round(total * rate, 2) if rate > 0 else 0,
-        "contracted_hours": contracted,
-        "rate_of_pay": rate,
-    }
-
-
 def find_addresses(query: str) -> list[dict]:
     """Small, rate-limited UK address lookup with manual-entry fallback in the UI."""
     global ADDRESS_LAST_REQUEST
@@ -570,14 +412,6 @@ def master_data(connection: sqlite3.Connection, include_inactive: bool = False) 
     ))
     return {"locations": [], "shift_types": [], "templates": [],
             "location_categories": {}, "branches": branches, "parents": parents}
-
-
-
-def shift_notes(value):
-    notes = str(value or '').strip()
-    if len(notes) > 20000:
-        raise ValueError('Shift notes are too long. Keep notes and journey details within 20,000 characters.')
-    return notes
 
 
 
@@ -634,63 +468,6 @@ def save_icloud_event_calendars(calendar_ids, manager=None) -> dict:
         return {'calendars': icloud_event_calendars(connection)}
 
 
-def shift_query(connection: sqlite3.Connection, start: str | None, end: str | None) -> list[dict]:
-    clauses, parameters = [], []
-    if start:
-        clauses.append("s.work_date >= ?")
-        parameters.append(valid_iso_date(start))
-    if end:
-        clauses.append("s.work_date <= ?")
-        parameters.append(valid_iso_date(end))
-    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-    return rows_as_dicts(connection.execute(
-        f"""SELECT s.*, l.address AS location_address, l.colour AS location_colour,
-                    t.colour AS shift_type_colour
-             FROM shifts s LEFT JOIN locations l ON l.id = s.location_id
-             LEFT JOIN shift_types t ON t.id=s.shift_type_id
-             {where} ORDER BY s.work_date, s.start_time""",
-        parameters,
-    ))
-
-
-def next_week_options(connection: sqlite3.Connection, count: int = 8) -> list[dict]:
-    latest = connection.execute("SELECT MAX(work_date) FROM shifts").fetchone()[0]
-    if latest:
-        first = monday_for(date.fromisoformat(latest)) + timedelta(days=7)
-    else:
-        first = monday_for(date.today())
-    return [{
-        "date": (first + timedelta(days=index * 7)).isoformat(),
-        "display": f"W/C Monday {display_dates.format_display_date(first + timedelta(days=index * 7))}",
-    } for index in range(count)]
-
-
-def week_data(connection: sqlite3.Connection, raw_date: str) -> dict:
-    start = monday_for(date.fromisoformat(valid_iso_date(raw_date)))
-    end = start + timedelta(days=6)
-    shifts = shift_query(connection, start.isoformat(), end.isoformat())
-    settings = get_settings(connection)
-    return {'start': start.isoformat(), 'end': end.isoformat(),
-            'shifts': shifts,
-            'summary': week_hours_summary(shifts, settings['contracted_hours'], settings['rate_of_pay']),
-            'busy_shifts': shift_query(connection, (start-timedelta(days=1)).isoformat(), (end+timedelta(days=1)).isoformat()),
-            'annual_leave': rows_as_dicts(connection.execute('SELECT * FROM annual_leave WHERE leave_date BETWEEN ? AND ? ORDER BY leave_date', (start.isoformat(), end.isoformat()))),
-            'events': post_event_travel.decorate(connection, rows_as_dicts(connection.execute(
-                '''SELECT oe.id,oe.section_id,oe.title,oe.start_at,oe.end_at,oe.all_day,oe.location,oe.notes,
-                          os.colour AS section_colour, os.name AS category_name
-                   FROM organiser_events oe LEFT JOIN organiser_sections os ON os.id=oe.section_id
-                   WHERE oe.start_at<? AND oe.end_at>? ORDER BY oe.start_at''',
-                ((end+timedelta(days=1)).isoformat(), start.isoformat()))), 'event'),
-            'imported_events': post_event_travel.decorate(connection, rows_as_dicts(connection.execute(
-                '''SELECT ce.id,cs.section_id,ce.start_at,ce.end_at,ce.title,ce.all_day,ce.location,
-                          cs.name AS category_name, os.colour AS section_colour
-                   FROM calendar_events ce
-                   JOIN calendar_sources cs ON cs.id=ce.source_id
-                   LEFT JOIN organiser_sections os ON os.id=cs.section_id
-                   WHERE ce.start_at<? AND ce.end_at>?''',
-                ((end+timedelta(days=2)).isoformat(), start.isoformat()))), 'calendar')}
-
-
 def month_data(connection: sqlite3.Connection, month: str) -> dict:
     if not re.fullmatch(r'\d{4}-\d{2}', month):
         raise ValueError('Choose a month in YYYY-MM format.')
@@ -716,33 +493,6 @@ def calendar_data(connection: sqlite3.Connection) -> dict:
     return {"sources": sources, "align_calendar_name": "Align",
             "feed_path": "/api/calendars/live.ics", "sync": sync,
             "alert_rules": []}
-
-
-def alert_rules(connection: sqlite3.Connection, active_only: bool = False) -> list[dict]:
-    where = "WHERE active=1" if active_only else ""
-    return rows_as_dicts(connection.execute(
-        f"SELECT * FROM alert_rules {where} ORDER BY minutes_before DESC,id"
-    ))
-
-
-def alert_rule_values(payload: dict) -> tuple:
-    title = str(payload.get("title", "")).strip()[:80]
-    if not title:
-        raise ValueError("Give this alert a name, for example Time to Leave.")
-    minutes = int(payload.get("minutes_before", 60))
-    if not 0 <= minutes <= 10080:
-        raise ValueError("Choose from 0 to 10080 minutes before the shift (up to 7 days).")
-    return title, minutes, 1 if payload.get("active", True) else 0
-
-
-def upcoming_alerts(connection: sqlite3.Connection, include_due=False) -> list[dict]:
-    now = (datetime.now() - timedelta(hours=24) if include_due else datetime.now()).isoformat(timespec="minutes")
-    return rows_as_dicts(connection.execute(
-        """SELECT a.*, s.work_date, s.start_time, s.location_name, s.shift_type_name
-           FROM alerts a JOIN shifts s ON s.id=a.shift_id
-           WHERE a.alert_at >= ? AND a.status='pending'
-           ORDER BY a.alert_at LIMIT ?""", (now, 1000 if include_due else 8)
-    ))
 
 
 def parse_ics_date(raw: str) -> tuple[datetime, bool]:
@@ -889,206 +639,6 @@ def dashboard(connection: sqlite3.Connection) -> dict:
         "reminder_alerts": [],
         "summary": week_hours_summary([], 0, 0),
     }
-
-
-def day_minutes(start_time: str, end_time: str) -> tuple[int, int]:
-    start_hour, start_minute = map(int, start_time.split(":"))
-    end_hour, end_minute = map(int, end_time.split(":"))
-    start, end = start_hour * 60 + start_minute, end_hour * 60 + end_minute
-    return start, end + (1440 if end <= start else 0)
-
-
-def shifts_overlap(first_start: str, first_end: str, second_start: str, second_end: str) -> bool:
-    a_start, a_end = day_minutes(first_start, first_end)
-    b_start, b_end = day_minutes(second_start, second_end)
-    return a_start < b_end and b_start < a_end
-
-
-def dated_shift_bounds(work_date: str, start_time: str, end_time: str) -> tuple[datetime, datetime]:
-    start = datetime.fromisoformat(f'{work_date}T{start_time}')
-    end = datetime.fromisoformat(f'{work_date}T{end_time}')
-    return start, end + (timedelta(days=1) if end <= start else timedelta())
-
-
-def dated_shifts_overlap(first: dict, second: dict) -> bool:
-    a, b = dated_shift_bounds(first['work_date'], first['start_time'], first['end_time'])
-    c, d = dated_shift_bounds(second['work_date'], second['start_time'], second['end_time'])
-    return a < d and c < b
-
-
-def imported_conflict(connection: sqlite3.Connection, work_date: str, start_time: str, end_time: str) -> str | None:
-    start, end = dated_shift_bounds(work_date, start_time, end_time)
-    for event in connection.execute("SELECT * FROM calendar_events"):
-        if start < datetime.fromisoformat(event['end_at']) and datetime.fromisoformat(event['start_at']) < end:
-            return event["title"] or "an imported calendar event"
-    return None
-
-
-def organiser_conflict(connection: sqlite3.Connection, work_date: str, start_time: str, end_time: str) -> str | None:
-    """A shift cannot sit on top of an appointment already saved in Align."""
-    start, end = dated_shift_bounds(work_date, start_time, end_time)
-    for event in connection.execute("SELECT title, start_at, end_at FROM organiser_events"):
-        try:
-            event_start = datetime.fromisoformat(event["start_at"])
-            event_end = datetime.fromisoformat(event["end_at"])
-        except ValueError:
-            continue
-        if start < event_end and event_start < end:
-            return event["title"] or "an appointment"
-    return None
-
-
-def create_shift_alert(connection: sqlite3.Connection, shift_id: int, work_date: str, start_time: str) -> None:
-    if not get_settings(connection)["notifications"]:
-        return
-    shift = connection.execute(
-        "SELECT notes, location_name, shift_type_name FROM shifts WHERE id=?", (shift_id,)
-    ).fetchone()
-    notes = shift["notes"] if shift else ""
-    event_name = f"{shift['location_name']} – {shift['shift_type_name']}" if shift else "Shift"
-    start = datetime.combine(datetime.strptime(work_date, "%Y-%m-%d").date(), datetime.strptime(start_time, "%H:%M").time())
-    journey = travel_calendar.plan(notes, start)
-    rules = list(alert_rules(connection, active_only=True))
-    if journey:
-        # The planned leave time replaces the generic fixed "Time to Leave" rule.
-        rules = [rule for rule in rules if rule["title"] != "Time to Leave"]
-        connection.execute(
-            "INSERT INTO alerts(shift_id,title,alert_at) VALUES(?,?,?)",
-            (shift_id, travel_calendar.leave_alert_title(journey[0], event_name), journey[0].isoformat(timespec="minutes")),
-        )
-    for rule in rules:
-        alert_at = start - timedelta(minutes=rule["minutes_before"])
-        connection.execute(
-            "INSERT INTO alerts(shift_id,title,alert_at) VALUES(?,?,?)",
-            (shift_id, rule["title"], alert_at.isoformat(timespec="minutes")),
-        )
-
-
-def rebuild_shift_alerts(connection: sqlite3.Connection) -> None:
-    today = date.today().isoformat()
-    connection.execute("DELETE FROM alerts WHERE shift_id IN (SELECT id FROM shifts WHERE work_date>=?)", (today,))
-    for shift in connection.execute("SELECT id,work_date,start_time FROM shifts WHERE work_date>=?", (today,)).fetchall():
-        create_shift_alert(connection, shift["id"], shift["work_date"], shift["start_time"])
-
-
-def create_shifts(connection: sqlite3.Connection, payload: dict) -> list[dict]:
-    """Save a batch of per-day shifts, only where each time interval is clear."""
-    connection.execute('BEGIN IMMEDIATE')
-    request_id = payload.get('request_id')
-    payload_hash = hashlib.sha256(json.dumps(payload.get('shifts'), sort_keys=True).encode()).hexdigest()
-    if request_id is not None:
-        if not isinstance(request_id, str) or not re.fullmatch(r'[A-Za-z0-9-]{16,100}', request_id):
-            raise ValueError('Invalid confirmation identifier.')
-        previous = connection.execute('SELECT * FROM shift_batches WHERE request_id=?', (request_id,)).fetchone()
-        if previous:
-            if previous['payload_hash'] != payload_hash:
-                raise ValueError('This confirmation was already used for a different week.')
-            return json.loads(previous['result_json'])
-    requests = payload.get("shifts")
-    if not isinstance(requests, list):
-        # Compatibility with the first version's one-template-for-many-days API.
-        dates = payload.get("dates")
-        if not isinstance(dates, list):
-            raise ValueError("Select at least one working day.")
-        requests = [{
-            "work_date": raw_date, "template_id": payload.get("template_id"),
-            "start_time": payload.get("start_time"), "end_time": payload.get("end_time"),
-            "break_minutes": payload.get("break_minutes"), "notes": payload.get("notes", ""),
-        } for raw_date in dates]
-    if not requests:
-        raise ValueError("Add at least one shift before saving.")
-
-    drafts, templates = [], {}
-    for request in requests:
-        work_date = valid_iso_date(str(request.get("work_date") or request.get("date") or ""))
-        template_id = int(request.get("template_id", 0))
-        if template_id not in templates:
-            templates[template_id] = connection.execute(
-                """SELECT t.*, l.name AS location_name, s.name AS shift_type_name, l.colour
-                   FROM shift_templates t JOIN locations l ON l.id=t.location_id
-                   JOIN shift_types s ON s.id=t.shift_type_id
-                   WHERE t.id=? AND t.active=1 AND l.active=1 AND s.active=1""", (template_id,)
-            ).fetchone()
-        template = templates[template_id]
-        if not template:
-            raise ValueError("A selected shift template is no longer available.")
-        if not payload.get("allow_any_date") and not template_applies_to(template, work_date):
-            raise ValueError(
-                f"{template['location_name']} · {template['shift_type_name']} is not set up for {date.fromisoformat(work_date).strftime('%A')}s."
-            )
-        start_time = valid_time(request.get("start_time") or template["start_time"])
-        end_time = valid_time(request.get("end_time") or template["end_time"])
-        break_minutes = int(template["break_minutes"] if request.get("break_minutes") is None else request["break_minutes"])
-        if break_minutes < 0:
-            raise ValueError("Break minutes cannot be negative.")
-        hours = hours_between(start_time, end_time, break_minutes)
-        if hours <= 0:
-            raise ValueError("A shift must be longer than its break.")
-        drafts.append({"work_date": work_date, "template": template, "start_time": start_time, "end_time": end_time,
-                       "break_minutes": break_minutes, "hours": hours, "notes": shift_notes(request.get("notes", ""))})
-
-    for index, draft in enumerate(drafts):
-        work_date = draft['work_date']
-        if connection.execute("SELECT 1 FROM annual_leave WHERE leave_date=?", (work_date,)).fetchone():
-            raise ValueError(f"{work_date} is booked as annual leave.")
-        day = date.fromisoformat(work_date)
-        existing = rows_as_dicts(connection.execute(
-            "SELECT work_date,start_time,end_time,location_name FROM shifts WHERE work_date BETWEEN ? AND ?",
-            ((day-timedelta(days=1)).isoformat(), (day+timedelta(days=1)).isoformat())
-        ))
-        for item in existing + drafts[:index]:
-            if dated_shifts_overlap(draft, item):
-                name = item.get('location_name') or 'another shift'
-                raise ValueError(f"{work_date}: {draft['start_time']}–{draft['end_time']} overlaps {name}.")
-            if work_date == item['work_date'] and (draft['start_time'] < '12:00') == (item['start_time'] < '12:00'):
-                raise ValueError(f'{work_date}: a shift is already selected for this half of the day. Choose AM + PM.')
-        calendar_title = imported_conflict(connection, work_date, draft["start_time"], draft["end_time"])
-        if calendar_title:
-            raise ValueError(f"{work_date}: this clashes with {calendar_title} in an imported calendar.")
-        appointment = organiser_conflict(connection, work_date, draft["start_time"], draft["end_time"])
-        if appointment:
-            raise ValueError(f"{work_date}: this clashes with {appointment}.")
-
-    saved = []
-    for draft in drafts:
-        template = draft["template"]
-        cursor = connection.execute(
-            """INSERT INTO shifts
-               (work_date,template_id,location_id,shift_type_id,location_name,shift_type_name,colour,
-                start_time,end_time,break_minutes,hours,notes)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (draft["work_date"], template["id"], template["location_id"], template["shift_type_id"],
-             template["location_name"], template["shift_type_name"], template["colour"], draft["start_time"],
-             draft["end_time"], draft["break_minutes"], draft["hours"], draft["notes"]),
-        )
-        create_shift_alert(connection, cursor.lastrowid, draft["work_date"], draft["start_time"])
-        saved.append(connection.execute("SELECT * FROM shifts WHERE id=?", (cursor.lastrowid,)).fetchone())
-    result = [dict(row) for row in saved]
-    if request_id:
-        connection.execute('INSERT INTO shift_batches VALUES(?,?,?)', (request_id, payload_hash, json.dumps(result)))
-    return result
-
-
-def update_template_in_future_shifts(connection: sqlite3.Connection, template_id: int, from_date: str) -> int:
-    template = connection.execute(
-        """SELECT t.*, l.name AS location_name, s.name AS shift_type_name, l.colour
-           FROM shift_templates t JOIN locations l ON l.id=t.location_id
-           JOIN shift_types s ON s.id=t.shift_type_id WHERE t.id=?""", (template_id,)
-    ).fetchone()
-    if not template:
-        raise ValueError("Template not found.")
-    hours = hours_between(template["start_time"], template["end_time"], template["break_minutes"])
-    cursor = connection.execute(
-        """UPDATE shifts SET location_id=?, shift_type_id=?, location_name=?, shift_type_name=?, colour=?,
-           start_time=?, end_time=?, break_minutes=?, hours=?
-           WHERE template_id=? AND work_date >= ?""",
-        (template["location_id"], template["shift_type_id"], template["location_name"],
-         template["shift_type_name"], template["colour"], template["start_time"], template["end_time"],
-         template["break_minutes"], hours, template_id, valid_iso_date(from_date)),
-    )
-    updated = cursor.rowcount
-    rebuild_shift_alerts(connection)
-    return updated
 
 
 class AlignHandler(SimpleHTTPRequestHandler):
