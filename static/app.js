@@ -1,7 +1,6 @@
 const state = {
   tab: new URLSearchParams(location.search).has('studio') ? 'assets' : 'today',
   boot: null,
-  masterTab: 'setup',
   settingsBranch: 'profile',
   scheduleStart: isoToday(),
   scheduleEnd: isoOffset(42),
@@ -865,16 +864,6 @@ document.addEventListener('input', event => {
   }
 });
 
-document.addEventListener('change', event => {
-  const form = event.target.closest('form');
-  if (!event.target.matches('[data-template-select]')) return;
-  const template = state.boot.master.templates.find(item => item.id === Number(event.target.value));
-  if (!template || !form) return;
-  form.start_time.value = template.start_time;
-  form.end_time.value = template.end_time;
-  form.break_minutes.value = template.break_minutes;
-});
-
 document.addEventListener('keydown', event => {
   if (event.key === 'Enter' && event.target.hasAttribute('data-address-search')) {
     event.preventDefault();
@@ -971,14 +960,8 @@ document.addEventListener('submit', async event => {
       return;
     }
     if (form.dataset.form === 'align-feedback') { await api('/api/beta/feedback',{method:'POST',body:{type:values.type,message:values.message,screen:state.tab}}); closeModal(); toast('Feedback sent to Align — thank you.'); return; }
-    if (form.dataset.form === 'transport-plan') { throw new Error('Choose a saved shift or event and locations in the Travel screen before finding journeys.'); }
-    if (form.dataset.form === 'alert-rule') {
-      values.active = form.active.checked;
-      values.minutes_before = Number(values.minutes_before);
-      await api(form.dataset.id ? `/api/alert-rules/${form.dataset.id}` : '/api/alert-rules', { method: form.dataset.id ? 'PUT' : 'POST', body: values });
-      closeModal(); await refresh(); toast('Alert saved for upcoming events.');
-    }
-    if (form.dataset.form === 'onboarding') { values.onboarding_completed = true; await api('/api/user-settings', { method: 'PUT', body: values }); await refresh(); }
+    if (form.dataset.form === 'transport-plan') { throw new Error('Choose a saved event and locations in the Travel screen before finding journeys.'); }
+        if (form.dataset.form === 'onboarding') { values.onboarding_completed = true; await api('/api/user-settings', { method: 'PUT', body: values }); await refresh(); }
       if (form.dataset.form === 'user-appearance') {
         const permissions = state.boot.builder?.appearance_permissions || {};
         const appearance = {};
@@ -997,25 +980,12 @@ document.addEventListener('submit', async event => {
         return;
       }
       if (form.dataset.form === 'user-settings') { if (form.notifications) values.notifications = form.notifications.checked; await api('/api/user-settings', { method: 'PUT', body: values }); await refresh(); toast('Settings saved.'); }
-    if (form.dataset.form === 'settings') { values.notifications = form.notifications.checked; await api('/api/settings', { method: 'PUT', body: values }); await refresh(); toast('Master settings saved.'); }
-    if (form.dataset.form === 'user-location') { const id = form.dataset.id; values.shift_type_ids = [...form.querySelectorAll('input[name="shift_type_ids"]:checked')].map(input => Number(input.value)); await api(id ? `/api/user-locations/${id}` : '/api/user-locations', { method: id ? 'PUT' : 'POST', body: values }); closeModal(); await refresh(); toast('Work location saved.'); }
-    if (form.dataset.form === 'location') { const id = form.dataset.id; values.active = form.active ? form.active.checked : true; values.shift_type_ids = [...form.querySelectorAll('input[name="shift_type_ids"]:checked')].map(input => Number(input.value)); await api(id ? `/api/locations/${id}` : '/api/locations', { method: id ? 'PUT' : 'POST', body: values }); closeModal(); await refresh(); toast('Location saved.'); }
-    if (form.dataset.form === 'menu-branch') { const id = form.dataset.id; values.active = form.active.checked; await api(id ? `/api/menu-branches/${id}` : '/api/menu-branches', { method: id ? 'PUT' : 'POST', body: values }); closeModal(); await refresh(); toast('User menu branch saved.'); }
-    if (form.dataset.form === 'parent-menu-branch') { const id = form.dataset.id; values.active = form.active.checked; values.locked=form.locked.checked; values.optional=form.optional.checked; values.parent_id=values.parent_id ? Number(values.parent_id) : null; values.sort_order=Number(values.sort_order || 100); await api(id ? `/api/parent-menu-branches/${id}` : '/api/parent-menu-branches', { method: id ? 'PUT' : 'POST', body: values }); closeModal(); await refresh(); toast('Parent Menu branch saved.'); }
     if (form.dataset.form === 'calendar-import') { const file = form.ics_file.files[0]; if (!file) throw new Error('Choose an .ics calendar file first.'); const ics = await file.text(); await api('/api/calendars/import', { method: 'POST', body: { name: values.name || file.name.replace(/\.ics$/i, ''), ics } }); await refresh(); toast('Calendar imported. Events can now be checked against it.'); }
-    if (form.dataset.form === 'shift-type') { const id = form.dataset.id; values.active = form.active ? form.active.checked : true; await api(id ? `/api/shift-types/${id}` : '/api/shift-types', { method: id ? 'PUT' : 'POST', body: values }); closeModal(); await refresh(); toast('Shift type saved.'); }
-    if (form.dataset.form === 'template') { const id = form.dataset.id; values.active = form.active ? form.active.checked : true; values.applicable_days = [...form.querySelectorAll('input[name="applicable_days"]:checked')].map(input => input.value); if (!values.applicable_days.length) throw new Error('Choose at least one day for this shift pattern.'); await api(id ? `/api/templates/${id}` : '/api/templates', { method: id ? 'PUT' : 'POST', body: values }); closeModal(); await refresh(); toast('Shift pattern saved.'); }
-    if (form.dataset.form === 'leave') {
-      const booked = await api('/api/leave', { method: 'POST', body: values });
-      closeModal(); await refresh();
-      const balance = booked.leave_balance;
-      toast(balance?.allowance ? (balance.remaining < 0 ? `Annual leave booked. That is ${-balance.remaining} day${balance.remaining === -1 ? '' : 's'} over the allowance.` : `Annual leave booked. ${balance.remaining} day${balance.remaining === 1 ? '' : 's'} left.`) : 'Annual leave booked.');
-    }
   } catch (error) { showFormError(form, error.message); toast(error.message, 'error'); }
 });
 
 function renderAdminLogin(message = '') {
-  app.innerHTML = `<section class="page"><div class="hero"><p class="eyebrow">PC workspace</p><h1>Admin access</h1><p class="subtle">Sign in to edit locations, shift templates, work settings and future scheduled shifts.</p></div><form class="card settings-form" data-form="admin-login"><div class="field"><label for="admin-password">Admin password</label><input id="admin-password" name="password" required type="password" autocomplete="current-password" autofocus /></div>${message ? `<p class="helper" style="color:#c6435b;margin:0">${escapeHtml(message)}</p>` : ''}<button class="primary-button">Open Master Edit</button><p class="helper" style="margin:0">This browser session stays signed in until you close it.</p></form></section>`;
+  app.innerHTML = `<section class="page"><div class="hero"><p class="eyebrow">PC workspace</p><h1>Admin access</h1><p class="subtle">Sign in to manage this local Align workspace and its backups.</p></div><form class="card settings-form" data-form="admin-login"><div class="field"><label for="admin-password">Admin password</label><input id="admin-password" name="password" required type="password" autocomplete="current-password" autofocus /></div>${message ? `<p class="helper" style="color:#c6435b;margin:0">${escapeHtml(message)}</p>` : ''}<button class="primary-button">Sign in to Align</button><p class="helper" style="margin:0">This browser session stays signed in until you close it.</p></form></section>`;
 }
 
 async function flushOfflineChanges({ refreshAfter = false } = {}) {
