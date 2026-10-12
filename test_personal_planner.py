@@ -61,7 +61,8 @@ class PersonalTests(unittest.TestCase):
     def test_overnight_and_buffer(self):
         day=date.today()+timedelta(days=15)
         with app.db_connection() as c:
-            c.execute("INSERT INTO shifts(work_date,location_name,shift_type_name,colour,start_time,end_time,hours) VALUES(?, 'Night work','Support','#123456','22:00','09:00',11)",((day-timedelta(days=1)).isoformat(),))
+            section=c.execute("INSERT INTO organiser_sections(name) VALUES('Personal')").lastrowid
+            c.execute("INSERT INTO organiser_events(section_id,title,start_at,end_at,location) VALUES(?,?,?,?,?)",(section,'Night work',(day-timedelta(days=1)).isoformat()+'T22:00',day.isoformat()+'T09:00','Home'))
             source=c.execute("INSERT INTO calendar_sources(name,source_kind) VALUES('Personal','ics')").lastrowid
             c.execute('INSERT INTO calendar_events(source_id,event_uid,start_at,end_at,title) VALUES(?,?,?,?,?)',(source,'test-event',day.isoformat()+'T12:00',day.isoformat()+'T13:00','Lunch'))
             r=p.availability(c,dict(date=day.isoformat(),start='08:00',end='15:00',duration=60,buffer=30))
@@ -79,17 +80,11 @@ class PersonalTests(unittest.TestCase):
         fake.create_calendar.assert_called_once_with('Appointments')
         with self.assertRaises(CloudError):manager.create_calendar('')
 
-    def test_regular_work_is_optional_and_all_day_is_busy(self):
+    def test_calendar_events_block_availability_and_all_day_is_busy(self):
         day=date.today()+timedelta(days=15)
         with app.db_connection() as c:
-            setup={'assignments':[{'slot_key':'office','days':[day.strftime('%A')]}],
-                   'slots':[{'key':'office','start_time':'09:00','duration_minutes':480}]}
             query=dict(date=day.isoformat(),start='08:00',end='19:00',duration=60)
             self.assertTrue(any(s['start_at'].endswith('08:00') for s in p.availability(c,query)['periods']))
-            p.save_preferences(c,{'regular_work':True})
-            with patch('work_setup.load_setup',return_value=setup):
-                self.assertTrue(all(s['end_at'].endswith('09:00') or s['start_at'].endswith('17:00') for s in p.availability(c,query)['periods']))
-            p.save_preferences(c,{'regular_work':False})
             sid=c.execute("INSERT INTO organiser_sections(name) VALUES('Personal')").lastrowid
             c.execute('INSERT INTO organiser_events(section_id,title,start_at,end_at,all_day) VALUES(?,?,?,?,1)',(sid,'All day',day.isoformat()+'T00:00',(day+timedelta(days=1)).isoformat()+'T00:00'))
             self.assertEqual(p.availability(c,query)['periods'],[])

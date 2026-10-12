@@ -230,6 +230,12 @@ class PostgresIntegrationTests(unittest.TestCase):
                     'app.connect',
                     side_effect=lambda _: pg.Connection(pg.psycopg.connect(self.dsn), schema)):
                 app.initialise_database_at(Path('align.sqlite3'))
+                with app.db_connection() as c:
+                    import personal_planner
+                    self.assertEqual(personal_planner.bootstrap(c)['events'], [])
+                    self.assertEqual(app.dashboard(c)['upcoming'], [])
+                    self.assertEqual(app.calendar_data(c)['alert_rules'], [])
+                    self.assertEqual(app.master_data(c)['templates'], [])
             with pg.psycopg.connect(self.dsn) as raw:
                 tables = {row[0] for row in raw.execute(
                     'SELECT table_name FROM information_schema.tables WHERE table_schema=%s',
