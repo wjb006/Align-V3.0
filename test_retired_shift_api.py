@@ -47,6 +47,10 @@ class RetiredShiftApiTests(unittest.TestCase):
             ("DELETE", "/api/locations/1", {}),
             ("DELETE", "/api/shift-types/1", {}),
             ("DELETE", "/api/templates/1", {}),
+            ("POST", "/api/menu-branches", {}),
+            ("PUT", "/api/menu-branches/1", {}),
+            ("POST", "/api/parent-menu-branches", {}),
+            ("PUT", "/api/parent-menu-branches/1", {}),
         )
         from unittest.mock import patch
         for method, path, payload in retired_requests:
