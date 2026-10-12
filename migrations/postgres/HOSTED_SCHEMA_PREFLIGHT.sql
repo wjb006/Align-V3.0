@@ -21,7 +21,8 @@ WITH required_tables(schema_name, table_name) AS (
       ('align_owner','schema_migrations'), ('align_owner','assets'),
       ('align_owner','asset_categories'), ('align_owner','asset_variants'),
       ('align_owner','asset_usage_rules'), ('align_owner','asset_audit_log'),
-      ('align_owner','transport_preferences'), ('align_owner','transport_journey_cache')
+      ('align_owner','transport_preferences'), ('align_owner','transport_journey_cache'),
+      ('align_owner','user_favourites'), ('align_owner','align_contacts')
 )
 SELECT 'missing required table: ' || r.schema_name || '.' || r.table_name AS check_name,
        1 AS violations
@@ -63,7 +64,7 @@ WHERE NOT EXISTS (
 SELECT m.migration_id, COUNT(sm.migration_id)::bigint AS applied_count
 FROM (VALUES ('149_asset_studio'), ('149_transport'), ('150_calendar_links'),
              ('151_sections'), ('152_personal_item_calendars'),
-             ('153_hosted_travel_and_calendar_location')) AS m(migration_id)
+             ('153_hosted_travel_and_calendar_location'), ('154_user_favourites_contacts')) AS m(migration_id)
 LEFT JOIN align_owner.schema_migrations sm ON sm.migration_id=m.migration_id
 GROUP BY m.migration_id
 ORDER BY m.migration_id;
