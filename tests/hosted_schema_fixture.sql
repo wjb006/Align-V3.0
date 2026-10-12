@@ -577,4 +577,5 @@ ALTER TABLE align_auth.beta_password_resets ADD FOREIGN KEY (user_id) REFERENCES
 ALTER TABLE align_auth.beta_icloud_credentials ADD FOREIGN KEY (user_id) REFERENCES align_auth.beta_users(user_id) ON DELETE CASCADE;
 ALTER TABLE align_auth.beta_password_resets ADD FOREIGN KEY (replaced_by_reset_id) REFERENCES align_auth.beta_password_resets(reset_id);
 
+INSERT INTO align_owner.icloud_config(id,instance_id) VALUES (1,md5(random()::text || clock_timestamp()::text)) ON CONFLICT(id) DO NOTHING;
 INSERT INTO align_owner.calendar_sync_state(id,revision,modified_at) VALUES (1,0,CURRENT_TIMESTAMP) ON CONFLICT(id) DO NOTHING;
