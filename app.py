@@ -58,11 +58,7 @@ organiser_sections = organiser_api.organiser_sections
 organiser_section = organiser_api.organiser_section
 section_values = organiser_api.section_values
 organiser_event_values = organiser_api.organiser_event_values
-branch_values = admin_api.branch_values
 validate_parent_branch = admin_api.validate_parent_branch
-parent_branch_values = admin_api.parent_branch_values
-BRANCH_TYPES = admin_api.BRANCH_TYPES
-PARENT_DESTINATIONS = admin_api.PARENT_DESTINATIONS
 
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
@@ -167,11 +163,13 @@ def retired_schedule_endpoint(path: str) -> bool:
         path in {
             "/api/shifts", "/api/week", "/api/annual-leave", "/api/work-setup",
             "/api/alerts", "/api/shift-completions", "/api/locations", "/api/master",
+            "/api/menu-branches", "/api/parent-menu-branches",
             "/api/shift-types", "/api/templates",
         }
         or re.fullmatch(r"/api/(?:shifts|annual-leave|alerts|shift-completions)/[0-9]+", path)
         or re.fullmatch(r"/api/(?:locations|shift-types)/[0-9]+", path)
         or re.fullmatch(r"/api/templates/[0-9]+(?:/apply)?", path)
+        or re.fullmatch(r"/api/(?:menu-branches|parent-menu-branches)/[0-9]+", path)
     )
 
 
