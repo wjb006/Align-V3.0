@@ -4,6 +4,8 @@ const studio = fs.readFileSync('static/owner-builder.js', 'utf8');
 const runtime = fs.readFileSync('static/builder-runtime.js', 'utf8');
 const index = fs.readFileSync('static/index.html', 'utf8');
 const worker = fs.readFileSync('static/service-worker.js', 'utf8');
+const personal = fs.readFileSync('static/personal-planner.js', 'utf8');
+const admin = fs.readFileSync('static/admin.html', 'utf8');
 
 for (const label of ['Today', 'Inbox', 'Sections', 'More']) {
   if (!app.includes(`title:'${label}'`)) throw new Error(`Missing core navigation item: ${label}`);
@@ -27,6 +29,9 @@ if (!app.includes('class="inbox-item-text"')) throw new Error('Inbox full note t
 const onboarding = app.slice(app.indexOf('function renderOnboarding()'), app.indexOf('function renderLocalDataSettings()'));
 if (/Shift notifications|Continue to Work Settings|Default calendar/.test(onboarding)) throw new Error('First-run setup still contains fixed shift/work-schedule fields');
 if (!onboarding.includes('Work as an optional database in Sections')) throw new Error('First-run setup does not explain optional Work setup');
+if (app.includes("state.boot.master = await api('/api/master')")) throw new Error('Legacy shift Master Edit must not load in V3');
+if (personal.includes('regular_work')) throw new Error('Legacy regular-work shift-pattern preference must be retired');
+if (!admin.includes('/management-studio.html')) throw new Error('Legacy Admin entrypoint must lead to Management Studio');
 if (!app.includes("{ branch_key: 'calendar', title: 'Calendar'")) throw new Error('Account Settings is missing calendar controls');
 for (const [name, source] of [['app',app],['index',index],['service worker',worker]]) {
   if (source.includes('maps173')) throw new Error(`Stale maps173 asset version remains in ${name}`);
