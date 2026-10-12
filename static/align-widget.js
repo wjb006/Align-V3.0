@@ -79,12 +79,12 @@ async function updateSchedule() {
     const session=(login.response.cookies || []).find(c=>c.name==='align_beta');
     if (!session?.value || !/^[A-Za-z0-9._~-]+$/.test(session.value)) throw Error('Align did not return a usable session. Please try again.');
     cookie='align_beta='+session.value;
-    // A successful new sign-in must not leave another account's snapshot visible.
-    clearSaved();
+    // Validate the new account/feed before replacing any previously saved snapshot.
     const {data:b}=await apiRequest('/api/bootstrap',cookie);
     if (!b.beta || !/^\d{4}-\d{2}-\d{2}$/.test(b.dashboard?.today || '')) throw Error('Complete account setup in Safari first.');
     const rows=b.dashboard?.upcoming_events;
     if (!Array.isArray(rows)) throw Error('This Align host does not provide the V3 event feed yet. Update the widget after V3 is deployed.');
+    clearSaved();
     const events=rows.map(x=>{
       const start=String(x.start_at||'');
       const end=String(x.end_at||'');
