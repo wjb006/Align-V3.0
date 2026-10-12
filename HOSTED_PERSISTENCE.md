@@ -8,12 +8,9 @@ local databases. SQLite remains the default locally. The existing Render
 `ALIGN_HOSTING_MODE=disposable-preview` flag is retained for deployment compatibility;
 the backend flag determines durable versus disposable storage.
 
-No production schema is created or migrated. SQLite initialisation and migrations
-are bypassed; existing Neon schema provisioning remains external. The SQL fixture
-under tests is a metadata-only snapshot for a fresh, isolated Postgres test database,
-not a deployment migration. The adapter deliberately implements only the SQL used
-by Align, rejects DDL/scripts, and supports named/positional rows, parameter binding,
-conflict handling, generated IDs and transaction closure.
+Hosted startup is validation-only: it never creates or alters hosted schema. New PostgreSQL databases use `migrations/postgres/fresh_v3_schema.sql`; existing schemas require the reviewed explicit numbered migrations documented in `migrations/postgres/README.md`. Fresh local SQLite databases use `schema_v3.sqlite.sql`; existing SQLite databases containing legacy schedule tables remain on a preservation compatibility path. The old `bootstrap.sql` and `tests/hosted_schema_fixture.sql` are compatibility fixtures, not fresh V3 provisioning sources. The dedicated clean-schema integration test uses the shift-free schema.
+
+The adapter deliberately implements only the SQL used by Align, rejects runtime DDL/scripts, and supports named/positional rows, parameter binding, conflict handling, generated IDs and transaction closure.
 
 Hosted bootstrap locks the Owner operation, requires at most one existing Owner,
 and only sets a password when absent. An existing password requires no bootstrap
