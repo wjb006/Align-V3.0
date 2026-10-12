@@ -56,6 +56,16 @@ class RetiredShiftApiTests(unittest.TestCase):
                 self.assertEqual(status, 404)
                 self.assertIn("no longer available", body.decode("utf-8").lower())
 
+    def test_unreachable_shift_backend_helpers_are_removed(self):
+        for name in (
+            'shift_query', 'week_data', 'next_week_options', 'create_shifts',
+            'create_shift_alert', 'rebuild_shift_alerts', 'alert_rules',
+            'alert_rule_values', 'upcoming_alerts', 'leave_balance',
+            'week_hours_summary', 'update_template_in_future_shifts',
+        ):
+            with self.subTest(name=name):
+                self.assertFalse(hasattr(app, name), f"retired backend helper still exported: {name}")
+
     def test_v3_storage_validator_does_not_require_retired_schedule_tables(self):
         from postgres_support import validate_v3_storage
 
