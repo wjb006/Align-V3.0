@@ -32,7 +32,6 @@ def calendar_key(row):
 def items(c):
     result=[]
     cutoff=(datetime.now(timezone.utc)-timedelta(days=1)).date().isoformat()
-        result.append({'key':'shift:'+str(r[0]),'title':r[3] or 'Shift','start':r[1]+'T'+r[2],'destination':r[4]})
     for r in c.execute("SELECT id,title,start_at,location FROM organiser_events WHERE all_day=0 AND start_at>=? ORDER BY start_at LIMIT 300", (cutoff,)):
         result.append({'key':'event:'+str(r[0]),'title':r[1],'start':r[2],'destination':r[3]})
     for r in c.execute("SELECT id,event_uid,title,start_at,location FROM calendar_events WHERE all_day=0 AND start_at>=? AND TRIM(location)<>'' ORDER BY start_at LIMIT 300", (cutoff,)):
