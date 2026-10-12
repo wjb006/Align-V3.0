@@ -23,6 +23,23 @@ class Build149TransportTests(unittest.TestCase):
             self.assertEqual(migrate(db)['status'],'applied'); self.assertEqual(migrate(db)['status'],'skipped'); self.assertEqual(rollback(db)['status'],'rolled_back')
             c=sqlite3.connect(db); self.assertEqual(c.execute('SELECT value FROM keep').fetchone()[0],'safe'); self.assertIsNone(c.execute("SELECT name FROM sqlite_master WHERE name='assets'").fetchone()); c.close()
 
+    def test_travel_event_list_works_without_shift_tables(self):
+        import transport_places
+        import transport_service
+        from datetime import timedelta
+        connection = sqlite3.connect(":memory:")
+        connection.row_factory = sqlite3.Row
+        connection.execute("CREATE TABLE organiser_events (id INTEGER PRIMARY KEY, title TEXT, start_at TEXT, location TEXT, all_day INTEGER)")
+        connection.execute("CREATE TABLE calendar_events (id INTEGER PRIMARY KEY, event_uid TEXT, title TEXT, start_at TEXT, location TEXT, all_day INTEGER)")
+        future = (datetime.now(timezone.utc).replace(microsecond=0) + timedelta(days=1)).isoformat()
+        connection.execute("INSERT INTO organiser_events VALUES (1,'Dentist',?,'Birkenhead',0)", (future,))
+        connection.execute("INSERT INTO calendar_events VALUES (2,'uid-2','Meeting',?,'Liverpool',0)", (future,))
+        result = transport_places.items(connection)
+        self.assertEqual({item["title"] for item in result["items"]}, {"Dentist", "Meeting"})
+        with self.assertRaisesRegex(ValueError, "Align event"):
+            transport_service.event(connection, "shift:1")
+        connection.close()
+
     def test_legacy_transport_cache_is_preserved(self):
         with tempfile.TemporaryDirectory() as folder:
             db=Path(folder)/'align.sqlite3'
