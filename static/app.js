@@ -339,8 +339,6 @@ function renderMore() {
   return `<section class="page"><div class="add-head"><p class="eyebrow">Everything else</p><h1>More</h1><p class="subtle">Personal settings and tools.</p></div>${installPanel()}<div class="quick-grid"><button class="quick-action" data-nav="settings"><b>⚙</b>Settings<small>Your details and calendars</small></button><button class="quick-action" data-nav="transport"><b>↗</b>Travel<small>Saved places and journey planning</small></button></div></section>`;
 }
 
-function rootParentBranches() { return (state.boot?.master.parents || []).filter(branch => branch.active && !branch.parent_id); }
-function childParentBranches(parentId) { return (state.boot?.master.parents || []).filter(branch => branch.active && Number(branch.parent_id) === Number(parentId)); }
 function rootSections() { return (state.boot?.sections || []).filter(section => !section.parent_branch_id); }
 function childSections(parentId) { return (state.boot?.sections || []).filter(section => Number(section.parent_branch_id) === Number(parentId)); }
 
@@ -632,13 +630,6 @@ function renderCalendarSettings() {
     <form class="form-grid" data-form="calendar-import"><h3>Import a calendar into Align</h3><div class="field"><label>Calendar name</label><input name="name" placeholder="e.g. Personal calendar"/></div><div class="field"><label>Calendar file (.ics)</label><input name="ics_file" required type="file" accept=".ics,text/calendar"/></div><button class="secondary-button">Import and check for clashes</button><p class="helper">Imports are snapshots. Re-export your other calendar when you need fresh clash information.</p></form>
     </div><section class="section"><div class="section-head"><h2>Imported calendars</h2></div><div class="master-list">${state.boot.calendar.sources.map(source => `<article class="card master-item"><span class="branch-icon">▦</span><div class="item-content"><h3>${escapeHtml(source.name)}</h3><p>${source.event_count} imported events</p></div><button class="small-button" data-action="remove-calendar" data-id="${source.id}">Remove</button></article>`).join('') || '<div class="card empty">No calendars imported yet.</div>'}</div></section>`;
 }
-
-function alertRuleModal(id = null) {
-  const rule = id ? state.boot.calendar.alert_rules.find(item => item.id === id) : { title: 'Time to Leave', minutes_before: 60, active: true };
-  if (!rule) return;
-  modal(id ? 'Edit alert' : 'Add alert', `<form class="form-grid" data-form="alert-rule" data-id="${id || ''}"><div class="field"><label for="alert-title">Alert name</label><input id="alert-title" name="title" required maxlength="80" value="${escapeHtml(rule.title)}"/></div><div class="field"><label for="alert-minutes">Remind me</label><select id="alert-minutes" name="minutes_before" required>${alertOffsetOptions(rule.minutes_before)}</select><small class="helper">Choose minutes, hours, days or a week before the event starts. 0 is not offered here — use a short offset for near-start alerts.</small></div><label class="switch-row"><span>Enable this alert</span><input class="switch" name="active" type="checkbox" ${rule.active ? 'checked' : ''}/></label><div class="modal-actions">${id ? `<button type="button" class="danger-button" data-action="delete-alert-rule" data-id="${id}">Delete</button>` : ''}<button type="button" class="secondary-button" data-action="close-modal">Cancel</button><button class="primary-button">Save alert</button></div></form>`);
-}
-
 
 function optionList(items, selectedId, label) { return items.map(item => `<option value="${item.id}" ${item.id === selectedId ? 'selected' : ''}>${escapeHtml(label(item))}</option>`).join(''); }
 let modalReturnFocus = null;
