@@ -398,21 +398,12 @@ def find_addresses(query: str) -> list[dict]:
         return results
 
 
-def master_data(connection: sqlite3.Connection, include_inactive: bool = False) -> dict:
-    """Compatibility response for old clients; V3 no longer exposes shift setup."""
-    branch_where = "" if include_inactive else " WHERE active = 1"
-    branches = rows_as_dicts(connection.execute(
-        f"SELECT * FROM menu_branches{branch_where} ORDER BY sort_order, title"
-    ))
-    parents = rows_as_dicts(connection.execute(
-        f"SELECT p.*, parent.title AS parent_title FROM parent_menu_branches p "
-        f"LEFT JOIN parent_menu_branches parent ON parent.id=p.parent_id"
-        f"{branch_where.replace('active','p.active')} "
-        "ORDER BY COALESCE(p.parent_id,0),p.sort_order,p.title"
-    ))
-    return {"locations": [], "shift_types": [], "templates": [],
-            "location_categories": {}, "branches": branches, "parents": parents}
-
+def navigation_data(connection: sqlite3.Connection) -> dict:
+    """Return the retained folder destinations used by Section placement."""
+    return {"parents": rows_as_dicts(connection.execute(
+        """SELECT id,title,destination,parent_id,active,sort_order
+           FROM parent_menu_branches ORDER BY COALESCE(parent_id,0),sort_order,title"""
+    ))}
 
 
 def public_icloud_data(manager=None) -> dict:
