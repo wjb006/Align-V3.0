@@ -180,7 +180,7 @@ class StartupTests(unittest.TestCase):
                 store._create_pending_user('test@example.com', '', None)
 
     def test_failed_probe_prevents_ready_message_and_server(self):
-        with patch.dict(os.environ, {'ALIGN_DATABASE_BACKEND': 'postgres', 'ALIGN_HOSTING_MODE': 'disposable-preview'}), patch('app.initialise_database'), patch('beta_support.BetaStore'), patch('render_start.bootstrap_hosted_owner'), patch('postgres_support.verify_hosted_storage', side_effect=RuntimeError('probe failed')), patch('app.AlignServer') as server, patch('builtins.print') as output, patch.object(app, 'BETA_STORE'), patch.object(app, 'DATABASE'), patch.object(app, 'BETA_MODE'):
+        with patch.dict(os.environ, {'ALIGN_DATABASE_BACKEND': 'postgres', 'ALIGN_HOSTING_MODE': 'persistent'}), patch('app.initialise_database'), patch('beta_support.BetaStore'), patch('render_start.bootstrap_hosted_owner'), patch('postgres_support.verify_hosted_storage', side_effect=RuntimeError('probe failed')), patch('app.AlignServer') as server, patch('builtins.print') as output, patch.object(app, 'BETA_STORE'), patch.object(app, 'DATABASE'), patch.object(app, 'BETA_MODE'):
             with self.assertRaises(RuntimeError):
                 render_start.main()
             server.assert_not_called()
