@@ -89,7 +89,7 @@ async function updateSchedule() {
       const start=String(x.start_at||'');
       const end=String(x.end_at||'');
       if (!/^\d{4}-\d{2}-\d{2}T/.test(start) || !/^\d{4}-\d{2}-\d{2}T/.test(end)) return null;
-      return {id:String(x.id),day:start.slice(0,10),start:start.slice(11,16),end:end.slice(11,16),
+      return {id:String(x.id),day:start.slice(0,10),endDay:end.slice(0,10),start:start.slice(11,16),end:end.slice(11,16),
         location:String(x.location||''),title:String(x.title||'Event'),allDay:!!x.all_day};
     }).filter(Boolean);
     fm.writeString(savedFile,JSON.stringify({updated:new Date().toISOString(),events}));
@@ -111,9 +111,7 @@ function ukClock(date) {
   return f.string(date);
 }
 function eventEnd(e) {
-  if (e.allDay || e.end > e.start) return e.day+' '+e.end;
-  const next = new Date(e.day+'T12:00:00Z'); next.setUTCDate(next.getUTCDate()+1);
-  return next.toISOString().slice(0,10)+' '+e.end;
+  return (e.endDay || e.day)+' '+e.end;
 }
 function nextEvent(snapshot, now) {
   return (snapshot?.events || []).filter(e => /^\d{4}-\d{2}-\d{2}$/.test(e.day) && eventEnd(e) > ukClock(now))
