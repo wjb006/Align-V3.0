@@ -32,6 +32,8 @@ const onboarding = app.slice(app.indexOf('function renderOnboarding()'), app.ind
 if (/Shift notifications|Continue to Work Settings|Default calendar/.test(onboarding)) throw new Error('First-run setup still contains fixed shift/work-schedule fields');
 if (!onboarding.includes('Work as an optional database in Sections')) throw new Error('First-run setup does not explain optional Work setup');
 if (app.includes("state.boot.master") || app.includes("api('/api/master')")) throw new Error('Legacy Master payload must not be used by V3');
+if (!app.includes('state.boot.navigation?.parents')) throw new Error('Section folder choices must use the retained V3 navigation payload');
+if (app.includes('annual_leave') || app.includes('shift_type_ids') || app.includes('/api/alert-rules')) throw new Error('Legacy schedule controls must not remain in the V3 client');
 if (personal.includes('regular_work')) throw new Error('Legacy regular-work shift-pattern preference must be retired');
 if (!admin.includes('/management-studio.html')) throw new Error('Legacy Admin entrypoint must lead to Management Studio');
 if (widget.includes('/api/shifts')) throw new Error('Scriptable widget must use the retained V3 event feed');
