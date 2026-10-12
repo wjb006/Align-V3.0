@@ -1,4 +1,14 @@
 # Align V3.0 rebuild report
+
+## Current status — 12 October 2026
+
+- Fresh PostgreSQL and SQLite schemas now omit legacy schedule tables; hosted startup validates provisioned schema without runtime DDL.
+- Legacy SQLite databases stay on a preservation path. Startup no longer rewrites shift templates, deletes prototype rows, seeds shift menu items, or rebuilds old alerts. The compatibility schemas remain for recovery and are not fresh-install sources.
+- Active Travel/onward travel, personal availability, iCloud sync, phone push, calendar export, Scriptable widget, and offline writes no longer query or create shift-planner records. Existing pending offline shift batches remain stored but are not replayed or silently deleted.
+- Retired schedule routes return 404 before database access. Unused fixed week-planner and work-setup client files have been removed; the old Admin URL redirects to Management Studio.
+- New regression coverage checks clean-schema startup, legacy-data preservation, phone reminders without an alerts table, retired routes, and the event-based Scriptable widget.
+- **Verification blocker:** GitHub Actions runs on current commits are failing before any steps start, with no runner logs. This is not a green test result, and the current branch is not release-accepted. No live Neon/Render/R2 provisioning or production service/DNS changes have been made.
+
 ## Removed or retired
 - Replaced the old build-specific browser workflow/spec names with `build-browser.yml` and `align.spec.js`.
 - Removed Owner and Builder links from the user-facing menus; the Studio is served through `/studio` and checks Owner authentication.
@@ -10,7 +20,7 @@
 - Restored `schema.sql` after finding that removing its legacy tables made fresh SQLite startup fail. This preserves a working starting point while the remaining legacy shift code is being retired.
 ## Kept
 - Python `ThreadingHTTPServer`, vanilla JavaScript PWA, SQLite and Postgres support, account workflows, travel and weather code, iCloud sync, and the Finance template.
-- Existing legacy shift schema and code remain in this checkout. Their removal is not complete.
+- Legacy compatibility schemas and unreachable helper functions remain in this checkout for preservation safety. Fresh schemas and active V3 routes no longer depend on the schedule tables; final dead-code pruning and CI acceptance remain outstanding.
 - The source repository at `C:\Align\Align_App` was not modified. A separate private `wjb006/Align-V3.0` repository is configured as `origin`; development is on `codex/align-v3-rebuild`.
 ## Changed
 - Added numbered SQLite/Postgres migrations for `calendar_links` and `section_defs` / `section_fields`; included them in startup migration expectations and tester schema provisioning.
@@ -30,7 +40,7 @@
 - Consolidated Build 153/154/156 V2.1/V2.2 release notes into the Build 156 notes file, removed a duplicate SQL verification file, and removed one-off scratch scripts.
 - Added `.env.example`, environment/deployment documentation, `render.yaml`, a Postgres bootstrap, and separate hosted-persistence and three-device browser workflows.
 ## Verification
-- Latest full Python run: 222 passed, 3 skipped, 23 subtests passed (11 October 2026). Removed five obsolete shift-only test modules and moved the retained isolated HTTP/SQLite fixture to `test_support.py`.
+- Historical full Python run before the 12 October schema/legacy-isolation changes: 222 passed, 3 skipped, 23 subtests passed. The current source still requires a full re-run.
 - User app management-surface checks: added assertions that More and Settings do not expose Asset Studio or Management Studio controls; desktop browser and full Python checks pass: 222 passed, 3 skipped, 23 subtests.
 - New event-feed regression: passed. It covers timed/all-day event export, stable event UID, legacy-row preservation and excluding legacy shifts/leave from the published calendar.
 - Latest focused checks: 20 Python tests passed; navigation/Work, date, UI polish, Build 156 asset consistency, and `git diff --check` passed.
@@ -40,7 +50,7 @@
 - Pushed development snapshot to private `wjb006/Align-V3.0`; no V3 Render service or dedicated Neon database has been provisioned.
 - Render reconfirmed to contain only the old `align-beta-preview` service on `wjb006/Align-app`; no Render Postgres exists. Neon tools currently require reauthentication. Existing service and IONOS DNS remain unchanged.
 ## Outstanding brief requirements
-- Remove remaining shift features, tables, APIs, alerts, UI, scripts, and documentation safely. Shift-specific test modules are retired; the legacy Admin planner and schema still need removal.
+- Finish pruning unreachable legacy schedule helper functions from `app.py` and old markup from the shared `static/app.js`; keep legacy schemas/data intact. Fresh schemas omit schedule tables and active APIs are retired.
 - Complete and verify the optional Work database flow, including user opt-in and custom field associations.
 - Continue source-file grouping only where runtime compatibility and upgrade history are preserved.
 - Complete direct creation of home blocks from the phone preview. Section creation/editing now starts directly from the preview, but the actual matrix fields are designed in the guided builder panel. Validate the full history/restore flow against the deployed Owner portal.
