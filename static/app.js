@@ -640,19 +640,6 @@ function alertRuleModal(id = null) {
 }
 
 
-function templateDays(template) {
-  if (Array.isArray(template.applicable_days)) return template.applicable_days;
-  try { return JSON.parse(template.applicable_days || '[]'); } catch (_) { return WEEK_DAYS; }
-}
-function templateAppliesOn(template, workDate) {
-  const days = templateDays(template);
-  return !days.length || days.includes(weekdayName(workDate));
-}
-function subShiftName(template) { return template?.sub_shift_type || template?.label || ''; }
-function shiftPeriod(template) { return setupPeriod(template.start_time); }
-function areaHasBothPeriods(template) {
-  return new Set(state.boot.master.templates.filter(t => t.active && t.location_id === template.location_id && t.shift_type_id === template.shift_type_id).map(shiftPeriod)).size > 1;
-}
 function areaLabel(template) { return `${template.shift_type_name}${areaHasBothPeriods(template) ? ` (${shiftPeriod(template)})` : ''}`; }
 function savedTimeLabel(template) { return `${template.start_time} + ${hours(timeHours(template.start_time, template.end_time))} → ${template.end_time}${template.break_minutes ? ` · ${template.break_minutes}m break` : ''}`; }
 function templateSummary(template, includeTimes = true) {
