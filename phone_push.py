@@ -95,11 +95,10 @@ def send(subscription, tag, test=False):
 
 
 def due_items(c, now):
-    """Existing personal reminders and pending work alerts; do not alter either."""
+    """Return due personal reminders without querying retired shift-alert tables."""
     low = (now - timedelta(hours=24)).astimezone(ZONE).replace(tzinfo=None).isoformat(timespec='minutes')
     high = now.astimezone(ZONE).replace(tzinfo=None).isoformat(timespec='minutes')
     rows = [('reminder', r['id'], r['due_at']) for r in c.execute("SELECT id,due_at FROM personal_items WHERE kind='reminder' AND done=0 AND due_at>=? AND due_at<=?", (low, high))]
-    rows += [('work', r['id'], r['alert_at']) for r in c.execute("SELECT id,alert_at FROM alerts WHERE status='pending' AND alert_at>=? AND alert_at<=?", (low, high))]
     for kind, rid, value in rows:
         try:
             at = datetime.fromisoformat(value)
