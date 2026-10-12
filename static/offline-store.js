@@ -118,7 +118,7 @@ const AlignOffline = (() => {
 
   async function overlay(path, payload) {
     if (!payload || typeof payload !== 'object') return payload;
-    const sectionMatch = path.match(/^\\/api\\/sections\\/(\\d+)$/);
+    const sectionMatch = path.match(/^\/api\/sections\/(\d+)$/);
     if (!sectionMatch) return payload;
     const extras = await pendingOrganiserEvents(Number(sectionMatch[1]));
     if (!extras.length) return payload;
