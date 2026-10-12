@@ -205,6 +205,52 @@ class PostgresIntegrationTests(unittest.TestCase):
         self.env.start()
         self.addCleanup(self.env.stop)
 
+    def test_fresh_v3_schema_starts_without_legacy_schedule_tables(self):
+        schema = 'align_fresh_v3_test'
+        source = (Path(__file__).parent / 'migrations' / 'postgres' / 'fresh_v3_schema.sql').read_text()
+        with pg.psycopg.connect(self.dsn) as raw:
+            raw.execute(f'DROP SCHEMA IF EXISTS {schema} CASCADE')
+            raw.execute(f'CREATE SCHEMA {schema}')
+            for raw_statement in source.split(';'):
+                statement = raw_statement.strip()
+                while statement.startswith('--'):
+                    statement = '\n'.join(statement.splitlines()[1:]).strip()
+                if not statement:
+                    continue
+                if statement.startswith('CREATE SCHEMA align_'):
+                    continue
+                if statement.startswith('CREATE TABLE align_auth.') or statement.startswith('ALTER TABLE align_auth.'):
+                    continue
+                if (statement.startswith('CREATE TABLE align_owner.')
+                        or statement.startswith('ALTER TABLE align_owner.')
+                        or statement.startswith('INSERT INTO align_owner.')):
+                    raw.execute(statement.replace('align_owner.', schema + '.'))
+        try:
+            with patch.dict(os.environ, {'ALIGN_DATABASE_BACKEND': 'postgres'}), patch(
+                    'app.connect',
+                    side_effect=lambda _: pg.Connection(pg.psycopg.connect(self.dsn), schema)):
+                app.initialise_database_at(Path('align.sqlite3'))
+            with pg.psycopg.connect(self.dsn) as raw:
+                tables = {row[0] for row in raw.execute(
+                    'SELECT table_name FROM information_schema.tables WHERE table_schema=%s',
+                    (schema,))}
+                retired = {'shifts', 'shift_templates', 'shift_types', 'locations',
+                           'location_shift_types', 'annual_leave', 'alert_rules', 'alerts',
+                           'shift_batches'}
+                self.assertFalse(tables & retired)
+                self.assertTrue({'personal_items', 'organiser_events', 'section_defs',
+                                 'assets', 'asset_audit_log', 'transport_preferences',
+                                 'transport_journey_cache'} <= tables)
+                raw.execute(
+                    f"INSERT INTO {schema}.personal_items(id,kind,title) VALUES (%s,%s,%s)",
+                    ('fresh-v3-test', 'note', 'Fresh schema works'))
+                self.assertEqual(raw.execute(
+                    f'SELECT title FROM {schema}.personal_items WHERE id=%s',
+                    ('fresh-v3-test',)).fetchone()[0], 'Fresh schema works')
+        finally:
+            with pg.psycopg.connect(self.dsn) as raw:
+                raw.execute(f'DROP SCHEMA IF EXISTS {schema} CASCADE')
+
     def test_schema_survives_commit_rollback_and_sql_boundaries(self):
         for path, schema, table in [('align.sqlite3', 'align_owner', 'personal_items'),
                                     ('beta_users.sqlite3', 'align_auth', 'beta_users')]:
