@@ -1,14 +1,14 @@
 // Variables used by Scriptable.
 // These must be at the very top of the file. Do not edit.
 // icon-color: yellow; icon-glyph: magic; share-sheet-inputs: url;
-// Align — Scriptable Home Screen widget, v1.3
+// Align V3.0 — Scriptable Home Screen events widget, v1.4
 // Sign in through a secure prompt. Passwords and session tokens are not saved.
 // Run in Scriptable to update the snapshot. Widgets use saved data only.
 const BASE = 'https://beta.getalign.co.uk';
 const fm = FileManager.local();
 const savedFile = fm.joinPath(fm.libraryDirectory(), 'align-widget-v1.json');
 const settingsFile = fm.joinPath(fm.libraryDirectory(), 'align-widget-settings.json');
-const DEFAULTS = {view:'next',maxEvents:5,showLocation:true,showShiftType:true,showLeaveTime:true,showEndTime:true};
+const DEFAULTS = {view:'next',maxEvents:5,showLocation:true,showEndTime:true};
 function preferences() {
   let saved={}; try { saved=JSON.parse(fm.readString(settingsFile)); } catch (_) {}
   const p={...DEFAULTS,...saved};
@@ -20,8 +20,8 @@ async function configure() {
   const p=preferences();
   while(true) {
     const a=new Alert();a.title='Widget display';a.message='Settings apply to all Align widgets. A widget Parameter overrides the default view.';
-    a.addAction('Default view: '+p.view);a.addAction('Maximum shifts: '+p.maxEvents);
-    const fields=[['showLocation','Location'],['showShiftType','Shift type'],['showLeaveTime','Saved leave time'],['showEndTime','End time']];
+    a.addAction('Default view: '+p.view);a.addAction('Maximum events: '+p.maxEvents);
+    const fields=[['showLocation','Location'],['showEndTime','End time']];
     fields.forEach(([key,label])=>a.addAction(label+': '+(p[key]?'On':'Off')));a.addCancelAction('Save and close');
     const choice=await a.presentSheet();
     if(choice<0){fm.writeString(settingsFile,JSON.stringify(p));return;}
@@ -66,9 +66,9 @@ async function apiRequest(path, cookie='', payload=null) {
 }
 async function updateSchedule() {
   const prompt=new Alert(); prompt.title='Sign in to Align';
-  prompt.message='Your details are sent only to beta.getalign.co.uk over HTTPS. This script does not save your password. No browser window is needed.';
+  prompt.message='Your details are sent only to the configured Align host over HTTPS. This script does not save your password. No browser window is needed.';
   prompt.addTextField('Email'); prompt.addSecureTextField('Password');
-  prompt.addAction('Sign in and save schedule'); prompt.addCancelAction('Cancel');
+  prompt.addAction('Sign in and save events'); prompt.addCancelAction('Cancel');
   if (await prompt.presentAlert()===-1) return false;
   const credentials={email:prompt.textFieldValue(0).trim(),password:prompt.textFieldValue(1)};
   let cookie='';
@@ -83,17 +83,16 @@ async function updateSchedule() {
     clearSaved();
     const {data:b}=await apiRequest('/api/bootstrap',cookie);
     if (!b.beta || !/^\d{4}-\d{2}-\d{2}$/.test(b.dashboard?.today || '')) throw Error('Complete account setup in Safari first.');
-    const start=new Date(b.dashboard.today+'T12:00:00Z'); start.setUTCDate(start.getUTCDate()-1);
-    const end=new Date(b.dashboard.today+'T12:00:00Z'); end.setUTCDate(end.getUTCDate()+42);
-    const {data:rows}=await apiRequest('/api/shifts?start='+start.toISOString().slice(0,10)+'&end='+end.toISOString().slice(0,10),cookie);
-    if (!Array.isArray(rows)) throw Error('No valid schedule was returned.');
-    const shifts=rows.map(x=>{
-      const block=String(x.notes||'').match(/\[Align travel\]([\s\S]*?)(?:\[\/Align travel\]|$)/i);
-      const line=block ? block[1].split(/\r?\n/).find(t=>/^Leave\b/i.test(t.trim())) : '';
-      const leave=(String(line||'').match(/\b([01]?\d|2[0-3]):[0-5]\d\b/)||[''])[0];
-      return {day:x.work_date,start:x.start_time,end:x.end_time,location:x.location_name||'Work',type:x.shift_type_name||'Shift',leave};
-    });
-    fm.writeString(savedFile,JSON.stringify({updated:new Date().toISOString(),shifts}));
+    const rows=b.dashboard?.upcoming_events;
+    if (!Array.isArray(rows)) throw Error('This Align host does not provide the V3 event feed yet. Update the widget after V3 is deployed.');
+    const events=rows.map(x=>{
+      const start=String(x.start_at||'');
+      const end=String(x.end_at||'');
+      if (!/^\d{4}-\d{2}-\d{2}T/.test(start) || !/^\d{4}-\d{2}-\d{2}T/.test(end)) return null;
+      return {id:String(x.id),day:start.slice(0,10),start:start.slice(11,16),end:end.slice(11,16),
+        location:String(x.location||''),title:String(x.title||'Event'),allDay:!!x.all_day};
+    }).filter(Boolean);
+    fm.writeString(savedFile,JSON.stringify({updated:new Date().toISOString(),events}));
     return true;
   } finally {
     credentials.password='';
@@ -111,21 +110,21 @@ function ukClock(date) {
   const f = new DateFormatter(); f.locale = 'en_GB'; f.timeZone = 'Europe/London'; f.dateFormat = 'yyyy-MM-dd HH:mm';
   return f.string(date);
 }
-function shiftEnd(s) {
-  if (s.end > s.start) return s.day+' '+s.end;
-  const next = new Date(s.day+'T12:00:00Z'); next.setUTCDate(next.getUTCDate()+1);
-  return next.toISOString().slice(0,10)+' '+s.end;
+function eventEnd(e) {
+  if (e.allDay || e.end > e.start) return e.day+' '+e.end;
+  const next = new Date(e.day+'T12:00:00Z'); next.setUTCDate(next.getUTCDate()+1);
+  return next.toISOString().slice(0,10)+' '+e.end;
 }
-function nextShift(snapshot, now) {
-  return (snapshot?.shifts || []).filter(s => /^\d{4}-\d{2}-\d{2}$/.test(s.day) && shiftEnd(s) > ukClock(now))
+function nextEvent(snapshot, now) {
+  return (snapshot?.events || []).filter(e => /^\d{4}-\d{2}-\d{2}$/.test(e.day) && eventEnd(e) > ukClock(now))
     .sort((a,b) => (a.day+' '+a.start).localeCompare(b.day+' '+b.start))[0];
 }
-function viewShifts(snapshot,now,view) {
+function viewEvents(snapshot,now,view) {
   const today=ukClock(now).slice(0,10);
   const end=new Date(today+'T12:00:00Z');end.setUTCDate(end.getUTCDate()+({today:1,'3days':3,week:7}[view]||1));
   const until=end.toISOString().slice(0,10);
-  const rows=(snapshot?.shifts||[]).filter(s=>/^\d{4}-\d{2}-\d{2}$/.test(s.day))
-    .filter(s=>view==='next'?shiftEnd(s)>ukClock(now):s.day<until&&shiftEnd(s)>today+' 00:00')
+  const rows=(snapshot?.events||[]).filter(e=>/^\d{4}-\d{2}-\d{2}$/.test(e.day))
+    .filter(e=>view==='next'?eventEnd(e)>ukClock(now):e.day<until&&eventEnd(e)>today+' 00:00')
     .sort((a,b)=>(a.day+' '+a.start).localeCompare(b.day+' '+b.start));
   return view==='next'?rows.slice(0,1):rows;
 }
@@ -137,19 +136,18 @@ function widget(snapshot, previewFamily) {
   const w = new ListWidget(); w.backgroundColor = new Color('#19295c'); w.setPadding(14,14,14,14);
   w.url = BASE; w.refreshAfterDate = new Date(Date.now()+15*60000);
   const add = (text, size, bold=false) => { const t=w.addText(text); t.font=bold?Font.boldSystemFont(size):Font.systemFont(size); t.textColor=Color.white(); t.lineLimit=2; return t; };
-  add('ALIGN · '+({next:'NEXT SHIFT',today:'TODAY','3days':'NEXT 3 DAYS',week:'NEXT 7 DAYS'}[view]), 11, true); w.addSpacer(6);
-  const rows=viewShifts(snapshot,new Date(),view);
-  const capacity=family==='small'?1:family==='large'?(p.showLeaveTime?5:6):2;
+  add('ALIGN · '+({next:'NEXT EVENT',today:'TODAY','3days':'NEXT 3 DAYS',week:'NEXT 7 DAYS'}[view]), 11, true); w.addSpacer(6);
+  const rows=viewEvents(snapshot,new Date(),view);
+  const capacity=family==='small'?1:family==='large'?6:2;
   const shown=rows.slice(0,Math.min(capacity,p.maxEvents));
-  for (const shift of shown) {
-    const clock=shift.start+(p.showEndTime?'–'+shift.end:'');
-    const heading=[p.showLocation&&shift.location,p.showShiftType&&shift.type].filter(Boolean).join(' · ');
-    const title=add(widgetDate(shift.day)+'  '+clock, family==='small'?15:12,true);title.lineLimit=1;
-    if(heading){const t=add(heading,12);t.lineLimit=1;}
-    if(p.showLeaveTime&&shift.leave){const t=add('Saved leave: '+shift.leave,10);t.lineLimit=1;}
+  for (const event of shown) {
+    const clock=event.allDay?'All day':event.start+(p.showEndTime?'–'+event.end:'');
+    const title=add(widgetDate(event.day)+'  '+clock, family==='small'?15:12,true);title.lineLimit=1;
+    const heading=[event.title,p.showLocation&&event.location].filter(Boolean).join(' · ');
+    if(heading){const t=add(heading,12);t.lineLimit=2;}
     w.addSpacer(5);
   }
-  if(!shown.length)add(snapshot?'No saved shifts in this view':'Run Align in Scriptable to set up.',13,true);
+  if(!shown.length)add(snapshot?'No saved events in this view':'Run Align in Scriptable to set up.',13,true);
   if(rows.length>shown.length)add('+'+(rows.length-shown.length)+' more · open Align',10);
   w.addSpacer();
   if (snapshot) {
@@ -163,14 +161,14 @@ function widget(snapshot, previewFamily) {
 
 if (!config.runsInWidget) {
   const menu = new Alert(); menu.title='Align widget';
-  menu.message='Save your schedule for the Home Screen widget. Updates are manual; tap the widget to open Align.';
+  menu.message='Save your Align events for the Home Screen widget. Updates are manual; tap the widget to open Align.';
   menu.addAction('Sign in / update schedule'); menu.addAction('Preview saved widget'); menu.addDestructiveAction('Clear saved schedule'); menu.addAction('Display settings'); menu.addCancelAction('Cancel');
   const choice=await menu.presentSheet();
   if (choice===0) {
     try {
-      if (await updateSchedule()) await message('Schedule saved', 'Now add a Scriptable Home Screen widget and select this script. Run this script again after changing shifts.');
+      if (await updateSchedule()) await message('Events saved', 'Now add a Scriptable Home Screen widget and select this script. Run this script again when you want to refresh your events.');
     } catch (e) { await message('Update not completed', String(e.message || e)); }
-  } else if (choice===2) { clearSaved(); await message('Schedule cleared', 'The widget will clear when iOS next redraws it. This does not sign you out of Align.'); }
+  } else if (choice===2) { clearSaved(); await message('Events cleared', 'The widget will clear when iOS next redraws it. This does not sign you out of Align.'); }
   if(choice===3)await configure();
   if (choice!==-1) {
     const size=new Alert();size.title='Preview size';size.addAction('Small');size.addAction('Medium');size.addAction('Large');size.addCancelAction('Close');
