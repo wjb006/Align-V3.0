@@ -1,5 +1,7 @@
 """Local SQLite backup and restore tests use an isolated database."""
 import json
+import sqlite3
+import tempfile
 import unittest
 from http.client import HTTPConnection
 from pathlib import Path
@@ -62,6 +64,28 @@ class LocalBackupTests(unittest.TestCase):
         safety_copies = list((Path(app.DATABASE).parent / "Backups").glob("align-pre-restore-*.sqlite3"))
         self.assertEqual(len(safety_copies), 1)
         self.assertTrue(safety_copies[0].read_bytes().startswith(b"SQLite format 3\x00"))
+
+    def test_restore_accepts_v3_backup_without_retired_shift_tables(self):
+        with tempfile.TemporaryDirectory() as directory:
+            candidate = Path(directory) / "align-v3.sqlite3"
+            with sqlite3.connect(candidate) as connection:
+                connection.executescript("""
+                    CREATE TABLE schema_migrations (migration_id TEXT PRIMARY KEY);
+                    CREATE TABLE settings (setting_key TEXT PRIMARY KEY, setting_value TEXT);
+                    CREATE TABLE personal_items (id TEXT PRIMARY KEY, kind TEXT, title TEXT);
+                    CREATE TABLE organiser_sections (id TEXT PRIMARY KEY, title TEXT);
+                """)
+            payload = candidate.read_bytes()
+
+        with patch("app.initialise_database_at"):
+            app.restore_local_database(app.DATABASE, payload)
+
+        with sqlite3.connect(app.DATABASE) as connection:
+            tables = {row[0] for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )}
+        self.assertTrue({"schema_migrations", "settings", "personal_items", "organiser_sections"} <= tables)
+        self.assertNotIn("shifts", tables)
 
     def test_restore_route_accepts_raw_backup_and_reports_safety_copy(self):
         with app.db_connection() as connection:
