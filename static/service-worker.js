@@ -247,7 +247,7 @@ self.addEventListener('notificationclick', event => {
 self.addEventListener('fetch', event => {
   const request = event.request;
     if (request.method !== 'GET') {
-      if(new URL(request.url).origin===self.location.origin && new URL(request.url).pathname.startsWith('/api/') && (['PUT','DELETE'].includes(request.method)||/^\/api\/(?:shifts|sections|annual-leave|personal\/refresh-travel)(?:\/|$)/.test(new URL(request.url).pathname))) {
+      if(new URL(request.url).origin===self.location.origin && new URL(request.url).pathname.startsWith('/api/') && (['PUT','DELETE'].includes(request.method)||/^\/api\/(?:sections|personal\/refresh-travel)(?:\/|$)/.test(new URL(request.url).pathname))) {
         event.respondWith((async()=>{const response=await fetch(request);if(response.ok)await caches.delete(API_CACHE);return response;})());
       }
       return;
@@ -257,7 +257,7 @@ self.addEventListener('fetch', event => {
   if (url.origin !== self.location.origin) return;
 
   if (url.pathname.startsWith('/api/')) {
-    const offlineSafe = url.pathname === '/api/bootstrap' || url.pathname === '/api/week' || url.pathname === '/api/month' || /^\/api\/sections\/\d+$/.test(url.pathname);
+    const offlineSafe = url.pathname === '/api/bootstrap' || url.pathname === '/api/month' || /^\/api\/sections\/\d+$/.test(url.pathname);
     if (offlineSafe) event.respondWith(networkFirstApi(request));
     else event.respondWith(fetch(request, { cache: 'no-store' }));
     return;
