@@ -708,40 +708,8 @@ function sectionEventModal(id = null) {
   if(event?.notes?.includes('[Align travel]'))journeyForm.journeySignature=journeyFormSignature(journeyForm);
 }
 
-function menuBranchModal(id = null) {
-  const item = id ? state.boot.master.branches.find(branch => branch.id === id) : { title: '', description: '', icon: '○', branch_type: 'note', content: '', active: 1, sort_order: 100 };
-  const types = [['profile', 'Your details'], ['work', 'Work Settings'], ['locations', 'Work locations'], ['colours', 'Colours'], ['alerts', 'Alerts'], ['calendar', 'Calendar'], ['note', 'Information only']];
-  modal(id ? 'Edit menu branch' : 'Add menu branch', `<form class="form-grid" data-form="menu-branch" data-id="${id || ''}"><div class="form-grid two"><div class="field"><label>Menu label</label><input name="title" required value="${escapeHtml(item.title)}" placeholder="e.g. Helpful links" /></div><div class="field"><label>Icon</label><input name="icon" maxlength="4" value="${escapeHtml(item.icon)}" placeholder="○" /></div></div><div class="field"><label>Short description</label><input name="description" value="${escapeHtml(item.description)}" placeholder="Shown below the label" /></div><div class="form-grid two"><div class="field"><label>What this branch shows</label><select name="branch_type">${types.map(([key, label]) => `<option value="${key}" ${item.branch_type === key ? 'selected' : ''}>${label}</option>`).join('')}</select></div><div class="field"><label>Menu order</label><input name="sort_order" type="number" step="10" value="${item.sort_order}" /></div></div><div class="field"><label>Information text</label><textarea name="content" placeholder="Used by Information only branches; line breaks are kept.">${escapeHtml(item.content)}</textarea></div><label class="switch-row"><span>Show in User Settings</span><input class="switch" name="active" type="checkbox" ${item.active ? 'checked' : ''}/></label><div class="apply-note">Profile, Work, Locations and Notifications use the corresponding user-editable screen. Choose Information only to add a custom message or menu option.</div><div class="modal-actions"><button type="button" class="secondary-button" data-action="close-modal">Cancel</button><button class="primary-button">Save menu branch</button></div></form>`);
-}
-function parentMenuBranchModal(id = null) {
-  const item = id ? state.boot.master.parents.find(branch => branch.id === id) : { title:'',description:'',icon:'○',destination:'note',content:'',active:1,sort_order:100,parent_id:null,colour:'#365CE6',locked:0,optional:1 };
-  const destinations=[['add','Add shifts'],['calendar','Schedule / Summary'],['settings','Settings'],['submenu','Submenu / folder'],['note','Information only']];
-  const folders=(state.boot.master.parents || []).filter(branch => branch.destination === 'submenu' && branch.id !== id);
-  modal(id ? 'Edit menu item' : 'Add menu item', `<form class="form-grid" data-form="parent-menu-branch" data-id="${id || ''}">
-    <div class="form-grid two"><div class="field"><label>Menu label</label><input name="title" required value="${escapeHtml(item.title)}" /></div><div class="field"><label>Icon</label><input name="icon" maxlength="4" value="${escapeHtml(item.icon)}" /></div></div>
-    <div class="field"><label>Short description</label><input name="description" value="${escapeHtml(item.description || '')}" /></div>
-    <div class="form-grid two"><div class="field"><label>When selected</label><select name="destination">${destinations.map(([k,l])=>`<option value="${k}" ${item.destination===k?'selected':''}>${l}</option>`).join('')}</select></div><div class="field"><label>Colour</label><input name="colour" type="color" value="${escapeHtml(item.colour || '#365CE6')}" /></div></div>
-    <div class="form-grid two"><div class="field"><label>Move inside</label><select name="parent_id"><option value="">Home / top level</option>${folders.map(f=>`<option value="${f.id}" ${Number(item.parent_id)===Number(f.id)?'selected':''}>${escapeHtml(f.title)}</option>`).join('')}</select></div><div class="field"><label>Order</label><input name="sort_order" type="number" step="10" value="${item.sort_order || 100}" /></div></div>
-    <div class="field"><label>Information text</label><textarea name="content">${escapeHtml(item.content || '')}</textarea></div>
-    <label class="switch-row"><span>Show in app</span><input class="switch" name="active" type="checkbox" ${item.active?'checked':''}/></label>
-    <label class="switch-row"><span>Locked default</span><input class="switch" name="locked" type="checkbox" ${item.locked?'checked':''}/></label>
-    <label class="switch-row"><span>Optional for testers</span><input class="switch" name="optional" type="checkbox" ${item.optional?'checked':''}/></label>
-    <p class="helper">New testers inherit this structure. Existing testers keep their personal sections and colours when you later change the default tree.</p>
-    <div class="modal-actions"><button type="button" class="secondary-button" data-action="close-modal">Cancel</button><button class="primary-button">Save menu item</button></div></form>`);
-}
-
-function submenuModal(id) {
-  const parent=state.boot.master.parents.find(branch=>branch.id===id); if(!parent) return;
-  const branches=childParentBranches(id), sections=childSections(id);
-  modal(parent.title, `<div class="quick-grid">${branches.map(branch=>`<button class="quick-action" data-action="parent-menu" data-id="${branch.id}" style="border-left:4px solid ${escapeHtml(branch.colour || '#365CE6')}"><b>${escapeHtml(branch.icon)}</b>${escapeHtml(branch.title)}<small>${escapeHtml(branch.description || '')}</small></button>`).join('')}${sections.map(section=>`<button class="quick-action organiser-section-tile" data-action="open-section" data-id="${section.id}" style="border-left:4px solid ${escapeHtml(section.colour)}"><b>${escapeHtml(section.icon)}</b>${escapeHtml(section.name)}<small>${escapeHtml(section.description || '')}</small></button>`).join('')}${!branches.length&&!sections.length?'<p class="helper">Nothing has been added here yet.</p>':''}</div><div class="modal-actions"><button class="primary-button" data-action="close-modal">Done</button></div>`);
-}
 function alignFeedbackModal(){ modal('Send feedback to Align', `<form class="form-grid" data-form="align-feedback"><div class="field"><label>Type</label><select name="type"><option value="problem">Problem</option><option value="idea">Idea</option><option value="general">General feedback</option></select></div><div class="field"><label>What would you like us to know?</label><textarea name="message" required maxlength="4000" rows="7"></textarea></div><p class="helper">Align build ${BUILD_VERSION} and the current screen can be included. Your planner/calendar content is not attached automatically.</p><div class="modal-actions"><button type="button" class="secondary-button" data-action="close-modal">Cancel</button><button class="primary-button">Send feedback</button></div></form>`); }
 
-function parentInfoModal(id) {
-  const item = state.boot.master.parents.find(branch => branch.id === id);
-  if (!item) return;
-  modal(item.title, `<div class="info-card"><p class="helper">${escapeHtml(item.description)}</p><p>${escapeHtml(item.content || 'No information has been added to this menu branch yet.').replace(/\n/g, '<br>')}</p><div class="modal-actions"><button class="primary-button" data-action="close-modal">Done</button></div></div>`);
-}
 async function searchAddresses(input) {
   const target = input.dataset.addressTarget;
   const results = document.querySelector(`[data-address-results="${target}"]`);
