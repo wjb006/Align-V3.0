@@ -130,6 +130,34 @@ class StartupTests(unittest.TestCase):
             validate.assert_called_once()
             connect.return_value.__enter__.return_value.executescript.assert_not_called()
 
+    def test_hosted_readiness_does_not_require_retired_shift_tables(self):
+        class RecordingConnection:
+            def __init__(self, count_result):
+                self.statements = []
+                self.count_result = count_result
+
+            def execute(self, statement, *args):
+                self.statements.append(statement)
+                result = MagicMock()
+                if "COUNT(*) FROM beta_users" in statement:
+                    result.fetchone.return_value = (1,)
+                elif "COUNT(*) FROM personal_items" in statement:
+                    result.fetchone.return_value = (0,)
+                else:
+                    result.fetchone.return_value = (self.count_result,)
+                return result
+
+        auth = RecordingConnection(0)
+        owner = RecordingConnection(0)
+        auth_context = MagicMock()
+        auth_context.__enter__.return_value = auth
+        owner_context = MagicMock()
+        owner_context.__enter__.return_value = owner
+        with patch("postgres_support.connect", side_effect=[auth_context, owner_context]):
+            pg.verify_hosted_storage()
+        self.assertFalse(any("shifts" in statement for statement in owner.statements))
+        self.assertTrue(any("COUNT(*) FROM personal_items" in statement for statement in owner.statements))
+
     def test_tester_routes_fail_clearly(self):
         store = BetaStore.__new__(BetaStore)
         store.owner_database = Path('align.sqlite3')
