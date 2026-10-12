@@ -7,7 +7,7 @@ import sqlite3
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
-from work_setup import colour as valid_colour
+from colour_utils import colour as valid_colour
 
 
 def rows_as_dicts(cursor: sqlite3.Cursor) -> list[dict]:

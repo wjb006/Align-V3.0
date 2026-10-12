@@ -322,16 +322,6 @@ def validate_v3_storage(c):
     c.execute('SELECT id, source_id, event_uid, start_at, end_at, title, all_day, location FROM calendar_events LIMIT 0')
 
 
-def validate_planner(c):
-    """Validate the compatibility-era schema, including legacy schedule tables."""
-    validate_v3_storage(c)
-    for table in ('shifts', 'shift_templates', 'locations', 'shift_types',
-                  'location_shift_types', 'annual_leave', 'alert_rules', 'alerts',
-                  'calendar_sync_state', 'shift_batches'):
-        c.execute(f'SELECT * FROM {table} LIMIT 0')
-    c.execute('SELECT applicable_days, sub_shift_type FROM shift_templates LIMIT 0')
-
-
 def verify_hosted_storage():
     """Real data queries in both schemas, before the server announces readiness."""
     with connect('beta_users.sqlite3') as c:

@@ -229,7 +229,9 @@
 - [x] Added fresh-schema startup and tester-provisioning integration tests; updated the hosted CI preflight to require the fresh schema and reject any legacy schedule tables.
 - [x] Removed unreachable location/shift-type/template Admin write handlers and their validation helpers; legacy endpoints remain 404 before database access.
 - [x] Added `schema_v3.sqlite.sql` for new local databases; legacy SQLite databases containing any schedule tables stay on the preservation path. V3 settings omit shift-specific defaults.
-- [x] Removed shift-table reads from personal planner availability, Home bootstrap, Travel refresh, iCloud sync and calendar/admin compatibility responses; routed the old Admin URL to Management Studio and bumped the offline asset cache to v43.
+- [x] Removed shift-table reads from personal planner availability, Home bootstrap, Travel refresh, iCloud sync, onward-travel selection and calendar/admin compatibility responses; routed the old Admin URL to Management Studio and bumped the offline asset cache to v43.
+- [x] Removed the active app's imports of the retired work-pattern module and the obsolete hosted legacy-schema validator; shared colour validation now lives in `colour_utils.py`.
+- [x] Updated the Windows installer to verify the retained V3 schema instead of requiring retired schedule tables; backup validation recognises legacy data without requiring it for V3 backups.
 - [ ] Verify the latest source commit through GitHub Actions. Runs after `153f4ef2` are currently failing before any job steps start, with no logs available; the latest source-level green hosted run predates the fresh-schema test and is not final acceptance.
-- [ ] Finish the remaining static reference audit for backup/restore and remove unreachable legacy helper code where safe; keep compatibility data intact.
+- [ ] Finish the static reference audit for the legacy Scriptable shift widget, unused schedule helper functions, and older installation/upgrade documentation; keep compatibility data intact.
 - [ ] Provision and verify the dedicated Neon schema, Render V3 service/secrets, and persistent object storage only after CI and release gates pass. Existing Align-App service and DNS remain untouched.

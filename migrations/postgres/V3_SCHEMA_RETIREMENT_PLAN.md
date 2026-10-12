@@ -33,10 +33,10 @@ Do not simply remove tables from `schema.sql` or the PostgreSQL fixture while th
 ## Safe implementation sequence
 
 1. **Inventory references:** public schedule APIs are guarded before database access; Travel no longer lists shift records; remaining SQLite/iCloud/backup compatibility references still require the full audit below. Keep classifying hits as active V3, compatibility-only, or retired.
-2. **Retire entry points:** schedule endpoints return 404 before database access; the dead location/shift-type/template Admin handlers and their validation helpers have been removed. Continue the broader reference audit before deleting remaining compatibility code.
+2. **Retire entry points:** schedule endpoints return 404 before database access; the dead location/shift-type/template Admin handlers and their validation helpers have been removed. The active app no longer imports `work_setup.py`; shared colour validation now lives in `colour_utils.py`. Remaining legacy planner functions and scripts are compatibility-only and are being reviewed separately.
 3. **Decouple startup:** hosted PostgreSQL startup is validation-only and performs no schema DDL. Calendar location and persistent Travel tables are provisioned by explicit migration 153. Fresh local SQLite databases now use `schema_v3.sqlite.sql` without schedule tables or legacy seeding; only existing SQLite databases containing legacy schedule tables use the preservation compatibility path.
 4. **Build a fresh V3 PostgreSQL schema:** added `migrations/postgres/fresh_v3_schema.sql` from the retained V3 table families, with separate auth/owner schemas and no schedule-planner tables. New tester schemas now use this clean DDL; the legacy `bootstrap.sql` is retained only for compatibility tests.
-5. **Dual-fixture testing:** added isolated PostgreSQL startup/personal-item tests against a schema with no schedule tables, a tester-schema provisioning test, and a fresh local SQLite schema test. The compatibility fixture/test continues to prove legacy-row preservation. GitHub Actions must complete these tests before this gate is marked accepted.
+5. **Dual-fixture testing:** added isolated PostgreSQL startup/personal-item tests against a schema with no schedule tables, a tester-schema provisioning test, a fresh local SQLite schema test, and Travel lookup tests without schedule tables. The compatibility fixture/test continues to prove legacy-row preservation. GitHub Actions must complete these tests before this gate is marked accepted.
 6. **Preflight and release:** `HOSTED_SCHEMA_PREFLIGHT.sql` now targets the fresh V3 schema and checks migration 153 plus absence of retired tables. `HOSTED_SCHEMA_PREFLIGHT_COMPATIBILITY.sql` retains the legacy table/data-count checks for upgrade rehearsals. Do not interpret either as live Neon acceptance.
 7. **Live rollout:** only after external Neon/Render/R2 credentials are configured, verify login, user isolation, persistence across redeploy, backup/restore, offline sync and mobile PWA update. Keep the existing Render service and domain DNS untouched until all gates pass.
 
@@ -59,3 +59,8 @@ Do not simply remove tables from `schema.sql` or the PostgreSQL fixture while th
 - Added the shift-free `fresh_v3_schema.sql`, switched tester-schema provisioning to it, and updated the CI preflight to install and check that schema.
 - Removed the unreachable legacy schedule Admin handlers while keeping public legacy routes as explicit 404s.
 - Acceptance is still pending: latest GitHub Actions runs on commits after `153f4ef2` failed before starting any steps (zero steps and no job logs). Re-run the full CI matrix once GitHub Actions accepts jobs; do not treat these infrastructure-level failures as a code pass or a test failure.
+
+
+### Additional legacy isolation
+
+- On 2026-10-12, the active app's remaining `work_setup.py` imports were replaced by a small shared colour validator, and the obsolete hosted `validate_planner()` entrypoint was removed. The Travel event selector now reads only organiser/imported-calendar tables and rejects legacy shift targets. The Windows installer verifies retained V3 tables rather than requiring schedule tables. Existing backups still retain any legacy data; restore does not drop or rewrite those rows.

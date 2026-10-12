@@ -7,7 +7,7 @@ import sqlite3
 from http import HTTPStatus
 from urllib.parse import urlparse
 
-from work_setup import colour as valid_colour
+from colour_utils import colour as valid_colour
 
 BRANCH_TYPES = {"profile", "work", "locations", "alerts", "calendar", "colours", "note"}
 PARENT_DESTINATIONS = {"add", "calendar", "settings", "note", "submenu"}
