@@ -664,7 +664,7 @@ function sectionModal(id = null) {
   const item = id ? state.boot.sections.find(section => section.id === id) : { name:'',description:'',icon:'•',colour:'#365CE6',calendar_id:'',import_enabled:1,export_enabled:1,sort_order:100,parent_branch_id:null };
   if (!item) return;
   const calendars = state.boot.icloud_public?.calendars || [];
-  const folders = (state.boot.master.parents || []).filter(branch => branch.active && branch.destination === 'submenu');
+  const folders = (state.boot.navigation?.parents || []).filter(branch => branch.active && branch.destination === 'submenu');
   modal(id ? 'Edit section' : 'Add section', `<form class="form-grid" data-form="organiser-section" data-id="${id || ''}">
     <div class="form-grid two"><div class="field"><label>Section name</label><input name="name" required value="${escapeHtml(item.name)}" placeholder="e.g. Appointments" /></div><div class="field"><label>Icon</label><input name="icon" maxlength="4" value="${escapeHtml(item.icon || '•')}" /></div></div>
     <div class="field"><label>Description</label><input name="description" value="${escapeHtml(item.description || '')}" placeholder="What belongs here?" /></div>
