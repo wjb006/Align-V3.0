@@ -19,7 +19,7 @@ class PushTests(unittest.TestCase):
     def setUp(self):
         self.c = sqlite3.connect(':memory:')
         self.c.row_factory = sqlite3.Row
-        self.c.executescript('CREATE TABLE settings(setting_key TEXT PRIMARY KEY,setting_value TEXT); CREATE TABLE personal_items(id TEXT,kind TEXT,due_at TEXT,done INTEGER); CREATE TABLE alerts(id INTEGER,alert_at TEXT,status TEXT);')
+        self.c.executescript('CREATE TABLE settings(setting_key TEXT PRIMARY KEY,setting_value TEXT); CREATE TABLE personal_items(id TEXT,kind TEXT,due_at TEXT,done INTEGER); ')
         self.now = datetime(2026, 9, 28, 12, 0, tzinfo=timezone.utc)
         self.sub = subscription()
         push.subscribe(self.c, self.sub, self.now - timedelta(hours=2))
@@ -63,9 +63,11 @@ class PushTests(unittest.TestCase):
         push.save(self.c, 'notifications', '0')
         self.assertEqual(push.dispatch(self.c, self.now, self.send)['sent'], 0)
 
-    def test_work_alert(self):
-        self.c.execute("INSERT INTO alerts VALUES(1,'2026-09-28T12:59','pending')")
-        self.assertEqual(push.dispatch(self.c, self.now, self.send)['sent'], 2)
+    def test_personal_reminders_work_without_legacy_alerts_table(self):
+        self.assertFalse(self.c.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='alerts'"
+        ).fetchone())
+        self.assertEqual(push.dispatch(self.c, self.now, self.send)['sent'], 1)
 
     def test_provider_allowlist(self):
         for endpoint in ['http://web.push.apple.com/test', 'https://localhost/test', 'https://web.push.apple.com.evil.test/test', 'https://web.push.apple.com:444/test', 'https://a@web.push.apple.com/test', 'https://127.0.0.1/test']:
