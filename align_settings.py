@@ -20,10 +20,10 @@ def _stored_number(values: dict, key: str, default: str = "0") -> float:
 def _has_legacy_schedule(connection) -> bool:
     if postgres_enabled():
         return bool(connection.execute(
-            "SELECT 1 FROM information_schema.tables WHERE table_schema=current_schema() AND table_name='shifts'"
+            "SELECT 1 FROM information_schema.tables WHERE table_schema=current_schema() AND table_name IN ('shifts','shift_templates','shift_types','locations','annual_leave','alert_rules','alerts','shift_batches')"
         ).fetchone())
     return bool(connection.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='shifts'"
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name IN ('shifts','shift_templates','shift_types','locations','annual_leave','alert_rules','alerts','shift_batches') LIMIT 1"
     ).fetchone())
 
 

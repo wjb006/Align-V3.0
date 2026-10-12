@@ -269,7 +269,9 @@ def initialise_database_at(database: Path) -> None:
     if database.exists() and database.stat().st_size:
         with sqlite3.connect(str(database)) as probe:
             legacy_schema = bool(probe.execute(
-                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='shifts'"
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name IN "
+                "('shifts','shift_templates','shift_types','locations','location_shift_types',"
+                "'annual_leave','alert_rules','alerts','shift_batches') LIMIT 1"
             ).fetchone())
     if not legacy_schema:
         schema = (ROOT / "schema_v3.sqlite.sql").read_text(encoding="utf-8")
