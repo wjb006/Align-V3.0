@@ -14,28 +14,9 @@ ENTITY_TYPES = {"location", "event_title", "event_location", "section"}
 CONTACT_MAX_NAME = 160
 CONTACT_MAX_ADDRESS = 500
 CONTACT_MAX_PHONE = 80
-CONTACT_SCHEMA = """CREATE TABLE IF NOT EXISTS align_contacts (id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,address TEXT NOT NULL DEFAULT '',phone TEXT NOT NULL DEFAULT '',notes TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL,updated_at TEXT NOT NULL,UNIQUE(name,address,phone))"""
 MAX_LABEL = 160
 MAX_VALUE = 1000
 
-def ensure(connection):
-    connection.execute("""
-        CREATE TABLE IF NOT EXISTS user_favourites (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            entity_type TEXT NOT NULL,
-            entity_key TEXT NOT NULL,
-            label TEXT NOT NULL,
-            value TEXT NOT NULL DEFAULT '',
-            metadata_json TEXT NOT NULL DEFAULT '{}',
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            UNIQUE(entity_type, entity_key)
-        )
-    """)
-    connection.execute(
-        "CREATE INDEX IF NOT EXISTS idx_user_favourites_type_updated "
-        "ON user_favourites(entity_type, updated_at DESC)"
-    )
 
 def _clean(value, limit):
     return str(value or "").strip()[:limit]
@@ -135,7 +116,7 @@ def handle(handler, app, method):
             return True
         if path == "/api/contacts" and method == "GET":
             with app.db_connection() as connection:
-                connection.execute(CONTACT_SCHEMA)
+
                 rows = _contact_rows(connection)
             handler.send_json(200, {"contacts": rows, "build": app.BUILD_VERSION})
             return True
@@ -146,7 +127,7 @@ def handle(handler, app, method):
                 return True
             values = _contact_payload(handler.rfile.read(length))
             with app.db_connection() as connection:
-                connection.execute(CONTACT_SCHEMA)
+
                 row = _save_contact(connection, values)
                 connection.commit()
             handler.send_json(200, {"contact": row, "saved": bool(row)})
@@ -158,7 +139,7 @@ def handle(handler, app, method):
                 return True
             values = _contact_payload(handler.rfile.read(length))
             with app.db_connection() as connection:
-                connection.execute(CONTACT_SCHEMA)
+
                 try:
                     row = _update_contact(connection, int(contact_match.group(1)), values)
                 except sqlite3.IntegrityError:
@@ -182,7 +163,7 @@ def handle(handler, app, method):
 
     if method == "GET":
         with app.db_connection() as connection:
-            ensure(connection)
+
             rows = _rows(connection)
         for row in rows:
             try:
@@ -205,7 +186,7 @@ def handle(handler, app, method):
     entity_type, entity_key, label, value, metadata, active = _payload(raw)
 
     with app.db_connection() as connection:
-        ensure(connection)
+
         if active:
             now = datetime.now(timezone.utc).isoformat(timespec="seconds")
             connection.execute(
