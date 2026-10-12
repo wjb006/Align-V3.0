@@ -315,7 +315,8 @@ def validate_v3_storage(c):
                   'menu_branches', 'builder_config', 'builder_records', 'calendar_links',
                   'section_defs', 'section_fields', 'icloud_config', 'icloud_items', 'calendar_sync_state',
                   'assets', 'asset_categories', 'asset_variants', 'asset_usage_rules',
-                  'asset_audit_log', 'transport_preferences', 'transport_journey_cache'):
+                  'asset_audit_log', 'transport_preferences', 'transport_journey_cache',
+                  'user_favourites', 'align_contacts'):
         c.execute(f'SELECT * FROM {table} LIMIT 0')
     c.execute('SELECT layout_json FROM section_defs LIMIT 0')
     c.execute('SELECT calendar_id, calendar_event_id FROM personal_items LIMIT 0')
