@@ -237,7 +237,7 @@ def connect(path):
 
 
 def _bootstrap_statements():
-    source = Path(__file__).resolve().parent / 'migrations' / 'postgres' / 'bootstrap.sql'
+    source = Path(__file__).resolve().parent / 'migrations' / 'postgres' / 'fresh_v3_schema.sql'
     pending = ''
     for char in source.read_text(encoding='utf-8-sig'):
         pending += char
@@ -251,7 +251,7 @@ def _bootstrap_statements():
 
 
 def provision_tester_schema(path):
-    """Create an empty per-tester schema from the reviewed static PostgreSQL DDL."""
+    """Create an empty per-tester schema from the reviewed fresh V3 PostgreSQL DDL."""
     schema = schema_for(path)
     if not schema.startswith('align_tester_'):
         raise RuntimeError('Only a tester schema can be provisioned by this operation.')
@@ -311,7 +311,7 @@ def validate_v3_storage(c):
     for table in ('settings', 'personal_items', 'calendar_sources', 'calendar_events',
                   'organiser_sections', 'organiser_events', 'parent_menu_branches',
                   'menu_branches', 'builder_config', 'builder_records', 'calendar_links',
-                  'section_defs', 'section_fields', 'icloud_config', 'icloud_items',
+                  'section_defs', 'section_fields', 'icloud_config', 'icloud_items', 'calendar_sync_state',
                   'assets', 'asset_categories', 'asset_variants', 'asset_usage_rules',
                   'asset_audit_log', 'transport_preferences', 'transport_journey_cache'):
         c.execute(f'SELECT * FROM {table} LIMIT 0')
