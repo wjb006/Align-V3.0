@@ -228,6 +228,8 @@
 - [x] Added `migrations/postgres/fresh_v3_schema.sql` with no legacy schedule-planner tables; new tester schemas use this DDL while `bootstrap.sql` remains a legacy compatibility snapshot.
 - [x] Added fresh-schema startup and tester-provisioning integration tests; updated the hosted CI preflight to require the fresh schema and reject any legacy schedule tables.
 - [x] Removed unreachable location/shift-type/template Admin write handlers and their validation helpers; legacy endpoints remain 404 before database access.
+- [x] Added `schema_v3.sqlite.sql` for new local databases; legacy SQLite databases containing any schedule tables stay on the preservation path. V3 settings omit shift-specific defaults.
+- [x] Removed shift-table reads from personal planner availability, Home bootstrap, Travel refresh, iCloud sync and calendar/admin compatibility responses; routed the old Admin URL to Management Studio and bumped the offline asset cache to v43.
 - [ ] Verify the latest source commit through GitHub Actions. Runs after `153f4ef2` are currently failing before any job steps start, with no logs available; the latest source-level green hosted run predates the fresh-schema test and is not final acceptance.
-- [ ] Complete the remaining reference audit for local SQLite initialization, iCloud sync, backup/restore, and any legacy schedule compatibility code; preserve existing rows until an explicit retention decision.
+- [ ] Finish the remaining static reference audit for backup/restore and remove unreachable legacy helper code where safe; keep compatibility data intact.
 - [ ] Provision and verify the dedicated Neon schema, Render V3 service/secrets, and persistent object storage only after CI and release gates pass. Existing Align-App service and DNS remain untouched.

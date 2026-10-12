@@ -10,6 +10,10 @@ The older `bootstrap.sql` is a metadata-only compatibility snapshot retained for
 
 The Owner account is created at startup from the private `ALIGN_PREVIEW_PASSWORD` setting. New tester invitations create a separate `align_tester_<user-id>` schema from the same reviewed fresh V3 DDL. Public request data never determines SQL statements or table names.
 
+## Local SQLite development
+
+New local databases use the shift-free `schema_v3.sqlite.sql` and do not run legacy shift seeding or triggers. An existing SQLite file that contains any legacy schedule table remains on the compatibility initializer so its stored records are preserved. Active V3 Home, availability, Travel refresh, calendar, and iCloud sync flows no longer query those retired tables.
+
 ## Existing hosted schemas
 
 For an existing schema that needs the newer retained features, apply `150_calendar_links.postgres.sql`, `151_sections.postgres.sql`, `152_personal_item_calendars.postgres.sql`, and `153_hosted_travel_and_calendar_location.postgres.sql` with the target schema on the PostgreSQL `search_path`. Repeat for the Owner schema and each tester schema as applicable. These are explicit provisioning steps; the running application never creates or alters hosted tables. Migration 153 adds the imported-event destination column and persistent Travel tables, and seeds default Travel preferences without dropping or truncating data.
