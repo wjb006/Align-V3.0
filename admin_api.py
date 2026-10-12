@@ -86,11 +86,6 @@ def handle(handler, app, method, connection=None, payload=None) -> bool:
     if method == "GET" and path == "/api/admin/status":
         handler.send_json(200, {"password_required": bool(app.ADMIN_PASSWORD) if not app.BETA_MODE else False, "authenticated": handler.is_admin(), "beta": app.BETA_MODE})
         return True
-    if method == "GET" and path == "/api/master":
-        if not _require(handler):
-            return True
-        handler.send_json(200, app.master_data(connection, include_inactive=True))
-        return True
     if method == "POST" and path == "/api/admin/login":
         if app.ADMIN_PASSWORD and not secrets.compare_digest(str(payload.get("password", "")), app.ADMIN_PASSWORD):
             handler.send_json(HTTPStatus.UNAUTHORIZED, {"error": "That admin password is not correct."})
