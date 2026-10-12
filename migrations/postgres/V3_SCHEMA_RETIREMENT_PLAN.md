@@ -5,15 +5,15 @@
 
 ## Why this is a release gate
 
-The user-facing V3 flow has retired the schedule endpoints, but the source and hosted schema are not yet shift-free. A fresh V3 database cannot safely be declared ready while startup still expects shift-era tables. The current PostgreSQL bootstrap is a metadata-only fixture copied from the previous schema, not a production provisioning migration.
+The user-facing V3 flow and fresh PostgreSQL/SQLite schemas are now shift-free. Hosted startup validates only retained V3 tables, and new local databases use the clean SQLite schema. Legacy compatibility code and the original schema snapshots remain for preservation of existing installations; they are not used as fresh V3 provisioning sources. CI acceptance is currently blocked because GitHub Actions jobs terminate before any steps start and expose no logs.
 
 Verified current dependencies:
-- `app.py::initialise_database_at` calls `postgres_support.validate_planner()` in PostgreSQL mode. In SQLite mode it still creates schedule-change triggers, migrates `shift_templates`, seeds Work/shift menu entries, and invokes `rebuild_shift_alerts()`.
-- `postgres_support.py::validate_planner()` currently queries `shifts`, `shift_templates`, `locations`, `shift_types`, `location_shift_types`, `annual_leave`, `alert_rules`, `alerts`, and `shift_batches` in addition to V3 organiser, calendar, personal-item, and Studio tables.
-- `admin_api.py` imports shift-pattern and location-category helpers from `work_setup.py`; these are legacy management surfaces and must be disconnected from active routes before the fresh schema can omit their tables.
-- Existing regression `test_retired_shift_api.py` proves schedule endpoints return 404 and that SQLite reinitialisation retains legacy shift/leave rows. Keep and extend that data-preservation guarantee.
-- The old schedule table family includes `locations`, `shift_types`, `location_shift_types`, `shift_templates`, `shifts`, `shift_batches`, `annual_leave`, `alert_rules`, and `alerts`. Some are connected by foreign keys, so dropping them individually is unsafe.
-
+- `app.py::initialise_database_at` validates the active V3 model in PostgreSQL mode. Fresh SQLite files use `schema_v3.sqlite.sql`; files containing legacy schedule tables remain on a compatibility path that preserves their rows and does not reseed or rewrite schedule data.
+- `postgres_support.validate_v3_storage()` validates retained V3 tables and columns only. The obsolete `validate_planner()` entrypoint has been removed.
+- Active Home, personal availability, Travel lookup/refresh, iCloud sync, phone push, calendar export, and the Scriptable widget no longer query the legacy schedule tables. Offline legacy shift batches already stored in IndexedDB are retained locally but are not replayed to V3.
+- Public shift/leave/work-setup APIs are rejected before opening storage. The legacy Admin URL redirects to Management Studio. Unused `static/week-planner.js` and `static/work-setup.js` files have been removed.
+- Existing legacy schedule/leave records are still covered by a preservation regression; no table drops, truncations, or live database changes were performed.
+- The legacy table family remains in `schema.sql` and `migrations/postgres/bootstrap.sql` solely for compatibility/recovery paths. Fresh V3 schemas deliberately omit it.
 ## Target table families
 
 ### Keep in a fresh V3 schema
@@ -22,7 +22,7 @@ Verified current dependencies:
 - Personal organiser: `settings`, `personal_items`, `menu_branches`, `parent_menu_branches`, `organiser_sections`, `organiser_events`, `calendar_links`, `calendar_sources`, `calendar_events`, `calendar_sync_state`, `icloud_config`, `icloud_items`.
 - Configurable Studio/database forms: `builder_config`, `builder_records`, `section_defs`, `section_fields`.
 - Asset Studio: `assets`, `asset_categories`, `asset_variants`, `asset_usage_rules`, `asset_audit_log`.
-- Transport tables only where the retained V3 transport integration actually uses them; validate this dependency separately before excluding any.
+- Transport tables: `transport_preferences` and `transport_journey_cache` are retained because the V3 Travel integration actively uses them.
 
 ### Legacy schedule family
 
@@ -32,12 +32,12 @@ Do not simply remove tables from `schema.sql` or the PostgreSQL fixture while th
 
 ## Safe implementation sequence
 
-1. **Inventory references:** public schedule APIs are guarded before database access; Travel no longer lists shift records; remaining SQLite/iCloud/backup compatibility references still require the full audit below. Keep classifying hits as active V3, compatibility-only, or retired.
+1. **Inventory references:** public APIs, Home/availability, Travel, iCloud, phone push, backup validation, offline outbox, and Scriptable widget have been audited for active shift-table queries. Remaining shift-named helper functions in `app.py` and legacy schemas are compatibility-only and are the next cleanup target.
 2. **Retire entry points:** schedule endpoints return 404 before database access; the dead location/shift-type/template Admin handlers and their validation helpers have been removed. The active app no longer imports `work_setup.py`; shared colour validation now lives in `colour_utils.py`. Remaining legacy planner functions and scripts are compatibility-only and are being reviewed separately.
 3. **Decouple startup:** hosted PostgreSQL startup is validation-only and performs no schema DDL. Calendar location and persistent Travel tables are provisioned by explicit migration 153. Fresh local SQLite databases now use `schema_v3.sqlite.sql` without schedule tables or legacy seeding; only existing SQLite databases containing legacy schedule tables use the preservation compatibility path.
 4. **Build a fresh V3 PostgreSQL schema:** added `migrations/postgres/fresh_v3_schema.sql` from the retained V3 table families, with separate auth/owner schemas and no schedule-planner tables. New tester schemas now use this clean DDL; the legacy `bootstrap.sql` is retained only for compatibility tests.
 5. **Dual-fixture testing:** added isolated PostgreSQL startup/personal-item tests against a schema with no schedule tables, a tester-schema provisioning test, a fresh local SQLite schema test, and Travel lookup tests without schedule tables. The compatibility fixture/test continues to prove legacy-row preservation. GitHub Actions must complete these tests before this gate is marked accepted.
-6. **Preflight and release:** `HOSTED_SCHEMA_PREFLIGHT.sql` now targets the fresh V3 schema and checks migration 153 plus absence of retired tables. `HOSTED_SCHEMA_PREFLIGHT_COMPATIBILITY.sql` retains the legacy table/data-count checks for upgrade rehearsals. Do not interpret either as live Neon acceptance.
+6. **Preflight and release:** `HOSTED_SCHEMA_PREFLIGHT.sql` targets the fresh V3 schema and checks migration 153 plus absence of retired tables. `HOSTED_SCHEMA_PREFLIGHT_COMPATIBILITY.sql` retains legacy table/data-count checks for upgrade rehearsals. GitHub Actions currently terminates before job steps, so neither the latest code nor the live Neon environment is accepted yet.
 7. **Live rollout:** only after external Neon/Render/R2 credentials are configured, verify login, user isolation, persistence across redeploy, backup/restore, offline sync and mobile PWA update. Keep the existing Render service and domain DNS untouched until all gates pass.
 
 ## Acceptance criteria
@@ -64,3 +64,6 @@ Do not simply remove tables from `schema.sql` or the PostgreSQL fixture while th
 ### Additional legacy isolation
 
 - On 2026-10-12, the active app's remaining `work_setup.py` imports were replaced by a small shared colour validator, and the obsolete hosted `validate_planner()` entrypoint was removed. The Travel event selector now reads only organiser/imported-calendar tables and rejects legacy shift targets. The Windows installer verifies retained V3 tables rather than requiring schedule tables. Existing backups still retain any legacy data; restore does not drop or rewrite those rows.
+
+
+- Further 12 October cleanup: phone push now reads only personal reminders; the offline store no longer creates/replays shift batches but preserves previously queued entries; the Scriptable widget and guide now use the V3 event feed; retired week-planner and fixed work-setup client files were removed; the Windows installer verifies retained V3 tables.
