@@ -268,6 +268,7 @@ def provision_tester_schema(path):
                 if statement.startswith('CREATE TABLE align_owner.') or statement.startswith('ALTER TABLE align_owner.'):
                     cursor.execute(statement.replace('align_owner.', sql.Identifier(schema).as_string(raw) + '.'))
             cursor.execute(sql.SQL('INSERT INTO {}.transport_preferences(id) VALUES (1) ON CONFLICT(id) DO NOTHING').format(sql.Identifier(schema)))
+            cursor.execute(sql.SQL('INSERT INTO {}.icloud_config(id,instance_id) VALUES (1,md5(random()::text || clock_timestamp()::text)) ON CONFLICT(id) DO NOTHING').format(sql.Identifier(schema)))
             cursor.execute(sql.SQL('INSERT INTO {}.calendar_sync_state(id,revision,modified_at) VALUES (1,0,CURRENT_TIMESTAMP) ON CONFLICT(id) DO NOTHING').format(sql.Identifier(schema)))
             cursor.execute(sql.SQL("""INSERT INTO {}.schema_migrations(migration_id,applied_at)
                 VALUES('149_asset_studio',CURRENT_TIMESTAMP),('149_transport',CURRENT_TIMESTAMP),

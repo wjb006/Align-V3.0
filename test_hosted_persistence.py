@@ -247,6 +247,7 @@ class PostgresIntegrationTests(unittest.TestCase):
                 self.assertTrue({'personal_items', 'organiser_events', 'section_defs',
                                  'assets', 'asset_audit_log', 'transport_preferences',
                                  'transport_journey_cache'} <= tables)
+                self.assertEqual(raw.execute(f'SELECT COUNT(*) FROM {schema}.icloud_config WHERE id=1').fetchone()[0], 1)
                 raw.execute(
                     f"INSERT INTO {schema}.personal_items(id,kind,title) VALUES (%s,%s,%s)",
                     ('fresh-v3-test', 'note', 'Fresh schema works'))

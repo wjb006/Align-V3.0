@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS transport_preferences (
 );
 INSERT INTO transport_preferences(id) VALUES (1) ON CONFLICT(id) DO NOTHING;
 INSERT INTO calendar_sync_state(id,revision,modified_at) VALUES (1,0,CURRENT_TIMESTAMP) ON CONFLICT(id) DO NOTHING;
+INSERT INTO icloud_config(id,instance_id) VALUES (1,md5(random()::text || clock_timestamp()::text)) ON CONFLICT(id) DO NOTHING;
 CREATE TABLE IF NOT EXISTS transport_journey_cache (
     event_key TEXT PRIMARY KEY,
     payload TEXT NOT NULL,
