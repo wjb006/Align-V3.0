@@ -141,7 +141,7 @@ const AlignOffline = (() => {
     let flushed = 0;
     for (const item of await listOutbox()) {
       // Do not send retired shift batches to the V3 API or discard them silently.
-      // They stay in local IndexedDB for explicit recovery/export.
+      // They stay in local IndexedDB and are never removed automatically.
       if (item.kind === 'shift-batch') continue;
       try {
         await send(item.path, { method: item.method, body: item.body });
