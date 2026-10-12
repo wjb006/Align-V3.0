@@ -37,6 +37,20 @@ jobs:
             echo "Schema preflight reported missing tables or columns."
             exit 1
           fi
+          if grep -Eq '^legacy_table_.*\|1          for marker in 149_asset_studio 149_transport 150_calendar_links 151_sections 152_personal_item_calendars 153_hosted_travel_and_calendar_location; do
+            if ! grep -Fxq "${marker}|1" /tmp/align-schema-preflight.txt; then
+              echo "Expected exactly one migration marker for ${marker}."
+              exit 1
+            fi
+          done
+      - name: Local SQLite regressions and hosted Postgres integration
+        env:
+          ALIGN_TEST_POSTGRES_URL: postgresql://align_test:local_test_only@127.0.0.1:5432/align_persistence_test
+        run: python -m pytest -q
+ /tmp/align-schema-preflight.txt; then
+            echo "Fresh V3 schema unexpectedly contains a retired schedule table."
+            exit 1
+          fi
           for marker in 149_asset_studio 149_transport 150_calendar_links 151_sections 152_personal_item_calendars 153_hosted_travel_and_calendar_location; do
             if ! grep -Fxq "${marker}|1" /tmp/align-schema-preflight.txt; then
               echo "Expected exactly one migration marker for ${marker}."

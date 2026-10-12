@@ -1,6 +1,6 @@
 # Align V3.0 fresh-schema and legacy schedule retirement plan
 
-**Status:** planning baseline; not an applied migration.  
+**Status:** fresh-schema implementation added; CI acceptance and live rollout remain pending.  
 **Safety rule:** do not drop, truncate, rename, or overwrite existing schedule tables/data as part of V3.0 launch preparation.
 
 ## Why this is a release gate
@@ -32,12 +32,12 @@ Do not simply remove tables from `schema.sql` or the PostgreSQL fixture while th
 
 ## Safe implementation sequence
 
-1. **Inventory references:** search route dispatch, startup, imports, background jobs, calendar/iCloud sync, backup/restore, offline cache, widget, Studio, installer and tests. Classify each hit as active V3, compatibility-only, or retired.
-2. **Retire entry points:** keep schedule endpoints returning 404; remove schedule UI/menu/default prompts and prevent legacy Admin routes from loading. Remove imports only when no active route calls them.
-3. **Decouple startup:** split V3 schema validation from legacy schedule validation. Remove shift seeding/triggers/rebuild logic from the fresh-install path, while leaving existing SQLite legacy rows untouched.
-4. **Build a fresh V3 PostgreSQL schema:** derive it from active V3 table/column requirements and reviewed PostgreSQL migrations, not by copying the old snapshot. Keep auth and owner schemas separate; create a per-user schema strategy only after its isolation model is tested.
-5. **Dual-fixture testing:** one clean V3 database with no schedule tables must start and pass organiser, personal-item, Studio, auth, calendar and asset tests. A separate legacy-upgrade fixture must prove schedule rows remain unchanged and no destructive SQL runs.
-6. **Preflight and release:** run the read-only `HOSTED_SCHEMA_PREFLIGHT.sql` only against a provisioned test schema. It currently checks the compatibility schema, so replace/retarget its expected table list after the fresh V3 schema and startup validator are deliberately changed. Do not interpret this compatibility preflight as final V3 acceptance.
+1. **Inventory references:** public schedule APIs are guarded before database access; Travel no longer lists shift records; remaining SQLite/iCloud/backup compatibility references still require the full audit below. Keep classifying hits as active V3, compatibility-only, or retired.
+2. **Retire entry points:** schedule endpoints return 404 before database access; the dead location/shift-type/template Admin handlers and their validation helpers have been removed. Continue the broader reference audit before deleting remaining compatibility code.
+3. **Decouple startup:** hosted PostgreSQL startup is validation-only and performs no schema DDL. Calendar location and persistent Travel tables are provisioned by explicit migration 153. The existing SQLite compatibility initializer still contains legacy migrations/seeding and must be retired separately without deleting old rows.
+4. **Build a fresh V3 PostgreSQL schema:** added `migrations/postgres/fresh_v3_schema.sql` from the retained V3 table families, with separate auth/owner schemas and no schedule-planner tables. New tester schemas now use this clean DDL; the legacy `bootstrap.sql` is retained only for compatibility tests.
+5. **Dual-fixture testing:** added an isolated PostgreSQL test for hosted startup and personal-item writes against a schema with no schedule tables, plus a tester-schema provisioning test. The separate compatibility fixture continues to exercise legacy-row preservation. GitHub Actions must complete these tests before this gate is marked accepted.
+6. **Preflight and release:** `HOSTED_SCHEMA_PREFLIGHT.sql` now targets the fresh V3 schema and checks migration 153 plus absence of retired tables. `HOSTED_SCHEMA_PREFLIGHT_COMPATIBILITY.sql` retains the legacy table/data-count checks for upgrade rehearsals. Do not interpret either as live Neon acceptance.
 7. **Live rollout:** only after external Neon/Render/R2 credentials are configured, verify login, user isolation, persistence across redeploy, backup/restore, offline sync and mobile PWA update. Keep the existing Render service and domain DNS untouched until all gates pass.
 
 ## Acceptance criteria
@@ -48,3 +48,12 @@ Do not simply remove tables from `schema.sql` or the PostgreSQL fixture while th
 - No user, Owner, or tester data is mixed across schemas.
 - CI tests both a fresh V3 schema and a legacy-data preservation fixture.
 - Production is not marked ready based only on a local or CI database fixture.
+
+
+## 2026-10-12 implementation update
+
+- Hosted startup no longer calls schema-mutating calendar or Travel preparation functions; readiness validates the required retained tables and columns.
+- Added explicit PostgreSQL migration 153 for calendar-event destinations and persistent Travel storage. Existing data is preserved; no live database was altered.
+- Added the shift-free `fresh_v3_schema.sql`, switched tester-schema provisioning to it, and updated the CI preflight to install and check that schema.
+- Removed the unreachable legacy schedule Admin handlers while keeping public legacy routes as explicit 404s.
+- Acceptance is still pending: latest GitHub Actions runs on commits after `153f4ef2` failed before starting any steps (zero steps and no job logs). Re-run the full CI matrix once GitHub Actions accepts jobs; do not treat these infrastructure-level failures as a code pass or a test failure.

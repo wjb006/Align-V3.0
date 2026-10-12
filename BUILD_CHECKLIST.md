@@ -219,3 +219,15 @@
 - [ ] Add a fresh-V3 PostgreSQL fixture with no shift-planner tables and prove startup and retained organiser/Studio/auth flows work against it.
 - [ ] Keep a separate legacy-data fixture proving existing schedule/leave rows are preserved; do not drop or truncate these tables as part of release preparation.
 - [ ] Provision and verify Neon schema, Render V3 service/secrets, and durable S3-compatible object storage. Existing `align-beta-preview` and DNS remain untouched until release gates pass.
+
+
+## 2026-10-12 — Fresh hosted V3 schema and startup hardening
+
+- [x] Removed hosted startup schema mutation calls; hosted readiness now validates the provisioned retained schema, including Asset Studio, Travel, calendar-event destination, and calendar sync tables.
+- [x] Added explicit migration `153_hosted_travel_and_calendar_location.postgres.sql`; default Travel preferences are inserted during provisioning, not service startup.
+- [x] Added `migrations/postgres/fresh_v3_schema.sql` with no legacy schedule-planner tables; new tester schemas use this DDL while `bootstrap.sql` remains a legacy compatibility snapshot.
+- [x] Added fresh-schema startup and tester-provisioning integration tests; updated the hosted CI preflight to require the fresh schema and reject any legacy schedule tables.
+- [x] Removed unreachable location/shift-type/template Admin write handlers and their validation helpers; legacy endpoints remain 404 before database access.
+- [ ] Verify the latest source commit through GitHub Actions. Runs after `153f4ef2` are currently failing before any job steps start, with no logs available; the latest source-level green hosted run predates the fresh-schema test and is not final acceptance.
+- [ ] Complete the remaining reference audit for local SQLite initialization, iCloud sync, backup/restore, and any legacy schedule compatibility code; preserve existing rows until an explicit retention decision.
+- [ ] Provision and verify the dedicated Neon schema, Render V3 service/secrets, and persistent object storage only after CI and release gates pass. Existing Align-App service and DNS remain untouched.

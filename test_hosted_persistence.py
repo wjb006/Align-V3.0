@@ -251,6 +251,26 @@ class PostgresIntegrationTests(unittest.TestCase):
             with pg.psycopg.connect(self.dsn) as raw:
                 raw.execute(f'DROP SCHEMA IF EXISTS {schema} CASCADE')
 
+    def test_tester_schema_uses_shift_free_v3_ddl(self):
+        path = Path('beta_data') / ('a' * 24 + '.sqlite3')
+        schema = pg.schema_for(path)
+        pg.provision_tester_schema(path)
+        try:
+            with sqlite_support.connect(path) as c:
+                names = {row[0] for row in c.execute(
+                    'SELECT table_name FROM information_schema.tables WHERE table_schema=current_schema()')}
+                retired = {'shifts', 'shift_templates', 'shift_types', 'locations',
+                           'location_shift_types', 'annual_leave', 'alert_rules', 'alerts',
+                           'shift_batches'}
+                self.assertFalse(names & retired)
+                self.assertEqual(c.execute(
+                    'SELECT arrival_buffer FROM transport_preferences WHERE id=1').fetchone()[0], 10)
+                self.assertTrue({'personal_items', 'organiser_events', 'assets',
+                                 'transport_journey_cache'} <= names)
+        finally:
+            with pg.psycopg.connect(self.dsn) as raw:
+                raw.execute(f'DROP SCHEMA IF EXISTS {schema} CASCADE')
+
     def test_schema_survives_commit_rollback_and_sql_boundaries(self):
         for path, schema, table in [('align.sqlite3', 'align_owner', 'personal_items'),
                                     ('beta_users.sqlite3', 'align_auth', 'beta_users')]:
