@@ -229,11 +229,11 @@
 - [x] Added fresh-schema startup and tester-provisioning integration tests; updated the hosted CI preflight to require the fresh schema and reject any legacy schedule tables.
 - [x] Removed unreachable location/shift-type/template Admin write handlers and their validation helpers; legacy endpoints remain 404 before database access.
 - [x] Added `schema_v3.sqlite.sql` for new local databases; legacy SQLite databases containing any schedule tables stay on the preservation path. V3 settings omit shift-specific defaults.
-- [x] Removed shift-table reads from personal planner availability, Home bootstrap, Travel refresh, iCloud sync, onward-travel selection and calendar/admin compatibility responses; routed the old Admin URL to Management Studio and bumped the offline asset cache to v43.
+- [x] Removed shift-table reads from personal planner availability, Home bootstrap, Travel refresh, iCloud sync, onward-travel selection and calendar/admin compatibility responses; routed the old Admin URL to Management Studio and bumped the offline asset cache to v45.
 - [x] Removed the active app's imports of the retired work-pattern module and the obsolete hosted legacy-schema validator; shared colour validation now lives in `colour_utils.py`.
 - [x] Updated the Windows installer to verify the retained V3 schema instead of requiring retired schedule tables; backup validation recognises legacy data without requiring it for V3 backups.
 - [ ] Verify the latest source commit through GitHub Actions. Runs through `cd3e7c52` terminate before any job steps start, with no logs available; no current-branch test pass is claimed.
-- [~] Scriptable widget is now event-based and old week/work-setup client files are removed. Finish pruning unreachable schedule helpers from `app.py` and update remaining historical release notes without deleting compatibility data.
+- [x] Scriptable widget is event-based; old week/work-setup client files and the unreachable `work_setup.py` legacy backend are removed. Retired schedule helper functions are no longer exported from `app.py`; the legacy schema remains only for compatibility and recovery.
 - [ ] Provision and verify the dedicated Neon schema, Render V3 service/secrets, and persistent object storage only after CI and release gates pass. Existing Align-App service and DNS remain untouched.
 
 
@@ -245,4 +245,10 @@
 - [x] Removed the unused fixed week planner and work-setup client files; the service worker no longer caches `/api/week` or treats shift/leave APIs as offline-safe.
 - [x] Added route regressions asserting retired shift/week/leave/work-setup requests return 404 before database access.
 - [ ] Re-run Python, JavaScript, browser/device, PostgreSQL and installer checks on the latest source commit. GitHub Actions currently fails before starting any steps and provides no job logs.
-- [ ] Finish removing unreachable legacy schedule helpers from `app.py`; keep the compatibility schema and stored legacy data until the reviewed archival decision.
+- [ ] Review historical release notes for obsolete shift-first product descriptions; keep the compatibility schema and stored legacy data until the reviewed archival decision.
+
+
+### 2026-10-12 retry
+
+- [x] Removed the now-unreferenced `work_setup.py` backend after confirming the active app no longer imports it and the fixed Work Settings API returns 404.
+- [ ] Verify CI against commit `67256105`. GitHub reports the previous run attempts failed with zero executed steps and no downloadable logs; latest workflows were re-triggered on this commit. No pass is claimed until a run actually executes the steps.
