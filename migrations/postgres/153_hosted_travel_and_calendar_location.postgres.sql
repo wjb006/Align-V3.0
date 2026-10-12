@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS transport_preferences (
     home_lon DOUBLE PRECISION
 );
 INSERT INTO transport_preferences(id) VALUES (1) ON CONFLICT(id) DO NOTHING;
+INSERT INTO calendar_sync_state(id,revision,modified_at) VALUES (1,0,CURRENT_TIMESTAMP) ON CONFLICT(id) DO NOTHING;
 CREATE TABLE IF NOT EXISTS transport_journey_cache (
     event_key TEXT PRIMARY KEY,
     payload TEXT NOT NULL,

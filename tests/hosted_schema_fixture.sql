@@ -576,3 +576,5 @@ ALTER TABLE align_auth.beta_sessions ADD FOREIGN KEY (user_id) REFERENCES align_
 ALTER TABLE align_auth.beta_password_resets ADD FOREIGN KEY (user_id) REFERENCES align_auth.beta_users(user_id) ON DELETE CASCADE;
 ALTER TABLE align_auth.beta_icloud_credentials ADD FOREIGN KEY (user_id) REFERENCES align_auth.beta_users(user_id) ON DELETE CASCADE;
 ALTER TABLE align_auth.beta_password_resets ADD FOREIGN KEY (replaced_by_reset_id) REFERENCES align_auth.beta_password_resets(reset_id);
+
+INSERT INTO align_owner.calendar_sync_state(id,revision,modified_at) VALUES (1,0,CURRENT_TIMESTAMP) ON CONFLICT(id) DO NOTHING;
