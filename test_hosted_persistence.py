@@ -235,7 +235,7 @@ class PostgresIntegrationTests(unittest.TestCase):
                     self.assertEqual(personal_planner.bootstrap(c)['events'], [])
                     self.assertEqual(app.dashboard(c)['upcoming'], [])
                     self.assertEqual(app.calendar_data(c)['alert_rules'], [])
-                    self.assertEqual(app.master_data(c)['templates'], [])
+                    self.assertIsInstance(app.navigation_data(c)['parents'], list)
             with pg.psycopg.connect(self.dsn) as raw:
                 tables = {row[0] for row in raw.execute(
                     'SELECT table_name FROM information_schema.tables WHERE table_schema=%s',
