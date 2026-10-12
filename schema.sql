@@ -1,3 +1,5 @@
+-- Legacy SQLite compatibility schema for existing databases that already contain schedule tables.
+-- New local databases must use schema_v3.sqlite.sql; never use this file to initialise a fresh V3 database.
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS settings (
