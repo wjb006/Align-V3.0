@@ -26,20 +26,6 @@ def validate_parent_branch(connection: sqlite3.Connection, parent_id: int | None
     return parent_id
 
 
-def parent_branch_values(payload: dict, existing_key: str | None = None) -> tuple:
-    destination = str(payload.get("destination", "note"))
-    if destination not in PARENT_DESTINATIONS:
-        raise ValueError("That parent menu destination is not supported.")
-    title = str(payload.get("title", "")).strip()[:80]
-    if not title:
-        raise ValueError("Parent menu title is required.")
-    parent_id = int(payload.get("parent_id") or 0) or None
-    return (existing_key or "parent-" + secrets.token_hex(5), title,
-        str(payload.get("description", "")).strip()[:200], str(payload.get("icon", "○")).strip()[:4] or "○", destination,
-        str(payload.get("content", "")).strip()[:2000], 1 if payload.get("active", True) else 0, int(payload.get("sort_order", 100)),
-        parent_id, valid_colour(str(payload.get("colour", "#365CE6"))), 1 if payload.get("locked", False) else 0, 1 if payload.get("optional", True) else 0)
-
-
 def _require(handler) -> bool:
     return handler.require_admin()
 
