@@ -302,7 +302,8 @@ def delete_tester_schema(path, user_id):
 def validate_auth(c):
     for table in ('beta_users', 'beta_sessions', 'beta_invites', 'beta_password_resets',
                   'beta_idempotency', 'beta_audit_events', 'beta_rate_events',
-                  'beta_feedback', 'beta_email_settings', 'beta_icloud_credentials'):
+                  'beta_feedback', 'beta_email_settings', 'beta_icloud_credentials',
+                  'align_here_transit_usage'):
         c.execute(f'SELECT * FROM {table} LIMIT 0')
     c.execute('SELECT user_id, password_hash, password_set_at, created_at FROM beta_users LIMIT 0')
 
