@@ -101,7 +101,7 @@ class Build152Tests(unittest.TestCase):
         installer = (Path(__file__).parent / "Install-Align.ps1").read_text(encoding="utf-8")
         for required in (
             "'build152.py'", "'static\\build152.js'",
-            "'user_favourites'", "'align_contacts'", "build152.ensure(connection)",
+            "'user_favourites'", "'align_contacts'", "154_user_favourites_contacts.sql",
         ):
             with self.subTest(required=required):
                 self.assertIn(required, installer)
