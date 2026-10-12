@@ -42,7 +42,7 @@ def health_status() -> dict:
     database_integrity = "unavailable"
     migrations_available = all(
         (align.migration_runner.ROOT / filename).is_file()
-        for filename in ("149_asset_studio.sql", "149_transport.sql", "150_calendar_links.sql", "151_sections.sql")
+        for filename in ("149_asset_studio.sql", "149_transport.sql", "150_calendar_links.sql", "151_sections.sql", "154_user_favourites_contacts.sql")
     )
     migrations_applied = False
     try:
