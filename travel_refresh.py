@@ -23,8 +23,6 @@ def save(c, data):
 def records(c):
     now=datetime.now(ZoneInfo('Europe/London')).isoformat(timespec='minutes')[:16]
     rows=[]
-    for r in c.execute("SELECT s.id,s.work_date,s.start_time,s.notes,COALESCE(NULLIF(l.address,''),s.location_name) FROM shifts s LEFT JOIN locations l ON l.id=s.location_id WHERE s.work_date>=?",(now[:10],)):
-        rows.append(dict(key='shift:'+str(r[0]),table='shifts',id=r[0],arrival=r[1]+'T'+r[2],notes=r[3] or '',destination=r[4] or ''))
     for r in c.execute('SELECT id,start_at,notes,location FROM organiser_events WHERE all_day=0 AND start_at>=?',(now,)):
         rows.append(dict(key='event:'+str(r[0]),table='organiser_events',id=r[0],arrival=r[1][:16],notes=r[2] or '',destination=r[3] or ''))
     return [r for r in rows if r['arrival']>now]

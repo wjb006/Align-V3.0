@@ -15,7 +15,7 @@ from display_dates import format_display_datetime
 ZONE = ZoneInfo('Europe/London')
 MODES = {'drive':'Driving','bus':'Bus','train':'Train','transit':'Bus and train'}
 DEFAULTS = dict(travel_modes=['drive', 'bus'], default_travel='drive', show_todos=True,
-                include_overdue=True, quick_categories=[], weather_town='', regular_work=False,
+                include_overdue=True, quick_categories=[], weather_town='',
                 departure_buffer=5, arrival_buffer=10, weather_adjustments=True,
                 weather_rain_threshold=50, weather_rain_buffer=10, weather_storm_buffer=15,
                 traffic_buffer_cap=30)
@@ -49,7 +49,7 @@ def save_preferences(c, body):
     categories = body.get('quick_categories', p['quick_categories'])
     if not isinstance(categories, list) or len(categories) > 200 or any(type(x) is not int for x in categories):
         raise ValueError('Choose valid event categories.')
-    for key in ('show_todos','include_overdue','regular_work'):
+    for key in ('show_todos','include_overdue'):
         if key in body:
             if type(body[key]) is not bool: raise ValueError('Choose an on/off preference.')
             p[key] = body[key]
@@ -77,22 +77,6 @@ def dt(value):
 def events(c, day):
     start = datetime.combine(day,time.min); end = start+timedelta(days=1)
     result = []
-    for r in c.execute('''SELECT s.*,COALESCE(NULLIF(l.address,''),s.location_name) AS location,
-                                 COALESCE(l.colour,s.colour) AS location_colour, st.colour AS shift_type_colour
-                          FROM shifts s
-                          LEFT JOIN locations l ON l.id=s.location_id
-                          LEFT JOIN shift_types st ON st.id=s.shift_type_id
-                          WHERE s.work_date BETWEEN ? AND ?''',((day-timedelta(days=1)).isoformat(),day.isoformat())):
-        a=dt(r['work_date']+'T'+r['start_time']); b=dt(r['work_date']+'T'+r['end_time'])
-        if b<=a: b+=timedelta(days=1)
-        if a<end and b>start:
-            result.append(dict(
-                id=r['id'], work_date=r['work_date'], start_time=r['start_time'], end_time=r['end_time'],
-                start_at=a.isoformat(), end_at=b.isoformat(),
-                title=r['location_name']+' · '+r['shift_type_name'], kind='Work', origin='Work',
-                all_day=False, location=r['location'] or '', notes=r['notes'] or '',
-                category_name=r['shift_type_name'], section_colour=r['location_colour'] or r['colour'],
-                location_colour=r['location_colour'] or r['colour'], shift_type_colour=r['shift_type_colour'] or ''))
     for r in c.execute('''SELECT oe.id,oe.section_id,oe.title,oe.start_at,oe.end_at,oe.all_day,oe.location,oe.notes,
                                  os.colour AS section_colour, os.name AS category_name
                           FROM organiser_events oe
@@ -128,16 +112,6 @@ def availability(c, body):
     b=datetime.combine(day,time.fromisoformat(body.get('end','22:00')))
     if b<=a: raise ValueError('The availability window must end after it starts.')
     busy=[(dt(r['start_at']),dt(r['end_at'])) for r in events(c,day)]
-    if preferences(c)['regular_work']:
-        import work_setup
-        setup=work_setup.load_setup(c)
-        for check in (day-timedelta(days=1),day):
-            if c.execute('SELECT 1 FROM annual_leave WHERE leave_date=?',(check.isoformat(),)).fetchone(): continue
-            for assignment in setup['assignments']:
-                if check.strftime('%A') not in assignment['days']: continue
-                slot=next(s for s in setup['slots'] if s['key']==assignment['slot_key'])
-                x=datetime.combine(check,time.fromisoformat(slot['start_time']))
-                busy.append((x,x+timedelta(minutes=slot['duration_minutes'])))
     delta=timedelta(minutes=buffer)
     now=datetime.now(ZONE).replace(tzinfo=None)
     blocked=sorted((x-delta,y+delta) for x,y in busy)

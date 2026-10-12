@@ -375,7 +375,7 @@ class ICloudSync:
             with self.app.db_connection() as c:
                 config = dict(c.execute('SELECT * FROM icloud_config WHERE id=1').fetchone())
                 notifications = bool(self.app.get_settings(c)['notifications'])
-                rules = self.app.alert_rules(c,True) if notifications else []
+                rules = []
                 mappings = {r['local_key']:dict(r) for r in c.execute('SELECT * FROM icloud_items')}
                 sections = [dict(r) for r in c.execute("""SELECT s.id,s.active,l.calendar_url,l.calendar_name,
                     l.import_enabled,l.export_enabled FROM organiser_sections s JOIN calendar_links l
@@ -463,18 +463,21 @@ class ICloudSync:
                     sync_owned_item(tkey, tuid, event['calendar_url'].rstrip('/') + '/' + tuid + '.ics', block[0], block[1], mappings.get(tkey))
 
             for key,saved in mappings.items():
-                if key in wanted: continue
-                if (str(key).isdigit() or
-                    (str(key).startswith('travel:') and not str(key).startswith('travel:event:'))):
+                if key in wanted:
+                    continue
+                # Preserve legacy/non-Section mappings without querying retired
+                # shift tables. Only Section-event mappings are reconciled here.
+                if str(key).isdigit() or str(key).startswith(('shift:', 'travel:')):
+                    continue
+                if not str(key).startswith('event:'):
                     continue
                 with self.app.db_connection() as c:
-                    if key.startswith('travel:'):
-                        exists = None
-                    else:
-                      exists = (c.execute('SELECT 1 FROM organiser_events WHERE id=?',(key.split(':',1)[1],)).fetchone()
-                              if key.startswith('event:') else
-                              c.execute('SELECT 1 FROM shifts WHERE id=?',(key,)).fetchone())
-                    if exists: continue
+                    exists = c.execute(
+                        'SELECT 1 FROM organiser_events WHERE id=?',
+                        (str(key).split(':',1)[1],)
+                    ).fetchone()
+                    if exists:
+                        continue
                 remote = self.client.get(saved['url'])
                 if remote:
                     raw, etag = remote

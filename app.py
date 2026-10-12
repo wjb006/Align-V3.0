@@ -631,36 +631,19 @@ def find_addresses(query: str) -> list[dict]:
 
 
 def master_data(connection: sqlite3.Connection, include_inactive: bool = False) -> dict:
-    active_filter = "" if include_inactive else " WHERE active = 1"
-    locations = rows_as_dicts(connection.execute(f"SELECT * FROM locations{active_filter} ORDER BY name"))
-    shift_types = rows_as_dicts(connection.execute(f"SELECT * FROM shift_types{active_filter} ORDER BY name"))
-    templates = rows_as_dicts(connection.execute(
-        """SELECT t.*, l.name AS location_name, s.name AS shift_type_name, l.colour
-           FROM shift_templates t
-           JOIN locations l ON l.id = t.location_id
-           JOIN shift_types s ON s.id = t.shift_type_id
-           WHERE (? = 1 OR (t.active = 1 AND l.active = 1 AND s.active = 1))
-           ORDER BY l.name, t.start_time, t.label""",
-        (1 if include_inactive else 0,),
-    ))
-    for template in templates:
-        template["applicable_days"] = normalise_applicable_days(
-            template["applicable_days"], required=False
-        )
-    location_categories: dict[int, list[int]] = {}
-    for row in connection.execute(
-        "SELECT location_id, shift_type_id FROM location_shift_types ORDER BY shift_type_id"
-    ):
-        location_categories.setdefault(row["location_id"], []).append(row["shift_type_id"])
+    """Compatibility response for old clients; V3 no longer exposes shift setup."""
     branch_where = "" if include_inactive else " WHERE active = 1"
     branches = rows_as_dicts(connection.execute(
         f"SELECT * FROM menu_branches{branch_where} ORDER BY sort_order, title"
     ))
     parents = rows_as_dicts(connection.execute(
-        f"SELECT p.*, parent.title AS parent_title FROM parent_menu_branches p LEFT JOIN parent_menu_branches parent ON parent.id=p.parent_id{branch_where.replace('active','p.active')} ORDER BY COALESCE(p.parent_id,0),p.sort_order,p.title"
+        f"SELECT p.*, parent.title AS parent_title FROM parent_menu_branches p "
+        f"LEFT JOIN parent_menu_branches parent ON parent.id=p.parent_id"
+        f"{branch_where.replace('active','p.active')} "
+        "ORDER BY COALESCE(p.parent_id,0),p.sort_order,p.title"
     ))
-    return {"locations": locations, "shift_types": shift_types, "templates": templates,
-            "location_categories": location_categories, "branches": branches, "parents": parents}
+    return {"locations": [], "shift_types": [], "templates": [],
+            "location_categories": {}, "branches": branches, "parents": parents}
 
 
 
@@ -806,7 +789,7 @@ def calendar_data(connection: sqlite3.Connection) -> dict:
     sync = dict(connection.execute("SELECT revision,modified_at FROM calendar_sync_state WHERE id=1").fetchone())
     return {"sources": sources, "align_calendar_name": "Align",
             "feed_path": "/api/calendars/live.ics", "sync": sync,
-            "alert_rules": alert_rules(connection)}
+            "alert_rules": []}
 
 
 def alert_rules(connection: sqlite3.Connection, active_only: bool = False) -> list[dict]:

@@ -57,7 +57,7 @@ def handle_post(handler, app, path, row, payload) -> bool:
                     result['event_calendars'] = app.icloud_event_calendars(connection)
             result['created_calendar'] = {key:value for key,value in created.items() if key != 'url'}
         elif path == '/api/icloud/enable':
-            if payload.get('consent') is not True: raise ValueError('Confirm reading the selected calendars and managing Align shifts.')
+            if payload.get('consent') is not True: raise ValueError('Confirm reading the selected calendars and syncing Align events.')
             result = manager.configure(payload.get('target'), payload.get('read_ids'))
         elif path == '/api/icloud/select-calendars':
             result = app.save_icloud_event_calendars(payload.get('calendar_ids', []), self.request_icloud_manager(row, False))
