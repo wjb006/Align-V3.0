@@ -53,14 +53,9 @@ def prepare_preview():
         # paths; no local SQLite file or local credentials are imported.
         app.BETA_MODE = True
         app.DATABASE = Path('align.sqlite3')
-        from postgres_support import prepare_calendar_locations
-        prepare_calendar_locations()
         app.initialise_database()
         app.BETA_STORE = BetaStore(app.ROOT, app.DATABASE, app.initialise_database_at)
         bootstrap_hosted_owner(app.BETA_STORE, password)
-        if os.environ['ALIGN_TRANSPORT_ENABLED'] == '1':
-            from transport_service import prepare_hosted_storage
-            prepare_hosted_storage()
         from postgres_support import verify_hosted_storage
         verify_hosted_storage()
         return app, None
