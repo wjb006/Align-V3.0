@@ -7,6 +7,7 @@ const worker = fs.readFileSync('static/service-worker.js', 'utf8');
 const personal = fs.readFileSync('static/personal-planner.js', 'utf8');
 const admin = fs.readFileSync('static/admin.html', 'utf8');
 const widget = fs.readFileSync('static/align-widget.js', 'utf8');
+const offline = fs.readFileSync('static/offline-store.js', 'utf8');
 
 for (const label of ['Today', 'Inbox', 'Sections', 'More']) {
   if (!app.includes(`title:'${label}'`)) throw new Error(`Missing core navigation item: ${label}`);
@@ -35,13 +36,15 @@ if (personal.includes('regular_work')) throw new Error('Legacy regular-work shif
 if (!admin.includes('/management-studio.html')) throw new Error('Legacy Admin entrypoint must lead to Management Studio');
 if (widget.includes('/api/shifts')) throw new Error('Scriptable widget must use the retained V3 event feed');
 if (!widget.includes("b.dashboard?.upcoming_events")) throw new Error('Scriptable widget must read V3 dashboard events');
+if (offline.includes('queueShiftBatch')) throw new Error('New offline writes must not queue retired shift batches');
+if (!offline.includes("if (item.kind === 'shift-batch') continue;")) throw new Error('Legacy offline shift batches must be retained without replay');
 if (widget.includes('NEXT SHIFT')) throw new Error('Scriptable widget must not label events as shifts');
 if (!app.includes("{ branch_key: 'calendar', title: 'Calendar'")) throw new Error('Account Settings is missing calendar controls');
 for (const [name, source] of [['app',app],['index',index],['service worker',worker]]) {
   if (source.includes('maps173')) throw new Error(`Stale maps173 asset version remains in ${name}`);
 }
-if (!app.includes('const ASSET_VERSION = `${BUILD_VERSION}-v43`;')) throw new Error('App asset version template is not the current Build 156 assets');
-if (!index.includes('156-v43')) throw new Error('Index asset version is not 156-v43');
+if (!app.includes('const ASSET_VERSION = `${BUILD_VERSION}-v44`;')) throw new Error('App asset version template is not the current Build 156 assets');
+if (!index.includes('156-v44')) throw new Error('Index asset version is not 156-v44');
 if (!worker.includes('align-v13-shell-${ASSET_VERSION}')) throw new Error('Shell cache template is missing');
 if (!worker.includes('align-v13-api-${ASSET_VERSION}')) throw new Error('API cache template is missing');
 console.log('core navigation and optional Work setup checks passed');
