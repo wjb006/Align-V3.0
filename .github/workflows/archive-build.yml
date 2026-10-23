@@ -56,15 +56,15 @@ jobs:
           VERSION="Build-${BUILD_NUMBER}-${SHORT_SHA}"
           git archive \
             --format=zip \
-            --prefix="Align-v1.3-${VERSION}/" \
+            --prefix="Align-V3.0-${VERSION}/" \
             HEAD \
-            -o "dist/Align-v1.3-${VERSION}.zip"
-          ls -lh "dist/Align-v1.3-${VERSION}.zip"
+            -o "dist/Align-V3.0-${VERSION}.zip"
+          ls -lh "dist/Align-V3.0-${VERSION}.zip"
 
       - name: Upload Build ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: Align-v1.3-Build-${{ inputs.build_number }}-${{ steps.commit.outputs.short_sha }}
+          name: Align-V3.0-Build-${{ inputs.build_number }}-${{ steps.commit.outputs.short_sha }}
           path: dist/*.zip
           if-no-files-found: error
           retention-days: 365
