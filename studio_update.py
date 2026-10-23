@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 
 
 def _git(*args: str) -> subprocess.CompletedProcess[str]:
@@ -26,10 +27,19 @@ def current_commit() -> str:
     return result.stdout.strip()
 
 
+def current_branch() -> str:
+    result = _git("branch", "--show-current")
+    branch = result.stdout.strip()
+    if result.returncode != 0 or not branch:
+        raise RuntimeError("This Align folder is not on a named Git branch.")
+    return branch
+
+
 def update_from_github(initialise) -> dict:
-    """Fast-forward this folder to origin/main. No other git command is run."""
+    """Fast-forward this folder to its matching origin branch."""
     before = current_commit()
-    result = _git("pull", "--ff-only", "origin", "main")
+    branch = current_branch()
+    result = _git("pull", "--ff-only", "origin", branch)
     message = (result.stdout or result.stderr or "").strip()
     if result.returncode != 0:
         raise RuntimeError(message or "Update failed.")
