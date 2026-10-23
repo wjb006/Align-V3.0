@@ -15,9 +15,10 @@ let adminToken = isAdmin ? sessionStorage.getItem('align-admin-token') || '' : '
 const app = document.querySelector('#app');
 const modalRoot = document.querySelector('#modal-root');
 const toastElement = document.querySelector('#toast');
+const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 156;
-const ASSET_VERSION = `${BUILD_VERSION}-v45`;
+const ASSET_VERSION = `${BUILD_VERSION}-v46`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -524,10 +525,10 @@ async function reloadSection() {
 }
 
 function addressFields(target, name, value, label = 'Address') {
-  return `<div class="field address-search"><label for="${target}-search">Find an address</label><div class="address-lookup-row"><input id="${target}-search" data-address-search="true" data-address-target="${target}" type="search" autocomplete="off" placeholder="Postcode, street or town" /><button class="secondary-button address-search-button" type="button" data-action="search-address" data-address-search-target="${target}-search">Search</button></div><div class="address-results" id="${target}-results" data-address-results="${target}"></div><small class="helper">Suggestions appear as you type. Tap one to fill the address, or keep typing it yourself below.</small></div><div class="field"><label for="${target}">${escapeHtml(label)}</label><textarea id="${target}" name="${name}" autocomplete="street-address" placeholder="Address">${escapeHtml(value)}</textarea></div>`;
+  return `<div class="field address-search"><label for="${target}">${escapeHtml(label)}</label><input id="${target}" name="${name}" type="text" maxlength="500" data-address-search="true" data-address-target="${target}" autocomplete="street-address" value="${escapeHtml(value)}" placeholder="Start typing an address or postcode" /><div class="address-results" id="${target}-results" data-address-results="${target}" role="listbox" aria-label="Address suggestions"></div><small class="helper">Suggestions appear as you type. Your search text is sent to an address provider to find matches. You can also type it yourself.</small></div>`;
 }
 function locationSearchField(value = '', name = 'location') {
-  return `<div class="field address-search"><label for="event-location">Location</label><input id="event-location" name="${name}" maxlength="240" data-address-search="true" data-address-target="event-location" autocomplete="off" value="${escapeHtml(value || '')}" placeholder="Postcode, street or place" /><div class="address-results" id="event-location-results" data-address-results="event-location"></div><small class="helper">Suggestions appear as you type. Tap one to use it, or keep your own wording.</small><div class="event-location-link" data-event-location-link>${value ? appleDestinationLink(value) : ''}</div></div>`;
+  return `<div class="field address-search"><label for="event-location">Location</label><input id="event-location" name="${name}" maxlength="240" data-address-search="true" data-address-target="event-location" autocomplete="street-address" value="${escapeHtml(value || '')}" placeholder="Start typing an address or postcode" /><div class="address-results" id="event-location-results" data-address-results="event-location" role="listbox" aria-label="Address suggestions"></div><small class="helper">Suggestions appear as you type. Your search text is sent to an address provider to find matches. You can also type it yourself.</small><div class="event-location-link" data-event-location-link>${value ? appleDestinationLink(value) : ''}</div></div>`;
 }
 
 function renderOnboarding() {
@@ -705,14 +706,19 @@ async function searchAddresses(input) {
   const results = document.querySelector(`[data-address-results="${target}"]`);
   const query = input.value.trim();
   if (!results) return;
-  if (query.length < 3) { results.innerHTML = ''; return; }
+  const postcodePrefix = /^[A-Z]{1,2}\d[A-Z\d]?$/i.test(query.replace(/\s+/g, ''));
+  if (query.length < 3 && !postcodePrefix) { results.innerHTML = ''; input.setAttribute('aria-expanded', 'false'); return; }
   results.innerHTML = '<p class="address-status">Finding UK addresses…</p>';
   try {
     const payload = await api(`/api/address-search?q=${encodeURIComponent(query)}`);
     if (input.value.trim() !== query) return;
-    results.innerHTML = payload.results.length ? payload.results.map(result => `<button type="button" class="address-result" data-action="choose-address" data-address-target="${target}" data-address="${encodeURIComponent(result.label)}">${escapeHtml(result.label)}</button>`).join('') : '<p class="address-status">No matches. You can enter the address manually.</p>';
+    const attribution = payload.provider === 'OpenStreetMap' ? '<small class="address-attribution">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a></small>' : '';
+    results.innerHTML = payload.results.length ? payload.results.map((result, index) => `<button type="button" role="option" class="address-result" data-action="choose-address" data-address-target="${target}" data-address="${encodeURIComponent(result.label)}" id="${target}-option-${index}">${escapeHtml(result.label)}</button>`).join('') + attribution : `<p class="address-status">${escapeHtml(payload.message || 'No matches. You can enter the address manually.')}</p>`;
+    input.setAttribute('aria-expanded', payload.results.length ? 'true' : 'false');
   } catch (error) {
+    if (input.value.trim() !== query) return;
     results.innerHTML = `<p class="address-status">${escapeHtml(error.message)}</p>`;
+    input.setAttribute('aria-expanded', 'false');
   }
 }
 
@@ -790,18 +796,17 @@ document.addEventListener('click', async event => {
   if (action === 'choose-address') {
     const target = document.getElementById(element.dataset.addressTarget);
     if (target) {
+      window.clearTimeout(addressSearchTimers.get(target));
       target.value = decodeURIComponent(element.dataset.address);
-      target.dispatchEvent(new Event('input', {bubbles: true}));
+      target.setAttribute('aria-expanded', 'false');
+      target.dataset.addressSelection = 'true';
+      target.dispatchEvent(new Event('input', { bubbles: true }));
       target.focus();
       const link = target.closest('.address-search')?.querySelector('[data-event-location-link]');
       if (link) link.innerHTML = target.value ? appleDestinationLink(target.value) : '';
     }
     const results = document.querySelector(`[data-address-results="${element.dataset.addressTarget}"]`);
     if (results) results.innerHTML = '';
-  }
-  if (action === 'search-address') {
-    const input = document.getElementById(element.dataset.addressSearchTarget);
-    if (input) searchAddresses(input);
   }
     if (action === 'settings-branch') { state.settingsBranch = element.dataset.branch; render(); }
   if (action === 'reset-user-appearance') {
@@ -859,8 +864,16 @@ document.addEventListener('input', event => {
   const field = event.target.dataset.addField;
   if (field) state.add[field] = event.target.type === 'number' ? Number(event.target.value) : event.target.value;
   if (event.target.hasAttribute('data-address-search')) {
+    if (event.target.dataset.addressSelection === 'true') {
+      delete event.target.dataset.addressSelection;
+      return;
+    }
     window.clearTimeout(addressSearchTimers.get(event.target));
-    addressSearchTimers.set(event.target, window.setTimeout(() => searchAddresses(event.target), 420));
+    addressSearchTimers.set(event.target, window.setTimeout(() => searchAddresses(event.target), 650));
+    if (event.target.id === 'event-location') {
+      const link = event.target.closest('.address-search')?.querySelector('[data-event-location-link]');
+      if (link) link.innerHTML = event.target.value.trim() ? appleDestinationLink(event.target.value.trim()) : '';
+    }
   }
 });
 

@@ -13,9 +13,11 @@ class StudioUpdateTests(unittest.TestCase):
         def fake_git(*args):
             calls.append(args)
             if args == ("rev-parse", "HEAD"):
-                text = "before\n" if len(calls) == 1 else "after\n"
+                text = "before\n" if sum(call == ("rev-parse", "HEAD") for call in calls) == 1 else "after\n"
+            elif args == ("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"):
+                text = "origin/codex/align-v3-rebuild\n"
             else:
-                self.assertEqual(args, ("pull", "--ff-only", "origin", "main"))
+                self.assertEqual(args, ("pull", "--ff-only", "origin", "codex/align-v3-rebuild"))
                 text = "Updating before..after\n"
             return subprocess.CompletedProcess(["git", *args], 0, text, "")
 
@@ -25,11 +27,14 @@ class StudioUpdateTests(unittest.TestCase):
         self.assertTrue(result["changed"])
         self.assertIn("Restart Management Studio", result["summary"])
         self.assertEqual(started, [True])
-        self.assertIn(("pull", "--ff-only", "origin", "main"), calls)
+        self.assertIn(("pull", "--ff-only", "origin", "codex/align-v3-rebuild"), calls)
 
     def test_already_current_does_not_touch_the_database(self):
         def fake_git(*args):
-            text = "same\n" if args[0] == "rev-parse" else "Already up to date.\n"
+            if args == ("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"):
+                text = "origin/codex/align-v3-rebuild\n"
+            else:
+                text = "same\n" if args[0] == "rev-parse" else "Already up to date.\n"
             return subprocess.CompletedProcess(["git", *args], 0, text, "")
 
         with patch.object(studio_update, "_git", side_effect=fake_git):
@@ -39,6 +44,8 @@ class StudioUpdateTests(unittest.TestCase):
 
     def test_rejected_pull_is_reported(self):
         def fake_git(*args):
+            if args == ("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"):
+                return subprocess.CompletedProcess(["git"], 0, "origin/codex/align-v3-rebuild\n", "")
             if args[0] == "rev-parse":
                 return subprocess.CompletedProcess(["git"], 0, "same\n", "")
             return subprocess.CompletedProcess(["git"], 1, "", "Not possible to fast-forward")
