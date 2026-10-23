@@ -1292,7 +1292,9 @@ def handle(handler, app, method):
                         c.execute('INSERT INTO settings VALUES(?,?) ON CONFLICT(setting_key) DO UPDATE SET setting_value=excluded.setting_value', (key, json.dumps(values[key]) if isinstance(values[key], bool) else str(values[key])))
                 modes = [mode for key, mode in (('travel_bus','bus'), ('travel_rail','rail'), ('travel_walk','walk')) if values.get(key) is True]
                 c.execute("UPDATE transport_preferences SET modes=? WHERE id=1", (json.dumps(modes),))
-                c.execute("UPDATE settings SET setting_value='1' WHERE setting_key='onboarding_completed'")
+                c.execute("""INSERT INTO settings(setting_key,setting_value)
+                    VALUES('onboarding_completed','1')
+                    ON CONFLICT(setting_key) DO UPDATE SET setting_value='1'""")
                 # Persist before acknowledging success to an immediately reloading client.
                 c.commit()
                 handler.send_json(200, {'saved': True})
