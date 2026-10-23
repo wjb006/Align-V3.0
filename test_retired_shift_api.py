@@ -26,19 +26,19 @@ class RetiredShiftApiTests(unittest.TestCase):
         ):
             with self.subTest(path=path):
                 self.assertEqual(self.request("GET", path)[0], 404)
-        self.assertEqual(self.request("POST", "/api/shifts", {})[0], 404)
-        self.assertEqual(self.request("POST", "/api/annual-leave", {})[0], 404)
+        self.assertEqual(self.request("POST", "/api/shifts")[0], 404)
+        self.assertEqual(self.request("POST", "/api/annual-leave")[0], 404)
 
     def test_legacy_schedule_admin_writes_are_retired_before_database_access(self):
         retired_requests = (
-            ("GET", "/api/shifts", {}),
-            ("GET", "/api/week?start=2026-10-12", {}),
-            ("GET", "/api/annual-leave", {}),
-            ("GET", "/api/work-setup", {}),
-            ("GET", "/api/master", {}),
-            ("GET", "/api/settings", {}),
+            ("GET", "/api/shifts", None),
+            ("GET", "/api/week?start=2026-10-12", None),
+            ("GET", "/api/annual-leave", None),
+            ("GET", "/api/work-setup", None),
+            ("GET", "/api/master", None),
+            ("GET", "/api/settings", None),
             ("PUT", "/api/settings", {}),
-            ("GET", "/api/alert-rules", {}),
+            ("GET", "/api/alert-rules", None),
             ("POST", "/api/alert-rules", {}),
             ("POST", "/api/user-locations", {}),
             ("POST", "/api/shifts", {}),
@@ -66,7 +66,9 @@ class RetiredShiftApiTests(unittest.TestCase):
                 # The route must be rejected before opening SQLite/Postgres. This
                 # matters for a clean V3 database that has no schedule tables.
                 with patch("app.db_connection", side_effect=AssertionError("database accessed")):
-                    status, _, body = self.request(method, path, payload)
+                    # The retired endpoints reject before parsing a body. Do not
+                    # leave request bytes unread on the server socket.
+                    status, _, body = self.request(method, path)
                 self.assertEqual(status, 404)
                 self.assertIn("no longer available", body.decode("utf-8").lower())
 

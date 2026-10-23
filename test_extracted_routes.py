@@ -51,9 +51,15 @@ class ExtractedRouteTests(unittest.TestCase):
                 self.assertEqual(script_src, "script-src 'self'")
                 self.assertIn("style-src 'self' 'unsafe-inline'", policy)
 
-                status, _, body = request("/api/settings")
+                with self.assertRaises(urllib.error.HTTPError) as retired_settings:
+                    request("/api/settings")
+                self.assertEqual(retired_settings.exception.code, 404)
+
+                status, _, body = request(
+                    "/api/user-settings", {"user_name": "V3 user"}, "PUT"
+                )
                 self.assertEqual(status, 200)
-                self.assertIn("user_name", json.loads(body))
+                self.assertEqual(json.loads(body)["user_name"], "V3 user")
 
                 status, _, body = request("/api/admin/status")
                 self.assertEqual(status, 200)

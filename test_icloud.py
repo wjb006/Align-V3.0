@@ -124,7 +124,12 @@ class ICloudTests(unittest.TestCase):
         e=Event(); e.add('uid','external'); e.add('dtstart',datetime(2026,9,7,6,30,tzinfo=timezone.utc)); e.add('dtend',datetime(2026,9,7,10,30,tzinfo=timezone.utc)); e.add('summary','Busy')
         self.fake.read_events=[e]; self.syncer.sync()
         with app.db_connection() as c:
-            self.assertEqual(app.imported_conflict(c,'2026-09-07','07:30','11:30'),'Busy')
+            imported = c.execute(
+                """SELECT ce.title FROM calendar_events ce
+                   JOIN calendar_sources cs ON cs.id=ce.source_id
+                   WHERE cs.source_kind='icloud' AND ce.title='Busy'"""
+            ).fetchone()
+            self.assertIsNotNone(imported)
         self.assertEqual(self.fake.calls,[])
         self.syncer.disconnect(); self.assertIsNone(self.syncer.client)
         with app.db_connection() as c: self.assertEqual(c.execute("SELECT COUNT(*) FROM calendar_sources WHERE source_kind='icloud'").fetchone()[0],0)

@@ -31,11 +31,11 @@ class FormattingTests(unittest.TestCase):
             self.assertIn('Core experience', html)
             self.assertIn('Data & journeys', html)
 
-    def test_add_shifts_supports_arbitrary_date_picker(self):
-        source=(Path(__file__).parent/'static'/'week-planner.js').read_text(encoding='utf-8')
-        self.assertIn('data-week-date', source)
-        self.assertIn('Choose any date', source)
-        self.assertIn('monday(fromIso(el.value))', source)
+    def test_retired_shift_date_picker_is_not_shipped(self):
+        root = Path(__file__).parent / 'static'
+        self.assertFalse((root / 'week-planner.js').exists())
+        index = (root / 'index.html').read_text(encoding='utf-8')
+        self.assertNotIn('week-planner.js', index)
 
     def test_travel_results_defaults_and_persistence(self):
         defaults=builder.travel_results_validate({})

@@ -1,10 +1,10 @@
 const fs=require('fs'),vm=require('vm'),assert=require('assert');
 const ctx={isAdmin:false,escapeHtml:s=>String(s??''),document:{addEventListener(){}},window:{addEventListener(){}},localStorage:{getItem:()=>null},state:{},setTimeout,clearTimeout};
 vm.createContext(ctx);
-for(const f of ['static/journey-breakdown.js','static/week-planner.js','static/personal-planner.js'])vm.runInContext(fs.readFileSync(f,'utf8'),ctx);
+for(const f of ['static/journey-breakdown.js','static/personal-planner.js'])vm.runInContext(fs.readFileSync(f,'utf8'),ctx);
 assert(!vm.runInContext("travelNotesField('internal travel notes')",ctx).includes('<textarea'));
 ctx.isAdmin=true;assert(vm.runInContext("travelNotesField('owner notes')",ctx).includes('<textarea'));
-ctx.notes='[Align travel]\nLeave: 08:00\nArrive: 09:00\n[/Align travel]\n[Align travel steps]'+JSON.stringify([{mode:'bus',service:'471',start:'08:15'},{mode:'train',start:'08:30'}])+'[/Align travel steps]';
-const html=vm.runInContext('journeyTimeIcons(notes)',ctx);
-for(const label of ['Leave at','Bus due at','Train due at','Arrive at','48px'])assert(html.includes(label),label);
+ctx.steps=[{mode:'bus',service:'471',from:'Birkenhead',to:'Liverpool',start:'08:15',minutes:20},{mode:'train',platform:'2',from:'Liverpool',to:'Chester',start:'08:40',minutes:30}];
+const html=vm.runInContext('journeyBreakdown(steps)',ctx);
+for(const label of ['Bus 471','Train','Birkenhead → Liverpool','Platform 2','20 min','30 min','journey-icon-badge'])assert(html.includes(label),label);
 console.log('Owner notes and journey labels passed');

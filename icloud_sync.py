@@ -467,16 +467,19 @@ class ICloudSync:
                     continue
                 # Preserve legacy/non-Section mappings without querying retired
                 # shift tables. Only Section-event mappings are reconciled here.
-                if str(key).isdigit() or str(key).startswith(('shift:', 'travel:')):
+                if str(key).isdigit() or str(key).startswith('shift:'):
                     continue
-                if not str(key).startswith('event:'):
+                if str(key).startswith('travel:') and not str(key).startswith('travel:event:'):
                     continue
+                if not str(key).startswith(('event:', 'travel:event:')):
+                    continue
+                event_key = str(key).split(':', 2)[-1]
                 with self.app.db_connection() as c:
                     exists = c.execute(
                         'SELECT 1 FROM organiser_events WHERE id=?',
-                        (str(key).split(':',1)[1],)
+                        (event_key,)
                     ).fetchone()
-                    if exists:
+                    if exists and str(key).startswith('event:'):
                         continue
                 remote = self.client.get(saved['url'])
                 if remote:

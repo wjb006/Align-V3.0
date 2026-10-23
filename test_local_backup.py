@@ -3,6 +3,7 @@ import json
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from http.client import HTTPConnection
 from pathlib import Path
 from types import SimpleNamespace
@@ -68,13 +69,14 @@ class LocalBackupTests(unittest.TestCase):
     def test_restore_accepts_v3_backup_without_retired_shift_tables(self):
         with tempfile.TemporaryDirectory() as directory:
             candidate = Path(directory) / "align-v3.sqlite3"
-            with sqlite3.connect(candidate) as connection:
+            with closing(sqlite3.connect(candidate)) as connection:
                 connection.executescript("""
                     CREATE TABLE schema_migrations (migration_id TEXT PRIMARY KEY);
                     CREATE TABLE settings (setting_key TEXT PRIMARY KEY, setting_value TEXT);
                     CREATE TABLE personal_items (id TEXT PRIMARY KEY, kind TEXT, title TEXT);
                     CREATE TABLE organiser_sections (id TEXT PRIMARY KEY, title TEXT);
                 """)
+                connection.commit()
             payload = candidate.read_bytes()
 
         with patch("app.initialise_database_at"):

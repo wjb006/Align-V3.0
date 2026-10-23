@@ -568,31 +568,10 @@
       return;
     }
 
-    const view = event.target.closest('[data-build152-view]');
-    if (view) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      const value = view.dataset.build152View;
-      state.scheduleView = value;
-      if (value === 'week') {
-        if (typeof loadScheduleWeek === 'function') await loadScheduleWeek(state.scheduleFocus || isoToday());
-      } else if (value === 'month') {
-        if (typeof loadScheduleMonth === 'function') await loadScheduleMonth(state.scheduleMonth || isoToday().slice(0,7));
-      } else {
-        state.scheduleView = 'list';
-        if (state.monthData?.month !== state.scheduleMonth && typeof loadScheduleMonth === 'function') {
-          await loadScheduleMonth(state.scheduleMonth || isoToday().slice(0,7));
-        } else render();
-      }
-    }
   }, true);
 
   function listViewSwitch() {
-    return '<div class="schedule-view-switch" role="group" aria-label="Schedule view">' +
-      '<button data-build152-view="list" aria-pressed="' + (state.scheduleView === 'list') + '">List</button>' +
-      '<button data-build152-view="week" aria-pressed="' + (state.scheduleView === 'week') + '">Week</button>' +
-      '<button data-build152-view="month" aria-pressed="' + (state.scheduleView === 'month') + '">Month</button>' +
-      '</div>';
+    return '<p class="subtle">Month agenda</p>';
   }
 
   function listCalendar() {
@@ -603,41 +582,33 @@
 
     const [yy, mm] = state.scheduleMonth.split('-').map(Number);
     const lastDay = new Date(yy, mm, 0).getDate();
-    let lastWeek = '';
+    const events = [...(data.events || []), ...(data.imported_events || [])];
     const rows = Array.from({length:lastDay}, (_, n) => state.scheduleMonth + '-' + String(n + 1).padStart(2, '0')).map(date => {
-      const shifts = (data.shifts || []).filter(s => s.work_date === date);
-      const leaves = (data.annual_leave || []).filter(l => l.leave_date === date);
-      const events = weekEventsForDay(data, date);
-      if (!shifts.length && !leaves.length && !events.length) return '';
-      const heading = typeof dayHeading === 'function' ? dayHeading(date) : (weekdayName(date) + ' ' + prettyDate(date));
-      const weekStart = toIso(monday(fromIso(date)));
-      const weekHead = weekStart !== lastWeek ? '<h3 class="build152-list-week">Week commencing ' +
-        escapeHtml(prettyDate(weekStart)) + '</h3>' : '';
-      lastWeek = weekStart;
-      return weekHead + '<section class="schedule-day build152-list-day' + (date === isoToday() ? ' is-today' : '') + '"><h2>' +
-        escapeHtml(heading) + (date === isoToday() ? ' · Today' : '') + '</h2>' +
-        renderShiftList(shifts) + (events.length ? weekEventRows(data, date) : '') + leaves.map(renderLeaveCard).join('') + '</section>';
+      const dayEvents = events.filter(event => String(event.start_at || '').slice(0, 10) === date)
+        .sort((a, b) => String(a.start_at).localeCompare(String(b.start_at)));
+      if (!dayEvents.length) return '';
+      const cards = dayEvents.map(event => {
+        const time = event.all_day ? 'All day' : escapeHtml(String(event.start_at || '').slice(11, 16));
+        const location = event.location ? '<small>' + escapeHtml(event.location) + '</small>' : '';
+        return '<article class="card week-event-row"><span class="week-event-time">' + time +
+          '</span><span><strong>' + escapeHtml(event.title || 'Event') + '</strong>' + location + '</span></article>';
+      }).join('');
+      return '<section class="schedule-day build152-list-day' + (date === isoToday() ? ' is-today' : '') + '"><h2>' +
+        escapeHtml(prettyDate(date)) + (date === isoToday() ? ' · Today' : '') + '</h2>' + cards + '</section>';
     }).join('');
 
     return '<section class="page"><div class="add-head"><p class="eyebrow">Your calendar</p><h1>Planner</h1>' +
-      '<p class="subtle">Compact month agenda: shifts, annual leave and events in date order.</p>' +
+      '<p class="subtle">Section and imported calendar events in date order.</p>' +
       listViewSwitch() +
       '<div class="schedule-week-nav"><button class="secondary-button" data-build152-list-nav="-1">‹</button>' +
       '<h2>' + escapeHtml(label) + '</h2><button class="secondary-button" data-build152-list-nav="1">›</button></div>' +
       '<div class="button-row"><button class="small-button" data-build152-list-today>Current month</button></div>' +
-      '<div class="build152-list-compact">' + (rows || '<div class="card empty">Nothing scheduled this month.</div>') + '</div>' +
-      '<div class="button-row"><button class="secondary-button" data-action="leave-modal">Add annual leave</button>' +
-      '<button class="primary-button" data-action="go-add">Add shifts</button></div></section>';
+      '<div class="build152-list-compact">' + (rows || '<div class="card empty">Nothing planned this month.</div>') + '</div></section>';
   }
 
-  const originalRenderCalendar = window.renderCalendar;
-  A.renderCalendarOriginal = originalRenderCalendar;
-
   window.renderCalendar = function build152RenderCalendar() {
-    if (state.scheduleView === 'list') return listCalendar();
-    const html = originalRenderCalendar ? originalRenderCalendar() : listCalendar();
-    return html.replace(/<div class="schedule-view-switch"[\s\S]*?<\/div>/,
-      listViewSwitch());
+    state.scheduleView = 'list';
+    return listCalendar();
   };
 
   document.addEventListener('click', event => {

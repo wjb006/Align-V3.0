@@ -1,7 +1,7 @@
 # Align V3.0 build checklist
 **Live project handoff document**
 
-- **Last updated:** 12 October 2026
+- **Last updated:** 23 October 2026
 - **Workspace:** `C:\Users\wjboy\OneDrive\Documents\ChatGPT\Align V3.0`
 - **Original source (read-only):** `C:\Align\Align_App`
 - **Working branch:** `codex/align-v3-rebuild`
@@ -18,11 +18,11 @@
 ## Current handoff: resume here
 - [~] Main rebuild source is pushed on `codex/align-v3-rebuild`; latest CI baseline `594cd085` passed browser regressions, hosted persistence/PostgreSQL integration, and navigation checks in GitHub Actions. The latest browser matrix is green on CI. S3-compatible Studio image-storage code is present, but durable cloud bucket provisioning and live upload verification remain external release gates.
 - [x] Current work includes the Studio's phone-preview section-to-database input-matrix flow: create a section or open its editor; new sections start with required Name, optional Date, and review-before-save; the editor describes naming, matrix setup, and form review.
-- [~] Historical full Python run: `.venv\Scripts\python.exe -m pytest -q` — **231 passed, 3 skipped, 23 subtests passed** before the fresh-schema/legacy-isolation edits. Re-run on the current commit when a runner is available.
-- [~] Historical desktop Playwright run passed section records, calendar event list/month views, Studio draft/publish, and phone preview before the latest legacy-isolation edits. Re-run on the current commit.
-- [~] Historical focused verification passed navigation, date, UI polish, cache consistency, desktop Chromium, and diff checks before the latest legacy-isolation edits. Current checks are pending because GitHub Actions jobs are not starting.
+- [x] Local full Python suite on the current source: **245 passed, 5 skipped, 67 subtests passed**. The skips include hosted PostgreSQL integration, which needs its isolated test database environment.
+- [x] Local Playwright browser matrix on the current source: Desktop Chromium, Pixel 7 Chromium, and iPhone 13 WebKit passed. Calendar coverage now uses the V3 event-only month agenda.
+- [x] Local navigation JavaScript regressions, selected Owner Builder unittest checks, Build 156 cache verifier, workflow YAML parsing, and `git diff --check` passed. GitHub Actions has not run on these uncommitted changes.
 - [~] iCloud calendar selection now lists all calendars in the connected account, lets users select existing calendars or create new ones, creates a matching quick-add Section, and offers an event/reminder calendar dropdown with a “Create New Calendar” option. Reminder entries also create/remove their linked Section calendar event. Focused regressions and desktop browser checks pass; verify with a real Apple account, connected calendar sync, and hosted user isolation before marking complete.
-- [~] Pixel 7 Chromium and iPhone 13 WebKit passed in an earlier browser matrix, before the newest database-matrix handoff changes. Re-run those profiles after the next meaningful UI changes.
+- [x] Pixel 7 Chromium and iPhone 13 WebKit passed in the local browser matrix on 23 October 2026; rerun after the next meaningful UI changes.
 - [~] Shift retirement is implemented at the active-flow boundary: public schedule APIs reject before storage access; fresh schemas omit schedule tables; Home, availability, Travel, iCloud, phone push, calendar export, and Scriptable use retained event/reminder data. Legacy helper functions and compatibility schemas remain for data preservation and need final dead-code review.
 - [x] Added a default optional Work database form with Location, Shift Area, date, start/end time, and Notes fields, linked to the stable Work associations in Management Studio. It appears in Sections for users to opt in and manage private records. Owners can edit its questions and associations in Studio. Focused builder/privacy tests and desktop Chromium pass; hosted deployment verification remains outstanding.
 - [x] Updated end-user calendar, reminder, and iCloud wording to describe Section events and event reminders instead of the retired shift planner; the iCloud sync data path already syncs Section events.
@@ -154,6 +154,7 @@
 ## Latest verification log
 | Date (Europe/London) | Check | Result |
 |---|---|---|
+| 2026-10-23 | Current local V3.0 verification | 245 Python passed, 5 skipped, 67 subtests; Desktop Chromium, Pixel 7 Chromium, and iPhone 13 WebKit passed; navigation checks, Owner Builder checks, Build 156 verifier, workflow YAML parsing, and diff check passed. Hosted Postgres integration skipped without its dedicated test database. Changes remain local and uncommitted. |
 | 2026-10-11 | Full Python suite, `.venv\Scripts\python.exe -m pytest -q` | 227 passed, 3 skipped, 23 subtests passed in 136.51s |
 | 2026-10-11 | Desktop Playwright browser regression, `node browser-tests/align.spec.js` | Passed; includes current section matrix create handoff |
 | 2026-10-11 | Focused Owner tests | 10 passed |
@@ -179,6 +180,7 @@
 | 2026-10-11 | Optional Work flow | 17 focused Python tests; core navigation, date, UI polish and asset consistency checks passed |
 | 2026-10-11 | PowerShell parser | Installer interpolation fixed; installer, uninstaller, cleanup, live-folder, add-ons and remote-access scripts parse successfully |
 ## Change log
+- **2026-10-23:** Reconciled shift-free calendar/browser checks with the V3 event agenda, fixed iCloud sync cleanup for removed event travel blocks while preserving legacy mappings, updated cache-version assertions, and recorded local verification. No deployment was made; hosted release gates remain open.
 - **2026-10-11:** Created this resumable full-build checklist. Recorded current local implementation, evidence, and remaining work. Added the current database input-matrix flow to the completed items.
 - **2026-10-11:** Began replacing fixed shift setup with optional Work records. Added per-user Work opt-in gating and Studio associations for location, area, date, and start/end fields. Started file consolidation by grouping release notes, removing duplicate migration checks, and removing scratch scripts; verify and continue the extension inventory.
 - **2026-10-11:** Continued build by reopening the supplied brief and mapping shift planner references to core API/UI, calendar/iCloud, transport, schema, service-worker and test dependencies. No shift code or tables were removed yet; next work must preserve existing database data while disabling/removing active features.

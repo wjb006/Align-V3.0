@@ -41,6 +41,7 @@ class EventChangesTests(unittest.TestCase):
 
     def test_event_lookup_and_travel_work_without_legacy_schedule_tables(self):
         # A fresh V3 schema deliberately has no shifts or locations tables.
+        self.event('2030-10-01T09:00', '2030-10-01T10:00')
         items = post.events(self.c)
         self.assertTrue(any(item['kind'] == 'event' for item in items))
         with self.assertRaisesRegex(ValueError, 'saved Align or imported calendar event'):

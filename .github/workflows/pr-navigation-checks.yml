@@ -23,10 +23,9 @@ jobs:
           node --check static/dates.js
           node --check static/app.js
           node --check static/personal-planner.js
-          node --check static/week-planner.js
-          node --check static/month-calendar.js
-          node --check static/work-setup.js
           node --check static/service-worker.js
+          node --check static/build152.js
+          node --check static/management-studio.js
 
       - name: Run core navigation regression check
         run: |

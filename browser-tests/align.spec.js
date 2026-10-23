@@ -6,8 +6,6 @@ const path = require('node:path');
 const ROOT = path.resolve(__dirname, '..');
 fs.mkdirSync(path.join(ROOT, 'test-results'), {recursive:true});
 const build152 = fs.readFileSync(path.join(ROOT, 'static', 'build152.js'), 'utf8');
-const monthCalendar = fs.readFileSync(path.join(ROOT, 'static', 'month-calendar.js'), 'utf8');
-const weekPlanner = fs.readFileSync(path.join(ROOT, 'static', 'week-planner.js'), 'utf8');
 const personalPlanner = fs.readFileSync(path.join(ROOT, 'static', 'personal-planner.js'), 'utf8');
 const appSource = fs.readFileSync(path.join(ROOT, 'static', 'app.js'), 'utf8');
 
@@ -27,10 +25,7 @@ function sourceFunctions(source, names) {
 
 const monthPayload = {
   month: '2026-10', start: '2026-09-28', end: '2026-11-01',
-  shifts: [{work_date:'2026-10-05',start_time:'08:30',end_time:'12:30',hours:4,
-    location_id:1,location_name:'Arrowe Park',location_colour:'#365CE6',
-    shift_type_name:'AM Clinic',shift_type_colour:'#2D9D78'}],
-  annual_leave: [{leave_date:'2026-10-06'}],
+  imported_events: [],
   events: [{id:10,title:'Dentist',location:'High Street',
     start_at:'2026-10-07T14:00:00',end_at:'2026-10-07T15:00:00',all_day:false}]
 };
@@ -121,11 +116,6 @@ async function bootstrap(page, store) {
     'window.appleDestinationLink=function(a,b,label){return escapeHtml(label||a)};',
     'window.postTravelSummary=window.savedTravelSummary=function(){return ""};window.travelReminderMinutes=function(){return 0};window.eventViewAttributes=function(){return ""};window.travelCard=function(){return ""};'
   ].join('')});
-  await page.addScriptTag({content: monthCalendar});
-  await page.addScriptTag({content: weekPlanner});
-  const leaveCardStart = appSource.indexOf('function renderLeaveCard(');
-  const leaveCardEnd = appSource.indexOf('\n', leaveCardStart);
-  await page.addScriptTag({content: appSource.slice(leaveCardStart, leaveCardEnd)});
   await page.addScriptTag({content: sourceFunctions(appSource, ['sectionEventDate', 'eventSectionColour', 'eventChoice', 'dayHeading', 'renderEventRow', 'renderGroupedEventRows'])});
   await page.addScriptTag({content: build152});
   await page.evaluate(() => window.dispatchEvent(new Event('load')));
@@ -274,12 +264,17 @@ async function verifyManagementStudio(browser) {
     try {
       await page.waitForFunction(() => {
         const input = document.querySelector('[data-setting="appearance.colors.accent"]');
-        return Boolean(input && input.isConnected && input.type === 'color');
+        // WebKit may expose an unsupported colour input as type="text" while
+        // retaining the requested HTML type attribute and editor control.
+        return Boolean(input && input.isConnected && input.getAttribute('type') === 'color');
       }, null, {timeout:30000});
     } catch (error) {
       const status = await page.locator('#management-status').textContent().catch(() => 'missing');
       const editor = await page.locator('#management-editor').innerText().catch(() => 'missing');
-      throw new Error(`${error.message}; Management Studio status: ${status}; editor: ${editor.slice(0,500)}; page errors: ${pageErrors.join(' | ') || 'none'}; failed requests: ${failedRequests.join(' | ') || 'none'}`);
+      const colorInputs = await page.locator('[data-setting="appearance.colors.accent"]').evaluateAll(nodes =>
+        nodes.map(node => ({type:node.type, connected:node.isConnected, html:node.outerHTML}))
+      ).catch(() => []);
+      throw new Error(`${error.message}; Management Studio status: ${status}; editor: ${editor.slice(0,500)}; color inputs: ${JSON.stringify(colorInputs)}; page errors: ${pageErrors.join(' | ') || 'none'}; failed requests: ${failedRequests.join(' | ') || 'none'}`);
     }
     // Switch the real unified navigation to the startup editor before editing it.
     // Dispatching the builder event alone renders the editor behind the currently active Colours pane.
@@ -530,8 +525,7 @@ async function main() {
       state.tab='calendar';
       state.monthData = {
         month:'2026-10',start:'2026-09-28',end:'2026-11-01',
-        shifts:[],
-        annual_leave:[],
+        imported_events:[],
         events:[{title:'Dentist',location:'High Street',start_at:'2026-10-07T14:00:00',
           end_at:'2026-10-07T15:00:00',all_day:false}]
       };
@@ -542,20 +536,11 @@ async function main() {
     await page.waitForSelector('.build152-list-day');
     const listText = await page.locator('#app').innerText();
     assert.match(listText,/Dentist/);
-    assert.doesNotMatch(listText,/AM Clinic|Annual leave/);
+    assert.doesNotMatch(listText,/shift|annual leave/i);
     await page.screenshot({path: 'test-results/calendar-list-mobile.png', fullPage: true});
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), true);
 
-    await page.locator('[data-build152-view="month"]').click();
-    await page.waitForFunction(() => document.querySelector('[data-build152-view="month"]')?.getAttribute('aria-pressed') === 'true');
-    await page.waitForSelector('.month-grid');
-    assert.equal(await page.locator('[data-build152-view="month"]').getAttribute('aria-pressed'),'true');
-    assert.equal(await page.locator('.month-grid').count(),1);
-    assert.equal(await page.locator('.month-event').count(),1);
-    await page.screenshot({path: 'test-results/calendar-month-mobile.png', fullPage: true});
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), true);
-    const monthGridBox = await page.locator('.month-grid').boundingBox();
-    assert(monthGridBox && monthGridBox.x >= 0 && monthGridBox.x + monthGridBox.width <= await page.evaluate(() => document.documentElement.clientWidth) + 1);
+    assert.equal(await page.locator('[data-build152-view]').count(),0);
 
     // Today at a Glance: weather banner, three following days, schedule separation,
     // and removal of events whose end time has passed.

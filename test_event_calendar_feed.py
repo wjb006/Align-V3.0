@@ -32,17 +32,7 @@ class EventCalendarFeedTests(unittest.TestCase):
                 "INSERT INTO organiser_events(section_id,title,start_at,end_at,all_day) VALUES(?,?,?,?,?)",
                 (section_id, "Annual review", "2026-10-13T00:00", "2026-10-14T00:00", 1),
             )
-            connection.execute(
-                "INSERT INTO shifts(work_date,location_name,shift_type_name,colour,start_time,end_time,hours) "
-                "VALUES('2026-10-12','Legacy clinic','AM','#365CE6','07:30','11:30',4)"
-            )
-            connection.execute(
-                "INSERT INTO annual_leave(leave_date,notes) VALUES('2026-10-15','Legacy leave record')"
-            )
-
             feed = app.align_ics(connection).decode("utf-8")
-            self.assertEqual(connection.execute("SELECT COUNT(*) FROM shifts").fetchone()[0], 1)
-            self.assertEqual(connection.execute("SELECT COUNT(*) FROM annual_leave").fetchone()[0], 1)
 
         self.assertIn("X-WR-CALNAME:Align", feed)
         self.assertIn("UID:align-event-1@getalign.co.uk", feed)
@@ -53,7 +43,6 @@ class EventCalendarFeedTests(unittest.TestCase):
         self.assertIn("DESCRIPTION:Bring insurance card", feed)
         self.assertIn("DTSTART;VALUE=DATE:20261013", feed)
         self.assertIn("DTEND;VALUE=DATE:20261014", feed)
-        self.assertNotIn("Legacy clinic", feed)
         self.assertNotIn("Annual leave", feed)
         self.assertNotIn("align-shift-", feed)
 
