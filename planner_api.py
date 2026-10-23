@@ -31,7 +31,9 @@ def handle_get(handler, app, connection, parsed, row) -> bool:
         return True
     if parsed.path == "/api/address-search":
         query = parse_qs(parsed.query).get("q", [""])[0]
-        self.send_json(200, {"provider":"UK address search","results": find_addresses(query)})
+        results = find_addresses(query)
+        provider = results[0].get("provider", "HERE") if results else "Address search"
+        self.send_json(200, {"provider": provider, "results": results})
         return True
     if parsed.path == "/api/calendars":
         self.send_json(200, calendar_data(connection))

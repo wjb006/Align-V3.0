@@ -6,7 +6,8 @@ window.AlignFields = {
     return fields.map(f => {
       const id = `${prefix}-${f.id}`, value = values[f.id] ?? '', required = f.required ? 'required' : '';
       const visible = this.visible(f,values);
-      const attrs = `id="${e(id)}" name="${e(f.id)}" ${required} ${visible?'':'disabled'}`;
+      const address = /\b(address|postcode|location|destination)\b/i.test(f.label || '') && ['text','textarea'].includes(f.type);
+      const attrs = `id="${e(id)}" name="${e(f.id)}" ${required} ${visible?'':'disabled'}${address?` data-address-search="true" data-address-target="${e(id)}" autocomplete="street-address"`:''}`;
       let input;
       if (f.type === 'formula') input = `<input id="${e(id)}" name="${e(f.id)}" value="${e(value)}" readonly placeholder="Calculated on save"><small>${e(f.formula||'')}</small>`;
       else if (f.type === 'textarea') input = `<textarea ${attrs} maxlength="10000" rows="3">${e(value)}</textarea>`;
@@ -14,7 +15,7 @@ window.AlignFields = {
       else if (f.type === 'select') input = `<select ${attrs}><option value="">Choose…</option>${f.options.map(o=>`<option value="${e(o)}" ${value===o?'selected':''}>${e(o)}</option>`).join('')}</select>`;
       else if (f.type === 'checkbox') input = `<input ${attrs} type="checkbox" ${value===true?'checked':''}>`;
       else input = `<input ${attrs} type="${e(f.type)}" value="${e(value)}" ${f.type==='number'?'step="any"':'maxlength="500"'} ${f.id==='user_name'?'autocomplete="name"':f.type==='tel'?'autocomplete="tel"':''}>`;
-      return `<div class="field" data-field-conditions="${e(JSON.stringify(f.show_when||{}))}" ${visible?'':'hidden'}><label for="${e(id)}">${e(f.label)}${f.required?' <span aria-label="required">*</span>':''}</label>${input}${f.help?`<small class="helper">${e(f.help)}</small>`:''}</div>`;
+      return `<div class="field ${address?'address-search':''}" data-field-conditions="${e(JSON.stringify(f.show_when||{}))}" ${visible?'':'hidden'}><label for="${e(id)}">${e(f.label)}${f.required?' <span aria-label="required">*</span>':''}</label>${input}${address?`<div class="address-results" id="${e(id)}-results" data-address-results="${e(id)}" role="listbox" aria-label="Address suggestions"></div><small class="helper">Suggestions appear as you type. Your search text is sent to an address provider to find matches. You can also type it yourself.</small>`:''}${f.help?`<small class="helper">${e(f.help)}</small>`:''}</div>`;
     }).join('');
   },
   values(form, fields) {

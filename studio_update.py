@@ -1,4 +1,4 @@
-"""Download the latest Align main branch into this local folder."""
+"""Fast-forward this local folder to its configured GitHub branch."""
 from __future__ import annotations
 
 import subprocess
@@ -26,10 +26,21 @@ def current_commit() -> str:
     return result.stdout.strip()
 
 
+def upstream_branch() -> tuple[str, str]:
+    result = _git("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
+    if result.returncode != 0:
+        raise RuntimeError("This Align checkout has no configured GitHub update branch.")
+    upstream = result.stdout.strip()
+    if "/" not in upstream:
+        raise RuntimeError("The configured GitHub update branch could not be identified.")
+    return tuple(upstream.split("/", 1))
+
+
 def update_from_github(initialise) -> dict:
-    """Fast-forward this folder to origin/main. No other git command is run."""
+    """Fast-forward this folder to the upstream branch it is checked out from."""
     before = current_commit()
-    result = _git("pull", "--ff-only", "origin", "main")
+    remote, branch = upstream_branch()
+    result = _git("pull", "--ff-only", remote, branch)
     message = (result.stdout or result.stderr or "").strip()
     if result.returncode != 0:
         raise RuntimeError(message or "Update failed.")

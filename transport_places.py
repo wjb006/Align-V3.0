@@ -1,29 +1,69 @@
 """Explicit place lookup; local stops need no external location disclosure."""
 import json,re,hashlib,os
 from pathlib import Path
-from urllib.parse import quote
 from datetime import datetime,timezone,timedelta
-from transport_providers import request_json
+
+def request_json(url):
+    """Keep the Studio place-lookup seam patchable for privacy tests."""
+    from personal_planner import fetch_json
+    return fetch_json(url)
 
 def lookup(body):
     q=str(body.get('query','')).strip()
     if not 2<=len(q)<=240: raise ValueError('Enter a stop name or full postcode')
     stops=json.loads(Path(__file__).with_name('merseyside_stops.json').read_text(encoding='utf-8'))
     matches=[s for s in stops if q.casefold() in s['name'].casefold()]
-    if matches: return {'places':sorted(matches,key=lambda s:(s['name'].casefold()!=q.casefold(),s['name']))[:25]}
+    if matches and not re.fullmatch(r'[A-Z]{1,2}\d[A-Z\d]?',re.sub(r'\s+','',q).upper()):
+        return {'places':sorted(matches,key=lambda s:(s['name'].casefold()!=q.casefold(),s['name']))[:25]}
     if body.get('local_only') is True: return {'places':[]}
-    if body.get('consent') is True and os.environ.get('ALIGN_JOURNEY_PROVIDER') == 'here':
+    postcode_query=re.sub(r'\s+','',q).upper()
+    is_postcode_prefix=bool(re.fullmatch(r'[A-Z]{1,2}\d[A-Z\d]?',postcode_query) or re.fullmatch(r'[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}',postcode_query))
+    if not is_postcode_prefix and body.get('consent') is True and os.environ.get('ALIGN_JOURNEY_PROVIDER') == 'here' and os.environ.get('ALIGN_HERE_ROUTING_KEY'):
         from personal_planner import here_fetch
         from urllib.parse import urlencode
-        result=here_fetch('https://geocode.search.hereapi.com/v1/geocode?'+urlencode({'q':q,'in':'countryCode:GBR','limit':5,'apiKey':os.environ.get('ALIGN_HERE_ROUTING_KEY','')}))
-        return {'places':[{'name':item.get('title',q),'point':[item['position']['lat'],item['position']['lng']]} for item in result.get('items',[]) if item.get('position') and item.get('resultType') not in ('locality','administrativeArea') and float((item.get('scoring') or {}).get('queryScore') or 0)>=0.7]}
-    codes=re.findall(r'\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b',q.upper())
-    if not codes: return {'places':[],'message':'No matching local stop. Try a full postcode.'}
-    if body.get('consent') is not True: raise ValueError('Allow postcode lookup first')
-    data=request_json('https://api.postcodes.io/postcodes/'+quote(codes[-1]))
-    r=data.get('result')
-    if not r: return {'places':[]}
-    return {'places':[{'name':r['postcode'],'point':[r['latitude'],r['longitude']]}]}
+        result=here_fetch('https://autosuggest.search.hereapi.com/v1/autosuggest?'+urlencode({'q':q,'in':'countryCode:GBR','limit':8,'lang':'en-GB','apiKey':os.environ.get('ALIGN_HERE_ROUTING_KEY','')}))
+        places=[]
+        for item in result.get('items',[]):
+            position=item.get('position') or {}
+            address=item.get('address') or {}
+            name=address.get('label') or item.get('title') or ''
+            if not name: continue
+            place={'name':name}
+            if position.get('lat') is not None and position.get('lng') is not None:
+                place['point']=[position['lat'],position['lng']]
+            places.append(place)
+            if len(places)==8: break
+        return {'places':places}
+    if is_postcode_prefix:
+        if body.get('consent') is not True: raise ValueError('Allow postcode lookup first')
+        from urllib.parse import urlencode
+        result=request_json('https://api.postcodes.io/postcodes/'+postcode_query+'/autocomplete?'+urlencode({'limit':8}))
+        postcodes=result.get('result',[])
+        if postcodes and isinstance(postcodes[0],str):
+            from urllib.parse import quote
+            postcodes=[request_json('https://api.postcodes.io/postcodes/'+quote(code,safe=''))['result'] for code in postcodes[:8]]
+        return {'places':[{'name':item['postcode'],'point':[item['latitude'],item['longitude']]} for item in postcodes if isinstance(item,dict) and item.get('postcode') and item.get('latitude') is not None and item.get('longitude') is not None]}
+    if body.get('consent') is True:
+        from urllib.parse import urlencode
+        result=request_json('https://photon.komoot.io/api?'+urlencode({'q':q,'limit':8,'lang':'en'}))
+        places=[]
+        for item in result.get('features',[]):
+            properties=item.get('properties') or {}
+            geometry=item.get('geometry') or {}
+            coordinates=geometry.get('coordinates') or []
+            country=str(properties.get('country') or '').casefold()
+            country_code=str(properties.get('countrycode') or '').casefold()
+            if country and country not in {'united kingdom','great britain'} and country_code!='gb': continue
+            if len(coordinates)<2: continue
+            street=' '.join(filter(None,[str(properties.get('housenumber') or '').strip(),str(properties.get('street') or '').strip()]))
+            name=str(properties.get('name') or '').strip()
+            if not street: street=name
+            label=', '.join(dict.fromkeys(filter(None,[street,properties.get('postcode'),properties.get('city') or properties.get('town') or properties.get('village'),properties.get('state')])))
+            if not label: continue
+            places.append({'name':label,'point':[coordinates[1],coordinates[0]]})
+            if len(places)==8: break
+        return {'places':places}
+    return {'places':[],'message':'No matching local stop. Allow live suggestions or search by postcode.'}
 
 def calendar_key(row):
     return 'calendar:' + str(row[0]) + ':' + hashlib.sha256(str(row[1]).encode()).hexdigest()[:20]
