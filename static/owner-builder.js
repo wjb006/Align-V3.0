@@ -843,7 +843,7 @@ function workflowFriendlyEditor(layout) {
             </label>
             <button type="button" class="secondary-button" data-workflow-add-edge="${e(node.id)}">Add connection</button>
             <div class="workflow-edit-connections">
-              ${(workflow.edges || []).map((edge,index) => '<div class="finance-next-step"><span>' + e(workflowNodeLabel(layout, workflow.nodes.find(item => item.id === edge.from) || {type:"field",field_id:""})) + ' → ' + e(workflowNodeLabel(layout, workflow.nodes.find(item => item.id === edge.to) || {type:"field",field_id:""})) + '</span><button type="button" class="secondary-button" data-workflow-remove-edge="' + index + '">Remove</button></div>').join('')}
+              ${(workflow.edges || []).map((edge,index) => '<div class="finance-next-step"><span>' + e(workflowNodeLabel(layout, workflow.nodes.find(item => item.id === edge.from) || {type:"field",field_id:""})) + ' → ' + e(workflowNodeLabel(layout, workflow.nodes.find(item => item.id === edge.to) || {type:"field",field_id:""})) + '</span>' + (edge.when ? '<small>Conditional</small>' : '<button type="button" class="secondary-button" data-workflow-make-conditional="' + index + '">Make conditional</button>') + '<button type="button" class="secondary-button" data-workflow-remove-edge="' + index + '">Remove</button></div>').join('')}
             </div>
           </div>
         </div>
@@ -1990,6 +1990,15 @@ if(b.dataset.workflowNode) {
      if (!layout?.workflow?.edges?.[index]) return;
      changed(); layout.workflow.edges.splice(index, 1);
      status('Connection removed from the draft. Reconnect required paths before publishing.'); render(); return;
+   }
+
+   if (b.hasAttribute('data-workflow-make-conditional')) {
+     const layout = currentLayout(); const workflow = layout?.workflow;
+     const edge = workflow?.edges?.[Number(b.dataset.workflowMakeConditional)];
+     const field = layout ? workflowConditionFields(layout)[0] : null;
+     if (!edge || !field) { status('Add a select or checkbox field before creating a condition.', true); return; }
+     changed(); edge.when = {field:field.id,equals:field.type === 'checkbox' ? true : (field.options?.[0] ?? '')};
+     status('Conditional branch added. Select its field and value in the destination step’s Show when settings.'); render(); return;
    }
 
    if (b.hasAttribute('data-workflow-add-edge')) {
