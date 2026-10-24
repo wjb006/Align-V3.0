@@ -361,6 +361,7 @@ function renderHome() {
       <div class="section-head"><h2>${homeSectionTitle('upcoming','Upcoming Events')}</h2><div class="button-row"><button class="text-button" data-build153-manage-contacts>Saved contacts</button></div></div>
       ${renderUpcomingGrouped(dashboard)}
     </section>` : ''}
+    ${homeSection('calendar') ? `<section class="section home-calendar-section" data-management-banner="calendar"><div class="section-head"><h2>${homeSectionTitle('calendar','Calendar')}</h2><button type="button" class="text-button" data-nav="planner">Open calendar</button></div>${homeSectionContent('calendar','show_upcoming',true) ? renderUpcomingGrouped(dashboard) : '<p class="subtle">Your calendar is ready. Open it to view and manage your events.</p>'}</section>` : ''}
   </section>`;
 }
 

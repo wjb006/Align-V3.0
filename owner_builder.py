@@ -313,6 +313,7 @@ HOME_SECTION_CONTENT = {
     'stats': {},
     'menus': {},
     'upcoming': {'group_by_day': True},
+    'calendar': {'show_upcoming': True},
     'annual_leave': {},
 }
 
