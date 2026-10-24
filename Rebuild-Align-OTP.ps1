@@ -33,12 +33,17 @@ try {
     $bus = Join-Path $Data 'uk-busmetro-NW.gtfs.zip'
     $rail = Join-Path $Data 'gb-nationalrail.gtfs.zip'
     $railOriginal = Join-Path $Data 'gb-nationalrail.gtfs.zip.orig'
+    $busOriginal = Join-Path $Data 'uk-busmetro-NW.gtfs.zip.orig'
 
     Get-File 'https://download.geofabrik.de/europe/united-kingdom/england/merseyside-latest.osm.pbf' $osm 1000000
     Get-File 'https://storage.travelwhiz.app/generated-gtfs/uk-busmetro-NW.gtfs.zip' $bus 10000
+    if (!(Test-Path $busOriginal)) { Copy-Item $bus $busOriginal }
     if (!(Test-Path $railOriginal) -and (Test-Path $rail)) { Copy-Item $rail $railOriginal }
     Get-File 'https://storage.travelwhiz.app/generated-gtfs/gb-nationalrail.gtfs.zip' $rail 10000
     if (!(Test-Path $railOriginal)) { Copy-Item $rail $railOriginal }
+    # Always sanitize fresh copies of the preserved downloads, never a previously edited ZIP.
+    Copy-Item $busOriginal $bus -Force
+    Copy-Item $railOriginal $rail -Force
 
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     foreach ($feed in @($bus,$rail)) {
@@ -72,13 +77,16 @@ try {
         Remove-Item $javaZip -Force
     }
 
-    # OTP rejects duplicate calendar rows in some National Rail feed snapshots.
-    # Keep the downloaded original once, then sanitize the active feed in-place.
-    Write-Host 'Sanitizing duplicate National Rail calendar records...'
+    # OTP 2.8 rejects parent-station rows referenced directly by stop_times.
+    # Sanitize both feeds; the failing stop ID in the log is from the bus/metro feed.
     $sanitizeScript = Join-Path $ProjectRoot 'Sanitize-Align-NationalRail.ps1'
     if (!(Test-Path $sanitizeScript)) { throw "Required feed sanitizer is missing: $sanitizeScript" }
-    & $sanitizeScript -FeedPath $rail
-    if ($?) { } else { throw 'National Rail feed sanitiser failed.' }
+    Write-Host 'Sanitizing North West bus/metro GTFS...'
+    & $sanitizeScript -FeedPath $bus -FeedLabel 'North West bus/metro'
+    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw 'North West bus/metro feed sanitizer failed.' }
+    Write-Host 'Sanitizing National Rail GTFS...'
+    & $sanitizeScript -FeedPath $rail -FeedLabel 'National Rail'
+    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw 'National Rail feed sanitizer failed.' }
 
     Write-Host 'Building OTP graph (this may take several minutes)...'
     $buildLog = Join-Path $ProjectRoot 'otp-graph-build.log'
