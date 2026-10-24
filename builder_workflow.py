@@ -198,6 +198,33 @@ def validate(workflow, fields):
 
         clean_edges.append(clean)
 
+    # Reject duplicate connections and cycles while allowing branches to merge.
+    seen_edges = set()
+    adjacency = {}
+    for edge in clean_edges:
+        pair = (edge['from'], edge['to'])
+        if pair in seen_edges:
+            raise ValueError('Workflow connections must be unique.')
+        seen_edges.add(pair)
+        adjacency.setdefault(edge['from'], []).append(edge['to'])
+
+    visiting = set()
+    visited = set()
+
+    def visit(node_id):
+        if node_id in visiting:
+            raise ValueError('Workflow connections cannot create a loop.')
+        if node_id in visited:
+            return
+        visiting.add(node_id)
+        for next_id in adjacency.get(node_id, []):
+            visit(next_id)
+        visiting.remove(node_id)
+        visited.add(node_id)
+
+    for node_id in node_ids:
+        visit(node_id)
+
     # Make sure every node is connected to the tree.
     reachable = {start_node}
     changed = True

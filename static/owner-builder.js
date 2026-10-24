@@ -834,6 +834,18 @@ function workflowFriendlyEditor(layout) {
                 `
           }
 
+          <div class="builder-option-group" style="margin-top:14px">
+            <label>Connect to
+              <select id="workflow-connect-target">
+                <option value="">Choose a step…</option>
+                ${workflow.nodes.filter(item => item.id !== node.id && !outgoing.some(edge => edge.to === item.id)).map(item => '<option value="' + e(item.id) + '">' + e(workflowNodeLabel(layout,item)) + '</option>').join('')}
+              </select>
+            </label>
+            <button type="button" class="secondary-button" data-workflow-add-edge="${e(node.id)}">Add connection</button>
+            <div class="workflow-edit-connections">
+              ${(workflow.edges || []).map((edge,index) => '<div class="finance-next-step"><span>' + e(workflowNodeLabel(layout, workflow.nodes.find(item => item.id === edge.from) || {type:"field",field_id:""})) + ' → ' + e(workflowNodeLabel(layout, workflow.nodes.find(item => item.id === edge.to) || {type:"field",field_id:""})) + '</span>' + (edge.when ? '<small>Conditional</small>' : '<button type="button" class="secondary-button" data-workflow-make-conditional="' + index + '">Make conditional</button>') + '<button type="button" class="secondary-button" data-workflow-remove-edge="' + index + '">Remove</button></div>').join('')}
+            </div>
+          </div>
         </div>
 
       </details>
@@ -1967,10 +1979,37 @@ document.addEventListener('click',ev=>{
   if(!b||busy)return;
 
 if(b.dataset.workflowNode) {
-    workflowNodeId = b.dataset.workflowNode;
-    render();
-    return;
-  }
+     workflowNodeId = b.dataset.workflowNode;
+     render();
+     return;
+   }
+
+   if (b.hasAttribute('data-workflow-remove-edge')) {
+     const layout = currentLayout();
+     const index = Number(b.dataset.workflowRemoveEdge);
+     if (!layout?.workflow?.edges?.[index]) return;
+     changed(); layout.workflow.edges.splice(index, 1);
+     status('Connection removed from the draft. Reconnect required paths before publishing.'); render(); return;
+   }
+
+   if (b.hasAttribute('data-workflow-make-conditional')) {
+     const layout = currentLayout(); const workflow = layout?.workflow;
+     const edge = workflow?.edges?.[Number(b.dataset.workflowMakeConditional)];
+     const field = layout ? workflowConditionFields(layout)[0] : null;
+     if (!edge || !field) { status('Add a select or checkbox field before creating a condition.', true); return; }
+     changed(); edge.when = {field:field.id,equals:field.type === 'checkbox' ? true : (field.options?.[0] ?? '')};
+     status('Conditional branch added. Select its field and value in the destination step’s Show when settings.'); render(); return;
+   }
+
+   if (b.hasAttribute('data-workflow-add-edge')) {
+     const layout = currentLayout(); const workflow = layout?.workflow;
+     const source = b.dataset.workflowAddEdge;
+     const target = document.querySelector('#workflow-connect-target')?.value;
+     if (!workflow || !target || source === target) { status('Choose a different step to connect.', true); return; }
+     if ((workflow.edges || []).some(edge => edge.from === source && edge.to === target)) { status('Those steps are already connected.', true); return; }
+     changed(); workflow.edges = workflow.edges || []; workflow.edges.push({from:source,to:target});
+     status('Connection added to the draft. Use Show when to add a condition.'); render(); return;
+   }
 
 if(b.hasAttribute('data-preview-create-layout')) {
   tab = 'layouts'; selected = ''; fieldId = '';
