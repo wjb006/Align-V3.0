@@ -109,9 +109,12 @@ class BetaMailer:
                 error = (result or {}).get('error_description') or (result or {}).get('error') or 'Microsoft sign-in was not completed.'
                 self.store.set_email_status('authentication_failed', str(error)[:250])
                 update = {'status': 'failed', 'message': 'Microsoft sign-in was not completed.'}
-        except Exception:
-            self.store.set_email_status('connection_failed', 'Microsoft sign-in failed.')
-            update = {'status': 'failed', 'message': 'Microsoft sign-in failed.'}
+        except Exception as exc:
+            # Keep a concise diagnostic for the Owner without exposing tokens or cache contents.
+            detail = f'{type(exc).__name__}: {str(exc)}'[:240]
+            safe_detail = ''.join(ch for ch in detail if ch >= ' ' and ch not in '\\r\\n')
+            self.store.set_email_status('connection_failed', safe_detail or 'Microsoft sign-in failed.')
+            update = {'status': 'failed', 'message': 'Microsoft sign-in failed. Check the connection status for a diagnostic.'}
         with self.lock:
             if flow_id in self.flows:
                 self.flows[flow_id].update(update)
