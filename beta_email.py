@@ -123,7 +123,16 @@ class BetaMailer:
         with self.lock:
             state = dict(self.flows.get(flow_id) or {})
         if not state:
-            raise BetaError('Outlook connection request not found.', 'email_connection_not_found', 404)
+            # Render may route polling to a different instance than the one
+            # holding the device-flow worker. Resolve completion via shared DB state.
+            settings = self.store.get_email_settings_internal()
+            saved = bool(settings.get('oauth_cache_enc'))
+            status = str(settings.get('connection_status') or '')
+            if saved and status == 'connected':
+                return {'status': 'connected', 'message': 'Microsoft account connected.'}
+            if status in {'authentication_failed', 'connection_failed', 'tls_failed', 'provider_rejected'}:
+                return {'status': 'failed', 'message': 'Microsoft sign-in failed. Check the connection status for a diagnostic.'}
+            raise BetaError('Outlook sign-in is still processing on another server instance. Wait briefly and check again.', 'email_connection_pending', 202)
         if state.get('status') == 'waiting' and int(time.time()) > state['created_at'] + state['expires_in']:
             state['status'] = 'expired'
             state['message'] = 'Microsoft sign-in request expired. Start again.'
