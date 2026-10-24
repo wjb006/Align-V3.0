@@ -16,6 +16,7 @@ const SHELL_ASSETS = [
   `/offline-store.js?v=${ASSET_VERSION}`,
   `/icloud.js?v=${ASSET_VERSION}`,
   `/builder-fields.js?v=${ASSET_VERSION}`,
+  `/builder-finance.js?v=${ASSET_VERSION}`,
   `/builder-runtime.js?v=${ASSET_VERSION}`,
   `/journey-breakdown.js?v=${ASSET_VERSION}`,
   `/personal-planner.js?v=${ASSET_VERSION}`,
