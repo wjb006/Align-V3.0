@@ -1,7 +1,7 @@
 @echo off
 setlocal
 set "OTP_DATA=%~dp0otp-data"
-set "OTP_JAVA=%~dp0otp-runtime\jdk-25.0.4.1+1\bin\java.exe"
+set "OTP_JAVA=%~dp0otp-runtime\jdk-25\bin\java.exe"
 set "OTP_JAR=%~dp0otp-runtime\otp-shaded-2.8.0.jar"
 title Build Align Merseyside OTP graph
 
