@@ -374,6 +374,13 @@ function eventSectionColour(event) {
   const fromSection = event.section_id && (state.boot?.sections || []).find(section => Number(section.id) === Number(event.section_id))?.colour;
   return safeColour(event.section_colour || fromSection || event.colour);
 }
+// Safe fallback for read-only events. Older planner modules supplied this helper;
+// keep rendering available if that optional module is not loaded.
+function eventViewAttributes(event) {
+  if (typeof window.eventViewAttributes === 'function') return window.eventViewAttributes(event);
+  return '';
+}
+
 function renderEventRow(event, {
   day = null,
   showDate = true,
