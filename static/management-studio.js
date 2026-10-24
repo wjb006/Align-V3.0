@@ -565,11 +565,36 @@
       else if (editTarget.matches('.management-phone-header, .management-phone-greeting, .management-phone-date')) tab = 'pages';
       if (window.AlignManagementStudioNav?.activate) window.AlignManagementStudioNav.activate(tab);
       else window.dispatchEvent(new CustomEvent('align-builder-tab', {detail: {tab}}));
-      const editor = tab === 'pages' ? document.querySelector('#management-editor') : document.querySelector('#management-editor');
+      const editor = document.querySelector('#management-editor');
       editor?.scrollIntoView({block: 'start', behavior: 'smooth'});
-      const firstControl = editor?.querySelector('input:not([type="hidden"]), select, textarea, button');
-      firstControl?.focus({preventScroll:true});
-      setStatus(`Preview selected: ${({pages:'Pages & text',banners:'Banners',events:'Events',calendar:'Calendar',colors:'Colours'})[tab]}. Edit the controls here; the preview updates as you make changes.`);
+      let exactControl = null;
+      if (tab === 'banners') {
+        const section = editTarget.closest('[data-preview-home-section]');
+        const sectionId = section?.dataset.previewHomeSection;
+        const bannerKey = sectionId === 'upcoming' ? 'upcoming' : sectionId === 'annual_leave' ? 'annual_leave' : sectionId === 'today' ? 'today' : 'section_detail';
+        exactControl = editor?.querySelector(`[data-setting="appearance.banners.${bannerKey}"]`);
+      } else if (tab === 'events') {
+        exactControl = editor?.querySelector('[data-setting="appearance.events.accent"]');
+      } else if (tab === 'calendar') {
+        exactControl = editor?.querySelector('[data-setting="appearance.calendar.week_headings"]') ||
+          editor?.querySelector('[data-setting^="appearance.calendar."]');
+      } else if (tab === 'colors') {
+        exactControl = editor?.querySelector('[data-setting="appearance.colors.accent"]');
+      } else if (tab === 'pages') {
+        const homeBlock = editTarget.closest('[data-preview-home-section]');
+        if (homeBlock) {
+          const index = [...document.querySelectorAll('[data-home-title]')].findIndex(control =>
+            Number(control.dataset.homeTitle) === documentDraft.home_sections.findIndex(item => item.id === homeBlock.dataset.previewHomeSection));
+          exactControl = index >= 0 ? document.querySelector(`[data-home-title="${documentDraft.home_sections.findIndex(item => item.id === homeBlock.dataset.previewHomeSection)}"]`) : null;
+        }
+        if (!exactControl && editTarget.matches('.management-phone-header, .management-phone-greeting')) {
+          exactControl = editor.querySelector('[data-home-title]');
+        }
+      }
+      const targetControl = exactControl || editor?.querySelector('input:not([type="hidden"]), select, textarea, button');
+      targetControl?.focus({preventScroll:true});
+      targetControl?.scrollIntoView({block: 'center', behavior: 'smooth'});
+      setStatus(`Preview selected: ${({pages:'Pages & text',banners:'Banners',events:'Events',calendar:'Calendar',colors:'Colours'})[tab]}. The closest matching control is focused; the preview updates as you edit.`);
       return;
     }
     const block = event.target.closest('[data-preview-home-section]');
