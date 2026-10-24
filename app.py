@@ -857,8 +857,11 @@ class AlignHandler(SimpleHTTPRequestHandler):
     def is_admin(self) -> bool:
         """Owner account is Admin in beta; local builds keep the existing token model."""
         if BETA_MODE:
-            row=self.beta_user()
-            return bool(row and row['is_owner'] and beta_store().terms_current(row))
+            # Owner-only administration is gated by the authenticated Owner session.
+            # Terms acceptance is enforced by the normal account flow; do not let a
+            # stale terms-version comparison silently strip Owner controls after login.
+            row = self.beta_user()
+            return bool(row and row['is_owner'] and row['active'] and row['account_status'] == 'active')
         if not ADMIN_PASSWORD: return True
         return self.headers.get("X-Align-Admin", "") in ADMIN_SESSIONS
 
