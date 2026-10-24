@@ -29,6 +29,28 @@ def bootstrap_hosted_owner(store, password):
                 (secrets.token_hex(12), 'preview@example.com', store.digest(secrets.token_urlsafe(40)), password_hash))
 
 
+def reset_hosted_owner_password(store, password):
+    """Explicit, environment-gated Owner recovery; remove the env var after one successful boot."""
+    if not password:
+        return False
+    if len(password) < 20:
+        raise RuntimeError('ALIGN_OWNER_RESET_PASSWORD must be at least 20 characters')
+    store.validate_password(password)
+    password_hash = store.hash_password(password)
+    with store._connect() as connection:
+        connection.execute('SELECT pg_advisory_xact_lock(151202609)')
+        owners = connection.execute('SELECT * FROM beta_users WHERE is_owner=1 FOR UPDATE').fetchall()
+        if len(owners) != 1:
+            raise RuntimeError('Owner recovery requires exactly one existing hosted Owner')
+        owner = owners[0]
+        connection.execute(
+            "UPDATE beta_users SET password_hash=?,password_set_at=CURRENT_TIMESTAMP,session_hash='',session_expires=0 WHERE user_id=?",
+            (password_hash, owner['user_id']))
+        connection.execute("DELETE FROM beta_sessions WHERE user_id=?", (owner['user_id'],))
+    print('Hosted Owner password recovery applied; Owner sessions revoked.', flush=True)
+    return True
+
+
 def prepare_preview():
     hosted = postgres_enabled()
     mode = os.environ.get('ALIGN_HOSTING_MODE', '').strip().lower()
@@ -55,7 +77,11 @@ def prepare_preview():
         app.DATABASE = Path('align.sqlite3')
         app.initialise_database()
         app.BETA_STORE = BetaStore(app.ROOT, app.DATABASE, app.initialise_database_at)
-        bootstrap_hosted_owner(app.BETA_STORE, password)
+        reset_password = os.environ.get('ALIGN_OWNER_RESET_PASSWORD', '')
+        if reset_password:
+            reset_hosted_owner_password(app.BETA_STORE, reset_password)
+        else:
+            bootstrap_hosted_owner(app.BETA_STORE, password)
         from postgres_support import verify_hosted_storage
         verify_hosted_storage()
         return app, None
