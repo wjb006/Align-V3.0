@@ -555,6 +555,23 @@
       document.querySelector('#builder-content [data-layout-editor]')?.scrollIntoView({block: 'start'});
       return;
     }
+    const editTarget = event.target.closest('.management-phone-banner, .management-phone-event, .management-phone-weather, .management-phone-greeting, .management-phone-header, .mp-grid, .mp-cell, .mp-day, .management-phone-date');
+    if (editTarget) {
+      let tab = 'pages';
+      if (editTarget.matches('.management-phone-banner')) tab = 'banners';
+      else if (editTarget.matches('.management-phone-event')) tab = 'events';
+      else if (editTarget.matches('.management-phone-weather')) tab = 'colors';
+      else if (editTarget.matches('.mp-grid, .mp-cell, .mp-day')) tab = 'calendar';
+      else if (editTarget.matches('.management-phone-header, .management-phone-greeting, .management-phone-date')) tab = 'pages';
+      if (window.AlignManagementStudioNav?.activate) window.AlignManagementStudioNav.activate(tab);
+      else window.dispatchEvent(new CustomEvent('align-builder-tab', {detail: {tab}}));
+      const editor = tab === 'pages' ? document.querySelector('#management-editor') : document.querySelector('#management-editor');
+      editor?.scrollIntoView({block: 'start', behavior: 'smooth'});
+      const firstControl = editor?.querySelector('input:not([type="hidden"]), select, textarea, button');
+      firstControl?.focus({preventScroll:true});
+      setStatus(`Preview selected: ${({pages:'Pages & text',banners:'Banners',events:'Events',calendar:'Calendar',colors:'Colours'})[tab]}. Edit the controls here; the preview updates as you make changes.`);
+      return;
+    }
     const block = event.target.closest('[data-preview-home-section]');
     if (block) {
       if (window.AlignManagementStudioNav?.activate) window.AlignManagementStudioNav.activate('pages');
