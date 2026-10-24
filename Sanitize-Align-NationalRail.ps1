@@ -36,7 +36,9 @@ try {
         throw "$FeedLabel GTFS must contain stops.txt and stop_times.txt."
     }
 
-    $stopRows = @($stopsText | ConvertFrom-Csv)
+    $stopLines = @($stopsText -split "\r?\n" | Where-Object { $_ -ne '' })
+    if ($stopLines.Count -lt 2) { throw "$FeedLabel stops.txt has no data rows." }
+    $stopRows = @($stopLines | ConvertFrom-Csv)
     if ($stopRows.Count -eq 0) { throw "$FeedLabel stops.txt has no data rows." }
     $stopHeaders = @($stopRows[0].PSObject.Properties.Name)
     if ($stopHeaders -notcontains 'stop_id' -or $stopHeaders -notcontains 'location_type') {
