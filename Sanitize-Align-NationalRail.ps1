@@ -41,9 +41,12 @@ try {
     $stopRows = @($stopLines | ConvertFrom-Csv)
     if ($stopRows.Count -eq 0) { throw "$FeedLabel stops.txt has no data rows." }
     $stopHeaders = @($stopRows[0].PSObject.Properties.Name)
-    if ($stopHeaders -notcontains 'stop_id' -or $stopHeaders -notcontains 'location_type') {
-        throw "$FeedLabel stops.txt must contain stop_id and location_type columns."
+    if ($stopHeaders -notcontains 'stop_id') {
+        throw "$FeedLabel stops.txt must contain a stop_id column."
     }
+    # location_type is optional in GTFS. If the column is absent, GTFS defines
+    # every row as location_type 0; do not reject a valid feed for omitting it.
+    $hasLocationType = $stopHeaders -contains 'location_type'
 
     # Stream stop_times.csv rather than loading potentially millions of rows into RAM.
     $referenced = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
@@ -68,10 +71,14 @@ try {
     }
 
     $invalidParents = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-    foreach ($row in $stopRows) {
-        if ([string]$row.location_type -eq '1' -and $referenced.Contains([string]$row.stop_id)) {
-            [void]$invalidParents.Add([string]$row.stop_id)
+    if ($hasLocationType) {
+        foreach ($row in $stopRows) {
+            if ([string]$row.location_type -eq '1' -and $referenced.Contains([string]$row.stop_id)) {
+                [void]$invalidParents.Add([string]$row.stop_id)
+            }
         }
+    } else {
+        Write-Host "$FeedLabel stops.txt omits optional location_type; GTFS default is 0, so no location-type correction is needed."
     }
 
     if ($invalidParents.Count -gt 0) {
