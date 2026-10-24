@@ -1,0 +1,31 @@
+name: Align Management Studio Windows package
+on:
+  push:
+    branches: [feature/windows-management-studio-installer]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - name: Check out Align
+        uses: actions/checkout@v4
+      - name: Assemble installer package
+        shell: pwsh
+        run: |
+          $root = Join-Path $PWD "dist/Align-Management-Studio"
+          New-Item -ItemType Directory -Force -Path "$root/app" | Out-Null
+          git archive HEAD | tar -x -C "$root/app"
+          Copy-Item "installer/windows/Install-Align-Studio.ps1" $root
+          Copy-Item "installer/windows/Launch-Align-Studio.ps1" $root
+          Copy-Item "installer/windows/README.md" $root
+          Compress-Archive -Path $root -DestinationPath "$PWD/dist/Align-Management-Studio-Windows.zip" -Force
+      - name: Upload Windows installer package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Align-Management-Studio-Windows
+          path: dist/Align-Management-Studio-Windows.zip
+          retention-days: 90
