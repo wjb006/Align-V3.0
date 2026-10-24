@@ -1277,3 +1277,73 @@
     }
 
 .align-formatted .hero h1 { color: #fff; }
+
+
+/* Visual database/form-flow nodes */
+.database-flow-builder {
+  margin-top: 24px;
+  padding: 18px;
+  border: 1px solid var(--builder-border, #dce2ec);
+  border-radius: 16px;
+  background: var(--builder-panel, #f8fafc);
+}
+.database-flow-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.database-flow-head h3 { margin: 0 0 6px; }
+.database-flow-head .eyebrow { margin: 0 0 4px; }
+.database-flowchart {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding: 8px 0;
+}
+.database-flow-node {
+  width: min(100%, 440px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 14px 16px;
+  border: 1px solid var(--builder-border, #dce2ec);
+  border-radius: 12px;
+  background: var(--builder-surface, #fff);
+  color: var(--builder-text, #172033);
+  text-align: left;
+  box-shadow: 0 2px 7px rgb(25 40 70 / 5%);
+}
+button.database-flow-node { cursor: pointer; }
+button.database-flow-node:hover,
+button.database-flow-node:focus-visible {
+  border-color: var(--builder-accent, #5267d8);
+  outline: 2px solid transparent;
+  box-shadow: 0 0 0 3px rgb(82 103 216 / 13%);
+}
+.database-flow-node strong { font-size: 1rem; }
+.database-flow-node small { color: var(--builder-muted, #667085); }
+.database-flow-node-type {
+  color: var(--builder-accent, #5267d8);
+  font-size: .68rem;
+  font-weight: 750;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.database-flow-start { border-color: #8ab9a2; }
+.database-flow-save { border-color: #a5addb; }
+.database-flow-connector {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  color: var(--builder-muted, #667085);
+  font-size: 1.25rem;
+}
+@media (max-width: 640px) {
+  .database-flow-builder { padding: 12px; }
+  .database-flow-head { flex-direction: column; }
+  .database-flow-head button { width: 100%; }
+}
