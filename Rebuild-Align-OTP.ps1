@@ -72,19 +72,19 @@ try {
         Remove-Item $javaZip -Force
     }
 
-    # Use the repository's established rail-feed sanitiser when supplied.
-    $sanitiser = Join-Path $Runtime 'sanitize_nationalrail.py'
-    if (Test-Path $sanitiser) {
-        Write-Host 'Running the existing National Rail feed sanitiser...'
-        python $sanitiser
-        if ($LASTEXITCODE -ne 0) { throw 'National Rail feed sanitiser failed.' }
-    } else {
-        Write-Warning 'Existing National Rail sanitiser is not present; feed preserved as downloaded.'
-    }
+    # OTP rejects duplicate calendar rows in some National Rail feed snapshots.
+    # Keep the downloaded original once, then sanitize the active feed in-place.
+    Write-Host 'Sanitizing duplicate National Rail calendar records...'
+    $sanitizeScript = Join-Path $ProjectRoot 'Sanitize-Align-NationalRail.ps1'
+    if (!(Test-Path $sanitizeScript)) { throw "Required feed sanitizer is missing: $sanitizeScript" }
+    & $sanitizeScript -FeedPath $rail
+    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw 'National Rail feed sanitiser failed.' }
 
     Write-Host 'Building OTP graph (this may take several minutes)...'
-    & $JavaExe '-Xmx4G' '-jar' $OtpJar '--build' '--save' $Data
-    if ($LASTEXITCODE -ne 0) { throw "OTP graph build failed (exit $LASTEXITCODE)." }
+    $buildLog = Join-Path $ProjectRoot 'otp-graph-build.log'
+    & $JavaExe '-Xmx4G' '-jar' $OtpJar '--build' '--save' $Data 2>&1 | Tee-Object -FilePath $buildLog
+    $otpExitCode = $LASTEXITCODE
+    if ($otpExitCode -ne 0) { throw "OTP graph build failed (exit $otpExitCode). Full Java output: $buildLog" }
 
     $graph = Join-Path $Data 'graph.obj'
     if (!(Test-Path $graph) -or (Get-Item $graph).Length -lt 1000000) {
