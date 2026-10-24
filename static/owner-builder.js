@@ -2001,10 +2001,6 @@ if(b.dataset.workflowNode) {
      changed(); workflow.edges = workflow.edges || []; workflow.edges.push({from:source,to:target});
      status('Connection added to the draft. Use Show when to add a condition.'); render(); return;
    }
-    workflowNodeId = b.dataset.workflowNode;
-    render();
-    return;
-  }
 
 if(b.hasAttribute('data-preview-create-layout')) {
   tab = 'layouts'; selected = ''; fieldId = '';
