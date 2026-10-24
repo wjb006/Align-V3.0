@@ -28,6 +28,7 @@ jobs:
           node --check static/management-studio.js
           node --check static/management-studio-nav.js
           node --check static/management-studio-calendar.js
+          node --check static/owner-builder.js
 
       - name: Run core navigation regression check
         run: |
