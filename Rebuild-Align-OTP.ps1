@@ -78,7 +78,7 @@ try {
     $sanitizeScript = Join-Path $ProjectRoot 'Sanitize-Align-NationalRail.ps1'
     if (!(Test-Path $sanitizeScript)) { throw "Required feed sanitizer is missing: $sanitizeScript" }
     & $sanitizeScript -FeedPath $rail
-    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw 'National Rail feed sanitiser failed.' }
+    if ($?) { } else { throw 'National Rail feed sanitiser failed.' }
 
     Write-Host 'Building OTP graph (this may take several minutes)...'
     $buildLog = Join-Path $ProjectRoot 'otp-graph-build.log'
