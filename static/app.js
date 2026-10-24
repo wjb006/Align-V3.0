@@ -1159,7 +1159,10 @@ async function evaluateOfflineReadiness() {
   const worker = await requestWorkerDiagnostics();
   const workerPaths = (worker.apiUrls || []).map(pathFromUrl);
   const apiRequired = required.map(key => ({ key, ready: workerPaths.includes(key) }));
-  const ready = location.protocol === 'https:'
+  const secureOfflineOrigin = location.protocol === 'https:'
+    || (location.protocol === 'http:' && ['localhost', '127.0.0.1', '::1'].includes(location.hostname));
+  const ready = secureOfflineOrigin
+    && window.isSecureContext === true
     && Boolean(navigator.serviceWorker?.controller)
     && worker.build === BUILD_VERSION
     && worker.shellReady === true
