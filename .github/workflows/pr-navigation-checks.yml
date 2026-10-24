@@ -26,6 +26,8 @@ jobs:
           node --check static/service-worker.js
           node --check static/build152.js
           node --check static/management-studio.js
+          node --check static/management-studio-nav.js
+          node --check static/management-studio-calendar.js
 
       - name: Run core navigation regression check
         run: |
