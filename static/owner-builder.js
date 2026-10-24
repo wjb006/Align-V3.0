@@ -1674,8 +1674,18 @@ function render(previewOnly=false) {
 
                 <section class="section-matrix-setup">
                   <h3>Step 2 of 3 · Build the input matrix</h3>
-                  <p class="helper">Add each piece of information people should enter. Choose a type, mark required answers, and move questions into the order that makes sense.</p>
+                  <p class="helper">Add each piece of information people should enter. Choose a type, mark required answers, and move questions into the order that makes sense. Each question becomes a connected node in the form flow below.</p>
                   ${fieldList()}
+                  <div class="database-flow-builder">
+                    <div class="database-flow-head"><div><p class="eyebrow">Visual form flow</p><h3>${e(layout.title)} · input nodes</h3><p class="helper">Each node is a database field. Select a node to edit it; use the arrows in Form fields to change the flow order.</p></div><button type="button" class="secondary-button" data-add-field>Add node</button></div>
+                    <div class="database-flowchart" aria-label="Database input flow">
+                      <div class="database-flow-node database-flow-start"><span class="database-flow-node-type">START</span><strong>Begin entry</strong><small>Open the form</small></div>
+                      <div class="database-flow-connector" aria-hidden="true">↓</div>
+                      ${(layout.fields||[]).map((field,index)=>`<button type="button" class="database-flow-node database-flow-field" data-field="${e(field.id)}"><span class="database-flow-node-type">NODE ${index+1} · ${e(types[field.type]||field.type)}</span><strong>${e(field.label)}</strong><small>${field.required?'Required':'Optional'} · ${field.type==='select'?(field.options||[]).length+' choices':'User input'}</small></button><div class="database-flow-connector" aria-hidden="true">↓</div>`).join('')}
+                      <div class="database-flow-node database-flow-save"><span class="database-flow-node-type">FINISH</span><strong>Review and save</strong><small>${layout.review_before_save===false?'Save after validation':'Review answers before saving'}</small></div>
+                    </div>
+                  </div>
+                  ${layout.id==='work'?'<div class="builder-option-group"><h3>Work rota quick-input template</h3><p class="helper">Adds reusable location, area, day, and shift-time choices to Work without deleting existing questions or saved records.</p><button type="button" class="secondary-button" data-work-rota-template>Add rota quick-input fields</button></div>':''}
                 </section>
                 <section class="section-matrix-preview">
                   <h3>Step 3 of 3 · Review the entry form</h3>
@@ -1996,6 +2006,13 @@ if(b.dataset.previewEditLayout) {
     if(b.hasAttribute('data-add-menu'))newMenu();
     if(b.hasAttribute('data-add-child'))newMenu(selected);
     if(b.hasAttribute('data-add-field')){changed();const f={id:id('field'),label:'New field',type:'text',required:false,help:'',options:[]};fields().push(f);fieldId=f.id;render();}
+     if(b.hasAttribute('data-work-rota-template')){const layout=doc.layouts.find(item=>item.id==='work');if(!layout)return;const definitions=[
+       {id:'rota_location',label:'Work location',type:'select',required:true,help:'Choose where this shift takes place.',options:['Arrowe Park','Clatterbridge','Community']},
+       {id:'rota_area',label:'Work area',type:'select',required:true,help:'Choose the clinic, ward, or team.',options:['Wards','Clinic AM','Clinic PM','Hub AM','Community Clinic']},
+       {id:'rota_day',label:'Day of week',type:'select',required:true,help:'Choose the day this shift repeats or takes place.',options:['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']},
+       {id:'rota_start',label:'Shift start',type:'select',required:true,help:'Choose the start time.',options:['07:30','08:00','08:30','09:00','09:30','12:30','13:00','13:30']},
+       {id:'rota_end',label:'Shift finish',type:'select',required:true,help:'Choose the finish time.',options:['11:30','12:00','12:30','13:00','13:30','16:30','17:00','17:30']}
+     ];changed();layout.fields=layout.fields||[];const added=[];definitions.forEach(def=>{if(!layout.fields.some(field=>field.id===def.id)){layout.fields.push(def);added.push(def.id);}});layout.work_associations=layout.work_associations||{};Object.assign(layout.work_associations,{location:'rota_location',area:'rota_area',start_time:'rota_start',end_time:'rota_end'});selected='work';fieldId='';status(added.length?'Rota quick-input fields added. Existing fields and records were preserved. Save the draft, then publish when ready.':'Rota quick-input fields already exist.');render();return;}
     if(b.dataset.moveField){changed();move(fields(),fields().find(f=>f.id===b.dataset.moveField),Number(b.dataset.dir));render();}
     if(b.dataset.removeField&&confirm('Remove this field from the form? Previously saved values are retained.')){changed();const list=fields();list.splice(list.findIndex(f=>f.id===b.dataset.removeField),1);fieldId='';render();}
     if(b.dataset.move){changed();const m=doc.menus.find(x=>x.id===b.dataset.move),siblings=doc.menus.filter(x=>x.parent_id===m.parent_id),other=siblings[siblings.indexOf(m)+Number(b.dataset.dir)];if(other){const a=doc.menus.indexOf(m),c=doc.menus.indexOf(other);[doc.menus[a],doc.menus[c]]=[doc.menus[c],doc.menus[a]];}render();}
