@@ -11,7 +11,8 @@
     colors: 'Colours',
     banners: 'Banners',
     events: 'Events',
-    calendar: 'Calendar',
+    calendar: 'Calendar appearance',
+    'working-calendar': 'Working calendar',
     type: 'Text size',
     review: 'Check changes',
     users: 'Personal choices',
@@ -36,6 +37,7 @@
     banners: 'The coloured bars on Today, Upcoming, and other sections.',
     events: 'How event cards look in the planner. The phone uses sample events.',
     calendar: 'Month and list colours, plus week headings.',
+    'working-calendar': 'Browse real saved Align events by month, week, day, or hourly schedule. This view does not publish design changes.',
     type: 'Text size, theme, and how round the corners are.',
     review: 'See what will change, then publish when it looks right.',
     users: 'Choose what each person may change for themselves.',
@@ -54,6 +56,7 @@
     users: 'People', owner: 'People', history: 'People'
   };
   const builderTabs = new Set(['dashboard', 'startup', 'menus', 'home-nav', 'base-structure', 'layouts', 'travel-results', 'review']);
+  const workingTabs = new Set(['working-calendar']);
   const designTabs = new Set(['pages', 'colors', 'banners', 'events', 'calendar', 'type', 'users', 'history']);
   let active = 'dashboard';
   const $ = s => document.querySelector(s);
@@ -105,6 +108,7 @@
         if (el) el.disabled = true;
       });
       renderSpecial(tab);
+      if (workingTabs.has(tab)) window.AlignStudioCalendar?.mount($('#special-content'));
     }
   }
 
