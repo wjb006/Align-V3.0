@@ -82,9 +82,13 @@ try {
 
     Write-Host 'Building OTP graph (this may take several minutes)...'
     $buildLog = Join-Path $ProjectRoot 'otp-graph-build.log'
-    & $JavaExe '-Xmx4G' '-jar' $OtpJar '--build' '--save' $Data 2>&1 | Tee-Object -FilePath $buildLog
-    $otpExitCode = $LASTEXITCODE
-    if ($otpExitCode -ne 0) { throw "OTP graph build failed (exit $otpExitCode). Full Java output: $buildLog" }
+    $stderrLog = Join-Path $ProjectRoot 'otp-graph-build-stderr.log'
+    Remove-Item $buildLog,$stderrLog -Force -ErrorAction SilentlyContinue
+    # Capture Java stdout/stderr as files so harmless Java warnings don't abort PowerShell.
+    $arguments = @('-Xmx4G','-jar',('"' + $OtpJar + '"'),'--build','--save',('"' + $Data + '"'))
+    $process = Start-Process -FilePath $JavaExe -ArgumentList $arguments -NoNewWindow -Wait -PassThru -RedirectStandardOutput $buildLog -RedirectStandardError $stderrLog
+    if (Test-Path $stderrLog) { Get-Content $stderrLog | Add-Content -Path $buildLog }
+    if ($process.ExitCode -ne 0) { throw "OTP graph build failed (exit $($process.ExitCode)). Full Java output: $buildLog" }
 
     $graph = Join-Path $Data 'graph.obj'
     if (!(Test-Path $graph) -or (Get-Item $graph).Length -lt 1000000) {
