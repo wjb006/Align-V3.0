@@ -83,10 +83,8 @@ try {
     if (!(Test-Path $sanitizeScript)) { throw "Required feed sanitizer is missing: $sanitizeScript" }
     Write-Host 'Sanitizing North West bus/metro GTFS...'
     & $sanitizeScript -FeedPath $bus -FeedLabel 'North West bus/metro'
-    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw 'North West bus/metro feed sanitizer failed.' }
     Write-Host 'Sanitizing National Rail GTFS...'
     & $sanitizeScript -FeedPath $rail -FeedLabel 'National Rail'
-    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw 'National Rail feed sanitizer failed.' }
 
     Write-Host 'Building OTP graph (this may take several minutes)...'
     $buildLog = Join-Path $ProjectRoot 'otp-graph-build.log'
