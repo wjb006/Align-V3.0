@@ -10,7 +10,7 @@ $Data = Join-Path $ProjectRoot 'otp-data'
 $Runtime = Join-Path $ProjectRoot 'otp-runtime'
 $Log = Join-Path $ProjectRoot 'otp-rebuild.log'
 $OtpVersion = '2.8.0'
-$OtpJar = Join-Path $Runtime "otp-shaded-$OtpVersion-shaded.jar"
+$OtpJar = Join-Path $Runtime "otp-shaded-$OtpVersion.jar"
 $JavaExe = Join-Path $Runtime 'jdk-25\bin\java.exe'
 
 New-Item -ItemType Directory -Force -Path $Data,$Runtime | Out-Null
@@ -52,7 +52,7 @@ try {
     }
 
     if (!(Test-Path $OtpJar)) {
-        Get-File "https://repo.maven.apache.org/maven2/org/opentripplanner/otp-shaded/$OtpVersion/otp-shaded-$OtpVersion-shaded.jar" $OtpJar 10000000
+        Get-File "https://repo.maven.apache.org/maven2/org/opentripplanner/otp-shaded/$OtpVersion/otp-shaded-$OtpVersion.jar" $OtpJar 10000000
     }
 
     if (!(Test-Path $JavaExe)) {
