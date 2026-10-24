@@ -376,8 +376,8 @@ function eventSectionColour(event) {
 }
 // Safe fallback for read-only events. Older planner modules supplied this helper;
 // keep rendering available if that optional module is not loaded.
-function eventViewAttributes(event) {
-  if (typeof window.eventViewAttributes === 'function') return window.eventViewAttributes(event);
+function eventViewAttributes(_event) {
+  // Non-editable events remain readable; the optional details-view handler is not loaded here.
   return '';
 }
 
