@@ -3,15 +3,25 @@ setlocal
 cd /d "%~dp0"
 title Rebuild Align V3.0 OTP Graph
 
+REM If the two scripts are already beside this launcher, run them directly.
+REM Do this check BEFORE looking for GitHub CLI; otherwise users without gh
+REM get trapped in the manual-download message even after downloading the files.
+if exist "%~dp0Rebuild-Align-OTP.ps1" if exist "%~dp0Sanitize-Align-NationalRail.ps1" goto run_local
+
 where gh.exe >nul 2>&1
 if errorlevel 1 (
-  echo This is a private GitHub repository, so raw.githubusercontent.com returns 404 when not authenticated.
-  echo Please open the repository in your signed-in browser and download these two files:
+  echo Required script files are missing from:
+  echo   %CD%
+  echo.
+  echo Expected files:
   echo   Rebuild-Align-OTP.ps1
   echo   Sanitize-Align-NationalRail.ps1
-  echo Save both into: %CD%
-  echo Then run this launcher again.
   echo.
+  echo Download them from the signed-in GitHub repository and save them
+  echo directly into this same folder as this .bat file.
+  echo.
+  echo IMPORTANT: If you already downloaded them, check that Windows has not
+  echo added a .txt extension and that they are not inside another folder.
   echo Repository: https://github.com/wjb006/Align-V3.0/tree/codex/align-v3-rebuild
   pause
   exit /b 1
@@ -34,6 +44,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$b=[IO.File]::ReadAl
 if errorlevel 1 goto download_failed
 del "%TEMP%\align-otp-script.b64" "%TEMP%\align-otp-sanitize.b64" >nul 2>&1
 
+:run_local
+echo Running Align OTP graph rebuild...
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Rebuild-Align-OTP.ps1"
 if errorlevel 1 (
   echo.
