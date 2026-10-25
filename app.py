@@ -158,17 +158,14 @@ def monday_for(value: date) -> date:
 
 
 def retired_schedule_endpoint(path: str) -> bool:
-    """Reject retired schedule routes before opening a database."""
+    """Reject genuinely retired routes before opening a database."""
     return bool(
         path in {
-            "/api/shifts", "/api/week", "/api/annual-leave", "/api/work-setup",
-            "/api/alerts", "/api/alert-rules", "/api/shift-completions", "/api/locations", "/api/master", "/api/settings", "/api/user-locations",
+            "/api/work-setup", "/api/alerts", "/api/shift-completions",
+            "/api/master", "/api/settings",
             "/api/menu-branches", "/api/parent-menu-branches",
-            "/api/shift-types", "/api/templates",
         }
-        or re.fullmatch(r"/api/(?:shifts|annual-leave|alerts|alert-rules|shift-completions|user-locations)/[0-9]+", path)
-        or re.fullmatch(r"/api/(?:locations|shift-types)/[0-9]+", path)
-        or re.fullmatch(r"/api/templates/[0-9]+(?:/apply)?", path)
+        or re.fullmatch(r"/api/(?:alerts|shift-completions)/[0-9]+", path)
         or re.fullmatch(r"/api/(?:menu-branches|parent-menu-branches)/[0-9]+", path)
     )
 
