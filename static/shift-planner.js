@@ -31,9 +31,9 @@
     if (state.shiftPlannerLoading) return;
     state.shiftPlannerLoading=true; state.shiftPlannerError='';
     try {
-      const path=state.plannerMode==='month'
-        ? '/api/month?month='+encodeURIComponent(state.plannerAnchor.slice(0,7))
-        : '/api/week?start='+encodeURIComponent(state.plannerAnchor);
+      const path=state.plannerMode==='week'
+        ? '/api/week?start='+encodeURIComponent(state.plannerAnchor)
+        : '/api/month?month='+encodeURIComponent(state.plannerAnchor.slice(0,7));
       state.shiftPlannerData=await api(path);
     } catch(e) {
       state.shiftPlannerError=e.message||'Could not load your shift planner.';
@@ -129,6 +129,22 @@
     }
     return '<div class="restored-month-grid">'+['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>'<span class="restored-month-heading">'+d+'</span>').join('')+cells+'</div>';
   }
+  function renderMonthList(data) {
+    const month=state.plannerAnchor.slice(0,7);
+    const first=new Date(month+'-01T12:00:00');
+    const count=new Date(first.getFullYear(),first.getMonth()+1,0).getDate();
+    const shifts=data.shifts||[], leaves=data.annual_leave||[];
+    const events=[...(data.events||[]),...(data.imported_events||[])];
+    const rows=[];
+    for(let i=1;i<=count;i++){
+      const day=month+'-'+String(i).padStart(2,'0');
+      const ds=shifts.filter(s=>s.work_date===day), ls=leaves.filter(l=>l.leave_date===day);
+      const es=events.filter(e=>String(e.start_at||'').slice(0,10)<=day&&String(e.end_at||'').slice(0,10)>=day);
+      if(!ds.length&&!ls.length&&!es.length)continue;
+      rows.push('<section class="restored-planner-day"><h3>'+esc(fmtDay(day))+'</h3>'+ds.map(shiftCard).join('')+es.map(e=>eventCard(e,(e.origin==='Calendar')||(!e.section_name&&!!e.category_name))).join('')+ls.map(leaveCard).join('')+'</section>');
+    }
+    return rows.length?'<div class="restored-week-list">'+rows.join('')+'</div>':'<p class="empty">Nothing planned this month.</p>';
+  }
   function render() {
     init();
     if (!state.shiftPlannerData && !state.shiftPlannerLoading && !state.shiftPlannerError) { void load(); }
@@ -136,7 +152,7 @@
     const shifts=selectedShifts(), leaves=(d.annual_leave||[]).slice().sort((a,b)=>a.leave_date.localeCompare(b.leave_date));
     const t=totals(shifts);
     const restWarnings=restGapWarnings(shifts,d.work_settings?.minimum_rest_hours);
-    const title=state.plannerMode==='month'?fmtMonth(state.plannerAnchor):'Week commencing '+fmtDay(monday(state.plannerAnchor));
+    const title=state.plannerMode==='week'?'Week commencing '+fmtDay(monday(state.plannerAnchor)):fmtMonth(state.plannerAnchor);
     const list=state.plannerMode==='week'
       ? Array.from({length:7},(_,i)=>shiftDay(monday(state.plannerAnchor),i)).map(day=>{
         const ds=shifts.filter(s=>s.work_date===day), ls=leaves.filter(l=>l.leave_date===day);
@@ -144,6 +160,7 @@
         const ies=(d.imported_events||[]).filter(e=>String(e.start_at||'')<day+'T23:59:59'&&String(e.end_at||'')>day+'T00:00');
         return '<section class="restored-planner-day"><h3>'+esc(fmtDay(day))+'</h3>'+(ds.length?ds.map(shiftCard).join(''):'')+es.map(e=>eventCard(e,false)).join('')+ies.map(e=>eventCard(e,true)).join('')+ls.map(leaveCard).join('')+(!ds.length&&!ls.length&&!es.length&&!ies.length?'<p class="restored-rest-day">Nothing planned</p>':'')+'</section>';
       }).join('')
+      : state.plannerMode==='list' ? renderMonthList(d)
       : calendarMarkup(d)+'<div class="restored-planner-list">'+shifts.map(shiftCard).join('')+[...(d.events||[]).map(e=>eventCard(e,false)),...(d.imported_events||[]).map(e=>eventCard(e,true))].join('')+leaves.map(leaveCard).join('')+(!shifts.length&&!leaves.length&&!(d.events||[]).length&&!(d.imported_events||[]).length?'<p class="empty">No shifts, events or leave this month.</p>':'')+'</div>';
     return '<section class="page planner-page restored-planner-page"><div class="add-head"><p class="eyebrow">Work schedule</p><h1>Planner</h1><p class="subtle">Your shifts, saved patterns and annual leave — together in one place.</p></div>'+
       '<div class="card restored-planner-toolbar"><div class="schedule-week-nav"><button class="secondary-button" data-shift-action="previous" aria-label="Previous '+state.plannerMode+'">‹</button><h2>'+esc(title)+'</h2><button class="secondary-button" data-shift-action="next" aria-label="Next '+state.plannerMode+'">›</button></div><div class="button-row"><button class="'+(state.plannerMode==='week'?'primary-button':'secondary-button')+'" data-shift-action="week">Week</button><button class="'+(state.plannerMode==='month'?'primary-button':'secondary-button')+'" data-shift-action="month">Month</button><button class="secondary-button" data-shift-action="today">Today</button></div>'+
@@ -164,13 +181,13 @@
   document.addEventListener('click',async event=>{
     const button=event.target.closest('[data-shift-action],[data-shift-date]');
     if(!button)return;
-    if(button.dataset.shiftDate){state.plannerAnchor=state.plannerMode==='month'?button.dataset.shiftDate:monday(button.dataset.shiftDate);state.shiftPlannerModal='';await reload();return;}
+    if(button.dataset.shiftDate){state.plannerAnchor=monday(button.dataset.shiftDate);state.plannerMode='week';state.shiftPlannerModal='';await reload();return;}
     const action=button.dataset.shiftAction;
     if(!action)return;
     event.preventDefault();
     try {
       if(action==='previous'||action==='next'){
-        if(state.plannerMode==='month'){
+        if(state.plannerMode!=='week'){
           const current=new Date(state.plannerAnchor.slice(0,7)+'-01T12:00:00');
           const next=new Date(current.getFullYear(),current.getMonth()+(action==='next'?1:-1),1);
           state.plannerAnchor=next.getFullYear()+'-'+String(next.getMonth()+1).padStart(2,'0')+'-01';
@@ -179,7 +196,7 @@
         }
         await reload();return;
       }
-      if(action==='week'||action==='month'){state.plannerMode=action;state.plannerAnchor=action==='week'?monday(state.plannerAnchor):state.plannerAnchor.slice(0,7)+'-01';await reload();return;}
+      if(action==='week'||action==='month'||action==='list'){state.plannerMode=action;state.plannerAnchor=action==='week'?monday(state.plannerAnchor):state.plannerAnchor.slice(0,7)+'-01';await reload();return;}
       if(action==='today'){state.plannerAnchor=state.plannerMode==='week'?monday(getToday()):getToday().slice(0,7)+'-01';await reload();return;}
       if(action==='add'){state.shiftPlannerModal='add';state.shiftPlannerEdit=null;paint();return;}
       if(action==='work-settings'){if(typeof openWorkSetup==='function')await openWorkSetup();return;}
