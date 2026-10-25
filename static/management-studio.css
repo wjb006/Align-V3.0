@@ -541,3 +541,86 @@
     grid-column: 1 / -1;
   }
 }
+
+
+/* Custom home sections and List section editor */
+.studio-calm .studio-add-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.studio-calm .studio-list-editor {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.studio-calm .studio-list-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+.studio-calm .studio-list-item input {
+  min-width: 0;
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--soft);
+  color: var(--ink);
+  font: inherit;
+}
+.studio-calm .studio-list-item span {
+  display: flex;
+  gap: 3px;
+}
+.studio-calm .studio-list-item button,
+.studio-calm .studio-add-inline,
+.studio-calm .studio-remove-section {
+  min-width: 30px;
+  min-height: 30px;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.studio-calm .studio-list-item button:disabled {
+  opacity: .35;
+  cursor: default;
+}
+.studio-calm .studio-add-inline {
+  justify-self: start;
+  color: var(--blue);
+  font-weight: 700;
+}
+.studio-calm .studio-remove-section {
+  margin: 0 0 14px 12px;
+  color: #a12c43;
+}
+.studio-calm .management-phone-list {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0 0 0 24px;
+}
+.studio-calm .management-phone-list li {
+  padding: 7px 9px;
+  border-radius: 8px;
+  color: var(--preview-text, #162147);
+  background: var(--preview-surface, #fff);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 520px) {
+  .studio-calm .studio-list-editor { margin-left: 0; padding: 9px; }
+  .studio-calm .studio-list-item { grid-template-columns: minmax(0, 1fr); }
+  .studio-calm .studio-list-item span { justify-content: flex-end; }
+  .studio-calm .studio-remove-section { margin-left: 0; }
+}
