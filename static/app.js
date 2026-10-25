@@ -311,7 +311,8 @@ const CORE_NAVIGATION = [
 function coreNavDestination(tab = state.tab) {
   if (['today','home'].includes(tab)) return 'today';
   if (tab === 'inbox') return 'inbox';
-  if (['planner','calendar','add'].includes(tab)) return 'sections';
+  if (['planner','calendar'].includes(tab)) return 'planner';
+  if (tab === 'add') return 'sections';
   if (['sections','section'].includes(tab)) return 'sections';
   return 'more';
 }
@@ -319,7 +320,7 @@ function coreNavDestination(tab = state.tab) {
 function renderBottomNavigation() {
   const root = document.querySelector('#bottom-navigation');
   if (!root) return;
-  const configured = (state.boot?.builder?.document?.navigation || []).filter(item => !['planner','calendar','add','work-setup','layout'].includes(item.destination));
+  const configured = (state.boot?.builder?.document?.navigation || []).filter(item => !['add','work-setup','layout'].includes(item.destination));
   const hasCoreNavigation = configured.some(item => ['today','inbox','sections','more'].includes(item.destination));
   const items = hasCoreNavigation ? configured : CORE_NAVIGATION;
   const active = coreNavDestination();
