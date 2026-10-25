@@ -49,7 +49,7 @@
   function totals(shifts) {
     const counted=shifts.filter(s=>!String(s.notes||'').includes('[Align cover: given'));
     const hours=counted.reduce((n,s)=>n+Number(s.hours||0),0);
-    const settings=state.boot?.settings||{};
+    const settings=state.shiftPlannerData?.work_settings||state.boot?.settings||{};
     const contracted=Number(settings.contracted_hours||0), rate=Number(settings.rate_of_pay||0);
     const overtime=contracted>0?Math.max(0,hours-contracted):0;
     return {hours,contracted,overtime,pay:rate>0?hours*rate:0};
@@ -60,6 +60,13 @@
       '<span class="restored-shift-hours">'+esc(fmtHours(s.hours))+'</span></div>'+
       '<p class="restored-shift-time">'+esc(s.start_time)+'–'+esc(s.end_time)+(Number(s.break_minutes)?' · '+esc(s.break_minutes)+' min break':'')+'</p>'+
       '<div class="button-row"><button class="secondary-button" data-shift-action="edit" data-id="'+esc(s.id)+'">Edit shift</button><button class="secondary-button" data-shift-action="delete" data-id="'+esc(s.id)+'">Delete</button></div></article>';
+  }
+  function eventCard(e, imported=false) {
+    const start=String(e.start_at||''), end=String(e.end_at||'');
+    const allDay=!!Number(e.all_day);
+    const when=allDay?'All day':(start.slice(11,16)||'')+(end.slice(11,16)?'–'+end.slice(11,16):'');
+    const category=e.section_name||e.category_name||(imported?'Imported calendar':'Event');
+    return '<article class="card restored-event-card"><div class="restored-event-top"><span class="restored-event-mark">'+(imported?'▦':'•')+'</span><div><strong>'+esc(e.title||'Event')+'</strong><p>'+esc(category)+(e.location?' · '+esc(e.location):'')+'</p></div></div><p class="restored-event-time">'+esc(when)+(e.notes?' · '+esc(e.notes):'')+'</p><div class="button-row"><button class="secondary-button" data-nav="sections">Manage events</button></div></article>';
   }
   function leaveCard(l) {
     return '<article class="card restored-leave-card"><div><strong>Annual leave</strong><p>'+esc(fmtDay(l.leave_date))+(l.notes?' · '+esc(l.notes):'')+'</p></div><button class="secondary-button" data-shift-action="delete-leave" data-id="'+esc(l.id)+'">Remove</button></article>';
@@ -96,11 +103,12 @@
   function calendarMarkup(data) {
     const month=state.plannerAnchor.slice(0,7), first=new Date(month+'-01T12:00:00');
     const count=new Date(first.getFullYear(),first.getMonth()+1,0).getDate(), offset=(first.getDay()+6)%7;
-    const shifts=data.shifts||[], leaves=data.annual_leave||[];
+    const shifts=data.shifts||[], leaves=data.annual_leave||[], events=[...(data.events||[]),...(data.imported_events||[])];
     let cells=Array.from({length:offset},()=>'<span class="restored-month-empty"></span>').join('');
     for(let i=1;i<=count;i++){
       const day=month+'-'+String(i).padStart(2,'0'), n=shifts.filter(s=>s.work_date===day).length, leave=leaves.some(l=>l.leave_date===day);
-      cells+='<button class="restored-month-day '+(day===getToday()?'is-today ':'')+(n?'has-shifts ':'')+(leave?'has-leave':'')+'" data-shift-date="'+day+'"><span>'+i+'</span>'+(n?'<small>'+n+' shift'+(n===1?'':'s')+'</small>':leave?'<small>Leave</small>':'')+'</button>';
+      const eventCount=events.filter(e=>String(e.start_at||'').slice(0,10)<=day && String(e.end_at||'').slice(0,10)>=day).length;
+      cells+='<button class="restored-month-day '+(day===getToday()?'is-today ':'')+(n?'has-shifts ':'')+(leave?'has-leave ':'')+(eventCount?'has-events':'')+'" data-shift-date="'+day+'"><span>'+i+'</span>'+(n?'<small>'+n+' shift'+(n===1?'':'s')+'</small>':'')+(eventCount?'<small>'+eventCount+' event'+(eventCount===1?'':'s')+'</small>':'')+(leave?'<small>Leave</small>':'')+'</button>';
     }
     return '<div class="restored-month-grid">'+['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>'<span class="restored-month-heading">'+d+'</span>').join('')+cells+'</div>';
   }
@@ -114,16 +122,18 @@
     const list=state.plannerMode==='week'
       ? Array.from({length:7},(_,i)=>shiftDay(monday(state.plannerAnchor),i)).map(day=>{
         const ds=shifts.filter(s=>s.work_date===day), ls=leaves.filter(l=>l.leave_date===day);
-        return '<section class="restored-planner-day"><h3>'+esc(fmtDay(day))+'</h3>'+(ds.length?ds.map(shiftCard).join(''):'')+ls.map(leaveCard).join('')+(!ds.length&&!ls.length?'<p class="restored-rest-day">Nothing planned</p>':'')+'</section>';
+        const es=(d.events||[]).filter(e=>String(e.start_at||'')<day+'T23:59:59'&&String(e.end_at||'')>day+'T00:00');
+        const ies=(d.imported_events||[]).filter(e=>String(e.start_at||'')<day+'T23:59:59'&&String(e.end_at||'')>day+'T00:00');
+        return '<section class="restored-planner-day"><h3>'+esc(fmtDay(day))+'</h3>'+(ds.length?ds.map(shiftCard).join(''):'')+es.map(e=>eventCard(e,false)).join('')+ies.map(e=>eventCard(e,true)).join('')+ls.map(leaveCard).join('')+(!ds.length&&!ls.length&&!es.length&&!ies.length?'<p class="restored-rest-day">Nothing planned</p>':'')+'</section>';
       }).join('')
-      : calendarMarkup(d)+'<div class="restored-planner-list">'+shifts.map(shiftCard).join('')+leaves.map(leaveCard).join('')+(!shifts.length&&!leaves.length?'<p class="empty">No shifts or leave this month.</p>':'')+'</div>';
+      : calendarMarkup(d)+'<div class="restored-planner-list">'+shifts.map(shiftCard).join('')+[...(d.events||[]).map(e=>eventCard(e,false)),...(d.imported_events||[]).map(e=>eventCard(e,true))].join('')+leaves.map(leaveCard).join('')+(!shifts.length&&!leaves.length&&!(d.events||[]).length&&!(d.imported_events||[]).length?'<p class="empty">No shifts, events or leave this month.</p>':'')+'</div>';
     return '<section class="page planner-page restored-planner-page"><div class="add-head"><p class="eyebrow">Work schedule</p><h1>Planner</h1><p class="subtle">Your shifts, saved patterns and annual leave — together in one place.</p></div>'+
       '<div class="card restored-planner-toolbar"><div class="schedule-week-nav"><button class="secondary-button" data-shift-action="previous" aria-label="Previous '+state.plannerMode+'">‹</button><h2>'+esc(title)+'</h2><button class="secondary-button" data-shift-action="next" aria-label="Next '+state.plannerMode+'">›</button></div><div class="button-row"><button class="'+(state.plannerMode==='week'?'primary-button':'secondary-button')+'" data-shift-action="week">Week</button><button class="'+(state.plannerMode==='month'?'primary-button':'secondary-button')+'" data-shift-action="month">Month</button><button class="secondary-button" data-shift-action="today">Today</button></div>'+
       '<label class="field">Jump to date<input type="date" data-shift-jump value="'+esc(state.plannerAnchor)+'"></label>'+
       '<div class="restored-planner-stats"><span><strong>'+esc(fmtHours(t.hours))+'</strong> scheduled</span><span><strong>'+shifts.length+'</strong> shifts</span>'+(t.contracted?'<span><strong>'+esc(fmtHours(t.overtime))+'</strong> overtime</span>':'')+(t.pay?'<span><strong>£'+t.pay.toFixed(2)+'</strong> estimated pay</span>':'')+'</div></div>'+
       (state.shiftPlannerError?'<div class="card planner-error" role="alert">'+esc(state.shiftPlannerError)+'<button class="secondary-button" data-shift-action="retry">Retry</button></div>':'')+
       (state.shiftPlannerLoading?'<p class="empty" role="status">Loading planner…</p>':'')+
-      '<div class="button-row restored-planner-actions"><button class="primary-button" data-shift-action="add">＋ Add shift</button><button class="secondary-button" data-shift-action="leave">Book annual leave</button><button class="secondary-button" data-shift-action="patterns">Manage patterns</button></div>'+
+      '<div class="button-row restored-planner-actions"><button class="primary-button" data-shift-action="add">＋ Add shift</button><button class="secondary-button" data-shift-action="leave">Book annual leave</button><button class="secondary-button" data-shift-action="patterns">Manage patterns</button><button class="secondary-button" data-nav="sections">Manage events</button></div>'+
       (state.shiftPlannerModal==='add'?formMarkup():state.shiftPlannerModal==='edit'?formMarkup(state.shiftPlannerEdit||{}):state.shiftPlannerModal==='leave'?leaveForm():state.shiftPlannerModal==='patterns'?patternManager():'')+
       (state.plannerMode==='week'?'<div class="restored-week-list">'+list+'</div>':list)+
       '<p class="helper">Shifts are checked for overlaps and clashes with your existing Align and imported calendar events.</p></section>';
