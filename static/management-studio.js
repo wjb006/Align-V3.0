@@ -555,7 +555,7 @@
       document.querySelector('#builder-content [data-layout-editor]')?.scrollIntoView({block: 'start'});
       return;
     }
-    const editTarget = event.target.closest('.management-phone-banner, .management-phone-event, .management-phone-weather, .management-phone-greeting, .management-phone-header, .mp-grid, .mp-cell, .mp-day, .management-phone-date');
+    const editTarget = event.target.closest('.mp-drag-handle') ? null : event.target.closest('.management-phone-banner, .management-phone-event, .management-phone-weather, .management-phone-greeting, .management-phone-header, .mp-grid, .mp-cell, .mp-day, .management-phone-date');
     if (editTarget) {
       let tab = 'pages';
       if (editTarget.matches('.management-phone-banner')) tab = 'banners';
