@@ -209,7 +209,7 @@
         const item=JSON.parse(decodeURIComponent(button.dataset.eventData||'%7B%7D'));
         if(item.origin==='Calendar'||!item.section_id||!item.id){if(typeof toast==='function')toast('Edit imported events in their original calendar.');return;}
         state.sectionId=Number(item.section_id);
-        await api('/api/sections/'+state.sectionId);
+        state.sectionData=await api('/api/sections/'+state.sectionId);
         if(typeof sectionEventModal==='function')sectionEventModal(Number(item.id));
         return;
       }
