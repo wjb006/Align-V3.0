@@ -576,6 +576,7 @@ function renderUserSettings() {
     { branch_key: 'profile', title: 'Your details', description: 'Update your name and personal details.', icon: '○', branch_type: 'profile' },
     { branch_key: 'events', title: 'Events & calendars', description: 'Manage calendar connections, imported events and your Align calendar feed.', icon: '▦', branch_type: 'calendar' },
     { branch_key: 'work', title: 'Work settings', description: 'Work locations, shift areas, start times, working hours and pay.', icon: '▣', branch_type: 'work' },
+    { branch_key: 'colours', title: 'Colours', description: 'Choose your personal calendar and event colours where available.', icon: '◒', branch_type: 'colours' },
     { branch_key: 'locations', title: 'Work locations', description: 'Manage your saved work locations and their shift settings.', icon: '⌖', branch_type: 'locations' },
     { branch_key: 'alerts', title: 'Planner alerts', description: 'Set shift reminders and review upcoming alerts.', icon: '◌', branch_type: 'alerts' },
   ];
