@@ -435,7 +435,14 @@ async function verifyManagementStudio(browser) {
       el.scrollWidth <= el.clientWidth + 1
     ),true,'Studio navigation should fit the mobile viewport without horizontal scrolling');
     assert.equal(await page.locator('.unified-nav [data-unified-tab="colors"]').getAttribute('aria-current'),'page');
+    await page.waitForFunction(() => [...document.querySelectorAll('.unified-nav-group')]
+      .filter(group => group.open).length === 1);
     assert.equal(await page.locator('.unified-nav-group').filter({hasText:'Look'}).getAttribute('open'),'');
+    await page.waitForFunction(() => {
+      const group = label => [...document.querySelectorAll('.unified-nav-group')]
+        .find(element => element.querySelector('summary')?.textContent.trim() === label);
+      return group('Look')?.open === true && group('Set up')?.open === false;
+    });
     assert.equal(await page.locator('.unified-nav-group').filter({hasText:'Set up'}).getAttribute('open'),null);
     const mobilePublish = await page.locator('#publish').boundingBox();
     assert(mobilePublish && mobilePublish.x >= 0 &&
