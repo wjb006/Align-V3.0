@@ -316,6 +316,7 @@ async function verifyManagementStudio(browser) {
       await page.locator('[data-management-tab="pages"]').click();
     }
     await page.locator('#management-phone [data-preview-home-section="today"] .mp-drag-handle').click();
+    await page.waitForFunction(() => document.activeElement?.matches('[data-home-title]'));
     assert.equal(await page.evaluate(() => document.activeElement?.matches('[data-home-title]')),true,
       'Selecting a home area in the phone preview should focus its editor');
     await page.locator('#management-phone [data-preview-home-section="upcoming"]').dragTo(
