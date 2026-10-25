@@ -77,6 +77,19 @@ def _check_shift(connection, day, start, end, exclude_id=None):
         raise ValueError(f"{day}: this clashes with {event['title'] or 'an Align event'}.")
 
 
+def _create_shift_alerts(connection, shift_id, work_date, start_time, event_name):
+    connection.execute("DELETE FROM alerts WHERE shift_id=?", (shift_id,))
+    rules = _rows(connection, "SELECT * FROM alert_rules WHERE active=1 ORDER BY minutes_before DESC,id")
+    if not rules:
+        connection.execute("INSERT INTO alert_rules(title,minutes_before,active) VALUES(?,?,1)", ("Time to Leave",60))
+        rules = _rows(connection, "SELECT * FROM alert_rules WHERE active=1 ORDER BY minutes_before DESC,id")
+    start = datetime.combine(date.fromisoformat(work_date), datetime.strptime(start_time,"%H:%M").time())
+    for rule in rules:
+        alert_at = start - timedelta(minutes=int(rule["minutes_before"]))
+        connection.execute("INSERT INTO alerts(shift_id,title,alert_at,status) VALUES(?,?,?,'pending')",
+            (shift_id, rule["title"] or event_name, alert_at.isoformat(timespec="minutes")))
+
+
 def _templates(connection):
     return _rows(connection, """SELECT t.id,t.location_id,t.shift_type_id,t.label,t.sub_shift_type,
         t.start_time,t.end_time,t.break_minutes,t.applicable_days,t.active,
@@ -184,6 +197,10 @@ def handle_get(handler, app, connection, parsed, row) -> bool:
         self.send_json(200,{"templates":_templates(connection)}); return True
     if path == "/api/alert-rules":
         self.send_json(200,{"alert_rules":_rows(connection,"SELECT * FROM alert_rules ORDER BY id")}); return True
+    if path == "/api/alerts":
+        self.send_json(200,{"alerts":_rows(connection,"""SELECT a.*,s.work_date,s.start_time,s.end_time,s.location_name,s.shift_type_name
+            FROM alerts a JOIN shifts s ON s.id=a.shift_id WHERE a.status='pending'
+            ORDER BY a.alert_at LIMIT 100""")}); return True
     if path == "/api/dashboard":
         self.send_json(200,app.dashboard(connection)); return True
     if path == "/api/address-search":
@@ -211,7 +228,9 @@ def handle_post(handler, app, connection, path, payload, row) -> bool:
             _check_shift(connection,values[0],values[7],values[8])
             cur=connection.execute("""INSERT INTO shifts(work_date,template_id,location_id,shift_type_id,location_name,shift_type_name,colour,start_time,end_time,break_minutes,hours,notes)
                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",values)
-            saved.append({"id":cur.lastrowid,"work_date":values[0],"location_name":values[4],"shift_type_name":values[5],"start_time":values[7],"end_time":values[8],"hours":values[10]})
+            shift_id=cur.lastrowid
+            _create_shift_alerts(connection,shift_id,values[0],values[7],values[4]+" – "+values[5])
+            saved.append({"id":shift_id,"work_date":values[0],"location_name":values[4],"shift_type_name":values[5],"start_time":values[7],"end_time":values[8],"hours":values[10]})
         if request_id:
             connection.execute("INSERT INTO shift_batches(request_id,payload_hash,result_json) VALUES(?,?,?)",(request_id,"",json.dumps(saved)))
         connection.commit()
@@ -266,6 +285,15 @@ def handle_put(handler, app, connection, path, payload, row) -> bool:
         values=_shift_values(connection,merged,existing["work_date"])
         _check_shift(connection,values[0],values[7],values[8],item_id)
         connection.execute("""UPDATE shifts SET work_date=?,template_id=?,location_id=?,shift_type_id=?,location_name=?,shift_type_name=?,colour=?,start_time=?,end_time=?,break_minutes=?,hours=?,notes=? WHERE id=?""",(*values,item_id))
+        _create_shift_alerts(connection,item_id,values[0],values[7],values[4]+" – "+values[5])
+        connection.commit(); self.send_json(200,{"id":item_id}); return True
+    if path.startswith("/api/alert-rules/"):
+        item_id=int(path.rsplit("/",1)[1]); title=str(payload.get("title","")).strip()[:80]; minutes=int(payload.get("minutes_before",60))
+        if not title: raise ValueError("Give this alert a name.")
+        if not 0<=minutes<=10080: raise ValueError("Reminder must be between 0 and 7 days.")
+        connection.execute("UPDATE alert_rules SET title=?,minutes_before=?,active=? WHERE id=?",(title,minutes,1 if payload.get("active",True) else 0,item_id))
+        for shift in connection.execute("SELECT id,work_date,start_time,location_name,shift_type_name FROM shifts WHERE work_date>=?",(date.today().isoformat(),)).fetchall():
+            _create_shift_alerts(connection,shift["id"],shift["work_date"],shift["start_time"],shift["location_name"]+" – "+shift["shift_type_name"])
         connection.commit(); self.send_json(200,{"id":item_id}); return True
     if path.startswith("/api/templates/"):
         item_id=int(path.rsplit("/",1)[1]); existing=connection.execute("SELECT * FROM shift_templates WHERE id=?",(item_id,)).fetchone()
