@@ -179,9 +179,7 @@ def handle_get(handler, app, connection, parsed, row) -> bool:
         return True
     if path == "/api/month":
         month = query.get("month", [date.today().strftime("%Y-%m")])[0]
-        payload = app.month_data(connection, month)
-        payload.update(_month(connection, month))
-        self.send_json(200, payload)
+        self.send_json(200, _month(connection, month))
         return True
     if path == "/api/dashboard":
         self.send_json(200, app.dashboard(connection)); return True
