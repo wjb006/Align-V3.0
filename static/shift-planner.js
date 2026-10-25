@@ -66,7 +66,8 @@
     const allDay=!!Number(e.all_day);
     const when=allDay?'All day':(start.slice(11,16)||'')+(end.slice(11,16)?'–'+end.slice(11,16):'');
     const category=e.section_name||e.category_name||(imported?'Imported calendar':'Event');
-    return '<article class="card restored-event-card"><div class="restored-event-top"><span class="restored-event-mark">'+(imported?'▦':'•')+'</span><div><strong>'+esc(e.title||'Event')+'</strong><p>'+esc(category)+(e.location?' · '+esc(e.location):'')+'</p></div></div><p class="restored-event-time">'+esc(when)+(e.notes?' · '+esc(e.notes):'')+'</p><div class="button-row"><button class="secondary-button" data-nav="sections">Manage events</button></div></article>';
+    const packed=encodeURIComponent(JSON.stringify({...e,origin:imported?'Calendar':'Event'}));
+    return '<article class="card restored-event-card"><button type="button" class="restored-event-open" data-shift-action="view-event" data-event-data="'+esc(packed)+'"><div class="restored-event-top"><span class="restored-event-mark">'+(imported?'▦':'•')+'</span><div><strong>'+esc(e.title||'Event')+'</strong><p>'+esc(category)+(e.location?' · '+esc(e.location):'')+'</p></div></div><p class="restored-event-time">'+esc(when)+(e.notes?' · '+esc(e.notes):'')+'</p><span class="helper">View details</span></button><div class="button-row"><button class="secondary-button" data-nav="sections">Manage events</button></div></article>';
   }
   function leaveCard(l) {
     return '<article class="card restored-leave-card"><div><strong>Annual leave</strong><p>'+esc(fmtDay(l.leave_date))+(l.notes?' · '+esc(l.notes):'')+'</p></div><button class="secondary-button" data-shift-action="delete-leave" data-id="'+esc(l.id)+'">Remove</button></article>';
@@ -168,6 +169,15 @@
       if(action==='patterns'){state.shiftPlannerModal='patterns';paint();return;}
       if(action==='close-form'){state.shiftPlannerModal='';paint();return;}
       if(action==='retry'){await reload();return;}
+      if(action==='view-event'){
+        const item=JSON.parse(decodeURIComponent(button.dataset.eventData||'%7B%7D'));
+        const start=String(item.start_at||''), end=String(item.end_at||'');
+        const dateLabel=start.slice(0,10)?fmtDay(start.slice(0,10)):'';
+        const timeLabel=Number(item.all_day)?'All day':(start.slice(11,16)||'')+(end.slice(11,16)?'–'+end.slice(11,16):'');
+        const category=item.section_name||item.category_name||(item.origin==='Calendar'?'Imported calendar':'Event');
+        if(typeof modal==='function') modal(item.title||'Event','<div class="settings-form"><p><strong>'+esc(dateLabel)+'</strong></p><p>'+esc(timeLabel)+'</p><p>'+esc(category)+'</p>'+(item.location?'<p>'+esc(item.location)+'</p>':'')+(item.notes?'<p>'+esc(item.notes)+'</p>':'')+'<p class="helper">'+(item.origin==='Calendar'?'Imported calendar event. Edit it in its original calendar.':'You can edit this event from its section in Align.')+'</p><div class="button-row"><button type="button" class="primary-button" data-nav="sections">Manage events</button></div></div>');
+        return;
+      }
       if(action==='edit'){
         const s=selectedShifts().find(item=>String(item.id)===String(button.dataset.id));
         if(s){state.shiftPlannerEdit={...s};state.shiftPlannerModal='edit';paint();}
