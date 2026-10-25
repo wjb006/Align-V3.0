@@ -161,7 +161,7 @@ def retired_schedule_endpoint(path: str) -> bool:
     """Reject genuinely retired routes before opening a database."""
     return bool(
         path in {
-            "/api/work-setup", "/api/shift-completions",
+            "/api/shift-completions",
             "/api/master", "/api/settings",
             "/api/menu-branches", "/api/parent-menu-branches",
         }
@@ -553,9 +553,12 @@ def calendar_data(connection: sqlite3.Connection) -> dict:
            GROUP BY s.id ORDER BY s.name"""
     ))
     sync = dict(connection.execute("SELECT revision,modified_at FROM calendar_sync_state WHERE id=1").fetchone())
+    alert_rules = rows_as_dicts(connection.execute(
+        "SELECT * FROM alert_rules ORDER BY minutes_before,id"
+    ))
     return {"sources": sources, "align_calendar_name": "Align",
             "feed_path": "/api/calendars/live.ics", "sync": sync,
-            "alert_rules": []}
+            "alert_rules": alert_rules}
 
 
 def parse_ics_date(raw: str) -> tuple[datetime, bool]:
@@ -669,6 +672,24 @@ def align_ics(connection: sqlite3.Connection) -> bytes:
     return ("\r\n".join(fold_ics_line(line) for line in lines) + "\r\n").encode("utf-8")
 
 
+def _work_summary(connection: sqlite3.Connection, today: str) -> dict:
+    current = date.fromisoformat(today)
+    start = monday_for(current).isoformat()
+    end = (monday_for(current) + timedelta(days=6)).isoformat()
+    rows = rows_as_dicts(connection.execute(
+        "SELECT * FROM shifts WHERE work_date BETWEEN ? AND ? ORDER BY work_date,start_time",
+        (start, end)
+    ))
+    settings = {row["setting_key"]: row["setting_value"] for row in connection.execute("SELECT setting_key,setting_value FROM settings")}
+    hours_total = sum(float(item.get("hours") or 0) for item in rows if "[Align cover: given" not in str(item.get("notes") or ""))
+    contracted = float(settings.get("contracted_hours", "0") or 0)
+    rate = float(settings.get("rate_of_pay", "0") or 0)
+    overtime = max(0.0, hours_total - contracted) if contracted else 0.0
+    return {"week_hours": round(hours_total,2), "shift_count": len(rows),
+            "regular_hours": round(hours_total-overtime,2), "overtime_hours": round(overtime,2),
+            "pay_estimate": round(hours_total*rate,2), "contracted_hours": contracted, "rate_of_pay": rate}
+
+
 def dashboard(connection: sqlite3.Connection) -> dict:
     now = datetime.now(ZoneInfo('Europe/London'))
     today = now.date().isoformat()
@@ -698,9 +719,14 @@ def dashboard(connection: sqlite3.Connection) -> dict:
         "upcoming_events": upcoming_events,
         "annual_leave": [],
         "leave_balance": None,
-        "alerts": [],
+        "alerts": rows_as_dicts(connection.execute(
+            """SELECT a.*,s.work_date,s.start_time,s.end_time,s.location_name,s.shift_type_name
+               FROM alerts a JOIN shifts s ON s.id=a.shift_id
+               WHERE a.status='pending' AND a.alert_at>=? ORDER BY a.alert_at LIMIT 100""",
+            (now.isoformat(timespec='minutes'),)
+        )),
         "reminder_alerts": [],
-        "summary": {"week_hours": 0, "shift_count": 0, "regular_hours": 0, "overtime_hours": 0, "pay_estimate": 0, "contracted_hours": 0, "rate_of_pay": 0},
+        "summary": _work_summary(connection, today),
     }
 
 
