@@ -135,6 +135,35 @@ def _shift_values(connection, payload, fallback_date=None):
             start,end,break_minutes,hours,str(payload.get("notes","")).strip()[:1000])
 
 
+def _leave_year_bounds(today, start_text):
+    try:
+        month, day = map(int, str(start_text or "01-01").split("-"))
+    except (TypeError, ValueError):
+        month, day = 1, 1
+    def on(year):
+        for candidate in range(min(day,31),0,-1):
+            try:
+                return date(year,month,candidate)
+            except ValueError:
+                continue
+        return date(year,month,1)
+    start=on(today.year)
+    if today<start:
+        start=on(today.year-1)
+    return start,on(start.year+1)-timedelta(days=1)
+
+
+def _leave_balance(connection, work_settings):
+    today=date.today()
+    start,end=_leave_year_bounds(today,work_settings.get("leave_year_start","01-01"))
+    booked=connection.execute("SELECT COUNT(*) FROM annual_leave WHERE leave_date BETWEEN ? AND ?",
+        (start.isoformat(),end.isoformat())).fetchone()[0]
+    allowance=int(work_settings.get("leave_allowance_days",0) or 0)
+    return {"allowance":allowance,"booked":booked,
+        "remaining":allowance-booked if allowance else None,
+        "year_start":start.isoformat(),"year_end":end.isoformat()}
+
+
 def _week(connection, raw_date):
     chosen = date.fromisoformat(_iso_date(raw_date))
     start = chosen - timedelta(days=chosen.weekday())
@@ -155,7 +184,7 @@ def _week(connection, raw_date):
     return {"start":start.isoformat(),"end":end.isoformat(),"shifts":shifts,"annual_leave":leave,"events":events,"imported_events":imported,
             "locations":_rows(connection,"SELECT * FROM locations WHERE active=1 ORDER BY name"),
             "shift_types":_rows(connection,"SELECT * FROM shift_types WHERE active=1 ORDER BY name"),
-            "templates":_templates(connection),"work_settings":work_settings}
+            "templates":_templates(connection),"work_settings":work_settings,"leave_balance":_leave_balance(connection,work_settings)}
 
 
 def _month(connection, raw_month, app):
@@ -168,7 +197,7 @@ def _month(connection, raw_month, app):
     leave = _rows(connection,"SELECT * FROM annual_leave WHERE leave_date BETWEEN ? AND ? ORDER BY leave_date",(start.isoformat(),end.isoformat()))
     return {**event_data,"month":month,"shifts":shifts,"annual_leave":leave,
             "locations":data["locations"],"shift_types":data["shift_types"],"templates":data["templates"],
-            "work_settings":data["work_settings"]}
+            "work_settings":data["work_settings"],"leave_balance":data["leave_balance"]}
 
 
 def handle_get(handler, app, connection, parsed, row) -> bool:
