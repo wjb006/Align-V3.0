@@ -39,6 +39,7 @@ if (!app.includes("branch_key: 'alerts'")) throw new Error('Planner alert settin
 const shiftPlanner = fs.readFileSync('static/shift-planner.js', 'utf8');
 if (!shiftPlanner.includes('data-shift-action="list"') || !shiftPlanner.includes('renderMonthList')) throw new Error('Planner list view is missing');
 if (!shiftPlanner.includes('imported_events') || !shiftPlanner.includes('restGapWarnings')) throw new Error('Planner event integration or rest-gap warnings are missing');
+if (!shiftPlanner.includes("data-shift-action=\\'edit-event\\'")) throw new Error('Direct Planner event editing is missing');
 if (!app.includes("branch_key: 'events'")) throw new Error('Events and calendar settings branch is missing');
 if (personal.includes('regular_work')) throw new Error('Legacy regular-work shift-pattern preference must be retired');
 if (!admin.includes('/management-studio.html')) throw new Error('Legacy Admin entrypoint must lead to Management Studio');
@@ -55,12 +56,12 @@ if (!app.includes("{ branch_key: 'events', title: 'Events & calendars'")) throw 
 for (const [name, source] of [['app',app],['index',index],['service worker',worker]]) {
   if (source.includes('maps173')) throw new Error(`Stale maps173 asset version remains in ${name}`);
 }
-if (!app.includes('const ASSET_VERSION = `${BUILD_VERSION}-v54`;')) throw new Error('App asset version template is not the current Build 156 assets');
-if (!index.includes('156-v54')) throw new Error('Index asset version is not 156-v54');
+if (!app.includes('const ASSET_VERSION = `${BUILD_VERSION}-v55`;')) throw new Error('App asset version template is not the current Build 156 assets');
+if (!index.includes('156-v55')) throw new Error('Index asset version is not 156-v55');
 if (!worker.includes('align-v13-shell-${ASSET_VERSION}')) throw new Error('Shell cache template is missing');
 if (!worker.includes('align-v13-api-${ASSET_VERSION}')) throw new Error('API cache template is missing');
 if (!worker.includes("url.pathname === '/api/sections/definitions'")) throw new Error('Offline-safe API cache omits section definitions');
 if (!app.includes('const addressSearchTimers = new WeakMap();')) throw new Error('Address suggestions are missing their debounce timer store');
 if (!app.includes('data-address-search="true"')) throw new Error('Address fields do not support live suggestions');
-if (!index.includes('/work-setup.js?v=156-v54') || !worker.includes('/work-setup.js?v=${ASSET_VERSION}')) throw new Error('Restored Work Settings assets are not loaded and cached');
+if (!index.includes('/work-setup.js?v=156-v55') || !worker.includes('/work-setup.js?v=${ASSET_VERSION}')) throw new Error('Restored Work Settings assets are not loaded and cached');
 console.log('core navigation, Events, Work Settings and Planner settings checks passed');
