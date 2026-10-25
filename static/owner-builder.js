@@ -843,7 +843,7 @@ function workflowFriendlyEditor(layout) {
             </label>
             <button type="button" class="secondary-button" data-workflow-add-edge="${e(node.id)}">Add connection</button>
             <div class="workflow-edit-connections">
-              ${(workflow.edges || []).map((edge,index) => '<div class="finance-next-step"><span>' + e(workflowNodeLabel(layout, workflow.nodes.find(item => item.id === edge.from) || {type:"field",field_id:""})) + ' → ' + e(workflowNodeLabel(layout, workflow.nodes.find(item => item.id === edge.to) || {type:"field",field_id:""})) + '</span>' + (edge.when ? '<small>Conditional</small>' : '<button type="button" class="secondary-button" data-workflow-make-conditional="' + index + '">Make conditional</button>') + '<button type="button" class="secondary-button" data-workflow-remove-edge="' + index + '">Remove</button></div>').join('')}
+              ${(workflow.edges || []).map((edge,index) => '<div class="finance-next-step workflow-edge-editor"><div class="builder-two"><label>From<select data-workflow-edge-from="' + index + '">' + workflow.nodes.map(item => '<option value="' + e(item.id) + '"' + (item.id === edge.from ? ' selected' : '') + '>' + e(workflowNodeLabel(layout,item)) + '</option>').join('') + '</select></label><label>To<select data-workflow-edge-to="' + index + '">' + workflow.nodes.map(item => '<option value="' + e(item.id) + '"' + (item.id === edge.to ? ' selected' : '') + '>' + e(workflowNodeLabel(layout,item)) + '</option>').join('') + '</select></label></div>' + (edge.when ? '<small>Conditional · ' + e(workflowCondition(edge,layout)) + '</small>' : '<button type="button" class="secondary-button" data-workflow-make-conditional="' + index + '">Make conditional</button>') + '<div class="button-row"><button type="button" class="secondary-button" data-workflow-update-edge="' + index + '">Update connection</button><button type="button" class="secondary-button" data-workflow-remove-edge="' + index + '">Remove</button></div></div>').join('')}
             </div>
           </div>
         </div>
@@ -1982,6 +1982,25 @@ if(b.dataset.workflowNode) {
      workflowNodeId = b.dataset.workflowNode;
      render();
      return;
+   }
+
+   if (b.hasAttribute('data-workflow-update-edge')) {
+     const layout = currentLayout(); const workflow = layout?.workflow;
+     const index = Number(b.dataset.workflowUpdateEdge); const edge = workflow?.edges?.[index];
+     const source = document.querySelector('[data-workflow-edge-from="' + index + '"]')?.value;
+     const target = document.querySelector('[data-workflow-edge-to="' + index + '"]')?.value;
+     if (!edge || !source || !target || source === target) { status('Choose two different workflow steps.', true); return; }
+     if ((workflow.edges || []).some((item,i) => i !== index && item.from === source && item.to === target)) { status('That connection already exists.', true); return; }
+     const proposed = (workflow.edges || []).filter((item,i) => i !== index).concat([{from:source,to:target}]);
+     const adjacency = new Map();
+     proposed.forEach(item => { if (!adjacency.has(item.from)) adjacency.set(item.from, []); adjacency.get(item.from).push(item.to); });
+     const reaches = (from,to) => { const seen = new Set(); const stack = [from]; while (stack.length) { const current = stack.pop(); if (current === to) return true; if (seen.has(current)) continue; seen.add(current); (adjacency.get(current) || []).forEach(next => stack.push(next)); } return false; };
+     if (reaches(target,source)) { status('That connection would create a workflow loop.', true); return; }
+     const reachable = new Set(); const stack = [workflow.start_node];
+     while (stack.length) { const current = stack.pop(); if (reachable.has(current)) continue; reachable.add(current); (adjacency.get(current) || []).forEach(next => stack.push(next)); }
+     if (workflow.nodes.some(item => !reachable.has(item.id))) { status('That change would leave a workflow step disconnected. Reconnect every step before updating.', true); return; }
+     changed(); edge.from = source; edge.to = target;
+     status('Connection updated in the draft. Save the draft to keep it.'); render(); return;
    }
 
    if (b.hasAttribute('data-workflow-remove-edge')) {
