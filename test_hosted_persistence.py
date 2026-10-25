@@ -228,7 +228,7 @@ class PostgresIntegrationTests(unittest.TestCase):
         try:
             with patch.dict(os.environ, {'ALIGN_DATABASE_BACKEND': 'postgres'}), patch(
                     'app.connect',
-                    side_effect=lambda _: pg.Connection(pg.psycopg.connect(self.dsn), schema)):
+                    side_effect=lambda _, **__: pg.Connection(pg.psycopg.connect(self.dsn), schema)):
                 app.initialise_database_at(Path('align.sqlite3'))
                 with app.db_connection() as c:
                     import personal_planner

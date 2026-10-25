@@ -313,7 +313,7 @@ async function verifyManagementStudio(browser) {
       assert.match(await page.locator('#builder-content').innerText(),/Step 1 of 3[\s\S]*Step 2 of 3[\s\S]*Step 3 of 3/);
       await page.locator('[data-management-tab="pages"]').click();
     }
-    await page.locator('#management-phone [data-preview-home-section="today"]').click();
+    await page.locator('#management-phone [data-preview-home-section="today"] .mp-drag-handle').click();
     assert.equal(await page.evaluate(() => document.activeElement?.matches('[data-home-title]')),true,
       'Selecting a home area in the phone preview should focus its editor');
     await page.locator('#management-phone [data-preview-home-section="upcoming"]').dragTo(

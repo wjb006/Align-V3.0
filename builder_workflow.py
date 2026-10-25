@@ -202,10 +202,22 @@ def validate(workflow, fields):
     seen_edges = set()
     adjacency = {}
     for edge in clean_edges:
-        pair = (edge['from'], edge['to'])
-        if pair in seen_edges:
+        condition = edge.get('when')
+        condition_key = (
+            (condition['field'], type(condition['equals']), condition['equals'])
+            if condition is not None
+            else None
+        )
+        edge_key = (
+            edge['from'],
+            edge['to'],
+            condition_key,
+            edge.get('action'),
+            edge.get('on'),
+        )
+        if edge_key in seen_edges:
             raise ValueError('Workflow connections must be unique.')
-        seen_edges.add(pair)
+        seen_edges.add(edge_key)
         adjacency.setdefault(edge['from'], []).append(edge['to'])
 
     visiting = set()
