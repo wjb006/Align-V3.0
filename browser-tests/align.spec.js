@@ -553,7 +553,10 @@ async function main() {
     assert.equal(await page.locator('[data-build153-contact-preview] a[href^="tel:"]').getAttribute('href'),'tel:01925%20555987');
     await page.locator('.build153-contact-manager-backdrop [data-build153-contact-action="close"]').first().click();
     await page.locator('[data-build152-fav-title]').click();
-    await page.waitForTimeout(5);
+    await page.waitForFunction(() => window.ALIGN152.favourites.some(favourite =>
+      favourite.entity_type === 'event_title' &&
+      favourite.entity_key === 'appointment at villa medical centre'
+    ));
     await page.locator('[data-build152-contact]').dispatchEvent('change');
     await page.locator('form[data-form="organiser-event"]').evaluate(form => form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
     assert.match(await page.locator('textarea[name="notes"], input[name="notes"]').inputValue(), /Align contact/);
@@ -573,7 +576,14 @@ async function main() {
     assert.equal(await page.locator('input[name="location"]').inputValue(), 'High Street');
     await page.locator('[data-build152-fav-title]').click();
     await page.locator('[data-build152-fav-location]').click();
-    await page.waitForTimeout(25);
+    await page.waitForFunction(() =>
+      window.ALIGN152.favourites.some(favourite =>
+        favourite.entity_type === 'event_title' && favourite.entity_key === 'dentist'
+      ) &&
+      window.ALIGN152.favourites.some(favourite =>
+        favourite.entity_type === 'location' && favourite.entity_key === 'high street'
+      )
+    );
     assert.equal(await page.locator('[data-build152-fav-title]').textContent(), '★ Saved title');
     assert.equal(await page.locator('[data-build152-fav-location]').textContent(), '★ Saved location');
     assert.equal(store.favourites.size, 3);
