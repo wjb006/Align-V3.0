@@ -62,7 +62,8 @@ validate_parent_branch = admin_api.validate_parent_branch
 
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
-DATABASE = ROOT / "align.sqlite3"
+DATA_DIR = Path(os.environ.get("ALIGN_DATA_DIR") or ROOT).expanduser()
+DATABASE = DATA_DIR / "align.sqlite3"
 BUILD_VERSION = 156
 APP_VERSION = "3.0"
 BETA_MODE = os.environ.get("ALIGN_BETA_MODE", "0") == "1" or "--beta" in sys.argv

@@ -58,8 +58,18 @@
   const builderTabs = new Set(['dashboard', 'startup', 'menus', 'home-nav', 'base-structure', 'layouts', 'travel-results', 'review']);
   const workingTabs = new Set(['working-calendar']);
   const designTabs = new Set(['pages', 'colors', 'banners', 'events', 'calendar', 'type', 'users', 'history']);
+  const navGroups = [...document.querySelectorAll('.unified-nav-group')];
+  const mobileNav = window.matchMedia('(max-width:700px)');
   let active = 'dashboard';
   const $ = s => document.querySelector(s);
+
+  function syncNavGroups(tab = active) {
+    if (!mobileNav.matches) return;
+    const activeButton = [...document.querySelectorAll('.unified-nav [data-unified-tab]')]
+      .find(button => button.dataset.unifiedTab === tab);
+    const activeGroup = activeButton?.closest('.unified-nav-group');
+    if (activeGroup) navGroups.forEach(group => { group.open = group === activeGroup; });
+  }
 
   function activate(tab) {
     if (builderTabs.has(active) && !builderTabs.has(tab) && window.AlignBuilderStudio?.hasUnsavedChanges()) {
@@ -79,7 +89,12 @@
       const on = b.dataset.unifiedTab === tab;
       b.classList.toggle('is-active', on);
       b.setAttribute('aria-pressed', String(on));
+      if (b.closest('.unified-nav')) {
+        if (on) b.setAttribute('aria-current', 'page');
+        else b.removeAttribute('aria-current');
+      }
     });
+    syncNavGroups(tab);
     const place = $('#unified-place');
     if (place) place.textContent = placeFor[tab] || 'Studio';
     $('#unified-title').textContent = titleMap[tab] || 'Management Studio';
@@ -119,7 +134,28 @@
       return;
     }
     if (tab === 'host') {
-      box.innerHTML = '<div class="builder-panel studio-special"><h2>Host overview</h2><p>This panel is a starting point, not a live health report yet. No service is marked healthy until an authorized server-side health check confirms it.</p><div class="studio-platform-grid"><section><h3>Application</h3><p>Use the existing hosted Align service.</p><a href="/" target="_blank" rel="noopener">Open hosted app</a></section><section><h3>Database</h3><p>Production data must remain in the configured hosted database. Connection strings and credentials are never shown here.</p><span>Live check not connected</span></section><section><h3>Transport &amp; OTP</h3><p>Existing routing, timetable feeds and OTP configuration must be preserved.</p><span>Live check not connected</span></section><section><h3>Backups &amp; releases</h3><p>Backup, restore and deployment actions will require owner authorization and confirmation.</p><span>Actions not connected</span></section></div></div>';
+      box.innerHTML = `<div class="builder-panel studio-special">
+        <h2>Host overview</h2>
+        <p>This panel is a starting point, not a live health report. No service is marked healthy until an authorized check confirms it.</p>
+        <div class="studio-platform-grid">
+          <section><h3>Application</h3><p>The production Align service connected to this Studio.</p><a href="https://getalign.co.uk" target="_blank" rel="noopener">Open production app</a></section>
+          <section><h3>Database</h3><p>Production data remains in the configured hosted database. Connection strings and credentials are never shown here.</p><span>Live check not connected</span></section>
+          <section><h3>Transport &amp; OTP</h3><p>Existing routing, timetable feeds and OTP configuration must be preserved.</p><span>Live check not connected</span></section>
+        </div>
+        <section class="studio-release-panel" aria-labelledby="studio-release-title">
+          <h3 id="studio-release-title">Send a software release</h3>
+          <p>Choose a GitHub branch or tag. GitHub runs the release checks first; Render updates only if they pass. The production environment can pause for an additional approval if configured.</p>
+          <div class="studio-release-controls">
+            <label>Source branch or tag<input id="studio-release-ref" type="text" maxlength="100" autocomplete="off" spellcheck="false"></label>
+            <label>Destination<select id="studio-release-target"><option value="production">Production · getalign.co.uk</option></select></label>
+            <button id="studio-release-submit" class="management-primary" type="button" disabled>Run release checks</button>
+          </div>
+          <p id="studio-release-status" role="status" aria-live="polite">Checking local release access…</p>
+          <p class="studio-release-footnote">Staging is not configured yet. GitHub CLI sign-in and Render credentials stay on their authorized services; this Studio does not display secrets.</p>
+          <a href="https://github.com/wjb006/Align-V3.0/actions/workflows/deploy-align-v3.yml" target="_blank" rel="noopener">View release workflow</a>
+        </section>
+      </div>`;
+      setupReleasePanel();
       return;
     }
     if (tab === 'owner') {
@@ -134,6 +170,68 @@
     };
     const x = copy[tab] || ['Home', 'Choose a section on the left to begin.'];
     box.innerHTML = `<div class="builder-panel studio-special"><h2>${x[0]}</h2><p>${x[1]}</p></div>`;
+  }
+
+  async function setupReleasePanel() {
+    const input = $('#studio-release-ref');
+    const button = $('#studio-release-submit');
+    const status = $('#studio-release-status');
+    if (!input || !button || !status) return;
+    if (!['127.0.0.1', 'localhost', '::1'].includes(location.hostname)) {
+      status.textContent = 'Software releases are available from the local Management Studio on this PC.';
+      button.disabled = true;
+      return;
+    }
+    const adminToken = sessionStorage.getItem('align-admin-token');
+    const headers = adminToken ? {'X-Align-Admin': adminToken} : {};
+    try {
+      const response = await fetch('/api/studio/deploy-info', {
+        cache: 'no-store',
+        credentials: 'same-origin',
+        headers
+      });
+      const info = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(info.error || 'Local release access is unavailable.');
+      input.value = info.default_ref || '';
+      status.textContent = info.reason || 'Release access checked.';
+      button.disabled = !info.available;
+    } catch (error) {
+      status.textContent = error.message;
+      button.disabled = true;
+    }
+    button.addEventListener('click', async () => {
+      const ref = input.value.trim();
+      if (!ref) {
+        status.textContent = 'Enter a GitHub branch or tag first.';
+        input.focus();
+        return;
+      }
+      if (!window.confirm(`Start release checks for "${ref}" and send it to the production Align app if they pass?`)) return;
+      button.disabled = true;
+      status.textContent = 'Sending the release request to GitHub…';
+      try {
+        const response = await fetch('/api/studio/deploy', {
+          method: 'POST',
+          cache: 'no-store',
+          credentials: 'same-origin',
+          headers: {'Content-Type': 'application/json', ...headers},
+          body: JSON.stringify({ref, target: 'production'})
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'GitHub could not start the release.');
+        status.textContent = result.summary || 'Release checks queued.';
+        const link = document.createElement('a');
+        link.href = result.workflow_url;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.textContent = 'Open release workflow';
+        status.append(' ', link);
+      } catch (error) {
+        status.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
   }
 
   document.getElementById('studio-update')?.addEventListener('click', async () => {
@@ -165,6 +263,10 @@
   document.addEventListener('click', e => {
     const b = e.target.closest('[data-unified-tab]');
     if (b) activate(b.dataset.unifiedTab);
+  });
+  mobileNav.addEventListener('change', () => {
+    if (!mobileNav.matches) navGroups.forEach(group => { group.open = true; });
+    else syncNavGroups();
   });
   window.AlignManagementStudioNav = { activate };
   activate('dashboard');

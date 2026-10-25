@@ -15,16 +15,19 @@ if (-not $Python) {
 }
 $SourceRoot = Join-Path $PSScriptRoot "app"
 if (-not (Test-Path (Join-Path $SourceRoot "app.py"))) { throw "Align application files were not found beside this installer." }
+$LauncherSource = Join-Path $PSScriptRoot "Align-Management-Studio.exe"
+if (-not (Test-Path $LauncherSource)) { throw "The Align Management Studio desktop launcher is missing. Download a complete Windows package and try again." }
 New-Item -ItemType Directory -Force -Path $InstallRoot,$DataRoot | Out-Null
 $TargetApp = Join-Path $InstallRoot "app"
+$null = New-Item -ItemType Directory -Force -Path $TargetApp
 $ExistingDatabase = Join-Path $TargetApp "align.sqlite3"
 $DatabaseBackup = Join-Path $DataRoot "align.sqlite3"
-if ((Test-Path $ExistingDatabase) -and -not (Test-Path $DatabaseBackup)) {
+if (Test-Path $ExistingDatabase) {
     Copy-Item $ExistingDatabase $DatabaseBackup -Force
+    Remove-Item $ExistingDatabase -Force
 }
-if (Test-Path $TargetApp) { Remove-Item $TargetApp -Recurse -Force }
-Copy-Item $SourceRoot $TargetApp -Recurse -Force
-if (Test-Path $DatabaseBackup) { Copy-Item $DatabaseBackup (Join-Path $TargetApp "align.sqlite3") -Force }
+Copy-Item -Path (Join-Path $SourceRoot "*") -Destination $TargetApp -Recurse -Force
+Copy-Item $LauncherSource $InstallRoot -Force
 Copy-Item (Join-Path $PSScriptRoot "Launch-Align-Studio.ps1") $InstallRoot -Force
 $Venv = Join-Path $InstallRoot ".venv"
 if (-not (Test-Path (Join-Path $Venv "Scripts\python.exe"))) {

@@ -426,11 +426,62 @@ async function verifyManagementStudio(browser) {
     assert.equal(await page.evaluate(() =>
       document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1
     ),true);
-    assert(await page.locator('.unified-sidebar').evaluate(el => getComputedStyle(el).overflowX === 'auto'));
+    assert.equal(await page.locator('.unified-nav').evaluate(el =>
+      el.scrollWidth <= el.clientWidth + 1
+    ),true,'Studio navigation should fit the mobile viewport without horizontal scrolling');
+    assert.equal(await page.locator('.unified-nav [data-unified-tab="colors"]').getAttribute('aria-current'),'page');
+    assert.equal(await page.locator('.unified-nav-group').filter({hasText:'Look'}).getAttribute('open'),'');
+    assert.equal(await page.locator('.unified-nav-group').filter({hasText:'Set up'}).getAttribute('open'),null);
     const mobilePublish = await page.locator('#publish').boundingBox();
     assert(mobilePublish && mobilePublish.x >= 0 &&
       mobilePublish.x + mobilePublish.width <= await page.evaluate(() => document.documentElement.clientWidth) + 1);
     await page.screenshot({path:path.join(ROOT,'test-results','management-studio-mobile.png'),fullPage:true});
+  } finally {
+    await context.close();
+  }
+}
+
+async function verifyLocalReleasePanel(browser) {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const releases = [];
+  const pageErrors = [];
+  page.on('pageerror', error => pageErrors.push(error.message));
+  const html = fs.readFileSync(path.join(ROOT,'static','management-studio.html'),'utf8')
+    .replace(/<link\b[^>]*>/gi,'')
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'');
+  await page.route('http://127.0.0.1:8010/**', async route => {
+    const request = route.request();
+    const pathname = new URL(request.url()).pathname;
+    if (pathname === '/management-studio.html') {
+      return route.fulfill({contentType:'text/html',body:html});
+    }
+    if (pathname === '/api/studio/deploy-info' && request.method() === 'GET') {
+      return route.fulfill({contentType:'application/json',body:JSON.stringify({
+        available:true,default_ref:'codex/align-v3-rebuild',reason:'GitHub is connected.'
+      })});
+    }
+    if (pathname === '/api/studio/deploy' && request.method() === 'POST') {
+      releases.push(JSON.parse(request.postData() || '{}'));
+      return route.fulfill({status:202,contentType:'application/json',body:JSON.stringify({
+        ok:true,ref:'codex/align-v3-rebuild',target:'production',
+        workflow_url:'https://github.com/wjb006/Align-V3.0/actions/workflows/deploy-align-v3.yml',
+        summary:'Release checks were queued on GitHub.'
+      })});
+    }
+    return route.fulfill({status:404,body:'Not found'});
+  });
+  try {
+    await page.goto('http://127.0.0.1:8010/management-studio.html',{waitUntil:'domcontentloaded'});
+    await page.addScriptTag({content:fs.readFileSync(path.join(ROOT,'static','management-studio-nav.js'),'utf8')});
+    await page.locator('[data-unified-tab="host"]').click();
+    await page.waitForFunction(() => !document.querySelector('#studio-release-submit')?.disabled);
+    assert.equal(await page.locator('#studio-release-ref').inputValue(),'codex/align-v3-rebuild');
+    page.once('dialog', dialog => dialog.accept());
+    await page.locator('#studio-release-submit').click();
+    await page.waitForFunction(() => document.querySelector('#studio-release-status')?.textContent.includes('queued'));
+    assert.deepEqual(releases,[{ref:'codex/align-v3-rebuild',target:'production'}]);
+    assert.deepEqual(pageErrors,[]);
   } finally {
     await context.close();
   }
@@ -638,6 +689,7 @@ async function main() {
 
     await verifyOwnerBuilderMenuScroll(context);
     await verifyManagementStudio(browser);
+    await verifyLocalReleasePanel(browser);
 
     console.log(`PASS — Align V3.0 browser regressions: ${browserName}${mobileDevice ? ` (${mobileDevice})` : ''}; user flows, section records, calendar views, Studio draft/publish and phone preview`);
   } finally {

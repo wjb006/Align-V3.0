@@ -1,7 +1,7 @@
 name: Align Management Studio Windows package
 on:
   push:
-    branches: [feature/windows-management-studio-installer]
+    branches: [codex/align-v3-rebuild]
   workflow_dispatch:
 
 permissions:
@@ -13,12 +13,25 @@ jobs:
     steps:
       - name: Check out Align
         uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: studio-launcher/go.mod
+      - name: Test and build desktop launcher
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "dist" | Out-Null
+          Push-Location "studio-launcher"
+          go test ./...
+          go build -trimpath -ldflags="-s -w" -o "..\dist\Align-Management-Studio.exe" .
+          Pop-Location
       - name: Assemble installer package
         shell: pwsh
         run: |
           $root = Join-Path $PWD "dist/Align-Management-Studio"
           New-Item -ItemType Directory -Force -Path "$root/app" | Out-Null
           git archive HEAD | tar -x -C "$root/app"
+          Copy-Item "dist/Align-Management-Studio.exe" $root
           Copy-Item "installer/windows/Install-Align-Studio.ps1" $root
           Copy-Item "installer/windows/Launch-Align-Studio.ps1" $root
           Copy-Item "installer/windows/README.md" $root

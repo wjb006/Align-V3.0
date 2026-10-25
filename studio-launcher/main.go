@@ -4,8 +4,10 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -28,7 +30,11 @@ func main() {
 		port = "8001"
 	}
 	studioURL := "http://127.0.0.1:" + port + "/management-studio"
-	if !healthy(port) {
+	ready, responding := healthStatus(port)
+	if !ready {
+		if responding {
+			fail(fmt.Errorf("Port %s is already in use by a service that is not Align. Close that service or choose another ALIGN_PORT.", port))
+		}
 		python, args := pythonLaunch(dir)
 		if *dryRun {
 			fmt.Printf("start %s %s\n", python, args)
@@ -69,13 +75,30 @@ func installDir() (string, error) {
 }
 
 func healthy(port string) bool {
+	ready, _ := healthStatus(port)
+	return ready
+}
+
+func healthStatus(port string) (bool, bool) {
 	client := http.Client{Timeout: 2 * time.Second}
 	response, err := client.Get("http://127.0.0.1:" + port + "/api/health")
 	if err != nil {
-		return false
+		return false, false
 	}
 	defer response.Body.Close()
-	return response.StatusCode == http.StatusOK
+	if response.StatusCode != http.StatusOK {
+		return false, true
+	}
+	var payload struct {
+		Version struct {
+			Build int    `json:"build"`
+			App   string `json:"app"`
+		} `json:"version"`
+	}
+	if err := json.NewDecoder(io.LimitReader(response.Body, 64*1024)).Decode(&payload); err != nil {
+		return false, true
+	}
+	return payload.Version.Build > 0 && payload.Version.App == "3.0", true
 }
 
 func waitHealthy(port string, limit time.Duration) bool {
@@ -90,7 +113,7 @@ func waitHealthy(port string, limit time.Duration) bool {
 }
 
 func pythonLaunch(dir string) (string, string) {
-	launch := filepath.Join(dir, "launch.py")
+	launch := filepath.Join(applicationDir(dir), "launch.py")
 	if runtime.GOOS == "windows" {
 		python := filepath.Join(dir, ".venv", "Scripts", "pythonw.exe")
 		if _, err := os.Stat(python); err != nil {
@@ -105,9 +128,17 @@ func pythonLaunch(dir string) (string, string) {
 	return python, launch
 }
 
+func applicationDir(dir string) string {
+	nested := filepath.Join(dir, "app")
+	if info, err := os.Stat(filepath.Join(nested, "app.py")); err == nil && !info.IsDir() {
+		return nested
+	}
+	return dir
+}
+
 func startServer(dir, python, launch string) error {
 	command := exec.Command(python, launch)
-	command.Dir = dir
+	command.Dir = applicationDir(dir)
 	return command.Start()
 }
 

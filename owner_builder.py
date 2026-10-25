@@ -780,7 +780,7 @@ def restore_history(path, body):
     return save_config(path, {'revision': current['revision'], 'document': doc})
 
 
-HOSTED_PUBLISH_URL = os.environ.get('ALIGN_PUBLISH_URL', 'https://beta.getalign.co.uk').rstrip('/')
+HOSTED_PUBLISH_URL = os.environ.get('ALIGN_PUBLISH_URL', 'https://getalign.co.uk').rstrip('/')
 
 
 def publish_key_matches(given):
@@ -1062,7 +1062,8 @@ def handle(handler, app, method):
         '/owner-builder', '/owner-builder.html',
         '/management-studio', '/management-studio.html',
     )
-    if path.startswith('/api/builder/') or path == '/api/user-appearance' or path == '/api/studio/update' or path in owner_pages:
+    studio_deploy_paths = ('/api/studio/deploy-info', '/api/studio/deploy')
+    if path.startswith('/api/builder/') or path == '/api/user-appearance' or path == '/api/studio/update' or path in studio_deploy_paths or path in owner_pages:
         # Consume bounded request bodies before an authorization response. Closing
         # a Windows socket with unread input can discard the intended 401/403.
         try:
@@ -1094,6 +1095,13 @@ def handle(handler, app, method):
             return True
         origin = handler.headers.get('Origin')
         host = handler.headers.get('Host', '')
+        try:
+            local_host = urlparse('//' + host).hostname
+        except ValueError:
+            local_host = None
+        if local_host not in ('127.0.0.1', 'localhost', '::1'):
+            handler.send_json(403, {'error': 'Use the local Align site on this PC.'})
+            return True
         if origin not in (None, 'http://' + host):
             handler.send_json(403, {'error': 'Use the current Align site.'})
             return True
@@ -1101,6 +1109,48 @@ def handle(handler, app, method):
             import studio_update
             handler.send_json(200, studio_update.update_from_github(app.initialise_database))
         except (OSError, RuntimeError, subprocess.SubprocessError, subprocess.TimeoutExpired) as exc:
+            handler.send_json(400, {'error': str(exc)})
+        return True
+    if path in ('/api/studio/deploy-info', '/api/studio/deploy'):
+        expected_method = 'GET' if path.endswith('-info') else 'POST'
+        if method != expected_method:
+            handler.send_json(405, {'error': 'Unsupported action.'})
+            return True
+        if handler.client_address[0] not in ('127.0.0.1', '::1'):
+            handler.send_json(403, {'error': 'Code releases are only available on this PC.'})
+            return True
+        if not handler.require_admin():
+            return True
+        if app.BETA_MODE:
+            handler.send_json(403, {'error': 'Code releases are only available from the local Management Studio.'})
+            return True
+        origin = handler.headers.get('Origin')
+        host = handler.headers.get('Host', '')
+        try:
+            local_host = urlparse('//' + host).hostname
+        except ValueError:
+            local_host = None
+        if local_host not in ('127.0.0.1', 'localhost', '::1'):
+            handler.send_json(403, {'error': 'Use the local Align site on this PC.'})
+            return True
+        if origin not in (None, 'http://' + host):
+            handler.send_json(403, {'error': 'Use the current Align site.'})
+            return True
+        try:
+            import studio_deploy
+            if method == 'GET':
+                result = studio_deploy.availability()
+                result.update({
+                    'default_ref': studio_deploy.DEFAULT_REF,
+                    'workflow_url': studio_deploy.WORKFLOW_URL,
+                })
+                handler.send_json(200, result)
+            else:
+                body = json.loads(handler._builder_body or b'{}')
+                if not isinstance(body, dict) or set(body) != {'ref', 'target'}:
+                    raise ValueError('Choose a source branch and release target.')
+                handler.send_json(202, studio_deploy.dispatch_release(body['ref'], body['target']))
+        except (OSError, RuntimeError, ValueError) as exc:
             handler.send_json(400, {'error': str(exc)})
         return True
     if path in owner_pages:

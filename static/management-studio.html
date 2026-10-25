@@ -6,7 +6,7 @@
 <title>Align · Management Studio</title>
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/styles.css?v=156-v30">
-<link rel="stylesheet" href="/management-studio.css?v=156-v43">
+<link rel="stylesheet" href="/management-studio.css?v=156-v45">
 <link rel="stylesheet" href="/management-studio-calendar.css?v=156-v1">
 <link rel="stylesheet" href="/owner-builder.css?v=156-v30">
 </head>
@@ -14,11 +14,15 @@
 <div class="unified-shell">
 <aside class="unified-sidebar">
   <div class="unified-brand"><img src="/icon.svg" alt="" width="36" height="36"><span>Align<small>Management Studio</small></span></div>
-  <nav class="unified-nav" aria-label="Studio">
-    <p class="unified-label">Platform</p>
+  <a class="studio-skip-link" href="#studio-content">Skip to Studio content</a>
+  <nav class="unified-nav" aria-label="Management Studio sections">
+    <details class="unified-nav-group" open>
+      <summary class="unified-label">Platform</summary>
     <button type="button" data-unified-tab="app">Open Align app</button>
     <button type="button" data-unified-tab="host">Host overview</button>
-    <p class="unified-label">Set up</p>
+    </details>
+    <details class="unified-nav-group" open>
+      <summary class="unified-label">Set up</summary>
     <button data-unified-tab="dashboard" class="is-active">Home</button>
     <button data-unified-tab="startup" data-builder-tab="startup">Welcome screen</button>
     <button data-unified-tab="menus" data-builder-tab="menus">Menus</button>
@@ -27,8 +31,9 @@
     <button data-unified-tab="travel-results" data-builder-tab="travel-results">Travel</button>
     <button data-unified-tab="base-structure" data-builder-tab="base-structure">Shared details</button>
     <button data-unified-tab="review" data-builder-tab="review">Check changes</button>
-
-    <p class="unified-label">Look</p>
+    </details>
+    <details class="unified-nav-group" open>
+      <summary class="unified-label">Look</summary>
     <button data-unified-tab="pages" data-design-tab="pages" data-management-tab="pages">Pages &amp; text</button>
     <button data-unified-tab="colors" data-design-tab="colors" data-management-tab="colors">Colours</button>
     <button data-unified-tab="banners" data-design-tab="banners" data-management-tab="banners">Banners</button>
@@ -36,16 +41,18 @@
     <button type="button" data-unified-tab="working-calendar">Working calendar</button>
     <button data-unified-tab="calendar" data-design-tab="calendar" data-management-tab="calendar">Calendar appearance</button>
     <button data-unified-tab="type" data-design-tab="type" data-management-tab="type">Text size</button>
-
-    <p class="unified-label">People</p>
+    </details>
+    <details class="unified-nav-group" open>
+      <summary class="unified-label">People</summary>
     <button data-unified-tab="users" data-design-tab="users" data-management-tab="users">Personal choices</button>
     <button data-unified-tab="owner">Owner settings &amp; integrations</button>
     <button data-unified-tab="history" data-design-tab="history" data-management-tab="history">History</button>
+    </details>
   </nav>
   <p id="builder-status" class="builder-status unified-status">Opening Studio…</p>
 </aside>
 
-<main class="unified-main">
+<main id="studio-content" class="unified-main" tabindex="-1">
   <header class="unified-topbar">
     <div class="unified-title">
       <p id="unified-place" class="unified-place">Set up</p>
@@ -137,7 +144,7 @@
 <script src="/beta-admin.js?v=156-v43"></script>
 <script src="/owner-builder.js?v=156-v42"></script>
 <script src="/management-studio.js?v=156-v43"></script>
-<script src="/management-studio-nav.js?v=156-v43"></script>
+<script src="/management-studio-nav.js?v=156-v45"></script>
 <script src="/management-studio-calendar.js?v=156-v1"></script>
 </body>
 </html>

@@ -1,0 +1,142 @@
+name: Align V3.0 production release
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: GitHub branch or tag to test and release
+        required: true
+        type: string
+      target:
+        description: Connected Align app
+        required: true
+        type: choice
+        options:
+          - production
+        default: production
+
+permissions:
+  contents: read
+
+concurrency:
+  group: align-v3-${{ inputs.target }}
+  cancel-in-progress: false
+
+jobs:
+  resolve-source:
+    name: Pin release source
+    runs-on: ubuntu-latest
+    outputs:
+      commit_sha: ${{ steps.revision.outputs.sha }}
+    steps:
+      - name: Check out the selected source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+          persist-credentials: false
+      - name: Record the exact source commit
+        id: revision
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  python-tests:
+    name: Python release tests
+    needs: resolve-source
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the tested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-source.outputs.commit_sha }}
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Test release controls
+        run: python -m unittest test_owner_builder test_studio_deploy test_studio_render_deploy
+
+  browser-tests:
+    name: ${{ matrix.name }}
+    needs: resolve-source
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Desktop Chromium
+            browser: chromium
+            mobile_device: ""
+          - name: Mobile Chrome (Pixel 7)
+            browser: chromium
+            mobile_device: "Pixel 7"
+          - name: Mobile Safari (iPhone 13)
+            browser: webkit
+            mobile_device: "iPhone 13"
+    steps:
+      - name: Check out the tested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-source.outputs.commit_sha }}
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install pinned Playwright
+        working-directory: browser-tests
+        run: npm ci
+      - name: Install browser
+        working-directory: browser-tests
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Run browser regressions
+        env:
+          BROWSER: ${{ matrix.browser }}
+          MOBILE_DEVICE: ${{ matrix.mobile_device }}
+        run: node browser-tests/align.spec.js
+
+  windows-launcher:
+    name: Windows Hub launcher
+    needs: resolve-source
+    runs-on: windows-latest
+    steps:
+      - name: Check out the tested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-source.outputs.commit_sha }}
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: studio-launcher/go.mod
+      - name: Test and build desktop launcher
+        shell: pwsh
+        run: |
+          Push-Location "studio-launcher"
+          go test ./...
+          go build -trimpath -ldflags="-s -w" -o "$env:RUNNER_TEMP\Align-Management-Studio.exe" .
+          Pop-Location
+
+  deploy:
+    name: Deploy tested commit to production
+    needs: [resolve-source, python-tests, browser-tests, windows-launcher]
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://getalign.co.uk
+    steps:
+      - name: Check out trusted release tooling
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Deploy the commit that passed checks
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          ALIGN_RENDER_SERVICE_ID: ${{ vars.ALIGN_RENDER_SERVICE_ID }}
+          TESTED_SHA: ${{ needs.resolve-source.outputs.commit_sha }}
+        run: python studio_render_deploy.py

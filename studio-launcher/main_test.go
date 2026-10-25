@@ -1,6 +1,8 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -35,6 +37,60 @@ func TestPythonLaunchUsesInstallVenv(t *testing.T) {
 	}
 	if python != pythonPath {
 		t.Fatalf("python = %s", python)
+	}
+}
+
+func TestPythonLaunchSupportsPackagedAppDirectory(t *testing.T) {
+	dir := t.TempDir()
+	appDir := filepath.Join(dir, "app")
+	pythonPath := filepath.Join(dir, ".venv", "bin", "python")
+	if runtime.GOOS == "windows" {
+		pythonPath = filepath.Join(dir, ".venv", "Scripts", "pythonw.exe")
+	}
+	if err := os.MkdirAll(appDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(appDir, "app.py"), []byte(""), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(pythonPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(pythonPath, []byte(""), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	python, launch := pythonLaunch(dir)
+	if python != pythonPath {
+		t.Fatalf("python = %s", python)
+	}
+	if launch != filepath.Join(appDir, "launch.py") {
+		t.Fatalf("launch = %s", launch)
+	}
+	if applicationDir(dir) != appDir {
+		t.Fatalf("applicationDir = %s", applicationDir(dir))
+	}
+}
+
+func TestHealthStatusRecognizesAlignAndRejectsOtherServices(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		body     string
+		expected bool
+	}{
+		{name: "Align", body: `{"version":{"build":156,"app":"3.0"}}`, expected: true},
+		{name: "other service", body: `{"status":"ok"}`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, _ = w.Write([]byte(test.body))
+			}))
+			defer server.Close()
+			port := strings.TrimPrefix(server.URL, "http://127.0.0.1:")
+			ready, responding := healthStatus(port)
+			if ready != test.expected || !responding {
+				t.Fatalf("healthStatus = (%t, %t), expected ready=%t and responding=true", ready, responding, test.expected)
+			}
+		})
 	}
 }
 

@@ -5,11 +5,13 @@ import json
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 import app
 import owner_builder as builder
 import appearance_settings
+import studio_deploy
 from beta_support import BetaStore
 
 
@@ -46,10 +48,11 @@ class BuilderTests(unittest.TestCase):
         gc.collect()
         self.temp.cleanup()
 
-    def request(self, method, path, body=None, token=None, origin=None):
+    def request(self, method, path, body=None, token=None, origin=None, host=None):
         connection = http.client.HTTPConnection('127.0.0.1', self.port, timeout=5)
         headers = {'Content-Type': 'application/json', 'Origin': origin or f'http://127.0.0.1:{self.port}'}
         if token: headers['Cookie'] = 'align_beta=' + token
+        if host: headers['Host'] = host
         connection.request(method, path, json.dumps(body) if body is not None else None, headers)
         response = connection.getresponse()
         raw = response.read()
@@ -117,6 +120,39 @@ class BuilderTests(unittest.TestCase):
         self.assertIn('id="builder-content"',page)
         self.assertNotIn('id="builder-sidebar"',page)
         self.assertEqual(self.request('PUT','/api/builder/config',{},self.owner_token,'https://untrusted.example')[0],403)
+
+    def test_local_release_endpoint_is_owner_local_and_dispatches_only_after_request(self):
+        self.assertEqual(self.request('GET', '/api/studio/deploy-info', token=self.owner_token)[0], 403)
+        self.assertEqual(self.request('POST', '/api/studio/deploy', {}, self.owner_token)[0], 403)
+
+        original_mode, original_password = app.BETA_MODE, app.ADMIN_PASSWORD
+        app.BETA_MODE = False
+        app.ADMIN_PASSWORD = ''
+        try:
+            with patch.object(studio_deploy, 'availability', return_value={
+                'available': True, 'reason': 'GitHub is connected.'
+            }), patch.object(studio_deploy, 'dispatch_release', return_value={
+                'ok': True, 'ref': 'main', 'target': 'production',
+                'workflow_url': studio_deploy.WORKFLOW_URL, 'summary': 'Release checks queued.'
+            }) as dispatch:
+                status, info = self.request('GET', '/api/studio/deploy-info')
+                self.assertEqual(status, 200, info)
+                self.assertEqual(info['default_ref'], studio_deploy.DEFAULT_REF)
+                self.assertEqual(self.request(
+                    'POST', '/api/studio/deploy', {'ref': 'main', 'target': 'production'},
+                    origin='https://untrusted.example',
+                )[0], 403)
+                self.assertEqual(self.request(
+                    'POST', '/api/studio/deploy', {'ref': 'main', 'target': 'production'},
+                    origin='http://rebind.example', host='rebind.example',
+                )[0], 403)
+                status, result = self.request(
+                    'POST', '/api/studio/deploy', {'ref': 'main', 'target': 'production'},
+                )
+                self.assertEqual(status, 202, result)
+                dispatch.assert_called_once_with('main', 'production')
+        finally:
+            app.BETA_MODE, app.ADMIN_PASSWORD = original_mode, original_password
 
     def test_appearance_values_and_permissions_are_validated(self):
         with self.assertRaisesRegex(ValueError, 'valid six-digit hex'):
