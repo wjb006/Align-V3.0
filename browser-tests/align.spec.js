@@ -311,6 +311,8 @@ async function verifyManagementStudio(browser) {
       assert.equal(await page.locator('#builder-content [data-prop="review_before_save"]').isChecked(),true,
         'New section input should include a review step by default');
       assert.match(await page.locator('#builder-content').innerText(),/Step 1 of 3[\s\S]*Step 2 of 3[\s\S]*Step 3 of 3/);
+      await page.locator('#save').click();
+      await page.waitForFunction(() => document.querySelector('#builder-status')?.textContent.startsWith('Draft saved'));
       await page.locator('[data-management-tab="pages"]').click();
     }
     await page.locator('#management-phone [data-preview-home-section="today"] .mp-drag-handle').click();
