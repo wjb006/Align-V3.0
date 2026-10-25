@@ -76,3 +76,5 @@ CREATE TABLE IF NOT EXISTS align_owner.alerts (
   status text NOT NULL DEFAULT 'pending'
 );
 CREATE INDEX IF NOT EXISTS idx_alerts_time ON align_owner.alerts(alert_at,status);
+
+INSERT INTO align_owner.schema_migrations(migration_id,applied_at) VALUES('156_shift_planner',CURRENT_TIMESTAMP) ON CONFLICT(migration_id) DO NOTHING;
