@@ -265,10 +265,10 @@ class BuilderTests(unittest.TestCase):
         _, doc = self.fixture()
         layout = next(item for item in doc['layouts'] if item['id'] == 'contacts')
         layout['database_flow'] = {'edges': [
-            {'from': 'start', 'to': 'name'},
+            {'from': '__flow_start__', 'to': 'name'},
             {'from': 'name', 'to': 'phone'},
-            {'from': 'name', 'to': 'finish'},
-            {'from': 'phone', 'to': 'finish'},
+            {'from': 'name', 'to': '__flow_finish__'},
+            {'from': 'phone', 'to': '__flow_finish__'},
         ]}
         clean = builder.validate(doc)
         saved = next(item for item in clean['layouts'] if item['id'] == 'contacts')
