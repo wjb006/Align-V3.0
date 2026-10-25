@@ -39,7 +39,7 @@
       state.shiftPlannerError=e.message||'Could not load your shift planner.';
     } finally {
       state.shiftPlannerLoading=false;
-      render();
+      paint();
     }
   }
   function selectedShifts() {
@@ -128,6 +128,7 @@
       (state.plannerMode==='week'?'<div class="restored-week-list">'+list+'</div>':list)+
       '<p class="helper">Shifts are checked for overlaps and clashes with your existing Align and imported calendar events.</p></section>';
   }
+  function paint() { const root=document.querySelector('#app'); if(root && ['planner','calendar'].includes(state.tab)) root.innerHTML=render(); }
   async function reload() {
     state.shiftPlannerData=null; state.shiftPlannerError=''; await load();
   }
@@ -141,21 +142,25 @@
     event.preventDefault();
     try {
       if(action==='previous'||action==='next'){
-        state.plannerAnchor=state.plannerMode==='month'
-          ? (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-01')(new Date(state.plannerAnchor.slice(0,7)+'-01T12:00:00').constructor===Date?new Date(new Date(state.plannerAnchor.slice(0,7)+'-01T12:00:00').getFullYear(),new Date(state.plannerAnchor.slice(0,7)+'-01T12:00:00').getMonth()+(action==='next'?1:-1),1):new Date())
-          : shiftDay(state.plannerAnchor,(action==='next'?7:-7));
+        if(state.plannerMode==='month'){
+          const current=new Date(state.plannerAnchor.slice(0,7)+'-01T12:00:00');
+          const next=new Date(current.getFullYear(),current.getMonth()+(action==='next'?1:-1),1);
+          state.plannerAnchor=next.getFullYear()+'-'+String(next.getMonth()+1).padStart(2,'0')+'-01';
+        } else {
+          state.plannerAnchor=shiftDay(state.plannerAnchor,action==='next'?7:-7);
+        }
         await reload();return;
       }
       if(action==='week'||action==='month'){state.plannerMode=action;state.plannerAnchor=action==='week'?monday(state.plannerAnchor):state.plannerAnchor.slice(0,7)+'-01';await reload();return;}
       if(action==='today'){state.plannerAnchor=state.plannerMode==='week'?monday(getToday()):getToday().slice(0,7)+'-01';await reload();return;}
-      if(action==='add'){state.shiftPlannerModal='add';state.shiftPlannerEdit=null;render();return;}
-      if(action==='leave'){state.shiftPlannerModal='leave';render();return;}
-      if(action==='patterns'){state.shiftPlannerModal='patterns';render();return;}
-      if(action==='close-form'){state.shiftPlannerModal='';render();return;}
+      if(action==='add'){state.shiftPlannerModal='add';state.shiftPlannerEdit=null;paint();return;}
+      if(action==='leave'){state.shiftPlannerModal='leave';paint();return;}
+      if(action==='patterns'){state.shiftPlannerModal='patterns';paint();return;}
+      if(action==='close-form'){state.shiftPlannerModal='';paint();return;}
       if(action==='retry'){await reload();return;}
       if(action==='edit'){
         const s=selectedShifts().find(item=>String(item.id)===String(button.dataset.id));
-        if(s){state.shiftPlannerEdit={...s};state.shiftPlannerModal='edit';render();}
+        if(s){state.shiftPlannerEdit={...s};state.shiftPlannerModal='edit';paint();}
         return;
       }
       if(action==='delete'){
@@ -166,7 +171,7 @@
         if(!confirm('Remove this annual leave day?'))return;
         await api('/api/annual-leave/'+button.dataset.id,{method:'DELETE'});if(typeof toast==='function')toast('Annual leave removed.');await reload();return;
       }
-    } catch(e) { state.shiftPlannerError=e.message||'Planner action failed.';render(); }
+    } catch(e) { state.shiftPlannerError=e.message||'Planner action failed.';paint(); }
   });
   document.addEventListener('change',async event=>{
     if(event.target.matches('[data-shift-jump]')){state.plannerAnchor=state.plannerMode==='week'?monday(event.target.value):event.target.value.slice(0,7)+'-01';await reload();}
@@ -199,7 +204,7 @@
         await api('/api/templates',{method:'POST',body:values});if(typeof toast==='function')toast('Shift pattern saved.');
       }
       state.shiftPlannerModal='';await reload();
-    } catch(e) { state.shiftPlannerError=e.message||'Could not save planner changes.';render(); }
+    } catch(e) { state.shiftPlannerError=e.message||'Could not save planner changes.';paint(); }
   });
   window.renderShiftPlanner=render;
   window.reloadShiftPlanner=reload;
