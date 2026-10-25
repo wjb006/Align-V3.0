@@ -163,20 +163,36 @@ def handle_get(handler, app, connection, parsed, row) -> bool:
     path = parsed.path
     query = parse_qs(parsed.query)
     if path == "/api/bootstrap":
-        self.send_json(200, {"build_version": app.BUILD_VERSION,
+        self.send_json(200, {
+            "build_version": app.BUILD_VERSION,
             "personal": app.personal_planner.bootstrap(connection),
             "builder": app.owner_builder.bootstrap(app.DATABASE, connection),
-            "settings": app.get_settings(connection), "dashboard": app.dashboard(connection),
-            "calendar": app.calendar_data(connection), "sections": app.organiser_sections(connection),
+            "settings": app.get_settings(connection),
+            "dashboard": app.dashboard(connection),
+            "calendar": app.calendar_data(connection),
+            "sections": app.organiser_sections(connection),
             "navigation": app.navigation_data(connection),
             "icloud_public": app.public_icloud_data(self.request_icloud_manager(row) if app.BETA_MODE else None),
             "icloud_event_calendars": app.icloud_event_calendars(connection),
-            "beta": ({"email":row["email"],"is_owner":bool(row["is_owner"])} if row else None)})
+            "beta": ({"email": row["email"], "is_owner": bool(row["is_owner"])} if row else None),
+        })
         return True
-    if path == "/api/week":
-        self.send_json(200,_week(connection,query.get("start",[date.today().isoformat()])[0])); return True
     if path == "/api/month":
-        self.send_json(200,_month(connection,query.get("month",[date.today().strftime("%Y-%m")])[0])); return True
+        month = query.get("month", [date.today().strftime("%Y-%m")])[0]
+        payload = app.month_data(connection, month)
+        payload.update(_month(connection, month))
+        self.send_json(200, payload)
+        return True
+    if path == "/api/dashboard":
+        self.send_json(200, app.dashboard(connection)); return True
+    if path == "/api/address-search":
+        results = app.find_addresses(query.get("q", [""])[0])
+        self.send_json(200, {"provider": results[0].get("provider", "Address search") if results else "Address search", "results": results})
+        return True
+    if path == "/api/calendars":
+        self.send_json(200, app.calendar_data(connection)); return True
+    if path in {"/api/calendars/align.ics", "/api/calendars/live.ics"}:
+        self.send_calendar(connection, download=path.endswith("/align.ics")); return True
     if path == "/api/shifts":
         start = query.get("start",[None])[0]; end = query.get("end",[None])[0]
         sql = "SELECT * FROM shifts"; args=[]
