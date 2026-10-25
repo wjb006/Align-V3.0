@@ -592,7 +592,7 @@
         }
       }
       const targetControl = exactControl || editor?.querySelector('input:not([type="hidden"]), select, textarea, button');
-      targetControl?.focus({preventScroll:true});
+      requestAnimationFrame(() => targetControl?.focus({preventScroll:true}));
       targetControl?.scrollIntoView({block: 'center', behavior: 'smooth'});
       setStatus(`Preview selected: ${({pages:'Pages & text',banners:'Banners',events:'Events',calendar:'Calendar',colors:'Colours'})[tab]}. The closest matching control is focused; the preview updates as you edit.`);
       return;
