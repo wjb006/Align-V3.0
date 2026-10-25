@@ -74,7 +74,7 @@ def load_setup(connection):
             area['slots'].append(slot['key'])
         assignments.append({'location_key': f"l{row['location_id']}", 'area_key': area['key'],
                             'slot_key': slot['key'], 'days': json.loads(row['applicable_days']) or DAYS[:]})
-    return {'revision': revision(connection), 'contracted_hours': float(settings['contracted_hours']),
+    return {'revision': revision(connection), 'contracted_hours': float(settings.get('contracted_hours', '0')),
             'rate_of_pay': float(settings.get('rate_of_pay', '0')),
             'duration_minutes': int(settings.get('standard_shift_minutes', '240')),
             'leave_allowance_days': int(float(settings.get('leave_allowance_days', '0') or 0)),
@@ -193,7 +193,7 @@ def save_setup(connection, payload):
     for template_id in set(visible_ids) - keep:
         connection.execute('UPDATE shift_templates SET active=0 WHERE id=?', (template_id,))
     existing = dict(connection.execute('SELECT setting_key,setting_value FROM settings'))
-    pay = bounded_number(payload.get('rate_of_pay', existing['rate_of_pay']), 'rate of pay', 0, 100000)
+    pay = bounded_number(payload.get('rate_of_pay', existing.get('rate_of_pay', '0')), 'rate of pay', 0, 100000)
     allowance = bounded_number(payload.get('leave_allowance_days', existing.get('leave_allowance_days', '0')), 'leave allowance', 0, 366, True)
     rest = bounded_number(payload.get('minimum_rest_hours', existing.get('minimum_rest_hours', '0')), 'minimum rest', 0, 24)
     year_start = str(payload.get('leave_year_start', existing.get('leave_year_start', '01-01')))
