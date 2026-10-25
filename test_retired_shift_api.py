@@ -15,7 +15,7 @@ class ShiftPlannerApiTests(unittest.TestCase):
     def test_planner_read_routes_are_available(self):
         for path in ("/api/shifts", "/api/week?start=2026-10-12", "/api/month?month=2026-10",
                      "/api/annual-leave", "/api/alert-rules", "/api/alerts",
-                     "/api/locations", "/api/user-locations", "/api/shift-types", "/api/templates"):
+                     "/api/locations", "/api/user-locations", "/api/shift-types", "/api/templates", "/api/work-setup"):
             with self.subTest(path=path):
                 status, _, body = self.request("GET", path)
                 self.assertEqual(status, 200, body)
@@ -49,6 +49,25 @@ class ShiftPlannerApiTests(unittest.TestCase):
         self.json_request("DELETE",f"/api/shifts/{item_id}",expected=200)
         with app.db_connection() as connection:
             self.assertIsNone(connection.execute("SELECT 1 FROM shifts WHERE id=?",(item_id,)).fetchone())
+
+    def test_work_settings_round_trip_and_alert_rule_management(self):
+        setup = self.json_request("GET", "/api/work-setup", expected=200)
+        self.assertIn("locations", setup)
+        self.assertIn("areas", setup)
+        self.assertIn("slots", setup)
+        self.assertIn("assignments", setup)
+        self.assertIn("leave_allowance_days", setup)
+        saved = self.json_request("PUT", "/api/work-setup", setup, expected=200)
+        self.assertIn("revision", saved)
+        rule = self.json_request("POST", "/api/alert-rules", {
+            "title":"Test shift reminder","minutes_before":30,"active":True
+        }, expected=201)
+        rules = self.json_request("GET", "/api/alert-rules", expected=200)
+        self.assertTrue(any(item["id"] == rule["id"] for item in rules["alert_rules"]))
+        self.json_request("PUT", f"/api/alert-rules/{rule['id']}", {
+            "title":"Updated shift reminder","minutes_before":15,"active":True
+        }, expected=200)
+        self.json_request("DELETE", f"/api/alert-rules/{rule['id']}", expected=200)
 
     def test_shift_overlap_and_annual_leave_are_enforced(self):
         location=self.json_request("POST","/api/locations",{"name":"Clinic"})
