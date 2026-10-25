@@ -84,7 +84,7 @@ async function api(path, options={}) {
     return `<h3>Form fields</h3><p class="helper">Move fields to change the form and column order. Removing a field hides it; previously saved values are retained.</p>${list.map((f,i)=>`<div class="builder-row ${f.id===fieldId?'selected':''}"><button class="builder-row-title" data-field="${e(f.id)}">${e(f.label)}<small>${e(types[f.type])}${f.required?' · Required':' · Optional'}</small></button><div class="builder-row-actions"><button data-move-field="${e(f.id)}" data-dir="-1" ${!i?'disabled':''} aria-label="Move ${e(f.label)} up">↑</button><button data-move-field="${e(f.id)}" data-dir="1" ${i===list.length-1?'disabled':''} aria-label="Move ${e(f.label)} down">↓</button><button data-remove-field="${e(f.id)}" ${tab==='startup'&&f.id==='user_name'?'disabled':''} aria-label="Delete ${e(f.label)}">×</button></div></div>`).join('')}<button class="secondary-button" data-add-field>Add field</button>${field?`<div class="builder-editor" data-field-editor><h3>Edit ${e(field.label)}</h3>${input('Field label','label',field.label)}<div class="field"><label>Field type<select data-prop="type" ${oldFields.some(f=>f.id===field.id)?'disabled':''}>${options(types,field.type)}</select></label></div>${oldFields.some(f=>f.id===field.id)?'<p class="helper">This field has been published. Add a new field to use a different type.</p>':''}${area('Help text','help',field.help)}${field.type==='formula'?area('Formula — e.g. [Amount] - [Paid]','formula',field.formula||'')+'<p class="helper">Use + − * / and parentheses. Available numeric fields: '+e(list.filter(f=>f.id!==field.id&&['number','formula'].includes(f.type)).map(f=>'['+f.label+']').join(', '))+'. Results calculate on save; blank inputs and division by zero show an error.</p>':''}${field.type==='select'?area('Choices (one per line)','options',field.options.join('\n')):''}<label><input type="checkbox" data-prop="required" ${field.required?'checked':''} ${tab==='startup'&&field.id==='user_name'?'disabled':''}> Required</label></div>`:''}`;
   }
   function databaseFlowNodes(layout) {
-    return [{id:'start', label:'Begin entry', kind:'start'}, ...(layout.fields || []).map(field => ({id:field.id, label:field.label || field.id, kind:'field', field})), {id:'finish', label:'Review and save', kind:'finish'}];
+    return [{id:'__flow_start__', label:'Begin entry', kind:'start'}, ...(layout.fields || []).map(field => ({id:field.id, label:field.label || field.id, kind:'field', field})), {id:'__flow_finish__', label:'Review and save', kind:'finish'}];
   }
   function databaseFlowEdges(layout) {
     if (Array.isArray(layout.database_flow?.edges)) return layout.database_flow.edges;
@@ -1732,8 +1732,8 @@ function render(previewOnly=false) {
                       <h4>Connections</h4>
                       <p class="helper">Choose the source and destination independently. Connections are saved with this layout draft.</p>
                       <div class="database-flow-connect-controls">
-                        <label>From<select id="database-flow-from">${databaseFlowOptions(layout, 'start')}</select></label>
-                        <label>To<select id="database-flow-to">${databaseFlowOptions(layout, layout.fields?.[0]?.id || 'finish')}</select></label>
+                        <label>From<select id="database-flow-from">${databaseFlowOptions(layout, '__flow_start__')}</select></label>
+                        <label>To<select id="database-flow-to">${databaseFlowOptions(layout, layout.fields?.[0]?.id || '__flow_finish__')}</select></label>
                         <button type="button" class="secondary-button" data-database-flow-add-edge>Add connection</button>
                       </div>
                       <div class="database-flow-edge-list">
