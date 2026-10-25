@@ -269,7 +269,7 @@
       </span>
     </div>`).join('');
     return `<section class="management-control-section"><h3>Home areas</h3><p>Add sections to the home screen, then drag or use the arrows to choose their order.</p><div class="studio-lines">${sectionRows || '<div class="studio-empty"><strong>No home areas yet</strong><p>Add a section to start building the home screen.</p></div>'}</div><div class="studio-add-actions"><button type="button" class="management-secondary" data-add-home-section="list">+ Add List section</button></div></section>
-      <section class="management-control-section"><h3>Bottom buttons</h3><p>These appear in the app’s bottom navigation.</p><div class="studio-lines">${navRows || '<div class="studio-empty"><strong>No buttons yet</strong><p>Add a button to build the bottom navigation.</p></div>'}</div><div class="studio-add-actions"><button type="button" class="management-secondary" data-add-nav-button>+ Add bottom button</button></div></section>`;
+      <section class="management-control-section"><h3>Bottom buttons</h3><p>These appear in the app’s bottom navigation.</p><div class="studio-lines">${navRows || '<div class="studio-empty"><strong>No buttons yet</strong><p>Add a button to build the bottom navigation.</p></div>'}</div><div class="studio-add-actions"><button type="button" class="management-secondary" data-add-nav-button ${nav.length >= 5 ? 'disabled' : ''}>+ Add bottom button${nav.length >= 5 ? ' (5 max)' : ''}</button></div></section>`;
   }
 
   function appearancePanel(tab) {
@@ -369,6 +369,10 @@
     }));
     document.querySelectorAll('[data-add-nav-button]').forEach(button => button.addEventListener('click', () => {
       if (!Array.isArray(documentDraft.navigation)) documentDraft.navigation = [];
+      if (documentDraft.navigation.length >= 5) {
+        setStatus('The bottom navigation supports up to five buttons.', 'dirty');
+        return;
+      }
       const id = 'custom_nav_' + Date.now().toString(36);
       documentDraft.navigation.push({id, title: 'New button', icon: '•', active: true});
       markStudioDirty('Bottom button added. Rename it, then save a draft or publish when ready.');
