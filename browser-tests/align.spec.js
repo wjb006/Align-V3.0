@@ -423,6 +423,11 @@ async function verifyManagementStudio(browser) {
     await page.screenshot({path:path.join(ROOT,'test-results','management-studio-desktop.png'),fullPage:true});
 
     await page.setViewportSize({width:390,height:844});
+    await page.waitForFunction(() => {
+      const groups = [...document.querySelectorAll('.unified-nav-group')];
+      const group = title => groups.find(item => item.querySelector('summary')?.textContent.trim() === title);
+      return window.matchMedia('(max-width:700px)').matches && group('Look')?.open && !group('Set up')?.open;
+    });
     assert.equal(await page.evaluate(() =>
       document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1
     ),true);
