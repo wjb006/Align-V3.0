@@ -605,10 +605,7 @@
       const index = documentDraft.home_sections.findIndex(item => item.id === block.dataset.previewHomeSection);
       const input = [...document.querySelectorAll('[data-home-title]')].find(control => Number(control.dataset.homeTitle) === index);
       input?.scrollIntoView({block: 'nearest'});
-      requestAnimationFrame(() => {
-        const current = [...document.querySelectorAll('[data-home-title]')].find(control => Number(control.dataset.homeTitle) === index);
-        current?.focus({preventScroll: true});
-      });
+      input?.focus({preventScroll: true});
       return;
     }
     const nav = event.target.closest('[data-preview-nav-id]');
