@@ -93,6 +93,31 @@ async function api(path, options={}) {
   }
   function databaseFlowLabel(layout, nodeId) { return databaseFlowNodes(layout).find(node => node.id === nodeId)?.label || nodeId; }
   function databaseFlowOptions(layout, selectedId) { return databaseFlowNodes(layout).map(node => `<option value="${e(node.id)}" ${node.id === selectedId ? 'selected' : ''}>${e(node.label)}</option>`).join(''); }
+  function databaseFlowSvg(layout) {
+    const nodes = databaseFlowNodes(layout), edges = databaseFlowEdges(layout);
+    const columns = Math.min(3, Math.max(1, Math.ceil(Math.sqrt(nodes.length))));
+    const cellWidth = 260, cellHeight = 165, nodeWidth = 190, nodeHeight = 72;
+    const positions = new Map(nodes.map((node,index) => [node.id, {x:30+(index%columns)*cellWidth, y:30+Math.floor(index/columns)*cellHeight, row:Math.floor(index/columns)}]));
+    const rows = Math.ceil(nodes.length / columns), width = columns * cellWidth + 30, height = rows * cellHeight + 30;
+    const paths = edges.map(edge => {
+      const source = positions.get(edge.from), target = positions.get(edge.to); if (!source || !target) return '';
+      let sx, sy, tx, ty, d;
+      if (target.row > source.row) { sx=source.x+nodeWidth/2; sy=source.y+nodeHeight; tx=target.x+nodeWidth/2; ty=target.y; const mid=(sy+ty)/2; d=`M ${sx} ${sy} C ${sx} ${mid}, ${tx} ${mid}, ${tx} ${ty}`; }
+      else if (target.row < source.row) { sx=source.x+nodeWidth/2; sy=source.y; tx=target.x+nodeWidth/2; ty=target.y+nodeHeight; const mid=(sy+ty)/2; d=`M ${sx} ${sy} C ${sx} ${mid}, ${tx} ${mid}, ${tx} ${ty}`; }
+      else if (target.x > source.x) { sx=source.x+nodeWidth; sy=source.y+nodeHeight/2; tx=target.x; ty=target.y+nodeHeight/2; const mid=(sx+tx)/2; d=`M ${sx} ${sy} C ${mid} ${sy}, ${mid} ${ty}, ${tx} ${ty}`; }
+      else { sx=source.x; sy=source.y+nodeHeight/2; tx=target.x+nodeWidth; ty=target.y+nodeHeight/2; const mid=(sx+tx)/2; d=`M ${sx} ${sy} C ${mid} ${sy}, ${mid} ${ty}, ${tx} ${ty}`; }
+      return `<path class="database-flow-svg-edge" d="${d}" marker-end="url(#database-flow-arrow)"/>`;
+    }).join('');
+    const cards = nodes.map(node => {
+      const p=positions.get(node.id), field=node.field, kind=node.kind;
+      const type=kind==='field' ? (types[field.type]||field.type) : (kind==='start'?'START':'FINISH');
+      const label=(node.label||node.id).length>24 ? (node.label||node.id).slice(0,21)+'…' : (node.label||node.id);
+      const detail=kind==='field' ? (field.required?'Required':'Optional')+' · '+type : (kind==='start'?'Open the form':layout.review_before_save===false?'Save after validation':'Review answers before saving');
+      return `<g class="database-flow-svg-card database-flow-svg-${kind}"><rect x="${p.x}" y="${p.y}" width="${nodeWidth}" height="${nodeHeight}" rx="12"/><text class="database-flow-svg-type" x="${p.x+12}" y="${p.y+20}">${e(type.toUpperCase())}</text><text class="database-flow-svg-label" x="${p.x+12}" y="${p.y+42}">${e(label)}</text><text class="database-flow-svg-detail" x="${p.x+12}" y="${p.y+59}">${e(detail)}</text></g>`;
+    }).join('');
+    return `<div class="database-flow-svg-wrap"><svg class="database-flow-svg" role="img" aria-label="Database flowchart with ${nodes.length} nodes and ${edges.length} connections" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}"><defs><marker id="database-flow-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z"/></marker></defs>${paths}${cards}</svg></div>`;
+  }
+
   function previewFields(list) {return `<form class="settings-form" data-preview-form>${AlignFields.render(list,{},'preview')}</form>`;}
   document.addEventListener('submit', event => {
     if (event.target && event.target.matches && event.target.matches('[data-preview-form]')) event.preventDefault();
@@ -1701,7 +1726,7 @@ function render(previewOnly=false) {
                   <div class="database-flow-builder">
                     <div class="database-flow-head"><div><p class="eyebrow">Visual form flow</p><h3>${e(layout.title)} · input nodes</h3><p class="helper">Connect any node to any other node. Add multiple outgoing connections to create branches. The Form fields arrows still control the default question order.</p></div><button type="button" class="secondary-button" data-add-field>Add node</button></div>
                     <div class="database-flowchart database-flowchart-graph" aria-label="Database input flow nodes">
-                      ${databaseFlowNodes(layout).map((node,index)=>node.kind==='field' ? `<button type="button" class="database-flow-node database-flow-field" data-field="${e(node.id)}"><span class="database-flow-node-type">NODE ${index} · ${e(types[node.field.type]||node.field.type)}</span><strong>${e(node.label)}</strong><small>${node.field.required?'Required':'Optional'} · ${node.field.type==='select'?(node.field.options||[]).length+' choices':'User input'}</small></button>` : `<div class="database-flow-node ${node.kind==='start'?'database-flow-start':'database-flow-save'}"><span class="database-flow-node-type">${node.kind==='start'?'START':'FINISH'}</span><strong>${e(node.label)}</strong><small>${node.kind==='start'?'Open the form':layout.review_before_save===false?'Save after validation':'Review answers before saving'}</small></div>`).join('')}
+                      ${databaseFlowSvg(layout)}
                     </div>
                     <section class="database-flow-connections">
                       <h4>Connections</h4>
