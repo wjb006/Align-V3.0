@@ -259,9 +259,11 @@
           </span>
         </div>${extras}${listEditor}${removeSection}`;
     }).join('');
-    const navRows = nav.map((item, index) => `<div class="studio-line">
+    const destinations = [['today','Today'],['inbox','Inbox'],['planner','Planner / Calendar'],['sections','Sections'],['more','More'],['add','Add shifts'],['settings','Settings'],['profile','Profile'],['note','Information page'],['layout','List']];
+    const navRows = nav.map((item, index) => `<div class="studio-line studio-nav-line">
       <input class="studio-line-icon" maxlength="4" data-nav-icon="${index}" value="${esc(item.icon || '')}" aria-label="Icon">
       <input maxlength="40" data-nav-title="${index}" value="${esc(item.title || '')}" aria-label="Button name">
+      <select data-nav-destination="${index}" aria-label="Button destination">${destinations.map(([value,label]) => `<option value="${value}" ${(item.destination || 'today') === value ? 'selected' : ''}>${label}</option>`).join('')}</select>
       <label class="studio-line-check"><input class="management-toggle" type="checkbox" data-nav-active="${index}" ${item.active !== false ? 'checked' : ''}> Show</label>
       <span class="studio-line-move">
         <button type="button" data-nav-move="${index}" data-dir="-1" ${index === 0 ? 'disabled' : ''} aria-label="Move up">↑</button>
@@ -269,7 +271,7 @@
       </span>
     </div>`).join('');
     return `<section class="management-control-section"><h3>Home areas</h3><p>Add sections to the home screen, then drag or use the arrows to choose their order.</p><div class="studio-lines">${sectionRows || '<div class="studio-empty"><strong>No home areas yet</strong><p>Add a section to start building the home screen.</p></div>'}</div><div class="studio-add-actions"><button type="button" class="management-secondary" data-add-home-section="list">+ Add List section</button></div></section>
-      <section class="management-control-section"><h3>Bottom buttons</h3><p>These appear in the app’s bottom navigation.</p><div class="studio-lines">${navRows || '<div class="studio-empty"><strong>No buttons yet</strong><p>Add a button to build the bottom navigation.</p></div>'}</div><div class="studio-add-actions"><button type="button" class="management-secondary" data-add-nav-button ${nav.length >= 5 ? 'disabled' : ''}>+ Add bottom button${nav.length >= 5 ? ' (5 max)' : ''}</button></div></section>`;
+      <section class="management-control-section"><h3>Bottom buttons</h3><p>These appear in the app’s bottom navigation.</p><div class="studio-lines">${navRows || '<div class="studio-empty"><strong>No buttons yet</strong><p>Add a button to build the bottom navigation.</p></div>'}</div><div class="studio-add-actions"><button type="button" class="management-secondary" data-add-nav-button ${nav.length >= 6 ? 'disabled' : ''}>+ Add bottom button${nav.length >= 6 ? ' (6 max)' : ''}</button></div></section>`;
   }
 
   function appearancePanel(tab) {
@@ -356,6 +358,13 @@
         dirty = true; controls(); renderPreview(); setStatus('Unsaved changes. Save a draft before you leave.', 'dirty');
       });
     });
+    document.querySelectorAll('[data-nav-destination]').forEach(control => control.addEventListener('change', () => {
+      const item = documentDraft.navigation[Number(control.dataset.navDestination)];
+      if (!item) return;
+      item.destination = control.value;
+      if (control.value === 'planner' && (!item.title || item.title === 'New button')) { item.title = 'Planner'; item.icon = '▦'; }
+      dirty = true; renderEditor(); renderPreview(); controls(); setStatus('Bottom button destination updated. Save a draft or publish when ready.', 'dirty');
+    }));
     document.querySelectorAll('[data-nav-active]').forEach(control => {
       control.addEventListener('change', () => {
         documentDraft.navigation[Number(control.dataset.navActive)].active = control.checked;
@@ -369,12 +378,13 @@
     }));
     document.querySelectorAll('[data-add-nav-button]').forEach(button => button.addEventListener('click', () => {
       if (!Array.isArray(documentDraft.navigation)) documentDraft.navigation = [];
-      if (documentDraft.navigation.length >= 5) {
-        setStatus('The bottom navigation supports up to five buttons.', 'dirty');
+      if (documentDraft.navigation.length >= 6) {
+        setStatus('The bottom navigation supports up to six buttons.', 'dirty');
         return;
       }
+      const hasPlanner = documentDraft.navigation.some(item => ['planner','calendar'].includes(item.destination));
       const id = 'custom_nav_' + Date.now().toString(36);
-      documentDraft.navigation.push({id, title: 'New button', icon: '•', active: true});
+      documentDraft.navigation.push({id, title: hasPlanner ? 'New button' : 'Planner', icon: hasPlanner ? '•' : '▦', destination: hasPlanner ? 'more' : 'planner', active: true});
       markStudioDirty('Bottom button added. Rename it, then save a draft or publish when ready.');
     }));
     document.querySelectorAll('[data-home-remove]').forEach(button => button.addEventListener('click', () => {
