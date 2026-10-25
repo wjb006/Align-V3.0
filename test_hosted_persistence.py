@@ -130,7 +130,7 @@ class StartupTests(unittest.TestCase):
             validate.assert_called_once()
             connect.return_value.__enter__.return_value.executescript.assert_not_called()
 
-    def test_hosted_readiness_does_not_require_retired_shift_tables(self):
+    def test_hosted_readiness_validates_core_storage_without_side_effects(self):
         class RecordingConnection:
             def __init__(self, count_result):
                 self.statements = []
@@ -243,7 +243,7 @@ class PostgresIntegrationTests(unittest.TestCase):
                 retired = {'shifts', 'shift_templates', 'shift_types', 'locations',
                            'location_shift_types', 'annual_leave', 'alert_rules', 'alerts',
                            'shift_batches'}
-                self.assertFalse(tables & retired)
+                self.assertTrue(retired <= tables)
                 self.assertTrue({'personal_items', 'organiser_events', 'section_defs',
                                  'assets', 'asset_audit_log', 'transport_preferences',
                                  'transport_journey_cache', 'user_favourites', 'align_contacts'} <= tables)
@@ -269,7 +269,7 @@ class PostgresIntegrationTests(unittest.TestCase):
                 retired = {'shifts', 'shift_templates', 'shift_types', 'locations',
                            'location_shift_types', 'annual_leave', 'alert_rules', 'alerts',
                            'shift_batches'}
-                self.assertFalse(names & retired)
+                self.assertTrue(retired <= names)
                 self.assertEqual(c.execute(
                     'SELECT arrival_buffer FROM transport_preferences WHERE id=1').fetchone()[0], 10)
                 self.assertTrue({'personal_items', 'organiser_events', 'assets',
