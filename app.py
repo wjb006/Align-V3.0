@@ -723,7 +723,7 @@ def dashboard(connection: sqlite3.Connection) -> dict:
             """SELECT a.*,s.work_date,s.start_time,s.end_time,s.location_name,s.shift_type_name
                FROM alerts a JOIN shifts s ON s.id=a.shift_id
                WHERE a.status='pending' AND a.alert_at>=? ORDER BY a.alert_at LIMIT 100""",
-            (now.isoformat(timespec='minutes'),)
+            (now.replace(tzinfo=None).isoformat(timespec='minutes'),)
         )),
         "reminder_alerts": [],
         "summary": _work_summary(connection, today),
