@@ -265,7 +265,7 @@ def provision_tester_schema(path):
                 return
             cursor.execute(sql.SQL('CREATE SCHEMA {}').format(sql.Identifier(schema)))
             for statement in _bootstrap_statements():
-                if (statement.startswith('CREATE TABLE align_owner.')
+                if ((statement.startswith('CREATE TABLE align_owner.') or statement.startswith('CREATE TABLE IF NOT EXISTS align_owner.'))
                         or statement.startswith('ALTER TABLE align_owner.')
                         or statement.startswith('CREATE INDEX') and 'align_owner.' in statement):
                     cursor.execute(statement.replace('align_owner.', sql.Identifier(schema).as_string(raw) + '.'))
