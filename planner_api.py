@@ -80,14 +80,19 @@ def _check_shift(connection, day, start, end, exclude_id=None):
 def _create_shift_alerts(connection, shift_id, work_date, start_time, event_name):
     connection.execute("DELETE FROM alerts WHERE shift_id=?", (shift_id,))
     rules = _rows(connection, "SELECT * FROM alert_rules WHERE active=1 ORDER BY minutes_before DESC,id")
-    if not rules:
-        connection.execute("INSERT INTO alert_rules(title,minutes_before,active) VALUES(?,?,1)", ("Time to Leave",60))
-        rules = _rows(connection, "SELECT * FROM alert_rules WHERE active=1 ORDER BY minutes_before DESC,id")
     start = datetime.combine(date.fromisoformat(work_date), datetime.strptime(start_time,"%H:%M").time())
     for rule in rules:
         alert_at = start - timedelta(minutes=int(rule["minutes_before"]))
         connection.execute("INSERT INTO alerts(shift_id,title,alert_at,status) VALUES(?,?,?,'pending')",
             (shift_id, rule["title"] or event_name, alert_at.isoformat(timespec="minutes")))
+
+
+def _rebuild_shift_alerts(connection):
+    upcoming = _rows(connection, """SELECT id,work_date,start_time,location_name,shift_type_name
+        FROM shifts WHERE work_date>=? ORDER BY work_date,start_time""", (date.today().isoformat(),))
+    for shift in upcoming:
+        _create_shift_alerts(connection,shift["id"],shift["work_date"],shift["start_time"],
+            shift["location_name"]+" – "+shift["shift_type_name"])
 
 
 def _templates(connection):
@@ -294,6 +299,7 @@ def handle_post(handler, app, connection, path, payload, row) -> bool:
         title=str(payload.get("title","Shift reminder")).strip()[:120]; minutes=int(payload.get("minutes_before",15))
         if not 0<=minutes<=10080: raise ValueError("Reminder must be between 0 and 7 days.")
         cur=connection.execute("INSERT INTO alert_rules(title,minutes_before,active) VALUES(?,?,?)",(title,minutes,1))
+        _rebuild_shift_alerts(connection)
         connection.commit(); self.send_json(201,{"id":cur.lastrowid}); return True
     if path == "/api/calendars/import":
         source_id,count=app.import_ics_calendar(connection,str(payload.get("name","")),str(payload.get("ics","")))
@@ -324,8 +330,7 @@ def handle_put(handler, app, connection, path, payload, row) -> bool:
         if not title: raise ValueError("Give this alert a name.")
         if not 0<=minutes<=10080: raise ValueError("Reminder must be between 0 and 7 days.")
         connection.execute("UPDATE alert_rules SET title=?,minutes_before=?,active=? WHERE id=?",(title,minutes,1 if payload.get("active",True) else 0,item_id))
-        for shift in connection.execute("SELECT id,work_date,start_time,location_name,shift_type_name FROM shifts WHERE work_date>=?",(date.today().isoformat(),)).fetchall():
-            _create_shift_alerts(connection,shift["id"],shift["work_date"],shift["start_time"],shift["location_name"]+" – "+shift["shift_type_name"])
+        _rebuild_shift_alerts(connection)
         connection.commit(); self.send_json(200,{"id":item_id}); return True
     if path.startswith("/api/templates/"):
         item_id=int(path.rsplit("/",1)[1]); existing=connection.execute("SELECT * FROM shift_templates WHERE id=?",(item_id,)).fetchone()
@@ -348,7 +353,9 @@ def handle_delete(handler, app, connection, path, row) -> bool:
     if path.startswith("/api/annual-leave/"):
         connection.execute("DELETE FROM annual_leave WHERE id=?",(int(path.rsplit("/",1)[1]),)); connection.commit(); self.send_json(200,{"ok":True}); return True
     if path.startswith("/api/alert-rules/"):
-        connection.execute("DELETE FROM alert_rules WHERE id=?",(int(path.rsplit("/",1)[1]),)); connection.commit(); self.send_json(200,{"ok":True}); return True
+        connection.execute("DELETE FROM alert_rules WHERE id=?",(int(path.rsplit("/",1)[1]),))
+        _rebuild_shift_alerts(connection)
+        connection.commit(); self.send_json(200,{"ok":True}); return True
     if path.startswith("/api/templates/"):
         connection.execute("UPDATE shift_templates SET active=0 WHERE id=?",(int(path.rsplit("/",1)[1]),)); connection.commit(); self.send_json(200,{"ok":True}); return True
     if path.startswith("/api/locations/"):
