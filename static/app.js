@@ -18,7 +18,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 156;
-const ASSET_VERSION = `${BUILD_VERSION}-v52`;
+const ASSET_VERSION = `${BUILD_VERSION}-v53`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -232,7 +232,7 @@ function render() {
     app.innerHTML = renderOnboarding();
     return;
   }
-  if (['calendar','add'].includes(state.tab)) state.tab = 'sections';
+  if (state.tab === 'add') state.tab = 'sections';
   const content = { today: renderHome, home: renderHome, inbox: renderInbox, planner: renderPlannerCalendar, calendar: renderPlannerCalendar, sections: renderSectionsIndex, section: renderSection, more: renderMore, transport: renderTransport, assets: renderAssets150, settings: renderUserSettings, 'work-setup': renderWorkSetup, 'builder-records': builderRecordsPage, 'builder-profile': () => builderStartup(true) }[state.tab]?.() || renderHome();
   const cloudNotice = state.boot.icloud_public?.reconnect_required ? `<div class="card" role="status"><strong>iCloud needs reconnecting</strong><p>${escapeHtml(state.boot.icloud_public.message)}</p><button class="small-button" data-nav="settings">Open settings</button></div>` : '';
   app.innerHTML = cloudNotice + content;
