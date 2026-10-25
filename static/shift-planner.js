@@ -83,7 +83,7 @@
     const when=allDay?'All day':(start.slice(11,16)||'')+(end.slice(11,16)?'–'+end.slice(11,16):'');
     const category=e.section_name||e.category_name||(imported?'Imported calendar':'Event');
     const packed=encodeURIComponent(JSON.stringify({...e,origin:imported?'Calendar':'Event'}));
-    return '<article class="card restored-event-card"><button type="button" class="restored-event-open" data-shift-action="view-event" data-event-data="'+esc(packed)+'"><div class="restored-event-top"><span class="restored-event-mark">'+(imported?'▦':'•')+'</span><div><strong>'+esc(e.title||'Event')+'</strong><p>'+esc(category)+(e.location?' · '+esc(e.location):'')+'</p></div></div><p class="restored-event-time">'+esc(when)+(e.notes?' · '+esc(e.notes):'')+'</p><span class="helper">View details</span></button><div class="button-row"><button class="secondary-button" data-nav="sections">Manage events</button></div></article>';
+    return '<article class="card restored-event-card"><button type="button" class="restored-event-open" data-shift-action="view-event" data-event-data="'+esc(packed)+'"><div class="restored-event-top"><span class="restored-event-mark">'+(imported?'▦':'•')+'</span><div><strong>'+esc(e.title||'Event')+'</strong><p>'+esc(category)+(e.location?' · '+esc(e.location):'')+'</p></div></div><p class="restored-event-time">'+esc(when)+(e.notes?' · '+esc(e.notes):'')+'</p><span class="helper">View details</span></button><div class="button-row">'+(!imported&&e.section_id&&e.id?'<button class="secondary-button" data-shift-action="edit-event" data-event-data="'+esc(packed)+'">Edit event</button>':'')+'<button class="secondary-button" data-nav="sections">Manage events</button></div></article>';
   }
   function leaveCard(l) {
     return '<article class="card restored-leave-card"><div><strong>Annual leave</strong><p>'+esc(fmtDay(l.leave_date))+(l.notes?' · '+esc(l.notes):'')+'</p></div><button class="secondary-button" data-shift-action="delete-leave" data-id="'+esc(l.id)+'">Remove</button></article>';
@@ -205,6 +205,14 @@
       if(action==='patterns'){state.shiftPlannerModal='patterns';paint();return;}
       if(action==='close-form'){state.shiftPlannerModal='';paint();return;}
       if(action==='retry'){await reload();return;}
+      if(action==='edit-event'){
+        const item=JSON.parse(decodeURIComponent(button.dataset.eventData||'%7B%7D'));
+        if(item.origin==='Calendar'||!item.section_id||!item.id){if(typeof toast==='function')toast('Edit imported events in their original calendar.');return;}
+        state.sectionId=Number(item.section_id);
+        await api('/api/sections/'+state.sectionId);
+        if(typeof sectionEventModal==='function')sectionEventModal(Number(item.id));
+        return;
+      }
       if(action==='view-event'){
         const item=JSON.parse(decodeURIComponent(button.dataset.eventData||'%7B%7D'));
         const start=String(item.start_at||''), end=String(item.end_at||'');
