@@ -816,7 +816,7 @@ document.addEventListener('click', async event => {
   }
   if (action === 'work-setup') { void openWorkSetup(); return; }
   if (action === 'reload-app') { window.location.reload(); return; }
-  if (action === 'go-calendar-settings') { state.settingsBranch = 'calendar'; state.tab = 'settings'; render(); }
+  if (action === 'go-calendar-settings') { state.settingsBranch = 'events'; state.tab = 'settings'; render(); }
   if (action === 'copy-calendar-link') {
     const input = document.querySelector('#calendar-feed-url');
     try { await navigator.clipboard.writeText(input.value); toast('Subscription address copied.'); }
