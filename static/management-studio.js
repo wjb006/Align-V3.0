@@ -594,6 +594,16 @@
       const targetControl = exactControl || editor?.querySelector('input:not([type="hidden"]), select, textarea, button');
       targetControl?.focus({preventScroll:true});
       targetControl?.scrollIntoView({block: 'center', behavior: 'smooth'});
+      const focusHomeBlock = tab === 'pages' ? editTarget.closest('[data-preview-home-section]') : null;
+      if (focusHomeBlock) {
+        const homeIndex = documentDraft.home_sections.findIndex(item => item.id === focusHomeBlock.dataset.previewHomeSection);
+        const refocus = () => {
+          const current = [...document.querySelectorAll('[data-home-title]')].find(control => Number(control.dataset.homeTitle) === homeIndex);
+          if (current && document.activeElement !== current) current.focus({preventScroll: true});
+        };
+        requestAnimationFrame(refocus);
+        setTimeout(refocus, 150);
+      }
       setStatus(`Preview selected: ${({pages:'Pages & text',banners:'Banners',events:'Events',calendar:'Calendar',colors:'Colours'})[tab]}. The closest matching control is focused; the preview updates as you edit.`);
       return;
     }
