@@ -53,7 +53,7 @@ function renderWorkSetup() {
       ${renderSettingsCategory('areas', 'Shift Areas', 'No shift areas saved. Add a category such as Office, Remote or Customer visits.')}
       ${renderSettingsCategory('slots', 'Start Times', 'No start times saved. Add a time and duration.')}
       <p class="apply-note">Settings define the choices for future bookings. Saved shifts and calendar events keep their dates and hours.</p>
-      <button class="secondary-button" data-settings-action="close">Back to ${workSetup.returnTab==='more'?'More':isAdmin?'Master edit':'Settings'}</button>`}</section>`;
+      <button class="secondary-button" data-settings-action="close">Back to ${workSetup.returnTab==='planner'?'Planner':workSetup.returnTab==='more'?'More':isAdmin?'Master edit':'Settings'}</button>`}</section>`;
 }
 function openSettingsEditor(kind, key) {
   const data = settingsCopy(workSetup.data);
