@@ -1397,3 +1397,14 @@ button.database-flow-node:focus-visible {
   .database-flow-edge { align-items: flex-start; flex-direction: column; }
   .database-flow-edge button { width: 100%; }
 }
+
+.database-flow-svg-wrap { width: 100%; overflow-x: auto; padding: 6px 0; }
+.database-flow-svg { display: block; width: 100%; height: auto; min-width: 680px; overflow: visible; }
+.database-flow-svg-edge { fill: none; stroke: var(--builder-accent, #5267d8); stroke-width: 2.5; opacity: .85; }
+.database-flow-svg marker path { fill: var(--builder-accent, #5267d8); }
+.database-flow-svg-card rect { fill: var(--builder-surface, #fff); stroke: var(--builder-border, #dce2ec); stroke-width: 1.5; }
+.database-flow-svg-start rect { stroke: #8ab9a2; fill: #f4fbf7; }
+.database-flow-svg-finish rect { stroke: #a5addb; fill: #f6f7ff; }
+.database-flow-svg-type { fill: var(--builder-accent, #5267d8); font-size: 10px; font-weight: 750; letter-spacing: 1px; }
+.database-flow-svg-label { fill: var(--builder-text, #172033); font-size: 13px; font-weight: 700; }
+.database-flow-svg-detail { fill: var(--builder-muted, #667085); font-size: 10px; }
