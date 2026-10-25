@@ -161,11 +161,11 @@ def retired_schedule_endpoint(path: str) -> bool:
     """Reject genuinely retired routes before opening a database."""
     return bool(
         path in {
-            "/api/work-setup", "/api/alerts", "/api/shift-completions",
+            "/api/work-setup", "/api/shift-completions",
             "/api/master", "/api/settings",
             "/api/menu-branches", "/api/parent-menu-branches",
         }
-        or re.fullmatch(r"/api/(?:alerts|shift-completions)/[0-9]+", path)
+        or re.fullmatch(r"/api/shift-completions/[0-9]+", path)
         or re.fullmatch(r"/api/(?:menu-branches|parent-menu-branches)/[0-9]+", path)
     )
 
