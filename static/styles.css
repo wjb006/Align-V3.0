@@ -729,3 +729,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .restored-month-empty { min-height:48px; }
   .restored-planner-toolbar .schedule-week-nav { gap:8px; }
 }
+
+/* Restored Events / calendar content inside Planner */
+.restored-event-card { border-left: 4px solid var(--blue,#365CE6); display:grid; gap:6px; }
+.restored-event-top { display:flex; align-items:flex-start; gap:10px; }
+.restored-event-mark { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; flex:0 0 28px; border-radius:9px; background:var(--cal-month-cell,#eef2ff); color:var(--blue,#365CE6); }
+.restored-event-top strong { display:block; overflow-wrap:anywhere; }
+.restored-event-top p,.restored-event-time { margin:4px 0 0; color:var(--muted,#667085); font-size:.9rem; overflow-wrap:anywhere; }
+.restored-month-day.has-events { box-shadow:inset 0 -3px var(--blue,#365CE6); }
