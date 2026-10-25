@@ -153,7 +153,7 @@ def _week(connection, raw_date):
             "templates":_templates(connection),"work_settings":work_settings}
 
 
-def _month(connection, raw_month):
+def _month(connection, raw_month, app):
     month = str(raw_month or date.today().strftime("%Y-%m"))
     start = date.fromisoformat(month+"-01")
     end = date(start.year + (start.month==12), start.month%12+1, 1)-timedelta(days=1)
@@ -191,7 +191,7 @@ def handle_get(handler, app, connection, parsed, row) -> bool:
         return True
     if path == "/api/month":
         month = query.get("month", [date.today().strftime("%Y-%m")])[0]
-        self.send_json(200, _month(connection, month))
+        self.send_json(200, _month(connection, month, app))
         return True
     if path == "/api/dashboard":
         self.send_json(200, app.dashboard(connection)); return True
