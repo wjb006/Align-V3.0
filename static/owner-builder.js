@@ -83,6 +83,16 @@ async function api(path, options={}) {
     const oldFields=tab==='startup'?state.published.startup.fields:state.published.layouts.find(l=>l.id===selected)?.fields||[];
     return `<h3>Form fields</h3><p class="helper">Move fields to change the form and column order. Removing a field hides it; previously saved values are retained.</p>${list.map((f,i)=>`<div class="builder-row ${f.id===fieldId?'selected':''}"><button class="builder-row-title" data-field="${e(f.id)}">${e(f.label)}<small>${e(types[f.type])}${f.required?' · Required':' · Optional'}</small></button><div class="builder-row-actions"><button data-move-field="${e(f.id)}" data-dir="-1" ${!i?'disabled':''} aria-label="Move ${e(f.label)} up">↑</button><button data-move-field="${e(f.id)}" data-dir="1" ${i===list.length-1?'disabled':''} aria-label="Move ${e(f.label)} down">↓</button><button data-remove-field="${e(f.id)}" ${tab==='startup'&&f.id==='user_name'?'disabled':''} aria-label="Delete ${e(f.label)}">×</button></div></div>`).join('')}<button class="secondary-button" data-add-field>Add field</button>${field?`<div class="builder-editor" data-field-editor><h3>Edit ${e(field.label)}</h3>${input('Field label','label',field.label)}<div class="field"><label>Field type<select data-prop="type" ${oldFields.some(f=>f.id===field.id)?'disabled':''}>${options(types,field.type)}</select></label></div>${oldFields.some(f=>f.id===field.id)?'<p class="helper">This field has been published. Add a new field to use a different type.</p>':''}${area('Help text','help',field.help)}${field.type==='formula'?area('Formula — e.g. [Amount] - [Paid]','formula',field.formula||'')+'<p class="helper">Use + − * / and parentheses. Available numeric fields: '+e(list.filter(f=>f.id!==field.id&&['number','formula'].includes(f.type)).map(f=>'['+f.label+']').join(', '))+'. Results calculate on save; blank inputs and division by zero show an error.</p>':''}${field.type==='select'?area('Choices (one per line)','options',field.options.join('\n')):''}<label><input type="checkbox" data-prop="required" ${field.required?'checked':''} ${tab==='startup'&&field.id==='user_name'?'disabled':''}> Required</label></div>`:''}`;
   }
+  function databaseFlowNodes(layout) {
+    return [{id:'start', label:'Begin entry', kind:'start'}, ...(layout.fields || []).map(field => ({id:field.id, label:field.label || field.id, kind:'field', field})), {id:'finish', label:'Review and save', kind:'finish'}];
+  }
+  function databaseFlowEdges(layout) {
+    if (Array.isArray(layout.database_flow?.edges)) return layout.database_flow.edges;
+    const nodes = databaseFlowNodes(layout);
+    return nodes.slice(0, -1).map((node, index) => ({from:node.id, to:nodes[index + 1].id}));
+  }
+  function databaseFlowLabel(layout, nodeId) { return databaseFlowNodes(layout).find(node => node.id === nodeId)?.label || nodeId; }
+  function databaseFlowOptions(layout, selectedId) { return databaseFlowNodes(layout).map(node => `<option value="${e(node.id)}" ${node.id === selectedId ? 'selected' : ''}>${e(node.label)}</option>`).join(''); }
   function previewFields(list) {return `<form class="settings-form" data-preview-form>${AlignFields.render(list,{},'preview')}</form>`;}
   document.addEventListener('submit', event => {
     if (event.target && event.target.matches && event.target.matches('[data-preview-form]')) event.preventDefault();
@@ -1689,13 +1699,22 @@ function render(previewOnly=false) {
                   <p class="helper">Add each piece of information people should enter. Choose a type, mark required answers, and move questions into the order that makes sense. Each question becomes a connected node in the form flow below.</p>
                   ${fieldList()}
                   <div class="database-flow-builder">
-                    <div class="database-flow-head"><div><p class="eyebrow">Visual form flow</p><h3>${e(layout.title)} · input nodes</h3><p class="helper">Each node is a database field. Select a node to edit it; use the arrows in Form fields to change the flow order.</p></div><button type="button" class="secondary-button" data-add-field>Add node</button></div>
-                    <div class="database-flowchart" aria-label="Database input flow">
-                      <div class="database-flow-node database-flow-start"><span class="database-flow-node-type">START</span><strong>Begin entry</strong><small>Open the form</small></div>
-                      <div class="database-flow-connector" aria-hidden="true">↓</div>
-                      ${(layout.fields||[]).map((field,index)=>`<button type="button" class="database-flow-node database-flow-field" data-field="${e(field.id)}"><span class="database-flow-node-type">NODE ${index+1} · ${e(types[field.type]||field.type)}</span><strong>${e(field.label)}</strong><small>${field.required?'Required':'Optional'} · ${field.type==='select'?(field.options||[]).length+' choices':'User input'}</small></button><div class="database-flow-connector" aria-hidden="true">↓</div>`).join('')}
-                      <div class="database-flow-node database-flow-save"><span class="database-flow-node-type">FINISH</span><strong>Review and save</strong><small>${layout.review_before_save===false?'Save after validation':'Review answers before saving'}</small></div>
+                    <div class="database-flow-head"><div><p class="eyebrow">Visual form flow</p><h3>${e(layout.title)} · input nodes</h3><p class="helper">Connect any node to any other node. Add multiple outgoing connections to create branches. The Form fields arrows still control the default question order.</p></div><button type="button" class="secondary-button" data-add-field>Add node</button></div>
+                    <div class="database-flowchart database-flowchart-graph" aria-label="Database input flow nodes">
+                      ${databaseFlowNodes(layout).map((node,index)=>node.kind==='field' ? `<button type="button" class="database-flow-node database-flow-field" data-field="${e(node.id)}"><span class="database-flow-node-type">NODE ${index} · ${e(types[node.field.type]||node.field.type)}</span><strong>${e(node.label)}</strong><small>${node.field.required?'Required':'Optional'} · ${node.field.type==='select'?(node.field.options||[]).length+' choices':'User input'}</small></button>` : `<div class="database-flow-node ${node.kind==='start'?'database-flow-start':'database-flow-save'}"><span class="database-flow-node-type">${node.kind==='start'?'START':'FINISH'}</span><strong>${e(node.label)}</strong><small>${node.kind==='start'?'Open the form':layout.review_before_save===false?'Save after validation':'Review answers before saving'}</small></div>`).join('')}
                     </div>
+                    <section class="database-flow-connections">
+                      <h4>Connections</h4>
+                      <p class="helper">Choose the source and destination independently. Connections are saved with this layout draft.</p>
+                      <div class="database-flow-connect-controls">
+                        <label>From<select id="database-flow-from">${databaseFlowOptions(layout, 'start')}</select></label>
+                        <label>To<select id="database-flow-to">${databaseFlowOptions(layout, layout.fields?.[0]?.id || 'finish')}</select></label>
+                        <button type="button" class="secondary-button" data-database-flow-add-edge>Add connection</button>
+                      </div>
+                      <div class="database-flow-edge-list">
+                        ${databaseFlowEdges(layout).map((edge,index)=>`<div class="database-flow-edge"><strong>${e(databaseFlowLabel(layout,edge.from))} <span aria-hidden="true">→</span> ${e(databaseFlowLabel(layout,edge.to))}</strong><button type="button" class="secondary-button" data-database-flow-remove-edge="${index}">Remove</button></div>`).join('') || '<p class="helper">No connections yet. Add one above.</p>'}
+                      </div>
+                    </section>
                   </div>
                   ${layout.id==='work'?'<div class="builder-option-group"><h3>Work rota quick-input template</h3><p class="helper">Adds reusable location, area, day, and shift-time choices to Work without deleting existing questions or saved records.</p><button type="button" class="secondary-button" data-work-rota-template>Add rota quick-input fields</button></div>':''}
                 </section>
@@ -2063,6 +2082,27 @@ if(b.dataset.previewEditLayout) {
     if(b.dataset.field){fieldId=b.dataset.field;render();return;}
     if(b.hasAttribute('data-add-menu'))newMenu();
     if(b.hasAttribute('data-add-child'))newMenu(selected);
+    if (b.hasAttribute('data-database-flow-add-edge')) {
+      const layout = currentLayout(); if (!layout) return;
+      const from = document.querySelector('#database-flow-from')?.value;
+      const to = document.querySelector('#database-flow-to')?.value;
+      const nodes = databaseFlowNodes(layout);
+      if (!nodes.some(node => node.id === from) || !nodes.some(node => node.id === to) || from === to) { status('Choose two different nodes for the connection.', true); return; }
+      const edges = databaseFlowEdges(layout).map(edge => ({...edge}));
+      if (edges.some(edge => edge.from === from && edge.to === to)) { status('Those nodes are already connected.', true); return; }
+      const adjacency = new Map(); edges.forEach(edge => { if (!adjacency.has(edge.from)) adjacency.set(edge.from, []); adjacency.get(edge.from).push(edge.to); });
+      const reaches = (start, target) => { const seen = new Set(); const stack = [start]; while (stack.length) { const current = stack.pop(); if (current === target) return true; if (seen.has(current)) continue; seen.add(current); (adjacency.get(current) || []).forEach(next => stack.push(next)); } return false; };
+      if (reaches(to, from)) { status('That connection would create a loop. Choose another destination.', true); return; }
+      changed(); layout.database_flow = layout.database_flow || {}; layout.database_flow.edges = edges.concat([{from, to}]);
+      status('Connection added to the flowchart draft. Save the draft to keep it.'); render(); return;
+    }
+    if (b.hasAttribute('data-database-flow-remove-edge')) {
+      const layout = currentLayout(); if (!layout) return;
+      const index = Number(b.dataset.databaseFlowRemoveEdge); const edges = databaseFlowEdges(layout).map(edge => ({...edge}));
+      if (!Number.isInteger(index) || !edges[index]) return;
+      changed(); layout.database_flow = layout.database_flow || {}; layout.database_flow.edges = edges.filter((edge,i) => i !== index);
+      status('Connection removed from the flowchart draft. Save the draft to keep it.'); render(); return;
+    }
     if(b.hasAttribute('data-add-field')){changed();const f={id:id('field'),label:'New field',type:'text',required:false,help:'',options:[]};fields().push(f);fieldId=f.id;render();}
      if(b.hasAttribute('data-work-rota-template')){const layout=doc.layouts.find(item=>item.id==='work');if(!layout)return;const definitions=[
        {id:'rota_location',label:'Work location',type:'select',required:true,help:'Choose where this shift takes place.',options:['Arrowe Park','Clatterbridge','Community']},
