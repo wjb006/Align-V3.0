@@ -192,7 +192,7 @@ def save_setup(connection, payload):
         raise ValueError('Assign at least one shift to every location and area before saving.')
     for template_id in set(visible_ids) - keep:
         connection.execute('UPDATE shift_templates SET active=0 WHERE id=?', (template_id,))
-    existing = dict(connection.execute('SELECT setting_key,setting_value FROM settings'))
+    existing = {row['setting_key']: row['setting_value'] for row in connection.execute('SELECT setting_key,setting_value FROM settings').fetchall()}
     pay = bounded_number(payload.get('rate_of_pay', existing.get('rate_of_pay', '0')), 'rate of pay', 0, 100000)
     allowance = bounded_number(payload.get('leave_allowance_days', existing.get('leave_allowance_days', '0')), 'leave allowance', 0, 366, True)
     rest = bounded_number(payload.get('minimum_rest_hours', existing.get('minimum_rest_hours', '0')), 'minimum rest', 0, 24)
