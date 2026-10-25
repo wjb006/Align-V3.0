@@ -233,6 +233,64 @@ def fields_validate(fields):
     return result
 
 
+def database_flow_validate(value, fields):
+    if not isinstance(value, dict):
+        raise BuilderError('Invalid database flowchart.')
+    edges = value.get('edges', [])
+    if not isinstance(edges, list) or len(edges) > 500:
+        raise BuilderError('Use up to 500 database flowchart connections.')
+    field_map = {field['id']: field for field in fields}
+    if {'start', 'finish'} & set(field_map):
+        raise BuilderError('Database field IDs cannot be named start or finish.')
+    node_ids = set(field_map) | {'start', 'finish'}
+    seen = set()
+    clean_edges = []
+    adjacency = {node_id: [] for node_id in node_ids}
+    for edge in edges:
+        if not isinstance(edge, dict):
+            raise BuilderError('Invalid database flowchart connection.')
+        source = identity(edge.get('from'))
+        target = identity(edge.get('to'))
+        if source not in node_ids or target not in node_ids or source == target:
+            raise BuilderError('Choose two different existing nodes for each flowchart connection.')
+        pair = (source, target)
+        if pair in seen:
+            raise BuilderError('Database flowchart connections must be unique.')
+        seen.add(pair)
+        adjacency[source].append(target)
+        cleaned = {'from': source, 'to': target}
+        condition = edge.get('when')
+        if condition is not None:
+            if not isinstance(condition, dict):
+                raise BuilderError('Invalid flowchart branch condition.')
+            field_id = identity(condition.get('field'))
+            field = field_map.get(field_id)
+            equals = condition.get('equals')
+            if not field or field['type'] not in ('select', 'checkbox'):
+                raise BuilderError('Flowchart conditions must use a dropdown or checkbox field.')
+            if field['type'] == 'checkbox':
+                if type(equals) is not bool:
+                    raise BuilderError('Checkbox flowchart conditions must be Yes or No.')
+            elif not isinstance(equals, str) or equals not in field['options']:
+                raise BuilderError('Choose a valid dropdown value for the flowchart condition.')
+            cleaned['when'] = {'field': field_id, 'equals': equals}
+        clean_edges.append(cleaned)
+    visiting = set()
+    visited = set()
+    def visit(node_id):
+        if node_id in visiting:
+            raise BuilderError('Database flowchart connections cannot contain a loop.')
+        if node_id in visited:
+            return
+        visiting.add(node_id)
+        for next_id in adjacency[node_id]:
+            visit(next_id)
+        visiting.remove(node_id)
+        visited.add(node_id)
+    for node_id in node_ids:
+        visit(node_id)
+    return {'edges': clean_edges}
+
 def formatting_validate(value):
     if not isinstance(value, dict): raise BuilderError('Invalid formatting settings.')
     result = {}
@@ -464,6 +522,13 @@ def validate(doc, previous=None):
 
         if workflow:
             clean_layout['workflow'] = workflow
+
+        database_flow = layout.get('database_flow')
+        if database_flow is not None:
+            clean_layout['database_flow'] = database_flow_validate(
+                database_flow,
+                clean_layout['fields']
+            )
 
     clean_menus = []
     menu_ids = set()
