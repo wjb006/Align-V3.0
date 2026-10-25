@@ -207,6 +207,21 @@
     upcoming: 'Upcoming Events',
     annual_leave: 'Annual leave',
   };
+  const newListSection = () => ({
+    id: 'list_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    type: 'list',
+    title: 'List',
+    visible: true,
+    sort_order: ((documentDraft.home_sections || []).reduce((max, section) => Math.max(max, Number(section.sort_order) || 0), 0) + 10),
+    content: { items: ['First item'] },
+  });
+  const markStudioDirty = message => {
+    dirty = true;
+    renderEditor();
+    renderPreview();
+    controls();
+    setStatus(message || 'Unsaved changes. Save a draft before you leave.', 'dirty');
+  };
 
   function pagesPanel() {
     if (!Array.isArray(documentDraft.home_sections)) documentDraft.home_sections = [];
@@ -225,11 +240,15 @@
     const sectionRows = sections.map((section, index) => {
       const realIndex = documentDraft.home_sections.indexOf(section);
       if (!section.content || typeof section.content !== 'object') section.content = {};
-      const kind = areaLabels[section.id] || section.id;
+      const isList = section.type === 'list' || String(section.id).startsWith('list_');
+      const kind = isList ? 'List' : (areaLabels[section.id] || section.id);
       const extras = (areaContentControls[section.id] || []).map(([key, label]) => {
         if (!(key in section.content)) section.content[key] = true;
         return `<label class="studio-line is-sub"><span>${esc(label)}</span><input class="management-toggle" type="checkbox" data-home-content="${realIndex}" data-content-key="${key}" ${section.content[key] ? 'checked' : ''}></label>`;
       }).join('');
+      const listItems = isList ? (Array.isArray(section.content.items) ? section.content.items : (section.content.items = ['First item'])) : [];
+      const listEditor = isList ? `<div class="studio-list-editor" aria-label="List items">${listItems.map((item, itemIndex) => `<div class="studio-list-item"><input maxlength="120" data-list-item="${realIndex}" data-item-index="${itemIndex}" value="${esc(item)}" aria-label="List item ${itemIndex + 1}"><span><button type="button" data-list-move="${realIndex}" data-item-index="${itemIndex}" data-dir="-1" ${itemIndex === 0 ? 'disabled' : ''} aria-label="Move list item up">↑</button><button type="button" data-list-move="${realIndex}" data-item-index="${itemIndex}" data-dir="1" ${itemIndex === listItems.length - 1 ? 'disabled' : ''} aria-label="Move list item down">↓</button><button type="button" data-list-remove="${realIndex}" data-item-index="${itemIndex}" aria-label="Remove list item">×</button></span></div>`).join('')}<button type="button" class="studio-add-inline" data-list-add="${realIndex}">+ Add list item</button></div>` : '';
+      const removeSection = isList ? `<button type="button" class="studio-remove-section" data-home-remove="${realIndex}">Remove section</button>` : '';
       return `<div class="studio-line is-area">
           <span class="studio-line-kind">${esc(kind)}</span>
           <input maxlength="40" data-home-title="${realIndex}" value="${esc(section.title || '')}" aria-label="${esc(kind)} name">
@@ -238,7 +257,7 @@
             <button type="button" data-home-move="${realIndex}" data-dir="-1" ${index === 0 ? 'disabled' : ''} aria-label="Move up">↑</button>
             <button type="button" data-home-move="${realIndex}" data-dir="1" ${index === sections.length - 1 ? 'disabled' : ''} aria-label="Move down">↓</button>
           </span>
-        </div>${extras}`;
+        </div>${extras}${listEditor}${removeSection}`;
     }).join('');
     const navRows = nav.map((item, index) => `<div class="studio-line">
       <input class="studio-line-icon" maxlength="4" data-nav-icon="${index}" value="${esc(item.icon || '')}" aria-label="Icon">
@@ -249,8 +268,8 @@
         <button type="button" data-nav-move="${index}" data-dir="1" ${index === nav.length - 1 ? 'disabled' : ''} aria-label="Move down">↓</button>
       </span>
     </div>`).join('');
-    return `<section class="management-control-section"><h3>Home areas</h3><div class="studio-lines">${sectionRows || '<div class="studio-empty"><strong>No home areas yet</strong><p>They appear here once the home screen has sections.</p></div>'}</div></section>
-      <section class="management-control-section"><h3>Bottom buttons</h3><div class="studio-lines">${navRows || '<div class="studio-empty"><strong>No buttons yet</strong><p>Add them from Home layout if this list is empty.</p></div>'}</div></section>`;
+    return `<section class="management-control-section"><h3>Home areas</h3><p>Add sections to the home screen, then drag or use the arrows to choose their order.</p><div class="studio-lines">${sectionRows || '<div class="studio-empty"><strong>No home areas yet</strong><p>Add a section to start building the home screen.</p></div>'}</div><div class="studio-add-actions"><button type="button" class="management-secondary" data-add-home-section="list">+ Add List section</button></div></section>
+      <section class="management-control-section"><h3>Bottom buttons</h3><p>These appear in the app’s bottom navigation.</p><div class="studio-lines">${navRows || '<div class="studio-empty"><strong>No buttons yet</strong><p>Add a button to build the bottom navigation.</p></div>'}</div><div class="studio-add-actions"><button type="button" class="management-secondary" data-add-nav-button>+ Add bottom button</button></div></section>`;
   }
 
   function appearancePanel(tab) {
@@ -343,6 +362,54 @@
         dirty = true; controls(); renderPreview(); setStatus('Unsaved changes. Save a draft before you leave.', 'dirty');
       });
     });
+    document.querySelectorAll('[data-add-home-section]').forEach(button => button.addEventListener('click', () => {
+      if (button.dataset.addHomeSection !== 'list') return;
+      documentDraft.home_sections.push(newListSection());
+      markStudioDirty('List section added. Add its items, then save a draft or publish when ready.');
+    }));
+    document.querySelectorAll('[data-add-nav-button]').forEach(button => button.addEventListener('click', () => {
+      if (!Array.isArray(documentDraft.navigation)) documentDraft.navigation = [];
+      const id = 'custom_nav_' + Date.now().toString(36);
+      documentDraft.navigation.push({id, title: 'New button', icon: '•', active: true});
+      markStudioDirty('Bottom button added. Rename it, then save a draft or publish when ready.');
+    }));
+    document.querySelectorAll('[data-home-remove]').forEach(button => button.addEventListener('click', () => {
+      const index = Number(button.dataset.homeRemove);
+      const section = documentDraft.home_sections[index];
+      if (!section || !(section.type === 'list' || String(section.id).startsWith('list_'))) return;
+      documentDraft.home_sections.splice(index, 1);
+      markStudioDirty('List section removed from the draft.');
+    }));
+    document.querySelectorAll('[data-list-item]').forEach(control => control.addEventListener('input', () => {
+      const section = documentDraft.home_sections[Number(control.dataset.listItem)];
+      if (!section) return;
+      if (!section.content || typeof section.content !== 'object') section.content = {};
+      if (!Array.isArray(section.content.items)) section.content.items = [];
+      section.content.items[Number(control.dataset.itemIndex)] = control.value;
+      dirty = true; controls(); renderPreview(); setStatus('Unsaved changes. Save a draft before you leave.', 'dirty');
+    }));
+    document.querySelectorAll('[data-list-add]').forEach(button => button.addEventListener('click', () => {
+      const section = documentDraft.home_sections[Number(button.dataset.listAdd)];
+      if (!section) return;
+      if (!section.content || typeof section.content !== 'object') section.content = {};
+      if (!Array.isArray(section.content.items)) section.content.items = [];
+      section.content.items.push('New list item');
+      markStudioDirty('List item added.');
+    }));
+    document.querySelectorAll('[data-list-remove]').forEach(button => button.addEventListener('click', () => {
+      const section = documentDraft.home_sections[Number(button.dataset.listRemove)];
+      if (!section || !Array.isArray(section.content?.items)) return;
+      section.content.items.splice(Number(button.dataset.itemIndex), 1);
+      markStudioDirty('List item removed.');
+    }));
+    document.querySelectorAll('[data-list-move]').forEach(button => button.addEventListener('click', () => {
+      const section = documentDraft.home_sections[Number(button.dataset.listMove)];
+      const items = section?.content?.items;
+      const index = Number(button.dataset.itemIndex), other = index + Number(button.dataset.dir);
+      if (!Array.isArray(items) || other < 0 || other >= items.length) return;
+      [items[index], items[other]] = [items[other], items[index]];
+      markStudioDirty('List item order updated.');
+    }));
     document.querySelectorAll('[data-home-move]').forEach(button => button.addEventListener('click', () => {
       const ordered = documentDraft.home_sections.slice().sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
       const index = ordered.indexOf(documentDraft.home_sections[Number(button.dataset.homeMove)]);
@@ -482,6 +549,11 @@
         contents = (documentDraft.layouts || []).slice(0, 3).map(layout => `<button type="button" class="management-phone-event mp-section-entry" data-preview-edit-layout="${esc(layout.id)}" aria-label="Edit ${esc(layout.title)} section and input matrix"><span><strong>${esc(layout.title)}</strong><small>${(layout.fields || []).length} questions · tap to design</small></span></button>`).join('') || '<button type="button" class="mp-empty mp-add-section" data-preview-create-layout>Add a section and input matrix</button>';
       } else if (section.id === 'annual_leave') {
         contents = '<div class="management-phone-event"><time>FRI</time><span><strong>Annual leave</strong><small>Sample entry</small></span></div>';
+      } else if (section.type === 'list' || String(section.id).startsWith('list_')) {
+        const items = Array.isArray(section.content?.items) ? section.content.items : [];
+        contents = items.length
+          ? '<ul class="management-phone-list">' + items.map(item => '<li>' + esc(item || 'List item') + '</li>').join('') + '</ul>'
+          : '<p class="mp-empty">Add list items in the Sections editor.</p>';
       } else {
         contents = '<p class="mp-empty">Sample content</p>';
       }
