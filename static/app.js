@@ -231,8 +231,8 @@ function render() {
     app.innerHTML = renderOnboarding();
     return;
   }
-  if (['calendar','add','work-setup'].includes(state.tab)) state.tab = 'sections';
-  const content = { today: renderHome, home: renderHome, inbox: renderInbox, planner: renderPlannerCalendar, calendar: renderPlannerCalendar, sections: renderSectionsIndex, section: renderSection, more: renderMore, transport: renderTransport, assets: renderAssets150, settings: renderUserSettings, 'builder-records': builderRecordsPage, 'builder-profile': () => builderStartup(true) }[state.tab]?.() || renderHome();
+  if (['calendar','add'].includes(state.tab)) state.tab = 'sections';
+  const content = { today: renderHome, home: renderHome, inbox: renderInbox, planner: renderPlannerCalendar, calendar: renderPlannerCalendar, sections: renderSectionsIndex, section: renderSection, more: renderMore, transport: renderTransport, assets: renderAssets150, settings: renderUserSettings, 'work-setup': renderWorkSetup, 'builder-records': builderRecordsPage, 'builder-profile': () => builderStartup(true) }[state.tab]?.() || renderHome();
   const cloudNotice = state.boot.icloud_public?.reconnect_required ? `<div class="card" role="status"><strong>iCloud needs reconnecting</strong><p>${escapeHtml(state.boot.icloud_public.message)}</p><button class="small-button" data-nav="settings">Open settings</button></div>` : '';
   app.innerHTML = cloudNotice + content;
   app.focus({ preventScroll: true });
@@ -573,7 +573,10 @@ function renderLocalDataSettings() {
 function renderUserSettings() {
   const branches = [
     { branch_key: 'profile', title: 'Your details', description: 'Update your name and personal details.', icon: '○', branch_type: 'profile' },
-    { branch_key: 'calendar', title: 'Calendar', description: 'Connect, import, or export your calendars.', icon: '▦', branch_type: 'calendar' },
+    { branch_key: 'events', title: 'Events & calendars', description: 'Manage calendar connections, imported events and your Align calendar feed.', icon: '▦', branch_type: 'calendar' },
+    { branch_key: 'work', title: 'Work settings', description: 'Work locations, shift areas, start times, working hours and pay.', icon: '▣', branch_type: 'work' },
+    { branch_key: 'locations', title: 'Work locations', description: 'Manage your saved work locations and their shift settings.', icon: '⌖', branch_type: 'locations' },
+    { branch_key: 'alerts', title: 'Planner alerts', description: 'Set shift reminders and review upcoming alerts.', icon: '◌', branch_type: 'alerts' },
   ];
   const permissions = state.boot.builder?.appearance_permissions || {};
   if (Object.values(permissions).some(Boolean)) {
@@ -599,11 +602,11 @@ function renderUserBranch(branch) {
   const settings = state.boot.settings;
   if (branch.branch_type === 'appearance') return renderPersonalAppearance();
   if (branch.branch_type === 'colours') return renderUserColours();
-  if (branch.branch_type === 'work') return '<section class="card settings-form"><h2>Work</h2><p class="helper">Work is managed through the optional database in Sections.</p><button class="primary-button" data-nav="sections">Open Sections</button></section>';
+  if (branch.branch_type === 'work') return '<section class="card settings-form"><h2>Work Settings</h2><p class="helper">Configure work locations, shift areas, saved start times, working hours, pay and leave allowances. These settings drive your planner choices without rewriting existing bookings.</p><button class="primary-button" data-action="work-setup">Open Work Settings</button></section>';
   if (branch.branch_type === 'profile') return `<div class="section-head"><h2>${escapeHtml(branch.title)}</h2></div><form class="card settings-form" data-form="user-settings"><p class="helper">${escapeHtml(branch.description)}</p><div class="field"><label>Your name</label><input name="user_name" required value="${escapeHtml(settings.user_name)}" /></div>${addressFields('profile-address', 'user_address', settings.user_address)}<button class="primary-button">Save details</button></form>`;
   if (branch.branch_type === 'alerts') return renderAlertSettings();
   if (branch.branch_type === 'calendar') return renderCalendarSettings();
-  if (branch.branch_type === 'locations') return '<section class="card settings-form"><h2>Work locations</h2><p class="helper">Work locations and areas are now fields in your optional Work database.</p><button class="primary-button" data-nav="sections">Open Sections</button></section>';
+  if (branch.branch_type === 'locations') return '<section class="card settings-form"><h2>Work locations</h2><p class="helper">Locations are managed alongside shift areas and start times so every saved shift choice stays linked correctly.</p><button class="primary-button" data-action="work-setup">Manage work locations</button></section>';
   return `<div class="section-head"><h2>${escapeHtml(branch.title)}</h2></div><article class="card info-card"><p class="helper">${escapeHtml(branch.description)}</p><p>${escapeHtml(branch.content || 'Your administrator has not added any information to this section yet.').replace(/\n/g, '<br>')}</p></article>`;
 }
 
@@ -785,7 +788,7 @@ document.addEventListener('click', async event => {
     try { await api(`/api/organiser-events/${element.dataset.id}`, { method: 'DELETE' }); closeModal(); await refresh(); await reloadSection(); toast('Event deleted.'); } catch (error) { toast(error.message); }
     return;
   }
-  if (action === 'work-setup') { state.tab='sections'; render(); return; }
+  if (action === 'work-setup') { void openWorkSetup(); return; }
   if (action === 'reload-app') { window.location.reload(); return; }
   if (action === 'go-calendar-settings') { state.settingsBranch = 'calendar'; state.tab = 'settings'; render(); }
   if (action === 'copy-calendar-link') {
