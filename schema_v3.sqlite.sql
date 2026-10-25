@@ -77,6 +77,81 @@ CREATE TABLE IF NOT EXISTS organiser_events (
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS locations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    address TEXT NOT NULL DEFAULT '',
+    colour TEXT NOT NULL DEFAULT '#365CE6',
+    active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS shift_types (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    colour TEXT NOT NULL DEFAULT '#3B82F6',
+    active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1))
+);
+
+-- Categories (for example Wards and Clinic) that are offered at each work
+-- location.  Saved shift patterns then provide the actual AM/PM hours.
+CREATE TABLE IF NOT EXISTS location_shift_types (
+    location_id INTEGER NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+    shift_type_id INTEGER NOT NULL REFERENCES shift_types(id) ON DELETE CASCADE,
+    PRIMARY KEY (location_id, shift_type_id)
+);
+
+CREATE TABLE IF NOT EXISTS shift_templates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    location_id INTEGER NOT NULL REFERENCES locations(id) ON DELETE RESTRICT,
+    shift_type_id INTEGER NOT NULL REFERENCES shift_types(id) ON DELETE RESTRICT,
+    label TEXT NOT NULL,
+    sub_shift_type TEXT NOT NULL DEFAULT '',
+    start_time TEXT NOT NULL,
+    end_time TEXT NOT NULL,
+    break_minutes INTEGER NOT NULL DEFAULT 0 CHECK (break_minutes >= 0),
+    applicable_days TEXT NOT NULL DEFAULT '[]',
+    active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+    UNIQUE(location_id, label)
+);
+
+CREATE TABLE IF NOT EXISTS shifts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    work_date TEXT NOT NULL,
+    template_id INTEGER REFERENCES shift_templates(id) ON DELETE SET NULL,
+    location_id INTEGER REFERENCES locations(id) ON DELETE SET NULL,
+    shift_type_id INTEGER REFERENCES shift_types(id) ON DELETE SET NULL,
+    location_name TEXT NOT NULL,
+    shift_type_name TEXT NOT NULL,
+    colour TEXT NOT NULL,
+    start_time TEXT NOT NULL,
+    end_time TEXT NOT NULL,
+    break_minutes INTEGER NOT NULL DEFAULT 0,
+    hours REAL NOT NULL,
+    notes TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_shifts_date ON shifts(work_date);
+CREATE INDEX IF NOT EXISTS idx_shifts_template ON shifts(template_id);
+
+-- A repeated Confirm request must not create the week twice after a timeout.
+CREATE TABLE IF NOT EXISTS shift_batches (
+    request_id TEXT PRIMARY KEY,
+    payload_hash TEXT NOT NULL,
+    result_json TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS annual_leave (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    leave_date TEXT NOT NULL UNIQUE,
+    notes TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_leave_date ON annual_leave(leave_date);
+
+
 CREATE TABLE IF NOT EXISTS calendar_sources (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
