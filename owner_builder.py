@@ -240,18 +240,16 @@ def database_flow_validate(value, fields):
     if not isinstance(edges, list) or len(edges) > 500:
         raise BuilderError('Use up to 500 database flowchart connections.')
     field_map = {field['id']: field for field in fields}
-    if {'start', 'finish'} & set(field_map):
-        raise BuilderError('Database field IDs cannot be named start or finish.')
-    node_ids = set(field_map) | {'start', 'finish'}
+    node_ids = set(field_map) | {'__flow_start__', '__flow_finish__'}
     seen = set()
     clean_edges = []
     adjacency = {node_id: [] for node_id in node_ids}
     for edge in edges:
         if not isinstance(edge, dict):
             raise BuilderError('Invalid database flowchart connection.')
-        source = identity(edge.get('from'))
-        target = identity(edge.get('to'))
-        if source not in node_ids or target not in node_ids or source == target:
+        source = edge.get('from')
+        target = edge.get('to')
+        if not isinstance(source, str) or not isinstance(target, str) or source not in node_ids or target not in node_ids or source == target:
             raise BuilderError('Choose two different existing nodes for each flowchart connection.')
         pair = (source, target)
         if pair in seen:
