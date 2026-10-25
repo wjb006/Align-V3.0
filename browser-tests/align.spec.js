@@ -423,6 +423,11 @@ async function verifyManagementStudio(browser) {
     await page.screenshot({path:path.join(ROOT,'test-results','management-studio-desktop.png'),fullPage:true});
 
     await page.setViewportSize({width:390,height:844});
+    await page.waitForFunction(() => {
+      const groups = [...document.querySelectorAll('.unified-nav-group')];
+      const group = title => groups.find(item => item.querySelector('summary')?.textContent.trim() === title);
+      return window.matchMedia('(max-width:700px)').matches && group('Look')?.open && !group('Set up')?.open;
+    });
     assert.equal(await page.evaluate(() =>
       document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1
     ),true);
@@ -433,6 +438,11 @@ async function verifyManagementStudio(browser) {
     await page.waitForFunction(() => [...document.querySelectorAll('.unified-nav-group')]
       .filter(group => group.open).length === 1);
     assert.equal(await page.locator('.unified-nav-group').filter({hasText:'Look'}).getAttribute('open'),'');
+    await page.waitForFunction(() => {
+      const group = label => [...document.querySelectorAll('.unified-nav-group')]
+        .find(element => element.querySelector('summary')?.textContent.trim() === label);
+      return group('Look')?.open === true && group('Set up')?.open === false;
+    });
     assert.equal(await page.locator('.unified-nav-group').filter({hasText:'Set up'}).getAttribute('open'),null);
     const mobilePublish = await page.locator('#publish').boundingBox();
     assert(mobilePublish && mobilePublish.x >= 0 &&
