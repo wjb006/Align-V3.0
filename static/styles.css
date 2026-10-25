@@ -671,3 +671,19 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 
 .month-shift { font-size: 11px; }
 .month-date { font-size: 13px; font-weight: 700; }
+
+
+/* Restored V3 Planner calendar */
+.planner-month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin:14px 0}
+.planner-month-grid>span{text-align:center;font-size:.78rem;font-weight:700;color:var(--muted,#667085);padding:4px 0}
+.planner-day{min-width:0;min-height:48px;border:1px solid var(--line,#dfe3ee);border-radius:10px;background:var(--surface,#fff);color:var(--ink,#162147);display:flex;align-items:center;justify-content:center;gap:4px;flex-direction:column;cursor:pointer}
+.planner-day.is-empty{border-color:transparent;background:transparent}
+.planner-day.is-today{outline:2px solid var(--blue,#365ce6);outline-offset:1px;font-weight:800}
+.planner-day.has-events i{display:block;width:6px;height:6px;border-radius:50%;background:var(--blue,#365ce6);font-size:0}
+.planner-day:focus-visible{outline:2px solid var(--blue,#365ce6);outline-offset:2px}
+.planner-calendar-card{margin-bottom:18px}
+.planner-event-list{display:grid;gap:10px}
+.planner-event-row{display:grid;gap:5px}
+.planner-event-row time,.planner-event-row small{color:var(--muted,#667085);font-size:.84rem}
+.planner-event-row[hidden]{display:none}
+@media(max-width:420px){.planner-month-grid{gap:3px}.planner-day{min-height:40px;border-radius:8px;font-size:.9rem}.planner-calendar-card{padding:12px}}
