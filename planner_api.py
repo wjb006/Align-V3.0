@@ -137,14 +137,20 @@ def _week(connection, raw_date):
     shifts = _rows(connection, """SELECT * FROM shifts WHERE work_date BETWEEN ? AND ?
         ORDER BY work_date,start_time,id""",(start.isoformat(),end.isoformat()))
     leave = _rows(connection,"SELECT * FROM annual_leave WHERE leave_date BETWEEN ? AND ? ORDER BY leave_date",(start.isoformat(),end.isoformat()))
-    events = _rows(connection,"""SELECT e.*,s.name AS section_name FROM organiser_events e
-        JOIN organiser_sections s ON s.id=e.section_id
+    events = _rows(connection, """SELECT e.*,s.name AS section_name,s.colour AS section_colour FROM organiser_events e
+        LEFT JOIN organiser_sections s ON s.id=e.section_id
         WHERE e.start_at < ? AND e.end_at >= ? ORDER BY e.start_at""",
         ((end+timedelta(days=1)).isoformat(),start.isoformat()))
-    return {"start":start.isoformat(),"end":end.isoformat(),"shifts":shifts,"annual_leave":leave,"events":events,
+    imported = _rows(connection, """SELECT e.*,s.name AS category_name,s.section_id,s.colour AS section_colour
+        FROM calendar_events e JOIN calendar_sources s ON s.id=e.source_id
+        WHERE e.start_at < ? AND e.end_at >= ? ORDER BY e.start_at""",
+        ((end+timedelta(days=1)).isoformat(),start.isoformat()))
+    import work_setup
+    work_settings = work_setup.load_setup(connection)
+    return {"start":start.isoformat(),"end":end.isoformat(),"shifts":shifts,"annual_leave":leave,"events":events,"imported_events":imported,
             "locations":_rows(connection,"SELECT * FROM locations WHERE active=1 ORDER BY name"),
             "shift_types":_rows(connection,"SELECT * FROM shift_types WHERE active=1 ORDER BY name"),
-            "templates":_templates(connection)}
+            "templates":_templates(connection),"work_settings":work_settings}
 
 
 def _month(connection, raw_month):
@@ -152,10 +158,12 @@ def _month(connection, raw_month):
     start = date.fromisoformat(month+"-01")
     end = date(start.year + (start.month==12), start.month%12+1, 1)-timedelta(days=1)
     data = _week(connection,start.isoformat())
+    event_data = app.month_data(connection, month)
     shifts = _rows(connection,"SELECT * FROM shifts WHERE work_date BETWEEN ? AND ? ORDER BY work_date,start_time",(start.isoformat(),end.isoformat()))
     leave = _rows(connection,"SELECT * FROM annual_leave WHERE leave_date BETWEEN ? AND ? ORDER BY leave_date",(start.isoformat(),end.isoformat()))
-    return {"month":month,"start":start.isoformat(),"end":end.isoformat(),"shifts":shifts,"annual_leave":leave,
-            "locations":data["locations"],"shift_types":data["shift_types"],"templates":data["templates"]}
+    return {**event_data,"month":month,"shifts":shifts,"annual_leave":leave,
+            "locations":data["locations"],"shift_types":data["shift_types"],"templates":data["templates"],
+            "work_settings":data["work_settings"]}
 
 
 def handle_get(handler, app, connection, parsed, row) -> bool:
