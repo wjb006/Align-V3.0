@@ -604,11 +604,10 @@
       renderEditor();
       const index = documentDraft.home_sections.findIndex(item => item.id === block.dataset.previewHomeSection);
       const input = [...document.querySelectorAll('[data-home-title]')].find(control => Number(control.dataset.homeTitle) === index);
-      input?.focus();
       input?.scrollIntoView({block: 'nearest'});
       requestAnimationFrame(() => {
         const current = [...document.querySelectorAll('[data-home-title]')].find(control => Number(control.dataset.homeTitle) === index);
-        if (current && document.activeElement !== current) current.focus({preventScroll: true});
+        current?.focus({preventScroll: true});
       });
       return;
     }
