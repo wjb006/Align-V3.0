@@ -1991,6 +1991,14 @@ if(b.dataset.workflowNode) {
      const target = document.querySelector('[data-workflow-edge-to="' + index + '"]')?.value;
      if (!edge || !source || !target || source === target) { status('Choose two different workflow steps.', true); return; }
      if ((workflow.edges || []).some((item,i) => i !== index && item.from === source && item.to === target)) { status('That connection already exists.', true); return; }
+     const proposed = (workflow.edges || []).filter((item,i) => i !== index).concat([{from:source,to:target}]);
+     const adjacency = new Map();
+     proposed.forEach(item => { if (!adjacency.has(item.from)) adjacency.set(item.from, []); adjacency.get(item.from).push(item.to); });
+     const reaches = (from,to) => { const seen = new Set(); const stack = [from]; while (stack.length) { const current = stack.pop(); if (current === to) return true; if (seen.has(current)) continue; seen.add(current); (adjacency.get(current) || []).forEach(next => stack.push(next)); } return false; };
+     if (reaches(target,source)) { status('That connection would create a workflow loop.', true); return; }
+     const reachable = new Set(); const stack = [workflow.start_node];
+     while (stack.length) { const current = stack.pop(); if (reachable.has(current)) continue; reachable.add(current); (adjacency.get(current) || []).forEach(next => stack.push(next)); }
+     if (workflow.nodes.some(item => !reachable.has(item.id))) { status('That change would leave a workflow step disconnected. Reconnect every step before updating.', true); return; }
      changed(); edge.from = source; edge.to = target;
      status('Connection updated in the draft. Save the draft to keep it.'); render(); return;
    }
