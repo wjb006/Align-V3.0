@@ -223,6 +223,10 @@ def handle_get(handler, app, connection, parsed, row) -> bool:
             "beta": ({"email": row["email"], "is_owner": bool(row["is_owner"])} if row else None),
         })
         return True
+    if path == "/api/week":
+        start = query.get("start", [date.today().isoformat()])[0]
+        self.send_json(200, _week(connection, start))
+        return True
     if path == "/api/month":
         month = query.get("month", [date.today().strftime("%Y-%m")])[0]
         self.send_json(200, _month(connection, month, app))
