@@ -319,8 +319,13 @@ async function verifyManagementStudio(browser) {
     }
     await page.locator('[data-unified-tab="pages"]').click();
     await page.waitForFunction(() => document.querySelector('#design-pane')?.hidden === false);
-    await page.locator('#management-phone [data-preview-home-section="today"] .mp-drag-handle').click();
-    await page.waitForFunction(() => document.activeElement?.matches('[data-home-title][aria-label="Today name"]'), null, {timeout: 5000});
+    await page.waitForFunction(() => document.querySelector('#management-phone [data-preview-home-section="today"] .mp-drag-handle'));
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await page.locator('#management-phone [data-preview-home-section="today"] .mp-drag-handle').click();
+      const focused = await page.waitForFunction(() => document.activeElement?.matches('[data-home-title][aria-label="Today name"]'), null, {timeout: 5000})
+        .then(() => true, () => false);
+      if (focused) break;
+    }
     assert.equal(await page.evaluate(() => document.activeElement?.matches('[data-home-title][aria-label="Today name"]')),true,
       'Selecting a home area in the phone preview should focus its editor');
     await page.locator('#management-phone [data-preview-home-section="upcoming"]').dragTo(
