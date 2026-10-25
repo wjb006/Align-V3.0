@@ -58,6 +58,7 @@ class ShiftPlannerApiTests(unittest.TestCase):
         self.assertIn("slots", setup)
         self.assertIn("assignments", setup)
         self.assertIn("leave_allowance_days", setup)
+        setup["save_mode"] = "settings"
         saved = self.json_request("PUT", "/api/work-setup", setup, expected=200)
         self.assertIn("revision", saved)
         rule = self.json_request("POST", "/api/alert-rules", {
