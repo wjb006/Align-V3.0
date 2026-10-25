@@ -312,9 +312,13 @@ async function verifyManagementStudio(browser) {
         'New section input should include a review step by default');
       assert.match(await page.locator('#builder-content').innerText(),/Step 1 of 3[\s\S]*Step 2 of 3[\s\S]*Step 3 of 3/);
       await page.locator('#save').click();
-      await page.waitForFunction(() => document.querySelector('#builder-status')?.textContent.startsWith('Draft saved'));
+      await page.waitForFunction(() =>
+        document.querySelector('#builder-status')?.textContent.startsWith('Draft saved') &&
+        window.AlignBuilderStudio?.hasUnsavedChanges() === false
+      );
     }
     await page.locator('[data-unified-tab="pages"]').click();
+    await page.waitForFunction(() => document.querySelector('#design-pane')?.hidden === false);
     await page.locator('#management-phone [data-preview-home-section="today"] .mp-drag-handle').click();
     await page.waitForFunction(() => document.activeElement?.matches('[data-home-title]'), null, {timeout: 5000}).catch(() => {});
     assert.equal(await page.evaluate(() => document.activeElement?.matches('[data-home-title]')),true,
