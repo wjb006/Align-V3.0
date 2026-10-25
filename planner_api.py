@@ -162,6 +162,10 @@ def handle_get(handler, app, connection, parsed, row) -> bool:
     self = handler
     path = parsed.path
     query = parse_qs(parsed.query)
+    if path == "/api/work-setup":
+        import work_setup
+        self.send_json(200, work_setup.load_setup(connection))
+        return True
     if path == "/api/bootstrap":
         self.send_json(200, {
             "build_version": app.BUILD_VERSION,
@@ -291,6 +295,12 @@ def handle_post(handler, app, connection, path, payload, row) -> bool:
 
 def handle_put(handler, app, connection, path, payload, row) -> bool:
     self=handler
+    if path == "/api/work-setup":
+        import work_setup
+        result = work_setup.save_setup(connection, payload)
+        connection.commit()
+        self.send_json(200, result)
+        return True
     if path.startswith("/api/shifts/"):
         item_id=int(path.rsplit("/",1)[1])
         existing=connection.execute("SELECT * FROM shifts WHERE id=?",(item_id,)).fetchone()
