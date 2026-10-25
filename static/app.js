@@ -18,7 +18,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 156;
-const ASSET_VERSION = `${BUILD_VERSION}-v47`;
+const ASSET_VERSION = `${BUILD_VERSION}-v50`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -65,6 +65,7 @@ function fullDateLabel(value) {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
 }
+function safeColour(value, fallback = '#365CE6') { return /^#[0-9a-f]{6}$/i.test(value || '') ? value : fallback; }
 function number(value) { return Number(value || 0).toLocaleString('en-GB', { maximumFractionDigits: 2 }); }
 function hours(value) { return `${number(value)}h`; }
 function greeting() {
@@ -627,9 +628,34 @@ function renderPersonalAppearance() {
   </form></section>`;
 }
 
+function beforeLabel(minutes) {
+  if (!minutes) return 'At shift start';
+  return travel_reminders_label(minutes) + ' before';
+}
 function renderAlertSettings() {
-  return `<div class="section-head"><h2>Notifications</h2></div>
-    <form class="card settings-form" data-form="user-settings"><div class="switch-row"><label for="user-notifications">Enable Align notifications</label><input class="switch" id="user-notifications" name="notifications" type="checkbox" ${state.boot.settings.notifications ? 'checked' : ''}/></div><p class="helper">This preference controls Align notifications for your account. Reminder times for events in an iCloud calendar are managed by that calendar.</p><div class="button-row"><button type="button" class="secondary-button" data-action="enable-browser-notifications">Enable notifications on this device</button><button class="primary-button">Save notification preference</button></div></form>`;
+  const rules = state.boot.calendar.alert_rules || [];
+  const alerts = state.boot.dashboard.alerts || [];
+  return '<div class="section-head"><h2>Shift alerts</h2><button class="text-button" data-action="new-alert-rule">Add alert</button></div>' +
+    '<form class="card settings-form" data-form="user-settings"><div class="switch-row"><label for="user-notifications">Enable shift alerts</label><input class="switch" id="user-notifications" name="notifications" type="checkbox" '+(state.boot.settings.notifications ? 'checked' : '')+'/></div>' +
+    '<p class="helper">Create reminders before shifts. Calendar subscriptions also carry your events; your calendar app may control when it refreshes and delivers alerts.</p>' +
+    '<div class="button-row"><button type="button" class="secondary-button" data-action="enable-browser-notifications">Enable browser notifications</button><button class="primary-button">Save alert preference</button></div></form>' +
+    '<div class="master-list section">'+rules.map(rule=>'<article class="card master-item '+(rule.active?'':'inactive')+'"><span class="branch-icon">◌</span><div class="item-content"><h3>'+escapeHtml(rule.title)+'</h3><p>'+escapeHtml(beforeLabel(Number(rule.minutes_before)))+(rule.active?'':' · disabled')+'</p></div><button class="small-button" data-action="edit-alert-rule" data-id="'+escapeHtml(rule.id)+'">Edit</button></article>').join('')+
+    (rules.length?'':'<p class="helper">No alert rules yet. Add a reminder such as Time to Leave, one hour before your shift.</p>')+
+    '<button class="secondary-button" data-action="new-alert-rule">＋ Add alert</button></div>'+
+    '<div class="section-head"><h2>Upcoming reminders</h2></div><div class="master-list">'+alerts.map(alert=>'<article class="card master-item"><span class="branch-icon">◷</span><div class="item-content"><h3>'+escapeHtml(alert.title)+'</h3><p>'+escapeHtml(alert.location_name)+' · '+escapeHtml(alert.shift_type_name)+'<br>'+escapeHtml(formatDisplayDateTime(alert.alert_at))+'</p></div></article>').join('')+
+    (alerts.length?'':'<p class="helper">No upcoming shift reminders.</p>')+'</div>';
+}
+function alertRuleModal(id = null) {
+  const rules = state.boot.calendar.alert_rules || [];
+  const rule = id ? rules.find(item => String(item.id) === String(id)) : {title:'Time to Leave',minutes_before:60,active:true};
+  if (!rule) return;
+  modal(id ? 'Edit alert' : 'Add alert',
+    '<form class="form-grid" data-form="alert-rule" data-id="'+(id||'')+'">'+
+    '<div class="field"><label for="alert-title">Alert name</label><input id="alert-title" name="title" required maxlength="80" value="'+escapeHtml(rule.title)+'"/></div>'+
+    '<div class="field"><label for="alert-minutes">Remind me</label><select id="alert-minutes" name="minutes_before" required>'+alertOffsetOptions(rule.minutes_before)+'</select><small class="helper">Choose how long before the shift to be reminded.</small></div>'+
+    '<label class="switch-row"><span>Enable this alert</span><input class="switch" name="active" type="checkbox" '+(rule.active?'checked':'')+'/></label>'+
+    '<div class="modal-actions">'+(id?'<button type="button" class="danger-button" data-action="delete-alert-rule" data-id="'+id+'">Delete</button>':'')+
+    '<button type="button" class="secondary-button" data-action="close-modal">Cancel</button><button class="primary-button">Save alert</button></div></form>');
 }
 
 function renderCalendarSettings() {
@@ -839,6 +865,14 @@ document.addEventListener('click', async event => {
     return;
   }
 
+  if (action === 'new-alert-rule') { alertRuleModal(); return; }
+  if (action === 'edit-alert-rule') { alertRuleModal(element.dataset.id); return; }
+  if (action === 'delete-alert-rule') {
+    if (!window.confirm('Delete this alert rule?')) return;
+    try { await api('/api/alert-rules/' + element.dataset.id, {method:'DELETE'}); closeModal(); await refresh(); toast('Alert rule deleted.'); }
+    catch (error) { toast(error.message); }
+    return;
+  }
   if (action === 'remove-calendar') {
     if (!window.confirm('Remove this imported calendar and its clash checks?')) return;
     try { await api(`/api/calendars/${element.dataset.id}`, { method: 'DELETE' }); await refresh(); toast('Imported calendar removed.'); } catch (error) { toast(error.message); }
@@ -1012,6 +1046,12 @@ document.addEventListener('submit', async event => {
         return;
       }
       if (form.dataset.form === 'user-settings') { if (form.notifications) values.notifications = form.notifications.checked; await api('/api/user-settings', { method: 'PUT', body: values }); await refresh(); toast('Settings saved.'); }
+    if (form.dataset.form === 'alert-rule') {
+      const id = form.dataset.id;
+      const body = {title: values.title, minutes_before: Number(values.minutes_before), active: !!form.elements.active.checked};
+      await api(id ? '/api/alert-rules/' + id : '/api/alert-rules', {method:id?'PUT':'POST', body});
+      closeModal(); await refresh(); toast(id ? 'Alert rule updated.' : 'Alert rule added.'); return;
+    }
     if (form.dataset.form === 'calendar-import') { const file = form.ics_file.files[0]; if (!file) throw new Error('Choose an .ics calendar file first.'); const ics = await file.text(); await api('/api/calendars/import', { method: 'POST', body: { name: values.name || file.name.replace(/\.ics$/i, ''), ics } }); await refresh(); toast('Calendar imported. Events can now be checked against it.'); }
   } catch (error) { showFormError(form, error.message); toast(error.message, 'error'); }
 });
