@@ -76,13 +76,14 @@ try {
     if ($localFeature) {
         & git -C $root switch $FeatureBranch
         if ($LASTEXITCODE -ne 0) { throw "Could not switch to $FeatureBranch." }
+        $Switched = $true
         & git -C $root merge --ff-only "origin/$FeatureBranch"
         if ($LASTEXITCODE -ne 0) { throw "Local feature branch cannot fast-forward to origin/$FeatureBranch. No reset was attempted; review the branch manually." }
     } else {
         & git -C $root switch --create $FeatureBranch --track "origin/$FeatureBranch"
         if ($LASTEXITCODE -ne 0) { throw "Could not switch to $FeatureBranch." }
+        $Switched = $true
     }
-    $Switched = $true
     Write-Result "Install branch" $true "Checked out $FeatureBranch locally; no production deployment performed."
 
     if (-not $SkipTests) {
