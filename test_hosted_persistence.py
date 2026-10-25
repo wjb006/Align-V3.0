@@ -258,7 +258,7 @@ class PostgresIntegrationTests(unittest.TestCase):
             with pg.psycopg.connect(self.dsn) as raw:
                 raw.execute(f'DROP SCHEMA IF EXISTS {schema} CASCADE')
 
-    def test_tester_schema_uses_shift_free_v3_ddl(self):
+    def test_tester_schema_includes_restored_shift_planner_ddl(self):
         path = Path('beta_data') / ('a' * 24 + '.sqlite3')
         schema = pg.schema_for(path)
         pg.provision_tester_schema(path)
