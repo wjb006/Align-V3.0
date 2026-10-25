@@ -71,7 +71,7 @@ def _contact_payload(raw):
 
 def _contact_rows(connection):
     return [dict(row) for row in connection.execute(
-        "SELECT id, name, address, phone, notes, created_at, updated_at FROM align_contacts ORDER BY name COLLATE NOCASE, id"
+        "SELECT id, name, address, phone, notes, created_at, updated_at FROM align_contacts ORDER BY LOWER(name), id"
     ).fetchall()]
 
 def _contact_from_id(connection, contact_id):

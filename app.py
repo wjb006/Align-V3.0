@@ -93,7 +93,6 @@ ADMIN_PASSWORD = os.environ.get("ALIGN_ADMIN_PASSWORD", "")
 ADMIN_SESSIONS: set[str] = set()
 ADDRESS_CACHE: dict[str, tuple[float, list[dict]]] = {}
 ADDRESS_LOCK = threading.Lock()
-ADDRESS_LAST_REQUEST = 0.0
 
 V3_DEFAULT_SETTINGS = {
     "user_name": "",
@@ -363,10 +362,14 @@ def normalise_leave_year_start(value) -> str:
 
 
 def find_addresses(query: str) -> list[dict]:
-    """Small, rate-limited UK address lookup with manual-entry fallback in the UI."""
-    global ADDRESS_LAST_REQUEST
+    """Return UK address autocomplete results through the configured HERE key."""
     query = " ".join(query.split())[:120]
-    if len(query) < 3:
+    postcode_prefix = re.sub(r"\s+", "", query).upper()
+    postcode_query = bool(
+        re.fullmatch(r"[A-Z]{1,2}\d[A-Z\d]?", postcode_prefix)
+        or re.fullmatch(r"[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}", postcode_prefix)
+    )
+    if len(query) < 3 and not postcode_query:
         raise ValueError("Enter at least three characters to search for an address.")
     cache_key = query.casefold()
     cached = ADDRESS_CACHE.get(cache_key)
@@ -376,22 +379,95 @@ def find_addresses(query: str) -> list[dict]:
         cached = ADDRESS_CACHE.get(cache_key)
         if cached and time.monotonic() - cached[0] < 600:
             return cached[1]
-        delay = 1.0 - (time.monotonic() - ADDRESS_LAST_REQUEST)
-        if delay > 0:
-            time.sleep(delay)
-        url = "https://nominatim.openstreetmap.org/search?" + urlencode({
-            "q": query, "format": "jsonv2", "addressdetails": "1", "limit": 8, "countrycodes": "gb", "accept-language":"en-GB", "dedupe":"1",
+        key = os.environ.get("ALIGN_HERE_ROUTING_KEY", "").strip()
+        if not key:
+            if postcode_query:
+                data = personal_planner.fetch_json(
+                    "https://api.postcodes.io/postcodes?" + urlencode({"q": postcode_prefix, "limit": 8})
+                )
+                results = [
+                    {
+                        "label": ", ".join(filter(None, [
+                            item.get("postcode"), item.get("admin_district"), item.get("country"),
+                        ])),
+                        "latitude": item.get("latitude", ""),
+                        "longitude": item.get("longitude", ""),
+                        "postcode": item.get("postcode", ""),
+                        "country_code": "gb",
+                        "provider": "Postcodes.io",
+                    }
+                    for item in data.get("result", [])
+                    if item.get("postcode")
+                ]
+                if results:
+                    ADDRESS_CACHE[cache_key] = (time.monotonic(), results)
+                    return results
+            # Photon supports address autocomplete without a credential. Keep
+            # this to short, cached, user-typed queries; HERE remains preferred
+            # when the installation has its own configured key.
+            url = "https://photon.komoot.io/api?" + urlencode({"q": query, "limit": 8, "lang": "en"})
+            try:
+                payload = personal_planner.fetch_json(url)
+            except ValueError as error:
+                raise ValueError("Address suggestions are temporarily unavailable. You can enter the address manually.") from error
+            results = []
+            for feature in payload.get("features", []):
+                properties = feature.get("properties") or {}
+                geometry = feature.get("geometry") or {}
+                coordinates = geometry.get("coordinates") or []
+                country = str(properties.get("country") or "").casefold()
+                country_code = str(properties.get("countrycode") or "").casefold()
+                if country and country not in {"united kingdom", "great britain"} and country_code != "gb":
+                    continue
+                if len(coordinates) < 2:
+                    continue
+                street = " ".join(filter(None, [
+                    str(properties.get("housenumber") or "").strip(),
+                    str(properties.get("street") or "").strip(),
+                ]))
+                name = str(properties.get("name") or "").strip()
+                if not street:
+                    street = name
+                locality = str(properties.get("city") or properties.get("town") or properties.get("village") or "").strip()
+                postcode = str(properties.get("postcode") or "").strip()
+                label = ", ".join(dict.fromkeys(filter(None, [street, postcode, locality, properties.get("state")])))
+                if not label:
+                    continue
+                results.append({
+                    "label": label,
+                    "latitude": coordinates[1],
+                    "longitude": coordinates[0],
+                    "postcode": postcode,
+                    "country_code": country_code or "gb",
+                    "provider": "OpenStreetMap",
+                })
+                if len(results) == 8:
+                    break
+            ADDRESS_CACHE[cache_key] = (time.monotonic(), results)
+            return results
+        url = "https://autosuggest.search.hereapi.com/v1/autosuggest?" + urlencode({
+            "q": query, "in": "countryCode:GBR", "limit": 8, "lang": "en-GB", "apiKey": key,
         })
-        request = Request(url, headers={"User-Agent": "AlignShiftPlanner/1.0 (personal local planner)"})
         try:
-            with urlopen(request, timeout=6) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-        except OSError as error:
-            raise ValueError("Address search is unavailable right now. You can type the address manually.") from error
-        ADDRESS_LAST_REQUEST = time.monotonic()
-        priority={'house':0,'building':0,'residential':1,'postcode':1,'road':2,'street':2,'amenity':2,'office':2,'shop':2}
-        payload.sort(key=lambda item:(priority.get(str(item.get('type','')).lower(),5),-float(item.get('importance') or 0)))
-        results=[{'label':item.get('display_name',''),'latitude':item.get('lat',''),'longitude':item.get('lon',''),'postcode':(item.get('address') or {}).get('postcode',''),'country_code':(item.get('address') or {}).get('country_code','gb')} for item in payload if item.get('display_name')][:8]
+            payload = personal_planner.here_fetch(url)
+        except ValueError as error:
+            raise ValueError("Address suggestions are temporarily unavailable. You can enter the address manually.") from error
+        results = []
+        for item in payload.get("items", []):
+            position = item.get("position") or {}
+            label = (item.get("address") or {}).get("label") or item.get("title") or ""
+            if not label or not position:
+                continue
+            results.append({
+                "label": label,
+                "latitude": position.get("lat", ""),
+                "longitude": position.get("lng", ""),
+                "postcode": (item.get("address") or {}).get("postalCode", ""),
+                "country_code": (item.get("address") or {}).get("countryCode", "gb").lower(),
+                "provider": "HERE",
+            })
+            if len(results) == 8:
+                break
         ADDRESS_CACHE[cache_key] = (time.monotonic(), results)
         return results
 
@@ -781,8 +857,11 @@ class AlignHandler(SimpleHTTPRequestHandler):
     def is_admin(self) -> bool:
         """Owner account is Admin in beta; local builds keep the existing token model."""
         if BETA_MODE:
-            row=self.beta_user()
-            return bool(row and row['is_owner'] and beta_store().terms_current(row))
+            # Owner-only administration is gated by the authenticated Owner session.
+            # Terms acceptance is enforced by the normal account flow; do not let a
+            # stale terms-version comparison silently strip Owner controls after login.
+            row = self.beta_user()
+            return bool(row and row['is_owner'] and row['active'] and row['account_status'] == 'active')
         if not ADMIN_PASSWORD: return True
         return self.headers.get("X-Align-Admin", "") in ADMIN_SESSIONS
 

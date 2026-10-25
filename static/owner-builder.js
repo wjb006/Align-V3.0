@@ -409,9 +409,10 @@ function workflowTree(layout) {
     const nav=doc.navigation||[], sections=(doc.home_sections||[]).slice().sort((a,b)=>a.sort_order-b.sort_order);
     const move=(attr,i,last)=>`<span class="studio-line-move"><button ${attr}="${i}" data-dir="-1" ${!i?'disabled':''} aria-label="Move up">↑</button><button ${attr}="${i}" data-dir="1" ${i===last?'disabled':''} aria-label="Move down">↓</button></span>`;
     const buttons=nav.map((n,i)=>`<div class="studio-line"><input class="studio-line-icon" data-prop="nav-icon-${i}" value="${e(n.icon)}" aria-label="Icon"><input class="studio-line-name" data-prop="nav-title-${i}" value="${e(n.title)}" aria-label="Name"><label class="studio-line-check"><input type="checkbox" data-nav-prop="active" data-nav-index="${i}" ${n.active?'checked':''}> Show</label>${move('data-nav-move',i,nav.length-1)}</div>`).join('');
-    const blocks=sections.map((s,i)=>`<div class="studio-line is-section"><input class="studio-line-name" data-prop="section-title-${i}" value="${e(s.title)}" aria-label="Section name"><label class="studio-line-check"><input type="checkbox" data-section-prop="visible" data-section-index="${i}" ${s.visible?'checked':''}> Show</label>${move('data-section-move',i,sections.length-1)}</div>`).join('');
-    const head=embedded?'':`<h2>Home screen</h2><p class="helper">One row each. Change the name, then publish when you want people to see it.</p>`;
-    return `${head}<h3>Bottom buttons</h3><div class="studio-lines">${buttons}</div><h3>Home sections</h3><div class="studio-lines">${blocks}</div>`;
+    const blocks=sections.map((s,i)=>`<div class="studio-line is-section"><input class="studio-line-name" data-prop="section-title-${i}" value="${e(s.title)}" aria-label="Section name"><label class="studio-line-check"><input type="checkbox" data-section-prop="visible" data-section-index="${i}" ${s.visible?'checked':''}> Show</label>${move('data-section-move',i,sections.length-1)}<button type="button" class="secondary-button" data-remove-home-section="${e(s.id)}" aria-label="Remove ${e(s.title)} from home">Remove</button></div>`).join('');
+    const available=[['today','Today at a glance'],['stats','Week summary'],['menus','Your sections'],['upcoming','Upcoming Events'],['calendar','Calendar'],['annual_leave','Annual leave']].filter(([id])=>!sections.some(s=>s.id===id));
+    const head=embedded?'':`<h2>Home screen</h2><p class="helper">Add, remove, rename, show, hide, and reorder sections on your home screen. Changes stay in your draft until you publish.</p>`;
+    return `${head}<h3>Bottom buttons</h3><div class="studio-lines">${buttons}</div><h3>Home sections</h3><div class="studio-lines">${blocks||'<p class="helper">No home sections yet. Add one below.</p>'}</div><div class="builder-option-group"><label>Add a section<select id="add-home-section"><option value="">Choose a section…</option>${available.map(([id,title])=>`<option value="${id}">${title}</option>`).join('')}</select></label><button type="button" class="secondary-button" data-add-home-section ${!available.length?'disabled':''}>Add section</button></div>`;
   }
   function baseStructureEditor() {
     const weather=doc.base_structure?.weather||{enabled:true,refresh_minutes:15,show_last_updated:true,show_errors:true,views:['today','hourly','daily']};
@@ -833,6 +834,18 @@ function workflowFriendlyEditor(layout) {
                 `
           }
 
+          <div class="builder-option-group" style="margin-top:14px">
+            <label>Connect to
+              <select id="workflow-connect-target">
+                <option value="">Choose a step…</option>
+                ${workflow.nodes.filter(item => item.id !== node.id && !outgoing.some(edge => edge.to === item.id)).map(item => '<option value="' + e(item.id) + '">' + e(workflowNodeLabel(layout,item)) + '</option>').join('')}
+              </select>
+            </label>
+            <button type="button" class="secondary-button" data-workflow-add-edge="${e(node.id)}">Add connection</button>
+            <div class="workflow-edit-connections">
+              ${(workflow.edges || []).map((edge,index) => '<div class="finance-next-step"><span>' + e(workflowNodeLabel(layout, workflow.nodes.find(item => item.id === edge.from) || {type:"field",field_id:""})) + ' → ' + e(workflowNodeLabel(layout, workflow.nodes.find(item => item.id === edge.to) || {type:"field",field_id:""})) + '</span>' + (edge.when ? '<small>Conditional</small>' : '<button type="button" class="secondary-button" data-workflow-make-conditional="' + index + '">Make conditional</button>') + '<button type="button" class="secondary-button" data-workflow-remove-edge="' + index + '">Remove</button></div>').join('')}
+            </div>
+          </div>
         </div>
 
       </details>
@@ -1673,8 +1686,18 @@ function render(previewOnly=false) {
 
                 <section class="section-matrix-setup">
                   <h3>Step 2 of 3 · Build the input matrix</h3>
-                  <p class="helper">Add each piece of information people should enter. Choose a type, mark required answers, and move questions into the order that makes sense.</p>
+                  <p class="helper">Add each piece of information people should enter. Choose a type, mark required answers, and move questions into the order that makes sense. Each question becomes a connected node in the form flow below.</p>
                   ${fieldList()}
+                  <div class="database-flow-builder">
+                    <div class="database-flow-head"><div><p class="eyebrow">Visual form flow</p><h3>${e(layout.title)} · input nodes</h3><p class="helper">Each node is a database field. Select a node to edit it; use the arrows in Form fields to change the flow order.</p></div><button type="button" class="secondary-button" data-add-field>Add node</button></div>
+                    <div class="database-flowchart" aria-label="Database input flow">
+                      <div class="database-flow-node database-flow-start"><span class="database-flow-node-type">START</span><strong>Begin entry</strong><small>Open the form</small></div>
+                      <div class="database-flow-connector" aria-hidden="true">↓</div>
+                      ${(layout.fields||[]).map((field,index)=>`<button type="button" class="database-flow-node database-flow-field" data-field="${e(field.id)}"><span class="database-flow-node-type">NODE ${index+1} · ${e(types[field.type]||field.type)}</span><strong>${e(field.label)}</strong><small>${field.required?'Required':'Optional'} · ${field.type==='select'?(field.options||[]).length+' choices':'User input'}</small></button><div class="database-flow-connector" aria-hidden="true">↓</div>`).join('')}
+                      <div class="database-flow-node database-flow-save"><span class="database-flow-node-type">FINISH</span><strong>Review and save</strong><small>${layout.review_before_save===false?'Save after validation':'Review answers before saving'}</small></div>
+                    </div>
+                  </div>
+                  ${layout.id==='work'?'<div class="builder-option-group"><h3>Work rota quick-input template</h3><p class="helper">Adds reusable location, area, day, and shift-time choices to Work without deleting existing questions or saved records.</p><button type="button" class="secondary-button" data-work-rota-template>Add rota quick-input fields</button></div>':''}
                 </section>
                 <section class="section-matrix-preview">
                   <h3>Step 3 of 3 · Review the entry form</h3>
@@ -1956,10 +1979,37 @@ document.addEventListener('click',ev=>{
   if(!b||busy)return;
 
 if(b.dataset.workflowNode) {
-    workflowNodeId = b.dataset.workflowNode;
-    render();
-    return;
-  }
+     workflowNodeId = b.dataset.workflowNode;
+     render();
+     return;
+   }
+
+   if (b.hasAttribute('data-workflow-remove-edge')) {
+     const layout = currentLayout();
+     const index = Number(b.dataset.workflowRemoveEdge);
+     if (!layout?.workflow?.edges?.[index]) return;
+     changed(); layout.workflow.edges.splice(index, 1);
+     status('Connection removed from the draft. Reconnect required paths before publishing.'); render(); return;
+   }
+
+   if (b.hasAttribute('data-workflow-make-conditional')) {
+     const layout = currentLayout(); const workflow = layout?.workflow;
+     const edge = workflow?.edges?.[Number(b.dataset.workflowMakeConditional)];
+     const field = layout ? workflowConditionFields(layout)[0] : null;
+     if (!edge || !field) { status('Add a select or checkbox field before creating a condition.', true); return; }
+     changed(); edge.when = {field:field.id,equals:field.type === 'checkbox' ? true : (field.options?.[0] ?? '')};
+     status('Conditional branch added. Select its field and value in the destination step’s Show when settings.'); render(); return;
+   }
+
+   if (b.hasAttribute('data-workflow-add-edge')) {
+     const layout = currentLayout(); const workflow = layout?.workflow;
+     const source = b.dataset.workflowAddEdge;
+     const target = document.querySelector('#workflow-connect-target')?.value;
+     if (!workflow || !target || source === target) { status('Choose a different step to connect.', true); return; }
+     if ((workflow.edges || []).some(edge => edge.from === source && edge.to === target)) { status('Those steps are already connected.', true); return; }
+     changed(); workflow.edges = workflow.edges || []; workflow.edges.push({from:source,to:target});
+     status('Connection added to the draft. Use Show when to add a condition.'); render(); return;
+   }
 
 if(b.hasAttribute('data-preview-create-layout')) {
   tab = 'layouts'; selected = ''; fieldId = '';
@@ -1988,11 +2038,20 @@ if(b.dataset.previewEditLayout) {
     if(b.hasAttribute('data-reset-travel')) { changed(); doc.travel_results={show_best_only:true,show_more:true,visibility:{leave_by:true,departure_arrival:true,duration:true,mode_provider:true,weather_adjustment:true,traffic_adjustment:true,actions:true}}; tab='travel-results'; status('Travel display defaults reset locally. Save a draft to keep it.'); render(); return; }
     if(b.dataset.navMove){changed();move(doc.navigation,doc.navigation[Number(b.dataset.navMove)],Number(b.dataset.dir));render();return;}
     if(b.dataset.sectionMove){const ordered=(doc.home_sections||[]).slice().sort((a,b)=>a.sort_order-b.sort_order),item=ordered[Number(b.dataset.sectionMove)],other=ordered[Number(b.dataset.sectionMove)+Number(b.dataset.dir)];if(other){changed();const t=item.sort_order;item.sort_order=other.sort_order;other.sort_order=t;render();}return;}
+    if(b.hasAttribute('data-add-home-section')){const select=$('#add-home-section'),sectionId=select?.value;if(!sectionId)return;const available={today:{title:'Today at a glance',content:{show_weather:true,show_schedule:true,show_quick_add:true}},stats:{title:'Week summary',content:{}},menus:{title:'Your sections',content:{}},upcoming:{title:'Upcoming Events',content:{group_by_day:true}},calendar:{title:'Calendar',content:{show_upcoming:true}},annual_leave:{title:'Annual leave',content:{}}};if(!available[sectionId]||(doc.home_sections||[]).some(s=>s.id===sectionId))return;changed();doc.home_sections=doc.home_sections||[];doc.home_sections.push({id:sectionId,title:available[sectionId].title,visible:true,sort_order:Math.max(0,...doc.home_sections.map(s=>Number(s.sort_order)||0))+10,content:available[sectionId].content});status('Home section added. Save the draft, then publish when ready.');render();return;}
+    if(b.dataset.removeHomeSection){if(!confirm('Remove this section from the home screen? Its underlying records and calendar events will be kept.'))return;changed();doc.home_sections=(doc.home_sections||[]).filter(s=>s.id!==b.dataset.removeHomeSection);status('Home section removed from the draft. Save the draft, then publish when ready.');render();return;}
     if(b.dataset.item){selected=b.dataset.item;fieldId='';workflowNodeId='';render();return;}
     if(b.dataset.field){fieldId=b.dataset.field;render();return;}
     if(b.hasAttribute('data-add-menu'))newMenu();
     if(b.hasAttribute('data-add-child'))newMenu(selected);
     if(b.hasAttribute('data-add-field')){changed();const f={id:id('field'),label:'New field',type:'text',required:false,help:'',options:[]};fields().push(f);fieldId=f.id;render();}
+     if(b.hasAttribute('data-work-rota-template')){const layout=doc.layouts.find(item=>item.id==='work');if(!layout)return;const definitions=[
+       {id:'rota_location',label:'Work location',type:'select',required:true,help:'Choose where this shift takes place.',options:['Arrowe Park','Clatterbridge','Community']},
+       {id:'rota_area',label:'Work area',type:'select',required:true,help:'Choose the clinic, ward, or team.',options:['Wards','Clinic AM','Clinic PM','Hub AM','Community Clinic']},
+       {id:'rota_day',label:'Day of week',type:'select',required:true,help:'Choose the day this shift repeats or takes place.',options:['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']},
+       {id:'rota_start',label:'Shift start',type:'select',required:true,help:'Choose the start time.',options:['07:30','08:00','08:30','09:00','09:30','12:30','13:00','13:30']},
+       {id:'rota_end',label:'Shift finish',type:'select',required:true,help:'Choose the finish time.',options:['11:30','12:00','12:30','13:00','13:30','16:30','17:00','17:30']}
+     ];changed();layout.fields=layout.fields||[];const added=[];definitions.forEach(def=>{if(!layout.fields.some(field=>field.id===def.id)){layout.fields.push(def);added.push(def.id);}});layout.work_associations=layout.work_associations||{};Object.assign(layout.work_associations,{location:'rota_location',area:'rota_area',start_time:'rota_start',end_time:'rota_end'});selected='work';fieldId='';status(added.length?'Rota quick-input fields added. Existing fields and records were preserved. Save the draft, then publish when ready.':'Rota quick-input fields already exist.');render();return;}
     if(b.dataset.moveField){changed();move(fields(),fields().find(f=>f.id===b.dataset.moveField),Number(b.dataset.dir));render();}
     if(b.dataset.removeField&&confirm('Remove this field from the form? Previously saved values are retained.')){changed();const list=fields();list.splice(list.findIndex(f=>f.id===b.dataset.removeField),1);fieldId='';render();}
     if(b.dataset.move){changed();const m=doc.menus.find(x=>x.id===b.dataset.move),siblings=doc.menus.filter(x=>x.parent_id===m.parent_id),other=siblings[siblings.indexOf(m)+Number(b.dataset.dir)];if(other){const a=doc.menus.indexOf(m),c=doc.menus.indexOf(other);[doc.menus[a],doc.menus[c]]=[doc.menus[c],doc.menus[a]];}render();}

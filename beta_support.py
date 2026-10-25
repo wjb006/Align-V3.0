@@ -819,7 +819,13 @@ class BetaStore:
     # ----- Microsoft Graph Outlook sender settings -----
     def get_email_settings_internal(self):
         with self._connect() as c:
-            return dict(c.execute("SELECT * FROM beta_email_settings WHERE singleton=1").fetchone())
+            # Hosted databases may have the table from an older migration but lack
+            # the singleton seed row. Ensure the default row exists before reading.
+            c.execute("INSERT INTO beta_email_settings(singleton) VALUES(1) ON CONFLICT(singleton) DO NOTHING")
+            row = c.execute("SELECT * FROM beta_email_settings WHERE singleton=1").fetchone()
+            if row is None:
+                raise BetaError('Owner email settings could not be initialized.','email_settings_unavailable',503)
+            return dict(row)
 
     def email_settings_public(self):
         s=self.get_email_settings_internal()

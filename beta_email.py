@@ -109,9 +109,12 @@ class BetaMailer:
                 error = (result or {}).get('error_description') or (result or {}).get('error') or 'Microsoft sign-in was not completed.'
                 self.store.set_email_status('authentication_failed', str(error)[:250])
                 update = {'status': 'failed', 'message': 'Microsoft sign-in was not completed.'}
-        except Exception:
-            self.store.set_email_status('connection_failed', 'Microsoft sign-in failed.')
-            update = {'status': 'failed', 'message': 'Microsoft sign-in failed.'}
+        except Exception as exc:
+            # Keep a concise diagnostic for the Owner without exposing tokens or cache contents.
+            detail = f'{type(exc).__name__}: {str(exc)}'[:240]
+            safe_detail = ''.join(ch for ch in detail if ch >= ' ' and ch not in '\\r\\n')
+            self.store.set_email_status('connection_failed', safe_detail or 'Microsoft sign-in failed.')
+            update = {'status': 'failed', 'message': 'Microsoft sign-in failed. Check the connection status for a diagnostic.'}
         with self.lock:
             if flow_id in self.flows:
                 self.flows[flow_id].update(update)
@@ -120,7 +123,16 @@ class BetaMailer:
         with self.lock:
             state = dict(self.flows.get(flow_id) or {})
         if not state:
-            raise BetaError('Outlook connection request not found.', 'email_connection_not_found', 404)
+            # Render may route polling to a different instance than the one
+            # holding the device-flow worker. Resolve completion via shared DB state.
+            settings = self.store.get_email_settings_internal()
+            saved = bool(settings.get('oauth_cache_enc'))
+            status = str(settings.get('connection_status') or '')
+            if saved and status == 'connected':
+                return {'status': 'connected', 'message': 'Microsoft account connected.'}
+            if status in {'authentication_failed', 'connection_failed', 'tls_failed', 'provider_rejected'}:
+                return {'status': 'failed', 'message': 'Microsoft sign-in failed. Check the connection status for a diagnostic.'}
+            raise BetaError('Outlook sign-in is still processing on another server instance. Wait briefly and check again.', 'email_connection_pending', 202)
         if state.get('status') == 'waiting' and int(time.time()) > state['created_at'] + state['expires_in']:
             state['status'] = 'expired'
             state['message'] = 'Microsoft sign-in request expired. Start again.'

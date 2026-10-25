@@ -369,3 +369,25 @@
 @media(max-width:900px){
   .studio-calm .studio-welcome ol{grid-template-columns:1fr}
 }
+
+/* Click-to-edit affordance for the live Studio preview. */
+#management-phone .management-phone-banner,
+#management-phone .management-phone-event,
+#management-phone .management-phone-weather,
+#management-phone .management-phone-greeting,
+#management-phone .management-phone-header,
+#management-phone .management-phone-date,
+#management-phone .mp-grid,
+#management-phone .mp-cell,
+#management-phone .mp-day { cursor: pointer; }
+#management-phone .management-phone-banner:hover,
+#management-phone .management-phone-event:hover,
+#management-phone .management-phone-weather:hover,
+#management-phone .management-phone-greeting:hover,
+#management-phone .management-phone-header:hover,
+#management-phone .management-phone-date:hover,
+#management-phone .mp-grid:hover,
+#management-phone .mp-cell:hover,
+#management-phone .mp-day:hover { outline: 2px solid color-mix(in srgb, var(--preview-accent,#365ce6) 55%, transparent); outline-offset: 2px; }
+#management-phone [data-preview-home-section] { cursor: pointer; }
+#management-phone [data-preview-home-section]:hover { outline: 2px solid color-mix(in srgb, var(--preview-accent,#365ce6) 35%, transparent); outline-offset: 2px; border-radius: 8px; }

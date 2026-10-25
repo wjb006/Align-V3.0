@@ -11,7 +11,8 @@
     colors: 'Colours',
     banners: 'Banners',
     events: 'Events',
-    calendar: 'Calendar',
+    calendar: 'Calendar appearance',
+    'working-calendar': 'Working calendar',
     type: 'Text size',
     review: 'Check changes',
     users: 'Personal choices',
@@ -19,7 +20,9 @@
     history: 'History',
     preview: 'How the preview works',
     builds: 'Older versions',
-    publish: 'Publish'
+    publish: 'Publish',
+    app: 'Align app',
+    host: 'Host overview'
   };
   const subtitleMap = {
     dashboard: 'Choose a section, then publish when it looks right.',
@@ -34,6 +37,7 @@
     banners: 'The coloured bars on Today, Upcoming, and other sections.',
     events: 'How event cards look in the planner. The phone uses sample events.',
     calendar: 'Month and list colours, plus week headings.',
+    'working-calendar': 'Browse real saved Align events by month, week, day, or hourly schedule. This view does not publish design changes.',
     type: 'Text size, theme, and how round the corners are.',
     review: 'See what will change, then publish when it looks right.',
     users: 'Choose what each person may change for themselves.',
@@ -41,7 +45,9 @@
     history: 'Earlier published designs. You can bring one back into your draft.',
     preview: 'The phone on the right is a sample. It updates as you edit.',
     builds: 'Older published copies and notes.',
-    publish: 'Check the draft, then publish on this computer or on the website.'
+    publish: 'Check the draft, then publish on this computer or on the website.',
+    app: 'Open the real Align application from inside Management Studio.',
+    host: 'A safe starting point for service and integration health. Live checks and host actions must be connected to authorized server endpoints before they can be reported as operational.'
   };
   const placeFor = {
     dashboard: 'Set up', startup: 'Set up', menus: 'Set up', 'home-nav': 'Set up', layouts: 'Set up',
@@ -50,6 +56,7 @@
     users: 'People', owner: 'People', history: 'People'
   };
   const builderTabs = new Set(['dashboard', 'startup', 'menus', 'home-nav', 'base-structure', 'layouts', 'travel-results', 'review']);
+  const workingTabs = new Set(['working-calendar']);
   const designTabs = new Set(['pages', 'colors', 'banners', 'events', 'calendar', 'type', 'users', 'history']);
   let active = 'dashboard';
   const $ = s => document.querySelector(s);
@@ -101,11 +108,20 @@
         if (el) el.disabled = true;
       });
       renderSpecial(tab);
+      if (workingTabs.has(tab)) window.AlignStudioCalendar?.mount($('#special-content'));
     }
   }
 
   function renderSpecial(tab) {
     const box = $('#special-content');
+    if (tab === 'app') {
+      box.innerHTML = '<div class="builder-panel studio-special"><h2>Align app</h2><p>The app opens here using this server, so it can use the existing application session and backend. If it does not appear, open it directly in a new tab.</p><div class="studio-platform-actions"><a class="management-primary" href="/" target="_blank" rel="noopener">Open Align in a new tab</a></div><iframe title="Align application" src="/" loading="lazy" style="width:100%;height:min(72vh,900px);border:1px solid var(--line,#ddd);border-radius:12px;background:white"></iframe></div>';
+      return;
+    }
+    if (tab === 'host') {
+      box.innerHTML = '<div class="builder-panel studio-special"><h2>Host overview</h2><p>This panel is a starting point, not a live health report yet. No service is marked healthy until an authorized server-side health check confirms it.</p><div class="studio-platform-grid"><section><h3>Application</h3><p>Use the existing hosted Align service.</p><a href="/" target="_blank" rel="noopener">Open hosted app</a></section><section><h3>Database</h3><p>Production data must remain in the configured hosted database. Connection strings and credentials are never shown here.</p><span>Live check not connected</span></section><section><h3>Transport &amp; OTP</h3><p>Existing routing, timetable feeds and OTP configuration must be preserved.</p><span>Live check not connected</span></section><section><h3>Backups &amp; releases</h3><p>Backup, restore and deployment actions will require owner authorization and confirmation.</p><span>Actions not connected</span></section></div></div>';
+      return;
+    }
     if (tab === 'owner') {
       box.innerHTML = '<div id="owner"><div class="builder-panel studio-special"><h2>Owner settings</h2><p>Loading owner integrations and account controls…</p></div></div>';
       if (window.AlignOwnerAdmin?.load) window.AlignOwnerAdmin.load();

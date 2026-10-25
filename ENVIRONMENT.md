@@ -21,7 +21,7 @@ Set deployment secrets in the service environment. `.env.example` lists setting 
 | `ALIGN_CREDENTIAL_KEY` | Persistent key for encrypted saved credentials. |
 | `ALIGN_TRANSPORT_ENABLED` | Enables journey planning when a supported provider is configured. |
 | `ALIGN_JOURNEY_PROVIDER` | Journey provider selection. |
-| `ALIGN_HERE_ROUTING_KEY`, `ALIGN_HERE_TRANSIT_ENABLED` | HERE routing and transit configuration. |
+| `ALIGN_HERE_ROUTING_KEY`, `ALIGN_HERE_TRANSIT_ENABLED` | Optional HERE address suggestions and routing; live address search falls back to OpenStreetMap Photon without a key, with postcode matches from Postcodes.io. HERE transit requires its enable flag. |
 | `ALIGN_GOOGLE_ROUTES_KEY` | Optional Google Routes credential. |
 | `ALIGN_OTP_URL` | OpenTripPlanner base URL. |
 | `ALIGN_NAPTAN_CSV` | NaPTAN stops data path. |

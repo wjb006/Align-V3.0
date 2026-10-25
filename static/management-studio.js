@@ -555,6 +555,48 @@
       document.querySelector('#builder-content [data-layout-editor]')?.scrollIntoView({block: 'start'});
       return;
     }
+    const editTarget = event.target.closest('.mp-drag-handle') ? null : event.target.closest('.management-phone-banner, .management-phone-event, .management-phone-weather, .management-phone-greeting, .management-phone-header, .mp-grid, .mp-cell, .mp-day, .management-phone-date');
+    if (editTarget) {
+      let tab = 'pages';
+      if (editTarget.matches('.management-phone-banner')) tab = 'banners';
+      else if (editTarget.matches('.management-phone-event')) tab = 'events';
+      else if (editTarget.matches('.management-phone-weather')) tab = 'colors';
+      else if (editTarget.matches('.mp-grid, .mp-cell, .mp-day')) tab = 'calendar';
+      else if (editTarget.matches('.management-phone-header, .management-phone-greeting, .management-phone-date')) tab = 'pages';
+      if (window.AlignManagementStudioNav?.activate) window.AlignManagementStudioNav.activate(tab);
+      else window.dispatchEvent(new CustomEvent('align-builder-tab', {detail: {tab}}));
+      const editor = document.querySelector('#management-editor');
+      editor?.scrollIntoView({block: 'start', behavior: 'smooth'});
+      let exactControl = null;
+      if (tab === 'banners') {
+        const section = editTarget.closest('[data-preview-home-section]');
+        const sectionId = section?.dataset.previewHomeSection;
+        const bannerKey = sectionId === 'upcoming' ? 'upcoming' : sectionId === 'annual_leave' ? 'annual_leave' : sectionId === 'today' ? 'today' : 'section_detail';
+        exactControl = editor?.querySelector(`[data-setting="appearance.banners.${bannerKey}"]`);
+      } else if (tab === 'events') {
+        exactControl = editor?.querySelector('[data-setting="appearance.events.accent"]');
+      } else if (tab === 'calendar') {
+        exactControl = editor?.querySelector('[data-setting="appearance.calendar.week_headings"]') ||
+          editor?.querySelector('[data-setting^="appearance.calendar."]');
+      } else if (tab === 'colors') {
+        exactControl = editor?.querySelector('[data-setting="appearance.colors.accent"]');
+      } else if (tab === 'pages') {
+        const homeBlock = editTarget.closest('[data-preview-home-section]');
+        if (homeBlock) {
+          const index = [...document.querySelectorAll('[data-home-title]')].findIndex(control =>
+            Number(control.dataset.homeTitle) === documentDraft.home_sections.findIndex(item => item.id === homeBlock.dataset.previewHomeSection));
+          exactControl = index >= 0 ? document.querySelector(`[data-home-title="${documentDraft.home_sections.findIndex(item => item.id === homeBlock.dataset.previewHomeSection)}"]`) : null;
+        }
+        if (!exactControl && editTarget.matches('.management-phone-header, .management-phone-greeting')) {
+          exactControl = editor.querySelector('[data-home-title]');
+        }
+      }
+      const targetControl = exactControl || editor?.querySelector('input:not([type="hidden"]), select, textarea, button');
+      targetControl?.focus({preventScroll:true});
+      targetControl?.scrollIntoView({block: 'center', behavior: 'smooth'});
+      setStatus(`Preview selected: ${({pages:'Pages & text',banners:'Banners',events:'Events',calendar:'Calendar',colors:'Colours'})[tab]}. The closest matching control is focused; the preview updates as you edit.`);
+      return;
+    }
     const block = event.target.closest('[data-preview-home-section]');
     if (block) {
       if (window.AlignManagementStudioNav?.activate) window.AlignManagementStudioNav.activate('pages');
@@ -562,8 +604,11 @@
       renderEditor();
       const index = documentDraft.home_sections.findIndex(item => item.id === block.dataset.previewHomeSection);
       const input = [...document.querySelectorAll('[data-home-title]')].find(control => Number(control.dataset.homeTitle) === index);
-      input?.focus();
       input?.scrollIntoView({block: 'nearest'});
+      requestAnimationFrame(() => {
+        const current = [...document.querySelectorAll('[data-home-title]')].find(control => Number(control.dataset.homeTitle) === index);
+        current?.focus({preventScroll: true});
+      });
       return;
     }
     const nav = event.target.closest('[data-preview-nav-id]');

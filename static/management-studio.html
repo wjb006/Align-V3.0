@@ -6,7 +6,8 @@
 <title>Align · Management Studio</title>
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/styles.css?v=156-v30">
-<link rel="stylesheet" href="/management-studio.css?v=156-v42">
+<link rel="stylesheet" href="/management-studio.css?v=156-v43">
+<link rel="stylesheet" href="/management-studio-calendar.css?v=156-v1">
 <link rel="stylesheet" href="/owner-builder.css?v=156-v30">
 </head>
 <body class="management-body studio-calm">
@@ -14,6 +15,9 @@
 <aside class="unified-sidebar">
   <div class="unified-brand"><img src="/icon.svg" alt="" width="36" height="36"><span>Align<small>Management Studio</small></span></div>
   <nav class="unified-nav" aria-label="Studio">
+    <p class="unified-label">Platform</p>
+    <button type="button" data-unified-tab="app">Open Align app</button>
+    <button type="button" data-unified-tab="host">Host overview</button>
     <p class="unified-label">Set up</p>
     <button data-unified-tab="dashboard" class="is-active">Home</button>
     <button data-unified-tab="startup" data-builder-tab="startup">Welcome screen</button>
@@ -29,7 +33,8 @@
     <button data-unified-tab="colors" data-design-tab="colors" data-management-tab="colors">Colours</button>
     <button data-unified-tab="banners" data-design-tab="banners" data-management-tab="banners">Banners</button>
     <button data-unified-tab="events" data-design-tab="events" data-management-tab="events">Events</button>
-    <button data-unified-tab="calendar" data-design-tab="calendar" data-management-tab="calendar">Calendar</button>
+    <button type="button" data-unified-tab="working-calendar">Working calendar</button>
+    <button data-unified-tab="calendar" data-design-tab="calendar" data-management-tab="calendar">Calendar appearance</button>
     <button data-unified-tab="type" data-design-tab="type" data-management-tab="type">Text size</button>
 
     <p class="unified-label">People</p>
@@ -129,9 +134,10 @@
 
 <script src="/dates.js?v=156-v42"></script>
 <script src="/builder-fields.js?v=156-v29"></script>
-<script src="/beta-admin.js?v=156-v42"></script>
+<script src="/beta-admin.js?v=156-v43"></script>
 <script src="/owner-builder.js?v=156-v42"></script>
-<script src="/management-studio.js?v=156-v42"></script>
-<script src="/management-studio-nav.js?v=156-v42"></script>
+<script src="/management-studio.js?v=156-v43"></script>
+<script src="/management-studio-nav.js?v=156-v43"></script>
+<script src="/management-studio-calendar.js?v=156-v1"></script>
 </body>
 </html>

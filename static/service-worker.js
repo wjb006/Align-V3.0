@@ -1,5 +1,5 @@
 const BUILD = 156;
-const ASSET_VERSION = `${BUILD}-v45`;
+const ASSET_VERSION = `${BUILD}-v47`;
 
 const SHELL_CACHE = `align-v13-shell-${ASSET_VERSION}`;
 const API_CACHE = `align-v13-api-${ASSET_VERSION}`;
@@ -16,6 +16,7 @@ const SHELL_ASSETS = [
   `/offline-store.js?v=${ASSET_VERSION}`,
   `/icloud.js?v=${ASSET_VERSION}`,
   `/builder-fields.js?v=${ASSET_VERSION}`,
+  `/builder-finance.js?v=${ASSET_VERSION}`,
   `/builder-runtime.js?v=${ASSET_VERSION}`,
   `/journey-breakdown.js?v=${ASSET_VERSION}`,
   `/personal-planner.js?v=${ASSET_VERSION}`,
@@ -257,7 +258,7 @@ self.addEventListener('fetch', event => {
   if (url.origin !== self.location.origin) return;
 
   if (url.pathname.startsWith('/api/')) {
-    const offlineSafe = url.pathname === '/api/bootstrap' || url.pathname === '/api/month' || /^\/api\/sections\/\d+$/.test(url.pathname);
+    const offlineSafe = url.pathname === '/api/bootstrap' || url.pathname === '/api/month' || url.pathname === '/api/sections/definitions' || /^\/api\/sections\/\d+$/.test(url.pathname);
     if (offlineSafe) event.respondWith(networkFirstApi(request));
     else event.respondWith(fetch(request, { cache: 'no-store' }));
     return;

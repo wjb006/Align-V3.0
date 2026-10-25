@@ -7,10 +7,10 @@ import transport_service
 
 class TravelAutofillTests(unittest.TestCase):
     @patch('personal_planner.here_point')
-    @patch('transport_places.request_json')
-    def test_typing_never_discloses_address(self, request, here):
+    @patch('personal_planner.fetch_json')
+    def test_typing_never_discloses_address(self, fetch, here):
         self.assertEqual(transport_places.lookup({'query':'12 Example Avenue','local_only':True})['places'], [])
-        request.assert_not_called()
+        fetch.assert_not_called()
         here.assert_not_called()
 
     @patch.dict(os.environ, {'ALIGN_JOURNEY_PROVIDER':'here','ALIGN_HERE_ROUTING_KEY':'test'})
@@ -20,6 +20,20 @@ class TravelAutofillTests(unittest.TestCase):
         self.assertEqual(result['places'][0]['point'],[53.4,-3.0])
         self.assertEqual(result['places'][0]['name'],'Example Avenue, Liverpool')
         here.assert_called_once()
+
+    @patch.dict(os.environ, {'ALIGN_JOURNEY_PROVIDER':'otp'}, clear=True)
+    @patch('personal_planner.fetch_json', return_value={'features':[{'properties':{'street':'Example Avenue','postcode':'L1 1AA','city':'Liverpool','country':'United Kingdom','countrycode':'gb'},'geometry':{'coordinates':[-3.0,53.4]}}]})
+    def test_explicit_address_lookup_uses_photon_without_here(self, fetch):
+        result=transport_places.lookup({'query':'12 Example Avenue','consent':True})
+        self.assertEqual(result['places'][0]['point'],[53.4,-3.0])
+        self.assertIn('photon.komoot.io/api?',fetch.call_args.args[0])
+
+    @patch('personal_planner.fetch_json', side_effect=[{'result':['L1 1AA']},{'result':{'postcode':'L1 1AA','latitude':53.4,'longitude':-3.0}}])
+    def test_postcode_suggestions_use_postcodes_io_with_consent(self, fetch):
+        result=transport_places.lookup({'query':'L1','consent':True})
+        self.assertEqual(result['places'][0]['name'],'L1 1AA')
+        self.assertIn('api.postcodes.io/postcodes/L1/autocomplete?',fetch.call_args_list[0].args[0])
+        self.assertIn('api.postcodes.io/postcodes/L1%201AA',fetch.call_args_list[1].args[0])
 
     @patch.dict(os.environ, {'ALIGN_JOURNEY_PROVIDER':'here','ALIGN_HERE_ROUTING_KEY':'test'})
     @patch('personal_planner.here_point', return_value={'lat':53.4,'lng':-3.0})
