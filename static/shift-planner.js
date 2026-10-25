@@ -151,7 +151,7 @@
       '<div class="restored-planner-stats"><span><strong>'+esc(fmtHours(t.hours))+'</strong> scheduled</span><span><strong>'+shifts.length+'</strong> shifts</span>'+(t.contracted?'<span><strong>'+esc(fmtHours(t.overtime))+'</strong> overtime</span>':'')+(t.pay?'<span><strong>£'+t.pay.toFixed(2)+'</strong> estimated pay</span>':'')+(d.leave_balance?.allowance?'<span><strong>'+esc(d.leave_balance.remaining)+'</strong> leave days left of '+esc(d.leave_balance.allowance)+'</span>':'')+'</div></div>'+restWarnings.map(w=>'<p class="card restored-planner-warning">'+esc(w)+'</p>').join('')+
       (state.shiftPlannerError?'<div class="card planner-error" role="alert">'+esc(state.shiftPlannerError)+'<button class="secondary-button" data-shift-action="retry">Retry</button></div>':'')+
       (state.shiftPlannerLoading?'<p class="empty" role="status">Loading planner…</p>':'')+
-      '<div class="button-row restored-planner-actions"><button class="primary-button" data-shift-action="add">＋ Add shift</button><button class="secondary-button" data-shift-action="leave">Book annual leave</button><button class="secondary-button" data-shift-action="patterns">Manage patterns</button><button class="secondary-button" data-nav="sections">Manage events</button></div>'+
+      '<div class="button-row restored-planner-actions"><button class="primary-button" data-shift-action="add">＋ Add shift</button><button class="secondary-button" data-shift-action="leave">Book annual leave</button><button class="secondary-button" data-shift-action="patterns">Manage patterns</button><button class="secondary-button" data-shift-action="work-settings">Work settings</button><button class="secondary-button" data-shift-action="settings">Planner settings</button><button class="secondary-button" data-nav="sections">Manage events</button></div>'+
       (state.shiftPlannerModal==='add'?formMarkup():state.shiftPlannerModal==='edit'?formMarkup(state.shiftPlannerEdit||{}):state.shiftPlannerModal==='leave'?leaveForm():state.shiftPlannerModal==='patterns'?patternManager():'')+
       (state.plannerMode==='week'?'<div class="restored-week-list">'+list+'</div>':list)+
       '<p class="helper">Shifts are checked for overlaps and clashes with your existing Align and imported calendar events.</p></section>';
@@ -182,6 +182,8 @@
       if(action==='week'||action==='month'){state.plannerMode=action;state.plannerAnchor=action==='week'?monday(state.plannerAnchor):state.plannerAnchor.slice(0,7)+'-01';await reload();return;}
       if(action==='today'){state.plannerAnchor=state.plannerMode==='week'?monday(getToday()):getToday().slice(0,7)+'-01';await reload();return;}
       if(action==='add'){state.shiftPlannerModal='add';state.shiftPlannerEdit=null;paint();return;}
+      if(action==='work-settings'){if(typeof openWorkSetup==='function')await openWorkSetup();return;}
+      if(action==='settings'){state.settingsBranch='alerts';state.tab='settings';if(typeof render==='function')render();return;}
       if(action==='leave'){state.shiftPlannerModal='leave';paint();return;}
       if(action==='patterns'){state.shiftPlannerModal='patterns';paint();return;}
       if(action==='close-form'){state.shiftPlannerModal='';paint();return;}
