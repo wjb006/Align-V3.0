@@ -15,8 +15,8 @@ for (const label of ['Today', 'Inbox', 'Sections', 'More']) {
 for (const route of ['today: renderHome','inbox: renderInbox','sections: renderSectionsIndex','more: renderMore']) {
   if (!app.includes(route)) throw new Error(`Missing core navigation route: ${route}`);
 }
-if (app.includes("title:'Planner'")) throw new Error('Legacy Planner should not be a core navigation item');
-if (!app.includes("['planner','calendar','add']")) throw new Error('Legacy planner links must continue routing to Sections');
+if (!app.includes('planner: renderPlannerCalendar')) throw new Error('Restored Planner route is missing');
+if (app.includes("if (['calendar','add','work-setup'].includes(state.tab))")) throw new Error('Work Settings must have its own restored view');
 if (!app.includes('Work (optional)')) throw new Error('Optional Work section prompt is missing');
 if (!app.includes("'/api/builder/records/work/enable'")) throw new Error('Work opt-in action is missing');
 const more = app.slice(app.indexOf('function renderMore()'), app.indexOf('function rootParentBranches()'));
@@ -33,7 +33,10 @@ if (/Shift notifications|Continue to Work Settings|Default calendar/.test(onboar
 if (!onboarding.includes('Work as an optional database in Sections')) throw new Error('First-run setup does not explain optional Work setup');
 if (app.includes("state.boot.master") || app.includes("api('/api/master')")) throw new Error('Legacy Master payload must not be used by V3');
 if (!app.includes('state.boot.navigation?.parents')) throw new Error('Section folder choices must use the retained V3 navigation payload');
-if (app.includes('annual_leave') || app.includes('shift_type_ids') || app.includes('/api/alert-rules')) throw new Error('Legacy schedule controls must not remain in the V3 client');
+if (!app.includes('/api/alert-rules') || !app.includes('function alertRuleModal')) throw new Error('Restored planner alert settings are missing');
+if (!app.includes("branch_key: 'work'")) throw new Error('Work Settings branch is missing');
+if (!app.includes("branch_key: 'alerts'")) throw new Error('Planner alert settings branch is missing');
+if (!app.includes("branch_key: 'events'")) throw new Error('Events and calendar settings branch is missing');
 if (personal.includes('regular_work')) throw new Error('Legacy regular-work shift-pattern preference must be retired');
 if (!admin.includes('/management-studio.html')) throw new Error('Legacy Admin entrypoint must lead to Management Studio');
 if (widget.includes('/api/shifts')) throw new Error('Scriptable widget must use the retained V3 event feed');
@@ -41,19 +44,20 @@ if (!widget.includes("b.dashboard?.upcoming_events")) throw new Error('Scriptabl
 if (offline.includes('queueShiftBatch')) throw new Error('New offline writes must not queue retired shift batches');
 if (!offline.includes("if (item.kind === 'shift-batch') continue;")) throw new Error('Legacy offline shift batches must be retained without replay');
 if (widget.includes('NEXT SHIFT')) throw new Error('Scriptable widget must not label events as shifts');
-if (fs.existsSync('static/week-planner.js')) throw new Error('Retired week-planner client must not ship in V3');
-if (fs.existsSync('static/work-setup.js')) throw new Error('Retired fixed work-setup client must not ship in V3');
+if (!fs.existsSync('static/shift-planner.js')) throw new Error('Restored shift planner client is missing');
+if (!fs.existsSync('static/work-setup.js')) throw new Error('Restored Work Settings client is missing');
 if (offline.includes('pendingShifts(') || offline.includes("path: '/api/shifts'")) throw new Error('Offline V3 must not construct or overlay retired shift records');
 if (worker.includes("url.pathname === '/api/week'")) throw new Error('Retired week endpoint must not be cached as an offline-safe API');
-if (!app.includes("{ branch_key: 'calendar', title: 'Calendar'")) throw new Error('Account Settings is missing calendar controls');
+if (!app.includes("{ branch_key: 'events', title: 'Events & calendars'")) throw new Error('Account Settings is missing Events and calendar controls');
 for (const [name, source] of [['app',app],['index',index],['service worker',worker]]) {
   if (source.includes('maps173')) throw new Error(`Stale maps173 asset version remains in ${name}`);
 }
-if (!app.includes('const ASSET_VERSION = `${BUILD_VERSION}-v47`;')) throw new Error('App asset version template is not the current Build 156 assets');
-if (!index.includes('156-v47')) throw new Error('Index asset version is not 156-v47');
+if (!app.includes('const ASSET_VERSION = `${BUILD_VERSION}-v50`;')) throw new Error('App asset version template is not the current Build 156 assets');
+if (!index.includes('156-v50')) throw new Error('Index asset version is not 156-v50');
 if (!worker.includes('align-v13-shell-${ASSET_VERSION}')) throw new Error('Shell cache template is missing');
 if (!worker.includes('align-v13-api-${ASSET_VERSION}')) throw new Error('API cache template is missing');
 if (!worker.includes("url.pathname === '/api/sections/definitions'")) throw new Error('Offline-safe API cache omits section definitions');
 if (!app.includes('const addressSearchTimers = new WeakMap();')) throw new Error('Address suggestions are missing their debounce timer store');
 if (!app.includes('data-address-search="true"')) throw new Error('Address fields do not support live suggestions');
-console.log('core navigation and optional Work setup checks passed');
+if (!index.includes('/work-setup.js?v=156-v50') || !worker.includes('/work-setup.js?v=${ASSET_VERSION}')) throw new Error('Restored Work Settings assets are not loaded and cached');
+console.log('core navigation, Events, Work Settings and Planner settings checks passed');
