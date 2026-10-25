@@ -418,3 +418,126 @@
 #management-phone .mp-day:hover { outline: 2px solid color-mix(in srgb, var(--preview-accent,#365ce6) 55%, transparent); outline-offset: 2px; }
 #management-phone [data-preview-home-section] { cursor: pointer; }
 #management-phone [data-preview-home-section]:hover { outline: 2px solid color-mix(in srgb, var(--preview-accent,#365ce6) 35%, transparent); outline-offset: 2px; border-radius: 8px; }
+
+
+/* Production Management Studio responsive workspace — 2026-10-25.
+   Keep all panes fluid and pair the workflow editor with its diagram. */
+.studio-calm,
+.studio-calm .unified-shell,
+.studio-calm .unified-main,
+.studio-calm #builder-pane,
+.studio-calm #design-pane,
+.studio-calm #builder-content {
+  min-width: 0;
+  max-width: none;
+  box-sizing: border-box;
+}
+.studio-calm .unified-shell {
+  width: 100%;
+  min-height: 100dvh;
+  grid-template-columns: 220px minmax(0, 1fr) minmax(260px, 320px);
+  align-items: stretch;
+}
+.studio-calm .unified-main {
+  min-height: 0;
+  overflow-x: clip;
+}
+.studio-calm .unified-phone {
+  min-width: 0;
+  width: auto;
+  max-width: none;
+  height: 100dvh;
+  position: sticky;
+  top: 0;
+}
+.studio-calm #design-pane,
+.studio-calm #builder-pane,
+.studio-calm #management-editor {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+.studio-calm #builder-content .builder-grid {
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  align-items: start;
+}
+/* When a workflow node is selected, keep its editor and diagram side by side. */
+.studio-calm #builder-content .builder-grid:has(.workflow-node-editor) {
+  grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr);
+  gap: 18px;
+}
+.studio-calm #builder-content .builder-grid:has(.workflow-node-editor) > aside {
+  display: block;
+  position: sticky;
+  top: 14px;
+  align-self: start;
+  min-width: 0;
+  max-height: calc(100dvh - 28px);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.studio-calm #builder-content .builder-grid:has(.workflow-node-editor) > .builder-panel {
+  min-width: 0;
+  max-width: none;
+}
+.studio-calm #builder-content .workflow-node {
+  width: 100%;
+  cursor: pointer;
+  pointer-events: auto;
+  text-align: left;
+}
+.studio-calm #builder-content .workflow-node:focus-visible {
+  outline: 3px solid #6d89e8;
+  outline-offset: 3px;
+}
+.studio-calm #builder-content .workflow-node.is-selected {
+  border-color: #365ce6;
+  box-shadow: 0 0 0 2px rgb(54 92 230 / 15%);
+}
+.studio-calm #builder-content .builder-grid > aside,
+.studio-calm #builder-content .builder-panel {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 1180px) {
+  .studio-calm .unified-shell {
+    grid-template-columns: 200px minmax(0, 1fr);
+  }
+  .studio-calm .unified-phone {
+    display: none;
+  }
+}
+@media (max-width: 900px) {
+  .studio-calm .unified-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .studio-calm .unified-sidebar {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .studio-calm .unified-main {
+    padding: 0 16px 32px;
+    overflow: visible;
+  }
+  .studio-calm #builder-content .builder-grid:has(.workflow-node-editor) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .studio-calm #builder-content .builder-grid:has(.workflow-node-editor) > aside {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+}
+@media (max-width: 520px) {
+  .studio-calm .unified-main {
+    padding-inline: 10px;
+  }
+  .studio-calm #builder-content .studio-line,
+  .studio-calm #builder-content .studio-line.is-area {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .studio-calm #builder-content .studio-line-kind {
+    grid-column: 1 / -1;
+  }
+}
