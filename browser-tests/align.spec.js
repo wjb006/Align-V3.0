@@ -316,8 +316,8 @@ async function verifyManagementStudio(browser) {
     }
     await page.locator('[data-unified-tab="pages"]').click();
     await page.locator('#management-phone [data-preview-home-section="today"] .mp-drag-handle').click();
-    await page.waitForFunction(() => document.activeElement?.matches('[data-home-title]'), null, {timeout: 5000}).catch(() => {});
-    assert.equal(await page.evaluate(() => document.activeElement?.matches('[data-home-title]')),true,
+    await page.waitForFunction(() => document.activeElement?.matches('[data-home-title][aria-label="Today name"]'), null, {timeout: 5000});
+    assert.equal(await page.evaluate(() => document.activeElement?.matches('[data-home-title][aria-label="Today name"]')),true,
       'Selecting a home area in the phone preview should focus its editor');
     await page.locator('#management-phone [data-preview-home-section="upcoming"]').dragTo(
       page.locator('#management-phone [data-preview-home-section="today"]')
