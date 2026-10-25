@@ -1,7 +1,7 @@
 -- READ-ONLY preflight for migrations/postgres/fresh_v3_schema.sql.
 -- Run against the dedicated V3 database after explicit provisioning.
 -- First result: every row is a schema violation; expected result is no rows.
--- This deliberately does not require retired shift-planner tables and never mutates data.
+-- The restored shift planner is part of the required V3 schema; this check never mutates data.
 
 WITH required_tables(schema_name, table_name) AS (
     VALUES
@@ -14,6 +14,10 @@ WITH required_tables(schema_name, table_name) AS (
       ('align_owner','settings'), ('align_owner','personal_items'),
       ('align_owner','calendar_sources'), ('align_owner','calendar_events'),
       ('align_owner','organiser_sections'), ('align_owner','organiser_events'),
+      ('align_owner','locations'), ('align_owner','shift_types'),
+      ('align_owner','location_shift_types'), ('align_owner','shift_templates'),
+      ('align_owner','shifts'), ('align_owner','shift_batches'),
+      ('align_owner','annual_leave'), ('align_owner','alerts'), ('align_owner','alert_rules'),
       ('align_owner','parent_menu_branches'), ('align_owner','menu_branches'),
       ('align_owner','builder_config'), ('align_owner','builder_records'),
       ('align_owner','calendar_links'), ('align_owner','section_defs'),
@@ -71,7 +75,7 @@ WHERE NOT EXISTS (
 SELECT m.migration_id, COUNT(sm.migration_id)::bigint AS applied_count
 FROM (VALUES ('149_asset_studio'), ('149_transport'), ('150_calendar_links'),
              ('151_sections'), ('152_personal_item_calendars'),
-             ('153_hosted_travel_and_calendar_location'), ('154_user_favourites_contacts'), ('155_here_transit_usage')) AS m(migration_id)
+             ('153_hosted_travel_and_calendar_location'), ('154_user_favourites_contacts'), ('155_here_transit_usage'), ('156_shift_planner')) AS m(migration_id)
 LEFT JOIN align_owner.schema_migrations sm ON sm.migration_id=m.migration_id
 GROUP BY m.migration_id
 ORDER BY m.migration_id;
