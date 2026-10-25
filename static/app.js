@@ -18,7 +18,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 156;
-const ASSET_VERSION = `${BUILD_VERSION}-v53`;
+const ASSET_VERSION = `${BUILD_VERSION}-v54`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -343,7 +343,7 @@ function installPanel() {
 }
 
 function renderMore() {
-  return `<section class="page"><div class="add-head"><p class="eyebrow">Everything else</p><h1>More</h1><p class="subtle">Personal settings and tools.</p></div>${installPanel()}<div class="quick-grid"><button class="quick-action" data-nav="settings"><b>⚙</b>Settings<small>Your details and calendars</small></button><button class="quick-action" data-nav="transport"><b>↗</b>Travel<small>Saved places and journey planning</small></button><button class="quick-action" data-action="work-setup"><b>▣</b>Work settings<small>Locations, shift areas, hours and pay</small></button><button class="quick-action" data-action="go-planner-settings"><b>◌</b>Planner settings<small>Shift reminders and calendar connections</small></button></div></section>`;
+  return `<section class="page"><div class="add-head"><p class="eyebrow">Everything else</p><h1>More</h1><p class="subtle">Personal settings and tools.</p></div>${installPanel()}<div class="quick-grid"><button class="quick-action" data-nav="planner"><b>▦</b>Planner<small>Events, shifts and annual leave</small></button><button class="quick-action" data-nav="settings"><b>⚙</b>Settings<small>Your details and calendars</small></button><button class="quick-action" data-nav="transport"><b>↗</b>Travel<small>Saved places and journey planning</small></button><button class="quick-action" data-action="work-setup"><b>▣</b>Work settings<small>Locations, shift areas, hours and pay</small></button><button class="quick-action" data-action="go-planner-settings"><b>◌</b>Planner settings<small>Shift reminders and calendar connections</small></button></div></section>`;
 }
 
 function rootSections() { return (state.boot?.sections || []).filter(section => !section.parent_branch_id); }
