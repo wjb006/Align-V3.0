@@ -608,7 +608,7 @@
       input?.focus({preventScroll: true});
       requestAnimationFrame(() => {
         const current = [...document.querySelectorAll('[data-home-title]')].find(control => Number(control.dataset.homeTitle) === index);
-        if (current && document.activeElement !== current) current.focus({preventScroll: true});
+        current?.focus({preventScroll: true});
       });
       return;
     }
