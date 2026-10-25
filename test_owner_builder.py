@@ -261,6 +261,21 @@ class BuilderTests(unittest.TestCase):
         doc['menus'][-1]['layout_id']='missing'
         with self.assertRaises(builder.BuilderError): builder.validate(doc)
 
+    def test_database_flowchart_connections_are_preserved_and_cycles_rejected(self):
+        _, doc = self.fixture()
+        layout = next(item for item in doc['layouts'] if item['id'] == 'contacts')
+        layout['database_flow'] = {'edges': [
+            {'from': 'start', 'to': 'name'},
+            {'from': 'name', 'to': 'phone'},
+            {'from': 'name', 'to': 'finish'},
+            {'from': 'phone', 'to': 'finish'},
+        ]}
+        clean = builder.validate(doc)
+        saved = next(item for item in clean['layouts'] if item['id'] == 'contacts')
+        self.assertEqual(saved['database_flow'], layout['database_flow'])
+        layout['database_flow']['edges'].append({'from': 'phone', 'to': 'name'})
+        with self.assertRaisesRegex(builder.BuilderError, 'loop'):
+            builder.validate(doc)
     def test_private_record_crud_validation_archive_restore(self):
         self.publish()
         token = self.users[0][1]
