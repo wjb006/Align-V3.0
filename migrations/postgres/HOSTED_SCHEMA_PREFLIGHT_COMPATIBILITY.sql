@@ -77,7 +77,7 @@ WHERE NOT EXISTS (
 -- schema_migrations table has already passed the metadata check above.
 SELECT m.migration_id, COUNT(sm.migration_id)::bigint AS applied_count
 FROM (VALUES ('149_asset_studio'), ('149_transport'), ('150_calendar_links'),
-             ('151_sections'), ('152_personal_item_calendars')) AS m(migration_id)
+             ('151_sections'), ('152_personal_item_calendars'), ('156_shift_planner')) AS m(migration_id)
 LEFT JOIN align_owner.schema_migrations sm ON sm.migration_id=m.migration_id
 GROUP BY m.migration_id
 ORDER BY m.migration_id;
