@@ -231,11 +231,36 @@ function render() {
     app.innerHTML = renderOnboarding();
     return;
   }
-  if (['planner','calendar','add','work-setup'].includes(state.tab)) state.tab = 'sections';
-  const content = { today: renderHome, home: renderHome, inbox: renderInbox, sections: renderSectionsIndex, section: renderSection, more: renderMore, transport: renderTransport, assets: renderAssets150, settings: renderUserSettings, 'builder-records': builderRecordsPage, 'builder-profile': () => builderStartup(true) }[state.tab]?.() || renderHome();
+  if (['calendar','add','work-setup'].includes(state.tab)) state.tab = 'sections';
+  const content = { today: renderHome, home: renderHome, inbox: renderInbox, planner: renderPlannerCalendar, calendar: renderPlannerCalendar, sections: renderSectionsIndex, section: renderSection, more: renderMore, transport: renderTransport, assets: renderAssets150, settings: renderUserSettings, 'builder-records': builderRecordsPage, 'builder-profile': () => builderStartup(true) }[state.tab]?.() || renderHome();
   const cloudNotice = state.boot.icloud_public?.reconnect_required ? `<div class="card" role="status"><strong>iCloud needs reconnecting</strong><p>${escapeHtml(state.boot.icloud_public.message)}</p><button class="small-button" data-nav="settings">Open settings</button></div>` : '';
   app.innerHTML = cloudNotice + content;
   app.focus({ preventScroll: true });
+}
+
+function renderPlannerCalendar() {
+  const now = new Date();
+  const monthKey = /^\d{4}-\d{2}$/.test(state.plannerMonth || '') ? state.plannerMonth : `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const [year, month] = monthKey.split('-').map(Number);
+  const first = new Date(year, month - 1, 1);
+  const lastDay = new Date(year, month, 0).getDate();
+  const mondayOffset = (first.getDay() + 6) % 7;
+  const events = (state.boot?.dashboard?.upcoming_events || []).filter(item => String(item.start_at || '').slice(0,7) === monthKey);
+  const days = Array.from({length:mondayOffset + lastDay}, (_,i) => {
+    if (i < mondayOffset) return '<span class="planner-day is-empty" aria-hidden="true"></span>';
+    const day = i - mondayOffset + 1;
+    const date = `${monthKey}-${String(day).padStart(2,'0')}`;
+    const count = events.filter(item => String(item.start_at || '').slice(0,10) === date).length;
+    const today = state.boot?.dashboard?.today === date;
+    return `<button type="button" class="planner-day${today?' is-today':''}${count?' has-events':''}" data-planner-date="${date}" aria-label="${date}, ${count} events"><span>${day}</span>${count?`<i>${count}</i>`:''}</button>`;
+  }).join('');
+  const heading = new Intl.DateTimeFormat('en-GB',{month:'long',year:'numeric'}).format(first);
+  const eventRows = events.length ? events.map(item => {
+    const date = String(item.start_at || '').slice(0,10);
+    const time = item.all_day ? 'All day' : String(item.start_at || '').slice(11,16);
+    return `<article class="card planner-event-row"><time>${escapeHtml(date)} · ${escapeHtml(time)}</time><strong>${escapeHtml(item.title || 'Event')}</strong>${item.location?`<small>${escapeHtml(item.location)}</small>`:''}<small>${escapeHtml(item.category_name || item.origin || 'Event')}</small></article>`;
+  }).join('') : '<div class="card empty">No upcoming events are listed for this month.</div>';
+  return `<section class="page planner-page"><div class="add-head"><p class="eyebrow">Your calendar</p><h1>Planner</h1><p class="subtle">Your upcoming Align and connected-calendar events.</p></div><div class="card planner-calendar-card"><div class="schedule-week-nav"><button type="button" class="secondary-button" data-planner-month="-1" aria-label="Previous month">‹</button><h2>${escapeHtml(heading)}</h2><button type="button" class="secondary-button" data-planner-month="1" aria-label="Next month">›</button></div><div class="planner-month-grid"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>${days}</div><p class="helper">Event dots show days with upcoming items. Select a date to view its events below.</p></div><div class="section-head"><h2>Events this month</h2></div><div class="planner-event-list">${eventRows}</div></section>`;
 }
 
 function applyManagementAppearance() {
@@ -733,8 +758,10 @@ async function searchAddresses(input) {
 document.addEventListener('click', async event => {
   if (event.target.closest('.compact-event-details')) return;
   if (event.target.closest('.apple-maps-link')) return;
-  const element = event.target.closest('[data-action], [data-nav], [data-section-key]');
+  const element = event.target.closest('[data-action], [data-nav], [data-section-key], [data-planner-month], [data-planner-date]');
   if (!element) return;
+  if (element.dataset.plannerMonth) { const base = /^\\d{4}-\\d{2}$/.test(state.plannerMonth || '') ? state.plannerMonth : (() => { const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); })(); const [y,m]=base.split('-').map(Number); const d=new Date(y,m-1+Number(element.dataset.plannerMonth),1); state.plannerMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); render(); return; }
+  if (element.dataset.plannerDate) { state.plannerSelectedDate=element.dataset.plannerDate; const rows=[...document.querySelectorAll('.planner-event-row')]; rows.forEach(row=>row.hidden=!row.querySelector('time')?.textContent.startsWith(state.plannerSelectedDate)); document.querySelector('.planner-event-list')?.scrollIntoView({behavior:'smooth',block:'nearest'}); return; }
   if (element.dataset.sectionKey) { await builderOpenLayout(element.dataset.sectionKey); return; }
   if (element.dataset.nav) { state.tab = element.dataset.nav; render(); return; }
   const action = element.dataset.action;
