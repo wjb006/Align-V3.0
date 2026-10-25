@@ -173,8 +173,8 @@ def config(path):
                     layout['workflow'] = builder_finance.workflow()
                     changed = True
             navigation = target.get('navigation', [])
-            target['navigation'] = [item for item in navigation if item.get('destination') not in ('planner','calendar','add')]
-            if len(target['navigation']) < 2:
+            # Preserve configurable Planner/Calendar destinations in saved builder documents.
+            if len(navigation) < 2:
                 target['navigation'] = json.loads(json.dumps(baseline['navigation']))
                 target['base_structure'] = base_structure(target)
                 changed = True
