@@ -277,7 +277,7 @@ def provision_tester_schema(path):
                 ('150_calendar_links',CURRENT_TIMESTAMP),('151_sections',CURRENT_TIMESTAMP),
                 ('152_personal_item_calendars',CURRENT_TIMESTAMP),
                 ('153_hosted_travel_and_calendar_location',CURRENT_TIMESTAMP),
-                ('154_user_favourites_contacts',CURRENT_TIMESTAMP)
+                ('154_user_favourites_contacts',CURRENT_TIMESTAMP),('156_shift_planner',CURRENT_TIMESTAMP)
                 ON CONFLICT(migration_id) DO NOTHING""").format(sql.Identifier(schema)))
     except psycopg.Error:
         raise RuntimeError('Could not create the tester schema from the reviewed hosted schema.') from None
