@@ -28,6 +28,7 @@ class ShiftPlannerApiTests(unittest.TestCase):
             "location_id":location["id"],"shift_type_id":shift_type["id"],"label":"AM clinic",
             "start_time":"08:30","end_time":"12:30","break_minutes":0,"applicable_days":["Monday","Tuesday"]
         })
+        self.json_request("POST", "/api/alert-rules", {"title":"Test reminder","minutes_before":60}, expected=201)
         day=(date.today()+timedelta(days=14)).isoformat()
         shift = self.json_request("POST", "/api/shifts", {
             "work_date":day,"template_id":template["id"],"location_id":location["id"],
