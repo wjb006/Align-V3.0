@@ -2,9 +2,15 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+if getattr(sys, "frozen", False):
+    _exe_root = Path(sys.executable).resolve().parent
+    _nested_app = _exe_root / "V3.0"
+    ROOT = _nested_app if (_nested_app / ".git").is_dir() else _exe_root
+else:
+    ROOT = Path(__file__).resolve().parent
 
 
 def _git(*args: str) -> subprocess.CompletedProcess[str]:
