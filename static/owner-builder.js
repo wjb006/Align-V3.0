@@ -113,7 +113,9 @@ async function api(path, options={}) {
       const type=kind==='field' ? (types[field.type]||field.type) : (kind==='start'?'START':'FINISH');
       const label=(node.label||node.id).length>24 ? (node.label||node.id).slice(0,21)+'…' : (node.label||node.id);
       const detail=kind==='field' ? (field.required?'Required':'Optional')+' · '+type : (kind==='start'?'Open the form':layout.review_before_save===false?'Save after validation':'Review answers before saving');
-      return `<g class="database-flow-svg-card database-flow-svg-${kind}"><rect x="${p.x}" y="${p.y}" width="${nodeWidth}" height="${nodeHeight}" rx="12"/><text class="database-flow-svg-type" x="${p.x+12}" y="${p.y+20}">${e(type.toUpperCase())}</text><text class="database-flow-svg-label" x="${p.x+12}" y="${p.y+42}">${e(label)}</text><text class="database-flow-svg-detail" x="${p.x+12}" y="${p.y+59}">${e(detail)}</text></g>`;
+      const isSelected = fieldId === node.id;
+      const actionLabel = kind === 'field' ? `Edit field: ${node.label}` : kind === 'start' ? 'Select beginning of entry flow' : 'Select end of entry flow';
+      return `<g class="database-flow-svg-card database-flow-svg-${kind} ${isSelected ? 'is-selected' : ''}" role="button" tabindex="0" aria-label="${e(actionLabel)}" aria-pressed="${isSelected ? 'true' : 'false'}" data-database-flow-node="${e(node.id)}" data-database-flow-kind="${kind}"><rect x="${p.x}" y="${p.y}" width="${nodeWidth}" height="${nodeHeight}" rx="12"/><text class="database-flow-svg-type" x="${p.x+12}" y="${p.y+20}">${e(type.toUpperCase())}</text><text class="database-flow-svg-label" x="${p.x+12}" y="${p.y+42}">${e(label)}</text><text class="database-flow-svg-detail" x="${p.x+12}" y="${p.y+59}">${e(detail)}</text></g>`;
     }).join('');
     return `<div class="database-flow-svg-wrap"><svg class="database-flow-svg" role="img" aria-label="Database flowchart with ${nodes.length} nodes and ${edges.length} connections" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}"><defs><marker id="database-flow-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z"/></marker></defs>${paths}${cards}</svg></div>`;
   }
@@ -1722,7 +1724,12 @@ function render(previewOnly=false) {
                 <section class="section-matrix-setup">
                   <h3>Step 2 of 3 · Build the input matrix</h3>
                   <p class="helper">Add each piece of information people should enter. Choose a type, mark required answers, and move questions into the order that makes sense. Each question becomes a connected node in the form flow below.</p>
-                  ${fieldList()}
+                  <div class="database-flow-workspace">
+                    <div class="database-flow-editor-pane">
+                      <div class="database-flow-pane-head"><p class="eyebrow">Edit the selected step</p><h3>Fields and questions</h3><p class="helper">Select a question here or click its node in the diagram to edit it.</p></div>
+                      ${fieldList()}
+                    </div>
+                    <div class="database-flow-visual-pane">
                   <div class="database-flow-builder">
                     <div class="database-flow-head"><div><p class="eyebrow">Visual form flow</p><h3>${e(layout.title)} · input nodes</h3><p class="helper">Connect any node to any other node. Add multiple outgoing connections to create branches. The Form fields arrows still control the default question order.</p></div><button type="button" class="secondary-button" data-add-field>Add node</button></div>
                     <div class="database-flowchart database-flowchart-graph" aria-label="Database input flow nodes">
@@ -1740,6 +1747,8 @@ function render(previewOnly=false) {
                         ${databaseFlowEdges(layout).map((edge,index)=>`<div class="database-flow-edge"><strong>${e(databaseFlowLabel(layout,edge.from))} <span aria-hidden="true">→</span> ${e(databaseFlowLabel(layout,edge.to))}</strong><button type="button" class="secondary-button" data-database-flow-remove-edge="${index}">Remove</button></div>`).join('') || '<p class="helper">No connections yet. Add one above.</p>'}
                       </div>
                     </section>
+                  </div>
+                    </div>
                   </div>
                   ${layout.id==='work'?'<div class="builder-option-group"><h3>Work rota quick-input template</h3><p class="helper">Adds reusable location, area, day, and shift-time choices to Work without deleting existing questions or saved records.</p><button type="button" class="secondary-button" data-work-rota-template>Add rota quick-input fields</button></div>':''}
                 </section>
@@ -2015,7 +2024,34 @@ function render(previewOnly=false) {
     changed();target[key]=el.type==='checkbox'?el.checked:key==='options'?el.value.split('\n').map(x=>x.trim()).filter(Boolean):el.value;
     status('Unsaved changes. Save a draft or publish when ready.');render(!['type','destination','parent_id'].includes(key));
   });
+document.addEventListener('keydown', ev => {
+  if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.closest?.('[data-database-flow-node]')) {
+    ev.preventDefault();
+    ev.target.closest('[data-database-flow-node]').dispatchEvent(new MouseEvent('click', {bubbles:true}));
+  }
+});
+
 document.addEventListener('click',ev=>{
+  const flowNode = ev.target.closest('[data-database-flow-node]');
+  if (flowNode && doc && !busy) {
+    const nodeId = flowNode.dataset.databaseFlowNode;
+    const kind = flowNode.dataset.databaseFlowKind;
+    if (kind === 'field') {
+      fieldId = nodeId;
+      render();
+      requestAnimationFrame(() => document.querySelector('[data-field-editor]')?.scrollIntoView({behavior:'smooth',block:'nearest'}));
+    } else {
+      const selector = kind === 'start' ? '#database-flow-from' : '#database-flow-to';
+      const control = document.querySelector(selector);
+      if (control) {
+        control.value = nodeId;
+        control.focus();
+        control.scrollIntoView({behavior:'smooth',block:'nearest'});
+      }
+    }
+    return;
+  }
+
   const b=ev.target.closest('button');
 
   if(!doc)return;
@@ -2104,7 +2140,7 @@ if(b.dataset.previewEditLayout) {
     if(b.hasAttribute('data-add-home-section')){const select=$('#add-home-section'),sectionId=select?.value;if(!sectionId)return;const available={today:{title:'Today at a glance',content:{show_weather:true,show_schedule:true,show_quick_add:true}},stats:{title:'Week summary',content:{}},menus:{title:'Your sections',content:{}},upcoming:{title:'Upcoming Events',content:{group_by_day:true}},calendar:{title:'Calendar',content:{show_upcoming:true}},annual_leave:{title:'Annual leave',content:{}}};if(!available[sectionId]||(doc.home_sections||[]).some(s=>s.id===sectionId))return;changed();doc.home_sections=doc.home_sections||[];doc.home_sections.push({id:sectionId,title:available[sectionId].title,visible:true,sort_order:Math.max(0,...doc.home_sections.map(s=>Number(s.sort_order)||0))+10,content:available[sectionId].content});status('Home section added. Save the draft, then publish when ready.');render();return;}
     if(b.dataset.removeHomeSection){if(!confirm('Remove this section from the home screen? Its underlying records and calendar events will be kept.'))return;changed();doc.home_sections=(doc.home_sections||[]).filter(s=>s.id!==b.dataset.removeHomeSection);status('Home section removed from the draft. Save the draft, then publish when ready.');render();return;}
     if(b.dataset.item){selected=b.dataset.item;fieldId='';workflowNodeId='';render();return;}
-    if(b.dataset.field){fieldId=b.dataset.field;render();return;}
+    if(b.dataset.field){fieldId=b.dataset.field;render();requestAnimationFrame(()=>document.querySelector('[data-field-editor]')?.scrollIntoView({behavior:'smooth',block:'nearest'}));return;}
     if(b.hasAttribute('data-add-menu'))newMenu();
     if(b.hasAttribute('data-add-child'))newMenu(selected);
     if (b.hasAttribute('data-database-flow-add-edge')) {
