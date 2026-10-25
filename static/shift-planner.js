@@ -46,6 +46,22 @@
     const data=state.shiftPlannerData||{};
     return (data.shifts||[]).slice().sort((a,b)=>(a.work_date+a.start_time).localeCompare(b.work_date+b.start_time));
   }
+  function restGapWarnings(shifts, minimumHours) {
+    const minimum=Number(minimumHours||0);
+    if(minimum<=0)return [];
+    const bounds=shifts.filter(s=>s.work_date&&s.start_time&&s.end_time).map(s=>{
+      const start=new Date(s.work_date+'T'+s.start_time+':00');
+      let end=new Date(s.work_date+'T'+s.end_time+':00');
+      if(end<=start)end=new Date(end.getTime()+86400000);
+      return {start,end,location:s.location_name||'Shift'};
+    }).sort((a,b)=>a.start-b.start);
+    const warnings=[];
+    for(let i=1;i<bounds.length;i++){
+      const gap=(bounds[i].start-bounds[i-1].end)/3600000;
+      if(gap>=0&&gap<minimum)warnings.push('Only '+gap.toFixed(1)+' hours between shifts at '+bounds[i-1].location+' and '+bounds[i].location+'; your minimum rest is '+minimum+' hours.');
+    }
+    return warnings;
+  }
   function totals(shifts) {
     const counted=shifts.filter(s=>!String(s.notes||'').includes('[Align cover: given'));
     const hours=counted.reduce((n,s)=>n+Number(s.hours||0),0);
@@ -119,6 +135,7 @@
     const d=state.shiftPlannerData||{shifts:[],annual_leave:[],templates:[],locations:[],shift_types:[]};
     const shifts=selectedShifts(), leaves=(d.annual_leave||[]).slice().sort((a,b)=>a.leave_date.localeCompare(b.leave_date));
     const t=totals(shifts);
+    const restWarnings=restGapWarnings(shifts,d.work_settings?.minimum_rest_hours);
     const title=state.plannerMode==='month'?fmtMonth(state.plannerAnchor):'Week commencing '+fmtDay(monday(state.plannerAnchor));
     const list=state.plannerMode==='week'
       ? Array.from({length:7},(_,i)=>shiftDay(monday(state.plannerAnchor),i)).map(day=>{
@@ -131,7 +148,7 @@
     return '<section class="page planner-page restored-planner-page"><div class="add-head"><p class="eyebrow">Work schedule</p><h1>Planner</h1><p class="subtle">Your shifts, saved patterns and annual leave — together in one place.</p></div>'+
       '<div class="card restored-planner-toolbar"><div class="schedule-week-nav"><button class="secondary-button" data-shift-action="previous" aria-label="Previous '+state.plannerMode+'">‹</button><h2>'+esc(title)+'</h2><button class="secondary-button" data-shift-action="next" aria-label="Next '+state.plannerMode+'">›</button></div><div class="button-row"><button class="'+(state.plannerMode==='week'?'primary-button':'secondary-button')+'" data-shift-action="week">Week</button><button class="'+(state.plannerMode==='month'?'primary-button':'secondary-button')+'" data-shift-action="month">Month</button><button class="secondary-button" data-shift-action="today">Today</button></div>'+
       '<label class="field">Jump to date<input type="date" data-shift-jump value="'+esc(state.plannerAnchor)+'"></label>'+
-      '<div class="restored-planner-stats"><span><strong>'+esc(fmtHours(t.hours))+'</strong> scheduled</span><span><strong>'+shifts.length+'</strong> shifts</span>'+(t.contracted?'<span><strong>'+esc(fmtHours(t.overtime))+'</strong> overtime</span>':'')+(t.pay?'<span><strong>£'+t.pay.toFixed(2)+'</strong> estimated pay</span>':'')+'</div></div>'+
+      '<div class="restored-planner-stats"><span><strong>'+esc(fmtHours(t.hours))+'</strong> scheduled</span><span><strong>'+shifts.length+'</strong> shifts</span>'+(t.contracted?'<span><strong>'+esc(fmtHours(t.overtime))+'</strong> overtime</span>':'')+(t.pay?'<span><strong>£'+t.pay.toFixed(2)+'</strong> estimated pay</span>':'')+(d.leave_balance?.allowance?'<span><strong>'+esc(d.leave_balance.remaining)+'</strong> leave days left of '+esc(d.leave_balance.allowance)+'</span>':'')+'</div></div>'+restWarnings.map(w=>'<p class="card restored-planner-warning">'+esc(w)+'</p>').join('')+
       (state.shiftPlannerError?'<div class="card planner-error" role="alert">'+esc(state.shiftPlannerError)+'<button class="secondary-button" data-shift-action="retry">Retry</button></div>':'')+
       (state.shiftPlannerLoading?'<p class="empty" role="status">Loading planner…</p>':'')+
       '<div class="button-row restored-planner-actions"><button class="primary-button" data-shift-action="add">＋ Add shift</button><button class="secondary-button" data-shift-action="leave">Book annual leave</button><button class="secondary-button" data-shift-action="patterns">Manage patterns</button><button class="secondary-button" data-nav="sections">Manage events</button></div>'+
