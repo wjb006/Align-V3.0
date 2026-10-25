@@ -1408,3 +1408,38 @@ button.database-flow-node:focus-visible {
 .database-flow-svg-type { fill: var(--builder-accent, #5267d8); font-size: 10px; font-weight: 750; letter-spacing: 1px; }
 .database-flow-svg-label { fill: var(--builder-text, #172033); font-size: 13px; font-weight: 700; }
 .database-flow-svg-detail { fill: var(--builder-muted, #667085); font-size: 10px; }
+
+
+/* Clickable database flow and side-by-side editing workspace */
+.database-flow-workspace {
+  display: grid;
+  grid-template-columns: minmax(280px, .82fr) minmax(0, 1.45fr);
+  align-items: start;
+  gap: 20px;
+  margin-top: 18px;
+}
+.database-flow-editor-pane,
+.database-flow-visual-pane { min-width: 0; }
+.database-flow-editor-pane {
+  padding: 18px;
+  border: 1px solid var(--builder-border, #dce2ec);
+  border-radius: 14px;
+  background: var(--builder-surface, #fff);
+}
+.database-flow-pane-head h3 { margin: 4px 0 8px; }
+.database-flow-pane-head .helper { margin-top: 0; }
+.database-flow-editor-pane .builder-editor,
+.database-flow-editor-pane .builder-row { max-width: 100%; }
+.database-flow-visual-pane .database-flow-builder { margin-top: 0; }
+.database-flow-svg-card { cursor: pointer; outline: none; }
+.database-flow-svg-card rect { transition: stroke .15s ease, fill .15s ease, stroke-width .15s ease, filter .15s ease; }
+.database-flow-svg-card:hover rect,
+.database-flow-svg-card:focus-visible rect { stroke: var(--builder-accent, #5267d8); stroke-width: 3; filter: drop-shadow(0 2px 4px rgba(54,92,230,.14)); }
+.database-flow-svg-card:focus-visible rect { stroke-dasharray: 5 3; }
+.database-flow-svg-card.is-selected rect { stroke: var(--builder-accent, #365ce6); stroke-width: 3; fill: var(--builder-selected-surface, #eef3ff); }
+.database-flow-svg-card.is-selected .database-flow-svg-type { font-weight: 900; }
+@media (max-width: 980px) {
+  .database-flow-workspace { grid-template-columns: minmax(0, 1fr); }
+  .database-flow-editor-pane { order: 1; }
+  .database-flow-visual-pane { order: 2; }
+}
