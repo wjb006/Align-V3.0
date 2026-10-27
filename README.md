@@ -20,11 +20,23 @@ Use Python 3.12. Create a virtual environment, install the listed requirements a
 
 ```powershell
 py -3.12 -m venv .venv
-.\\.venv\\Scripts\\python.exe -m pip install -r requirements.txt pytest
-.\\.venv\\Scripts\\python.exe app.py
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt pytest
+.\.venv\Scripts\python.exe app.py
 ```
 
-Run the local regression suite with `.\\.venv\\Scripts\\python.exe -m pytest -q`. Browser regressions use the pinned Playwright package under `browser-tests/`.
+Run the local regression suite with `.\.venv\Scripts\python.exe -m pytest -q`. Browser regressions use the pinned Playwright package under `browser-tests/`.
+
+## Windows desktop programme
+
+The planner and Management Studio run together as a local programme. From this folder:
+
+```powershell
+py -3.12 -m desktop
+```
+
+That keeps planner data in `%LOCALAPPDATA%\Align` on Windows (or the XDG data folder elsewhere), reuses an Align server that is already running, and opens `http://127.0.0.1:8001/desktop`. `python app.py` is unchanged and still uses `align.sqlite3` in the folder where you start it.
+
+To build `Align.exe` without asking the person to install Python, see [desktop/README.md](desktop/README.md). What changed, and the choices still open, are in [desktop/REBUILD_REPORT.md](desktop/REBUILD_REPORT.md).
 
 ## Hosted deployment
 

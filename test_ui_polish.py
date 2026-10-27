@@ -53,7 +53,7 @@ class UiPolishTests(unittest.TestCase):
         self.assertIn('class="skip-link"', self.index)
         self.assertIn("header-install", self.index)
         self.assertRegex(self.index, r">\s*Install\s*<")
-        self.assertNotIn("⇧", self.index)
+        self.assertNotIn("\u21e7", self.index)
         self.assertIn("function installPanel()", self.app)
         self.assertIn("data-action=\"prompt-install\"", self.app)
         self.assertIn("function showFormError(", self.app)
@@ -65,9 +65,9 @@ class UiPolishTests(unittest.TestCase):
         self.assertIn("f.checkValidity()", self.travel)
 
     def test_offline_cache_version_matches_the_shell(self):
-        self.assertIn("156-v47", self.index)
-        self.assertIn("`${BUILD_VERSION}-v47`", self.app)
-        self.assertIn("`${BUILD}-v47`", self.worker)
+        self.assertIn("156-v56", self.index)
+        self.assertIn("`${BUILD_VERSION}-v56`", self.app)
+        self.assertIn("`${BUILD}-v56`", self.worker)
         self.assertIn("align-v13-shell-${ASSET_VERSION}", self.worker)
         self.assertNotIn("156-v21", self.index)
 
