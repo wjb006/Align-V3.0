@@ -1,6 +1,5 @@
-// Align Management Studio launcher.
-// It starts the local Align server in this folder when it is not already
-// running, then opens Management Studio in the browser.
+// Align desktop launcher.
+// It starts the Python desktop programme, which opens Planner and Management Studio.
 package main
 
 import (
@@ -13,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -29,30 +29,15 @@ func main() {
 	if port == "" {
 		port = "8001"
 	}
-	studioURL := "http://127.0.0.1:" + port + "/management-studio"
-	ready, responding := healthStatus(port)
-	if !ready {
-		if responding {
-			fail(fmt.Errorf("Port %s is already in use by a service that is not Align. Close that service or choose another ALIGN_PORT.", port))
-		}
-		python, args := pythonLaunch(dir)
-		if *dryRun {
-			fmt.Printf("start %s %s\n", python, args)
-		} else if err := startServer(dir, python, args); err != nil {
-			fail(err)
-		}
-		if !*dryRun && !waitHealthy(port, 30*time.Second) {
-			fail(fmt.Errorf("Align Studio could not open. Check that Python is installed, then try again. Port %s did not answer.", port))
-		}
-	} else if *dryRun {
-		fmt.Printf("already running on %s\n", port)
-	}
+	homeURL := "http://127.0.0.1:" + port + "/desktop"
+	python, args := pythonLaunch(dir)
 	if *dryRun {
-		fmt.Println("open", studioURL)
+		fmt.Printf("start %s %s\n", python, strings.Join(args, " "))
+		fmt.Println("open", homeURL)
 		return
 	}
-	if err := openBrowser(studioURL); err != nil {
-		fail(fmt.Errorf("Align Studio could not open a window. Open %s in your browser.", studioURL))
+	if err := startServer(dir, python, args); err != nil {
+		fail(fmt.Errorf("Align could not start. Install Python 3.12, or use the packaged Align.exe. %s", err))
 	}
 }
 
@@ -112,20 +97,52 @@ func waitHealthy(port string, limit time.Duration) bool {
 	return healthy(port)
 }
 
-func pythonLaunch(dir string) (string, string) {
-	launch := filepath.Join(applicationDir(dir), "launch.py")
+func pythonLaunch(dir string) (string, []string) {
+	args := []string{"-m", "desktop"}
 	if runtime.GOOS == "windows" {
 		python := filepath.Join(dir, ".venv", "Scripts", "pythonw.exe")
 		if _, err := os.Stat(python); err != nil {
 			python = "pythonw.exe"
 		}
-		return python, launch
+		return python, args
 	}
 	python := filepath.Join(dir, ".venv", "bin", "python")
 	if _, err := os.Stat(python); err != nil {
 		python = "python3"
 	}
-	return python, launch
+	return python, args
+}
+
+func dataDirectory() string {
+	if value := strings.TrimSpace(os.Getenv("ALIGN_DATA_DIR")); value != "" {
+		return value
+	}
+	if runtime.GOOS == "windows" {
+		base := os.Getenv("LOCALAPPDATA")
+		if base == "" {
+			base = filepath.Join(os.Getenv("USERPROFILE"), "AppData", "Local")
+		}
+		return filepath.Join(base, "Align")
+	}
+	if base := os.Getenv("XDG_DATA_HOME"); base != "" {
+		return filepath.Join(base, "align")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		home = ""
+	}
+	return filepath.Join(home, ".local", "share", "align")
+}
+
+func commandEnv() []string {
+	env := os.Environ()
+	if strings.TrimSpace(os.Getenv("ALIGN_DATA_DIR")) == "" {
+		env = append(env, "ALIGN_DATA_DIR="+dataDirectory())
+	}
+	if strings.TrimSpace(os.Getenv("ALIGN_STUDIO_LOCAL")) == "" {
+		env = append(env, "ALIGN_STUDIO_LOCAL=1")
+	}
+	return env
 }
 
 func applicationDir(dir string) string {
@@ -136,9 +153,10 @@ func applicationDir(dir string) string {
 	return dir
 }
 
-func startServer(dir, python, launch string) error {
-	command := exec.Command(python, launch)
+func startServer(dir, python string, args []string) error {
+	command := exec.Command(python, args...)
 	command.Dir = applicationDir(dir)
+	command.Env = commandEnv()
 	return command.Start()
 }
 

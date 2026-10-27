@@ -1,7 +1,7 @@
 """Explicit place lookup; local stops need no external location disclosure."""
 import json,re,hashlib,os
-from pathlib import Path
 from datetime import datetime,timezone,timedelta
+from align_paths import bundled_file
 
 def request_json(url):
     """Keep the Studio place-lookup seam patchable for privacy tests."""
@@ -11,7 +11,7 @@ def request_json(url):
 def lookup(body):
     q=str(body.get('query','')).strip()
     if not 2<=len(q)<=240: raise ValueError('Enter a stop name or full postcode')
-    stops=json.loads(Path(__file__).with_name('merseyside_stops.json').read_text(encoding='utf-8'))
+    stops=json.loads(bundled_file('merseyside_stops.json').read_text(encoding='utf-8'))
     matches=[s for s in stops if q.casefold() in s['name'].casefold()]
     if matches and not re.fullmatch(r'[A-Z]{1,2}\d[A-Z\d]?',re.sub(r'\s+','',q).upper()):
         return {'places':sorted(matches,key=lambda s:(s['name'].casefold()!=q.casefold(),s['name']))[:25]}

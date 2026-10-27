@@ -26,6 +26,18 @@ py -3.12 -m venv .venv
 
 Run the local regression suite with `.\\.venv\\Scripts\\python.exe -m pytest -q`. Browser regressions use the pinned Playwright package under `browser-tests/`.
 
+## Windows desktop programme
+
+The planner and Management Studio run together as a local programme. From this folder:
+
+```powershell
+py -3.12 -m desktop
+```
+
+That keeps planner data in `%LOCALAPPDATA%\Align` on Windows (or the XDG data folder elsewhere), reuses an Align server that is already running, and opens `http://127.0.0.1:8001/desktop`. `python app.py` is unchanged and still uses `align.sqlite3` in the folder where you start it.
+
+To build `Align.exe` without asking the person to install Python, see [desktop/README.md](desktop/README.md). What changed, and the choices still open, are in [desktop/REBUILD_REPORT.md](desktop/REBUILD_REPORT.md).
+
 ## Hosted deployment
 
 The hosted service starts with `python render_start.py`. Configure a dedicated Neon database and set the environment names listed in [ENVIRONMENT.md](ENVIRONMENT.md). For a new database, apply `migrations/postgres/fresh_v3_schema.sql` once. For an existing schema, apply the reviewed numbered migrations documented in `migrations/postgres/README.md` to `align_owner` and each applicable tester schema before enabling the service. New tester schemas are provisioned from the clean V3 schema. Hosted Studio uploads require an S3-compatible persistent bucket: configure `AWS_ENDPOINT_URL_S3`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `ALIGN_ASSET_BUCKET`; the app blocks hosted uploads when this storage is missing. Never reuse the existing Align installation's database or credential key. Do not point the old Align Render service or existing domain records at this repository until the release gates are complete.
