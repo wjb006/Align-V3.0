@@ -7,10 +7,10 @@ import json
 import math
 import re
 from datetime import datetime, timedelta
-from pathlib import Path
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
 from display_dates import format_display_datetime
+from align_paths import bundled_file
 from transport_providers import OTPProvider, ProviderUnavailable, request_json
 
 ZONE = ZoneInfo('Europe/London')
@@ -21,7 +21,7 @@ MODE_MAP = {'bus':['walk','bus'], 'train':['walk','rail'], 'transit':['walk','bu
 def named_station(address):
     name = str(address or '').split(',')[0].strip().casefold()
     name = re.sub(r'\s+(?:(?:railway|rail|train)\s+)?station$', '', name)
-    stops = json.loads(Path(__file__).with_name('merseyside_stops.json').read_text(encoding='utf-8'))
+    stops = json.loads(bundled_file('merseyside_stops.json').read_text(encoding='utf-8'))
     matches = [s for s in stops if s['name'].casefold() == name]
     points = {tuple(s['point']) for s in matches}
     return points.pop() if len(points) == 1 else None
@@ -38,7 +38,7 @@ def resolve_place(address):
         point = data.get('result')
         if not point: raise ValueError('Postcode not found. Check the full postcode.')
         return (point['latitude'], point['longitude']), 'postcode centre (approximate)'
-    stops = json.loads(Path(__file__).with_name('merseyside_stops.json').read_text(encoding='utf-8'))
+    stops = json.loads(bundled_file('merseyside_stops.json').read_text(encoding='utf-8'))
     matches = [s for s in stops if s['name'].casefold() == address.casefold()]
     points = {tuple(s['point']) for s in matches}
     if len(points) == 1: return points.pop(), 'named stop or station'
