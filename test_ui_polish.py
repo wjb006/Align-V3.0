@@ -53,7 +53,7 @@ class UiPolishTests(unittest.TestCase):
         self.assertIn('class="skip-link"', self.index)
         self.assertIn("header-install", self.index)
         self.assertRegex(self.index, r">\s*Install\s*<")
-        self.assertNotIn("\u21e7", self.index)
+        self.assertNotIn("⇧", self.index)
         self.assertIn("function installPanel()", self.app)
         self.assertIn("data-action=\"prompt-install\"", self.app)
         self.assertIn("function showFormError(", self.app)
