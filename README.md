@@ -20,11 +20,11 @@ Use Python 3.12. Create a virtual environment, install the listed requirements a
 
 ```powershell
 py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt pytest
-.\.venv\Scripts\python.exe app.py
+.\\.venv\\Scripts\\python.exe -m pip install -r requirements.txt pytest
+.\\.venv\\Scripts\\python.exe app.py
 ```
 
-Run the local regression suite with `.\.venv\Scripts\python.exe -m pytest -q`. Browser regressions use the pinned Playwright package under `browser-tests/`.
+Run the local regression suite with `.\\.venv\\Scripts\\python.exe -m pytest -q`. Browser regressions use the pinned Playwright package under `browser-tests/`.
 
 ## Windows desktop programme
 
