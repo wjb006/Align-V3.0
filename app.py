@@ -190,11 +190,23 @@ def initialise_database_at(database: Path) -> None:
     legacy_schema = False
     if database.exists() and database.stat().st_size:
         with sqlite3.connect(str(database)) as probe:
-            legacy_schema = bool(probe.execute(
+            has_schedule = bool(probe.execute(
                 "SELECT 1 FROM sqlite_master WHERE type='table' AND name IN "
                 "('shifts','shift_templates','shift_types','locations','location_shift_types',"
                 "'annual_leave','alert_rules','alerts','shift_batches') LIMIT 1"
             ).fetchone())
+            # Fresh V3 databases include the restored planner and record
+            # 156_shift_planner. Older files with those tables, and no marker,
+            # stay on the compatibility initializer.
+            marked_v3 = False
+            if has_schedule:
+                try:
+                    marked_v3 = bool(probe.execute(
+                        "SELECT 1 FROM schema_migrations WHERE migration_id='156_shift_planner'"
+                    ).fetchone())
+                except sqlite3.OperationalError:
+                    marked_v3 = False
+            legacy_schema = has_schedule and not marked_v3
     if not legacy_schema:
         schema = (ROOT / "schema_v3.sqlite.sql").read_text(encoding="utf-8")
         connection = connect(database, factory=ClosingConnection)

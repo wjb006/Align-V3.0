@@ -12,7 +12,7 @@ These badges follow the development branch and update automatically when GitHub 
 
 **Latest fully verified historical CI baseline:** commit [594cd085](https://github.com/wjb006/Align-V3.0/commit/594cd085e52bd2a014426ab6ef61e65a76fd34f8) — browser regressions, hosted persistence integration tests, and navigation checks passed on 11 October 2026. Newer GitHub Actions runs are currently terminating before any steps start and provide no logs, so the current branch is not yet marked green.
 
-> Green CI means the automated workflows passed. It does not mean production hosting is ready. V3 now has separate fresh PostgreSQL and local SQLite schemas without legacy shift-planner tables, plus explicit upgrade migrations and a legacy-data preservation path. Release remains blocked on verified CI, dedicated Neon/Render provisioning, durable object-storage credentials, and live authentication, sync, backup/restore, and device checks. The old Align app and its domain/DNS remain untouched until release gates pass. Track the work in [BUILD_CHECKLIST.md](BUILD_CHECKLIST.md).
+> Green CI means the automated workflows passed. It does not mean production hosting is ready. Fresh PostgreSQL and local SQLite schemas include the restored shift planner, migration `156_shift_planner`, and a preservation path for older SQLite files. Release remains blocked on a GitHub Actions run that actually starts, installing `fresh_v3_schema.sql` plus migration 156 on the dedicated Neon database, Render provisioning, durable object-storage credentials, and live authentication, sync, backup/restore, and device checks. The old Align app and its domain/DNS remain untouched until those gates pass. Track the work in [BUILD_CHECKLIST.md](BUILD_CHECKLIST.md).
 
 ## Local development
 

@@ -35,7 +35,7 @@ if (!index.includes('class="skip-link"') || !index.includes('header-install') ||
 if (!app.includes('function installPanel()') || !app.includes('data-action="prompt-install"')) throw new Error('Install panel is missing');
 if (!app.includes('form.checkValidity()') || !app.includes('function showFormError(') || !app.includes("addEventListener('invalid'")) throw new Error('Inline form validation is missing');
 if (!travel.includes('f.checkValidity()') || !travel.includes('class="secondary-button" data-t150="search"')) throw new Error('Travel form feedback is missing');
-if (!index.includes('156-v47') || !app.includes('`${BUILD_VERSION}-v47`') || !worker.includes('`${BUILD}-v47`')) throw new Error('Offline cache version was not bumped');
+if (!index.includes('156-v56') || !app.includes('`${BUILD_VERSION}-v56`') || !worker.includes('`${BUILD}-v56`')) throw new Error('Offline cache version was not bumped');
 if (!worker.includes('align-v13-shell-${ASSET_VERSION}')) throw new Error('Service worker shell cache name changed');
 
 console.log('UI polish checks passed');
