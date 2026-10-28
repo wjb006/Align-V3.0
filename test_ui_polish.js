@@ -29,7 +29,7 @@ if (!css.includes('--tap: 44px')) throw new Error('44px tap target token is miss
 if (!css.includes('min-height: var(--tap)')) throw new Error('Controls do not use the tap target token');
 if (!css.includes('--shell: 960px')) throw new Error('Desktop shell width is missing');
 if (!css.includes('#toast[data-tone="error"]')) throw new Error('Error toast tone is missing');
-if (!css.includes('--edit-background: #10142a !important')) throw new Error('Dark theme does not override formatted page colours');
+if (!css.includes('--edit-background: #061326 !important')) throw new Error('Dark theme does not override formatted page colours');
 if (css.includes('white-space: nowrap; max-width: calc(100vw - 32px)')) throw new Error('Toast still truncates messages');
 if (!index.includes('class="skip-link"') || !index.includes('header-install') || !/>\s*Install\s*</.test(index) || index.includes('⇧')) throw new Error('Install affordance or skip link is missing');
 if (!app.includes('function installPanel()') || !app.includes('data-action="prompt-install"')) throw new Error('Install panel is missing');

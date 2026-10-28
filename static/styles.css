@@ -1,20 +1,20 @@
 :root {
-  --ink: #14203c;
-  --muted: #4a556f;
-  --nav-ink: #3d4866;
-  --soft: #eef1f8;
-  --line: #d5dced;
-  --surface: #ffffff;
-  --canvas: #f4f6fb;
-  --navy: #172a62;
-  --blue: #365ce6;
-  --blue-soft: #e7edff;
-  --mint: #0c7d6e;
-  --danger: #b4234a;
-  --danger-ink: #8d1d3a;
-  --danger-soft: #fff0f3;
-  --danger-line: #e7aeb8;
-  --focus: #1e3aaf;
+  --ink: #f4f8ff;
+  --muted: #afc2d9;
+  --nav-ink: #afc2d9;
+  --soft: #102b4b;
+  --line: #1a3858;
+  --surface: #0b203b;
+  --canvas: #061326;
+  --navy: #102b4b;
+  --blue: #0878f9;
+  --blue-soft: #102b4b;
+  --mint: #22d6c4;
+  --danger: #ff7798;
+  --danger-ink: #ffc0ce;
+  --danger-soft: #351a2a;
+  --danger-line: #78344b;
+  --focus: #16d9f2;
   --radius: 18px;
   --radius-sm: 12px;
   --tap: 44px;
@@ -22,17 +22,17 @@
   --space-3: 12px;
   --space-4: 16px;
   --space-5: 24px;
-  --shadow-sm: 0 1px 2px rgba(20, 32, 60, 0.06), 0 8px 24px rgba(20, 32, 60, 0.05);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.16), 0 8px 24px rgba(0, 0, 0, 0.12);
   --shell: 720px;
   font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
   color: var(--ink);
-  background: var(--canvas);
+  background: radial-gradient(ellipse at 50% -20%, #102b4b 0, #071a32 42%, #061326 78%);
   font-synthesis: none;
 }
 
 * { box-sizing: border-box; }
 html { min-height: 100%; background: var(--canvas); }
-body { min-height: 100%; margin: 0; background: var(--canvas); font-size: 16px; line-height: 1.5; }
+body { min-height: 100%; margin: 0; background: radial-gradient(ellipse at 50% -20%, #102b4b 0, #071a32 42%, #061326 78%); color: var(--ink); font-size: 16px; line-height: 1.5; }
 button, input, select, textarea { font: inherit; }
 button, a { touch-action: manipulation; }
 button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
@@ -600,7 +600,7 @@ h3 { font-size: 15px; margin-bottom: 2px; }
 [data-management-font="mono"]{font-family:ui-monospace,Consolas,monospace}
 [data-management-font] button,[data-management-font] input,[data-management-font] select{font-family:inherit}
 [data-management-heading="normal"] h1,[data-management-heading="normal"] h2,[data-management-heading="normal"] h3{font-weight:500}
-[data-management-theme="dark"] { color-scheme:dark; --ink:#e8ecf8; --muted:#a0abc9; --soft:#242c48; --line:#313a5c; --surface:#1a2038; --canvas:#10142a; --cal-month-cell:#1d2442; --cal-month-weekend:#232b4d; --cal-month-date-band:#2a3358; --cal-today-cell:#2b3a73; --cal-list-day:#1d2442; --cal-list-day-header:#2a3358; background:var(--canvas); color:var(--ink); }
+[data-management-theme="dark"] { color-scheme:dark; --ink:#f4f8ff; --muted:#afc2d9; --soft:#102b4b; --line:#1a3858; --surface:#0b203b; --canvas:#061326; --navy:#102b4b; --blue:#0878f9; --blue-soft:#102b4b; --focus:#16d9f2; --mint:#22d6c4; --cal-month-cell:#0b203b; --cal-month-weekend:#102b4b; --cal-month-date-band:#143457; --cal-today-cell:#12345a; --cal-list-day:#0b203b; --cal-list-day-header:#102b4b; background:#061326; color:var(--ink); }
 [data-management-theme="dark"] :is(.hero-stat,.address-result,.month-day,.week-event-row,.work-settings .setup-footer,.today-weather-refresh,.schedule-view-switch [aria-pressed="true"],.area-badge,#travel150 input,#travel150 select,#assets-upload150 input,#assets-upload150 select,input,select,textarea,.card,.shift-event,.quick-action) { background:var(--surface); color:var(--ink); border-color:var(--line); }
 [data-management-theme="dark"] .month-day.outside-month { background:#141a30; }
 [data-management-theme="dark"] .month-day .month-date-row { background:var(--cal-month-date-band); }
@@ -629,13 +629,13 @@ h3 { font-size: 15px; margin-bottom: 2px; }
 [data-management-theme="dark"] .week-event-row small { color: var(--muted); }
 [data-management-theme="dark"] :focus-visible { outline-color: #9db4ff; }
 [data-management-theme="dark"] .form-error { color: #ffd6e0; background: #3a1824; border-color: #8d4158; }
-html:has([data-management-theme="dark"]) { background: #10142a; }
+html:has([data-management-theme="dark"]) { background: #061326; }
 [data-management-theme="dark"].align-formatted {
-  --edit-background: #10142a !important;
-  --edit-surface: #1a2038 !important;
-  --edit-text: #e8ecf8 !important;
-  background: #10142a;
-  color: #e8ecf8;
+  --edit-background: #061326 !important;
+  --edit-surface: #0b203b !important;
+  --edit-text: #f4f8ff !important;
+  background: #061326;
+  color: #f4f8ff;
 }
 @media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; scroll-behavior:auto !important; } }
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible { outline:3px solid var(--focus); outline-offset:3px; }

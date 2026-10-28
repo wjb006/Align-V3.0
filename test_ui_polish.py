@@ -47,7 +47,7 @@ class UiPolishTests(unittest.TestCase):
         self.assertIn("width: min(100%, var(--shell))", self.css)
         self.assertNotIn("white-space: nowrap; max-width: calc(100vw - 32px)", self.css)
         self.assertIn("#toast[data-tone=\"error\"]", self.css)
-        self.assertIn("--edit-background: #10142a !important", self.css)
+        self.assertIn("--edit-background: #061326 !important", self.css)
 
     def test_install_navigation_and_validation_feedback(self):
         self.assertIn('class="skip-link"', self.index)

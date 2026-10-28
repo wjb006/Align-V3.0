@@ -80,7 +80,10 @@ function todayEventStillRelevant(event,today){
  const end=Date.parse(event.end_at);
  return Number.isFinite(end)?end>Date.now():event.start_at.slice(0,10)===today;
 }
-function personalToday(){
+function personalQuickAdd(){
+ return `<details class="section quick-add-details"><summary>Quick add</summary><div class="quick-grid"><button class="quick-action" data-personal="note">＋ Note</button><button class="quick-action" data-personal="reminder">＋ Reminder</button><button class="quick-action" data-personal="event">＋ Event</button><button class="quick-action" data-personal="available">Find appointment times</button></div><button class="text-button" data-nav="inbox">Open Inbox</button></details>`;
+}
+function personalToday({includeQuickAdd=true}={}){
  const data=state.boot.personal;if(!data)return '';const p=data.preferences,e=escapeHtml;
  const showWeather=homeSectionContent('today','show_weather',true);
  const showSchedule=homeSectionContent('today','show_schedule',true);
@@ -103,7 +106,7 @@ function personalToday(){
      ${p.show_todos?`<section class="today-todos"><h3>To do${p.include_overdue?' · due and overdue':''}</h3>${items.map(i=>`<p>${e(i.title)} <small>${e(formatDisplayDateTime(i.due_at))}</small> <button class="small-button" data-personal="done" data-id="${e(i.id)}">Complete</button></p>`).join('')||'<p>No unfinished reminders due.</p>'}</section>`:''}
    </div>
  </section>
- ${showQuickAdd?`<section class="section"><div class="section-head"><h2>Quick add</h2><button class="text-button" data-nav="inbox">Open Inbox</button></div><div class="quick-grid"><button class="quick-action" data-personal="note">＋ Note</button><button class="quick-action" data-personal="reminder">＋ Reminder</button><button class="quick-action" data-personal="event">＋ Event</button><button class="quick-action" data-personal="available">Find appointment times</button></div></section>`:''}`;
+ ${showQuickAdd&&includeQuickAdd?personalQuickAdd():''}`;
 }
 function weatherMarkup(w,error='',loading=false,refreshIcon='↻'){
  const e=escapeHtml;
