@@ -2,6 +2,8 @@ name: Align Management Studio Windows package
 on:
   push:
     branches: [codex/align-v3-rebuild]
+  pull_request:
+    branches: [codex/align-v3-rebuild]
   workflow_dispatch:
 
 permissions:
@@ -25,16 +27,28 @@ jobs:
           go test ./...
           go build -trimpath -ldflags="-s -w" -o "..\dist\Align-Management-Studio.exe" .
           Pop-Location
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Test the desktop programme and build the Windows package
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip pyinstaller
+          python -m pip install -r requirements.txt
+          python -m unittest test_desktop_programme.py
+          python -m PyInstaller --noconfirm --clean desktop/align.spec
+          if (-not (Test-Path "dist\Align\Align.exe")) { throw "Align.exe was not built" }
       - name: Assemble installer package
         shell: pwsh
         run: |
           $root = Join-Path $PWD "dist/Align-Management-Studio"
-          New-Item -ItemType Directory -Force -Path "$root/app" | Out-Null
-          git archive HEAD | tar -x -C "$root/app"
-          Copy-Item "dist/Align-Management-Studio.exe" $root
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          Copy-Item "dist/Align" $root -Recurse
           Copy-Item "installer/windows/Install-Align-Studio.ps1" $root
           Copy-Item "installer/windows/Launch-Align-Studio.ps1" $root
           Copy-Item "installer/windows/README.md" $root
+          Copy-Item "desktop/README.md" (Join-Path $root "BUILD.md")
           Compress-Archive -Path $root -DestinationPath "$PWD/dist/Align-Management-Studio-Windows.zip" -Force
       - name: Upload Windows installer package
         uses: actions/upload-artifact@v4

@@ -574,7 +574,8 @@
       }
       return `<section class="mp-editable-block" data-preview-home-section="${esc(section.id)}" draggable="true"><button class="mp-drag-handle" type="button" aria-label="Select or drag ${title}">⠿</button><p class="management-phone-banner">${title.toUpperCase()}</p>${contents}</section>`;
     }).join('');
-    return `<div class="management-phone-greeting-block"><p class="management-phone-date">Wednesday 7 October 2026</p><h3 class="management-phone-greeting">Good morning</h3></div>${blockMarkup || '<p class="mp-empty">Add a home area in Studio to preview it here.</p>'}`;
+    const addArea = '<button type="button" class="mp-empty mp-add-section" data-preview-add-home-area>Add a home area</button>';
+    return `<div class="management-phone-greeting-block"><p class="management-phone-date">Wednesday 7 October 2026</p><h3 class="management-phone-greeting">Good morning</h3></div>${blockMarkup || '<p class="mp-empty">Add a home area in Studio to preview it here.</p>'}${addArea}`;
   }
 
   function renderPreviewFallback() {
@@ -628,6 +629,18 @@
   const phone = $('#management-phone');
   let draggedPreviewItem = null;
   phone.addEventListener('click', event => {
+    const addHomeArea = event.target.closest('[data-preview-add-home-area]');
+    if (addHomeArea) {
+      if (!Array.isArray(documentDraft.home_sections)) documentDraft.home_sections = [];
+      documentDraft.home_sections.push(newListSection());
+      activeTab = 'pages';
+      if (window.AlignManagementStudioNav?.activate) window.AlignManagementStudioNav.activate('pages');
+      markStudioDirty('Home area added from the phone preview. Name it, then save a draft or publish when ready.');
+      const titles = document.querySelectorAll('[data-home-title]');
+      const created = titles[titles.length - 1];
+      created?.focus();
+      return;
+    }
     const sectionEntry = event.target.closest('[data-preview-edit-layout]');
     const createSection = event.target.closest('[data-preview-create-layout]');
     if (sectionEntry || createSection) {

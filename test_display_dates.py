@@ -16,10 +16,10 @@ class DisplayDates(unittest.TestCase):
         self.assertEqual(format_display_datetime("2026-10-07T08:00:00Z"), "07/10/2026 09:00")
         self.assertEqual(format_display_date(""), "")
 
-    def test_week_planner_endpoint_and_options_are_retired(self):
+    def test_week_planner_endpoint_is_available(self):
         import app
         self.assertFalse(hasattr(app, "next_week_options"))
-        self.assertTrue(app.retired_schedule_endpoint("/api/week"))
+        self.assertFalse(app.retired_schedule_endpoint("/api/week"))
 
     def test_numeric_leave_notes_still_parse(self):
         leave = datetime(2026, 10, 7, 6, 40)

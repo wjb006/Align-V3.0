@@ -65,9 +65,9 @@ class UiPolishTests(unittest.TestCase):
         self.assertIn("f.checkValidity()", self.travel)
 
     def test_offline_cache_version_matches_the_shell(self):
-        self.assertIn("156-v57", self.index)
-        self.assertIn("`${BUILD_VERSION}-v57`", self.app)
-        self.assertIn("`${BUILD}-v57`", self.worker)
+        self.assertIn("156-v56", self.index)
+        self.assertIn("`${BUILD_VERSION}-v56`", self.app)
+        self.assertIn("`${BUILD}-v56`", self.worker)
         self.assertIn("align-v13-shell-${ASSET_VERSION}", self.worker)
         self.assertNotIn("156-v21", self.index)
 

@@ -27,8 +27,8 @@ class MonthCalendarTests(unittest.TestCase):
         self.json_request('POST', f'/api/sections/{section_id}/events', event)
         result = self.json_request('GET', '/api/month?month=2026-12')
         self.assertEqual([item['title'] for item in result['events']], ['New Year appointment'])
-        self.assertNotIn('shifts', result)
-        self.assertNotIn('annual_leave', result)
+        self.assertEqual(result['shifts'], [])
+        self.assertEqual(result['annual_leave'], [])
         with app.db_connection() as connection:
             self.assertEqual(connection.execute('SELECT COUNT(*) FROM organiser_events').fetchone()[0], 1)
 

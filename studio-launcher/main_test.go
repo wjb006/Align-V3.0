@@ -31,9 +31,9 @@ func TestPythonLaunchUsesInstallVenv(t *testing.T) {
 	if err := os.WriteFile(pythonPath, []byte(""), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	python, launch := pythonLaunch(dir)
-	if filepath.Base(launch) != "launch.py" {
-		t.Fatalf("launch = %s", launch)
+	python, args := pythonLaunch(dir)
+	if strings.Join(args, " ") != "-m desktop" {
+		t.Fatalf("args = %v", args)
 	}
 	if python != pythonPath {
 		t.Fatalf("python = %s", python)
@@ -59,12 +59,12 @@ func TestPythonLaunchSupportsPackagedAppDirectory(t *testing.T) {
 	if err := os.WriteFile(pythonPath, []byte(""), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	python, launch := pythonLaunch(dir)
+	python, args := pythonLaunch(dir)
 	if python != pythonPath {
 		t.Fatalf("python = %s", python)
 	}
-	if launch != filepath.Join(appDir, "launch.py") {
-		t.Fatalf("launch = %s", launch)
+	if strings.Join(args, " ") != "-m desktop" {
+		t.Fatalf("args = %v", args)
 	}
 	if applicationDir(dir) != appDir {
 		t.Fatalf("applicationDir = %s", applicationDir(dir))
@@ -103,6 +103,13 @@ func TestWindowsAppWindowIsLarge(t *testing.T) {
 	joined := strings.Join(args, "\n")
 	if !strings.Contains(joined, "--window-size=1360,900") || !strings.Contains(joined, "--app=http://127.0.0.1:8001/management-studio") {
 		t.Fatalf("args = %v", args)
+	}
+}
+
+func TestDataDirectoryUsesTheOverride(t *testing.T) {
+	t.Setenv("ALIGN_DATA_DIR", filepath.Join(t.TempDir(), "kept"))
+	if dataDirectory() != os.Getenv("ALIGN_DATA_DIR") {
+		t.Fatalf("dataDirectory = %s", dataDirectory())
 	}
 }
 

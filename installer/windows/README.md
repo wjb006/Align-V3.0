@@ -1,18 +1,18 @@
-# Align Management Studio — Windows installer
+# Align on Windows
 
-This package installs a local Windows control hub for Align V3.0.
+This package installs the local Align programme: the planner and Management Studio.
 
-- Program files: %LOCALAPPDATA%\Programs\Align Management Studio
-- Local data/logs: %LOCALAPPDATA%\Align
-- Desktop shortcut: Align Management Studio
-- Local Studio: http://127.0.0.1:8001/studio
+- Programme: `%LOCALAPPDATA%\Programs\Align Management Studio`
+- Planner data and logs: `%LOCALAPPDATA%\Align`
+- Desktop shortcut: Align
+- Home screen: `http://127.0.0.1:8001/desktop`
 
-Python 3.12 and an internet connection are required for first-time dependency setup. Install Python from https://www.python.org/downloads/windows/ and enable PATH support, then run Install-Align-Studio.ps1 from the extracted package.
+A packaged build includes `Align\Align.exe` and does not need a separate Python install. A source package still needs Python 3.12 or newer.
 
-The local Studio and hosted Align site are separate. This installer does not change Render, DNS, production databases, or credentials. The hosted app remains online when this PC is off.
+The installer does not delete or replace `align.sqlite3`. If this computer already has planner data in the Align data folder, that copy is the one that opens. An older database beside a previous install is copied only when the data folder does not already have planner content. The older file is left where it is.
 
-Logs are stored in %LOCALAPPDATA%\Align\studio.log and studio-error.log.
+Logs: `%LOCALAPPDATA%\Align\studio.log` and `studio-error.log`.
 
-## Studio build ethos
+This programme does not change Render, DNS, the hosted database, or credentials. https://getalign.co.uk stays online when this PC is off.
 
-The implementation principles and release gates are documented in [`docs/MANAGEMENT_STUDIO_BUILD_ETHOS.md`](../../../docs/MANAGEMENT_STUDIO_BUILD_ETHOS.md). The dedicated working calendar must support Month, Week, Day, and Day/Hour time-grid views using real Align events; it is separate from calendar appearance settings. The hosted app must remain independent of the local PC, and the installer must preserve local data and credentials.
+Build instructions are in [`desktop/README.md`](../../desktop/README.md).
