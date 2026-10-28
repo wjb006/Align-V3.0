@@ -595,4 +595,4 @@ CREATE TABLE align_owner.align_contacts (
 );
 
 INSERT INTO align_owner.calendar_sync_state(id,revision,modified_at) VALUES (1,0,CURRENT_TIMESTAMP) ON CONFLICT(id) DO NOTHING;
-INSERT INTO align_owner.schema_migrations(migration_id, applied_at) VALUES ('149_asset_studio',CURRENT_TIMESTAMP),('149_transport',CURRENT_TIMESTAMP),('150_calendar_links',CURRENT_TIMESTAMP),('151_sections',CURRENT_TIMESTAMP),('152_personal_item_calendars',CURRENT_TIMESTAMP),('153_hosted_travel_and_calendar_location',CURRENT_TIMESTAMP),('154_user_favourites_contacts',CURRENT_TIMESTAMP),('155_here_transit_usage',CURRENT_TIMESTAMP) ON CONFLICT(migration_id) DO NOTHING;
+INSERT INTO align_owner.schema_migrations(migration_id, applied_at) VALUES ('149_asset_studio',CURRENT_TIMESTAMP),('149_transport',CURRENT_TIMESTAMP),('150_calendar_links',CURRENT_TIMESTAMP),('151_sections',CURRENT_TIMESTAMP),('152_personal_item_calendars',CURRENT_TIMESTAMP),('153_hosted_travel_and_calendar_location',CURRENT_TIMESTAMP),('154_user_favourites_contacts',CURRENT_TIMESTAMP),('155_here_transit_usage',CURRENT_TIMESTAMP),('156_shift_planner',CURRENT_TIMESTAMP) ON CONFLICT(migration_id) DO NOTHING;

@@ -1,7 +1,7 @@
 # Align V3.0 build checklist
 **Live project handoff document**
 
-- **Last updated:** 23 October 2026
+- **Last updated:** 28 October 2026
 - **Workspace:** `C:\Users\wjboy\OneDrive\Documents\ChatGPT\Align V3.0`
 - **Original source (read-only):** `C:\Align\Align_App`
 - **Working branch:** `codex/align-v3-rebuild`
@@ -23,7 +23,7 @@
 - [x] Local navigation JavaScript regressions, selected Owner Builder unittest checks, Build 156 cache verifier, workflow YAML parsing, and `git diff --check` passed on `132e46d19c0fc52abc098ab4cc13af0eca588c0b`; GitHub Actions has not produced a run for this commit.
 - [~] iCloud calendar selection now lists all calendars in the connected account, lets users select existing calendars or create new ones, creates a matching quick-add Section, and offers an event/reminder calendar dropdown with a “Create New Calendar” option. Reminder entries also create/remove their linked Section calendar event. Focused regressions and desktop browser checks pass; verify with a real Apple account, connected calendar sync, and hosted user isolation before marking complete.
 - [x] Pixel 7 Chromium and iPhone 13 WebKit passed in the local browser matrix on 23 October 2026; rerun after the next meaningful UI changes.
-- [~] Shift retirement is implemented at the active-flow boundary: public schedule APIs reject before storage access; fresh schemas omit schedule tables; Home, availability, Travel, iCloud, phone push, calendar export, and Scriptable use retained event/reminder data. Legacy helper functions and compatibility schemas remain for data preservation and need final dead-code review.
+- [~] The October shift-retirement pass was reversed. Fresh SQLite and PostgreSQL schemas include the shift planner again, and hosted startup validates those tables. Older SQLite files without the `156_shift_planner` marker stay on the preservation path. Apply migration 156 on an existing Neon database before expecting hosted startup to pass.
 - [x] Added a default optional Work database form with Location, Shift Area, date, start/end time, and Notes fields, linked to the stable Work associations in Management Studio. It appears in Sections for users to opt in and manage private records. Owners can edit its questions and associations in Studio. Focused builder/privacy tests and desktop Chromium pass; hosted deployment verification remains outstanding.
 - [x] Updated end-user calendar, reminder, and iCloud wording to describe Section events and event reminders instead of the retired shift planner; the iCloud sync data path already syncs Section events.
 - [x] Removed legacy shift-alert rules from the user Notifications screen; kept the account notification preference and preserved underlying legacy tables/data for the migration plan.
@@ -61,12 +61,12 @@
 - [x] Remove shift rows from the active Home Upcoming feed and use Section events only in the subscribed calendar; legacy schedules remain stored.
 - [x] Retire public shift creation/editing/leave/alert/work-setup endpoints before storage access; old Admin page redirects to Management Studio. Dead helper functions still need final cleanup.
 - [~] Active shift API paths are retired and dependent Travel/iCloud/phone-push paths are event-only. Remaining unreferenced legacy helper functions in `app.py` need a final safe-removal pass.
-- [x] Fresh PostgreSQL/SQLite schemas omit schedule tables. Legacy `schema.sql` and PostgreSQL bootstrap remain explicitly compatibility-only; existing legacy data is preserved.
+- [x] Fresh PostgreSQL and SQLite schemas include the restored shift planner and record `156_shift_planner`. `schema.sql` remains the compatibility initializer for older SQLite files that have schedule tables and no marker. Existing rows are preserved.
 - [~] Removed unused week-planner and fixed work-setup clients; converted Scriptable widget/guide to V3 calendar events and retired offline shift queue creation/replay. Some unreachable shift markup remains in the shared legacy JS file pending final pruning.
 - [~] Removed obsolete shift-only test modules (`test_calendar_sync.py`, `test_work_setup.py`, `test_week_booking.py`, `test_shift_completions.py`, `test_work_settings.py`) after moving retained test setup into `test_support.py`; broader shift scripts, UI and documentation remain.
 - [ ] Run the full Python suite, JavaScript unit checks, browser suite, startup/schema checks, and fresh-database migration checks.
 - [~] Active route/source audit is complete for Travel, phone push, iCloud, offline storage and Scriptable; final scan still needs to classify unreferenced legacy helpers and old release/docs references.
-**Current release gate:** not ready for external testers. The optional Work database form and Section-event calendar are implemented, but residual shift/admin code and the shift-era Postgres bootstrap remain. Neon schema is not installed; Render must be repointed and configured; uploaded asset storage must survive free-tier restarts; Microsoft Graph/Apple live account setup and initial Owner password are pending. Render Free supports custom domains, with cold-start and ephemeral-file limitations.
+**Current release gate:** not ready for external testers. The shift planner is restored in code and in the fresh schemas. Neon `align_v3` still needs `fresh_v3_schema.sql` and migration 156 applied. Render service `align-v3` is not created. Uploaded asset storage, Microsoft Graph, a real Apple account, and the initial Owner password are still pending. Do not change IONOS DNS until those gates pass. Render Free supports custom domains, with cold-start and ephemeral-file limitations.
 ## 3. Database-backed Sections and user input matrices
 - [x] Add numbered SQLite/Postgres migrations for `calendar_links`, `section_defs`, and `section_fields`; include them in migration expectations and hosted test fixture.
 - [x] Materialize published Builder layouts into database section definitions; keep submitted user data in private per-user `builder_records` storage.

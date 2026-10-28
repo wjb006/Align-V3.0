@@ -90,16 +90,18 @@ class ShiftPlannerApiTests(unittest.TestCase):
         self.assertEqual(len(leave["annual_leave"]),1)
         self.json_request("DELETE",f"/api/annual-leave/{leave['annual_leave'][0]['id']}",expected=200)
 
-    def test_v3_storage_validator_does_not_depend_on_schedule_tables(self):
+    def test_v3_storage_validator_requires_restored_planner_tables(self):
         from postgres_support import validate_v3_storage
         class RecordingConnection:
             def __init__(self): self.statements=[]
             def execute(self,statement):
                 self.statements.append(statement)
-                if any(table in statement for table in ("shifts","shift_templates","locations","shift_types","annual_leave","alert_rules","shift_batches")):
-                    raise AssertionError("storage validator must stay schema-agnostic")
         connection=RecordingConnection()
         validate_v3_storage(connection)
+        joined="\n".join(connection.statements)
+        for table in ("locations","shift_types","location_shift_types","shift_templates",
+                      "shifts","shift_batches","annual_leave","alert_rules","alerts"):
+            self.assertIn(f"FROM {table} ", joined)
         self.assertTrue(connection.statements)
         self.assertTrue(all("LIMIT 0" in statement for statement in connection.statements))
 
