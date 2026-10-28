@@ -198,8 +198,9 @@ def _week(connection, raw_date):
         LEFT JOIN organiser_sections s ON s.id=e.section_id
         WHERE e.start_at < ? AND e.end_at >= ? ORDER BY e.start_at""",
         ((end+timedelta(days=1)).isoformat(),start.isoformat()))
-    imported = _rows(connection, """SELECT e.*,s.name AS category_name,s.section_id,s.colour AS section_colour
+    imported = _rows(connection, """SELECT e.*,s.name AS category_name,s.section_id,os.colour AS section_colour
         FROM calendar_events e JOIN calendar_sources s ON s.id=e.source_id
+        LEFT JOIN organiser_sections os ON os.id=s.section_id
         WHERE e.start_at < ? AND e.end_at >= ? ORDER BY e.start_at""",
         ((end+timedelta(days=1)).isoformat(),start.isoformat()))
     import work_setup

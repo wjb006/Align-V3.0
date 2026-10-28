@@ -403,6 +403,13 @@ class FreshAlertRouteTests(unittest.TestCase):
             self.assertNotIn("no such table", json.dumps(body).lower())
             self.assertIn("not stored", body["error"].lower())
 
+            status, month = call("GET", "/api/month?month=2026-10")
+            self.assertEqual(status, 200, month)
+            self.assertIn("events", month)
+            status, week = call("GET", "/api/week?start=2026-10-28")
+            self.assertEqual(status, 200, week)
+            self.assertIn("imported_events", week)
+
 
 class DesktopStatusGuardTests(unittest.TestCase):
     def test_desktop_status_rejects_remote_clients(self):
