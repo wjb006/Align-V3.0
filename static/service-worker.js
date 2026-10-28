@@ -1,5 +1,5 @@
 const BUILD = 156;
-const ASSET_VERSION = `${BUILD}-v56`;
+const ASSET_VERSION = `${BUILD}-v57`;
 
 const SHELL_CACHE = `align-v13-shell-${ASSET_VERSION}`;
 const API_CACHE = `align-v13-api-${ASSET_VERSION}`;
@@ -11,6 +11,7 @@ const SHELL_ASSETS = [
 
   `/styles.css?v=${ASSET_VERSION}`,
   `/owner-builder.css?v=${ASSET_VERSION}`,
+  `/visual-theme.css?v=${ASSET_VERSION}`,
 
   `/dates.js?v=${ASSET_VERSION}`,
   `/offline-store.js?v=${ASSET_VERSION}`,
