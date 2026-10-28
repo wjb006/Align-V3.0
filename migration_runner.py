@@ -5,8 +5,9 @@ from pathlib import Path
 import sqlite3
 import uuid
 from sqlite_support import connect
+from align_paths import source_root
 
-ROOT = Path(__file__).resolve().parent / 'migrations'
+ROOT = source_root() / 'migrations'
 ID = '149_asset_studio'
 LOG = logging.getLogger(__name__)
 
