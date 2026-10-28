@@ -285,6 +285,8 @@ class DesktopLaunchTests(unittest.TestCase):
             with patch.object(app, "DATABASE", database):
                 app.initialise_database()
                 with app.db_connection() as connection:
+                    connection.execute("DROP TABLE alerts")
+                    connection.execute("DROP TABLE alert_rules")
                     self.assertIsNone(connection.execute(
                         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='alerts'"
                     ).fetchone())
@@ -303,16 +305,6 @@ class DesktopLaunchTests(unittest.TestCase):
                 app.initialise_database()
                 when = (datetime.now() + timedelta(days=1)).replace(microsecond=0).isoformat(timespec="minutes")
                 with sqlite3.connect(database) as connection:
-                    connection.execute(
-                        """CREATE TABLE alerts (
-                            id INTEGER PRIMARY KEY, shift_id INTEGER NOT NULL, title TEXT NOT NULL,
-                            alert_at TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending')"""
-                    )
-                    connection.execute(
-                        """CREATE TABLE alert_rules (
-                            id INTEGER PRIMARY KEY, title TEXT NOT NULL,
-                            minutes_before INTEGER NOT NULL, active INTEGER NOT NULL DEFAULT 1)"""
-                    )
                     connection.execute(
                         """INSERT INTO shifts(work_date,location_name,shift_type_name,colour,start_time,end_time,hours)
                            VALUES('2026-10-28','Lime Street','Early','#365CE6','09:00','17:00',8)"""
@@ -334,6 +326,82 @@ class DesktopLaunchTests(unittest.TestCase):
     def test_legacy_override_can_disable_adoption(self):
         with patch.dict(os.environ, {"ALIGN_LEGACY_DATABASES": ""}):
             self.assertEqual(legacy_database_candidates(), [])
+
+
+class FreshAlertRouteTests(unittest.TestCase):
+    def test_alert_routes_are_safe_and_still_store_rules(self):
+        import sqlite3
+        import tempfile
+        import urllib.error
+        from datetime import datetime, timedelta
+
+        with tempfile.TemporaryDirectory() as folder:
+            env = {
+                "ALIGN_DATA_DIR": folder,
+                "ALIGN_LEGACY_DATABASES": "",
+                "ALIGN_BETA_MODE": "0",
+            }
+            port = free_port()
+            with patch.dict(os.environ, env, clear=False):
+                handle = start_server(Path(folder), port, wait_seconds=40)
+            self.addCleanup(handle.stop)
+            base = f"http://127.0.0.1:{handle.port}"
+
+            def call(method, path, payload=None):
+                data = None if payload is None else json.dumps(payload).encode()
+                request = urllib.request.Request(
+                    base + path,
+                    data=data,
+                    method=method,
+                    headers={"Content-Type": "application/json"},
+                )
+                try:
+                    with urllib.request.urlopen(request, timeout=10) as response:
+                        return response.status, json.loads(response.read().decode())
+                except urllib.error.HTTPError as error:
+                    return error.code, json.loads(error.read().decode())
+
+            status, body = call("GET", "/api/alerts")
+            self.assertEqual(status, 200)
+            self.assertEqual(body["alerts"], [])
+            status, body = call("GET", "/api/alert-rules")
+            self.assertEqual(status, 200)
+            self.assertEqual(body["alert_rules"], [])
+
+            status, created = call("POST", "/api/alert-rules", {"title": "Time to leave", "minutes_before": 30})
+            self.assertEqual(status, 201)
+            status, body = call("GET", "/api/alert-rules")
+            self.assertEqual(status, 200)
+            self.assertEqual(body["alert_rules"][0]["title"], "Time to leave")
+            self.assertEqual(body["alert_rules"][0]["id"], created["id"])
+
+            database = Path(folder) / "align.sqlite3"
+            when = (datetime.now() + timedelta(hours=2)).replace(microsecond=0).isoformat(timespec="minutes")
+            with sqlite3.connect(database) as connection:
+                connection.execute(
+                    """INSERT INTO shifts(work_date,location_name,shift_type_name,colour,start_time,end_time,hours)
+                       VALUES('2026-10-28','Lime Street','Early','#365CE6','09:00','17:00',8)"""
+                )
+                shift_id = connection.execute("SELECT id FROM shifts").fetchone()[0]
+                connection.execute(
+                    "INSERT INTO alerts(shift_id,title,alert_at,status) VALUES(?,?,?,'pending')",
+                    (shift_id, "Leave home", when),
+                )
+            status, body = call("GET", "/api/alerts")
+            self.assertEqual(status, 200)
+            self.assertEqual([item["title"] for item in body["alerts"]], ["Leave home"])
+
+            with sqlite3.connect(database) as connection:
+                connection.execute("DROP TABLE alerts")
+                connection.execute("DROP TABLE alert_rules")
+            status, body = call("GET", "/api/alerts")
+            self.assertEqual((status, body["alerts"]), (200, []))
+            status, body = call("GET", "/api/alert-rules")
+            self.assertEqual((status, body["alert_rules"]), (200, []))
+            status, body = call("POST", "/api/alert-rules", {"title": "Later", "minutes_before": 15})
+            self.assertEqual(status, 400)
+            self.assertNotIn("no such table", json.dumps(body).lower())
+            self.assertIn("not stored", body["error"].lower())
 
 
 class DesktopStatusGuardTests(unittest.TestCase):
@@ -359,6 +427,9 @@ class InstallerGuardTests(unittest.TestCase):
         self.assertNotIn("Remove-Item $ExistingDatabase -Force", text)
         self.assertIn("never deletes", text.lower())
         self.assertIn("Align.exe", text)
+        launcher = (Path(__file__).resolve().parent / "installer" / "windows" / "Launch-Align-Studio.ps1").read_text(encoding="utf-8")
+        self.assertIn("studio-environment.ps1", launcher)
+        self.assertIn("Align Management Studio.lnk", text)
 
 
 if __name__ == "__main__":

@@ -24,6 +24,8 @@
 .sc-hour{display:grid;grid-template-columns:70px minmax(0,1fr);height:52px;border-bottom:1px solid var(--line,#e7ebf2)}
 .sc-hour:last-child{border-bottom:0}
 .sc-hour>time{padding:8px;font-size:12px;color:var(--muted,#66758c);border-right:1px solid var(--line,#e7ebf2)}
+.sc-hour.is-now{background:var(--blue-soft,#e7edff)}
+.sc-hour.is-now>time{color:var(--blue,#365ce6);font-weight:750}
 .sc-span{position:absolute;z-index:1;overflow:hidden;min-height:28px}
 .sc-detail{margin:0 0 14px;padding:16px;border:1px solid var(--line,#dbe2ec);border-radius:12px;background:var(--surface,#fff);display:grid;gap:6px}
 .sc-detail h3,.sc-detail p{margin:0}

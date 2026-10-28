@@ -113,6 +113,25 @@ func TestDataDirectoryUsesTheOverride(t *testing.T) {
 	}
 }
 
+func TestLaunchActionPrefersAnExistingAlign(t *testing.T) {
+	if launchAction(true, true) != "open" || launchAction(true, false) != "open" {
+		t.Fatal("a healthy Align should be opened, not started again")
+	}
+	if launchAction(false, true) != "blocked" {
+		t.Fatal("another programme on the port should block launch")
+	}
+	if launchAction(false, false) != "start" {
+		t.Fatal("a free port should start the desktop programme")
+	}
+}
+
+func TestProgrammeArgsLeaveTheWindowToTheLauncher(t *testing.T) {
+	args := programmeArgs([]string{"-m", "desktop"})
+	if strings.Join(args, " ") != "-m desktop --no-browser" {
+		t.Fatalf("args = %v", args)
+	}
+}
+
 func TestWindowsAppWindowFallsBackToTheDefaultBrowser(t *testing.T) {
 	command, args := commandForBrowser("http://127.0.0.1:8001/management-studio", "")
 	if command != "rundll32" {

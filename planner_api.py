@@ -13,6 +13,27 @@ def _rows(connection, sql, args=()):
     return [dict(row) for row in connection.execute(sql, args).fetchall()]
 
 
+def _has_table(connection, name: str) -> bool:
+    """True when this database has the table.
+
+    Postgres has no sqlite_master. A failed lookup means use the hosted schema,
+    which already includes the shift-reminder tables.
+    """
+    try:
+        row = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+            (name,),
+        ).fetchone()
+    except Exception:
+        return True
+    return bool(row)
+
+
+def _require_alert_rules(connection) -> None:
+    if not _has_table(connection, "alert_rules"):
+        raise ValueError("Shift reminders are not stored in this database.")
+
+
 def _iso_date(value):
     return date.fromisoformat(str(value or "")).isoformat()
 
@@ -88,6 +109,8 @@ def _create_shift_alerts(connection, shift_id, work_date, start_time, event_name
 
 
 def _rebuild_shift_alerts(connection):
+    if not (_has_table(connection, "shifts") and _has_table(connection, "alerts") and _has_table(connection, "alert_rules")):
+        return
     upcoming = _rows(connection, """SELECT id,work_date,start_time,location_name,shift_type_name
         FROM shifts WHERE work_date>=? ORDER BY work_date,start_time""", (date.today().isoformat(),))
     for shift in upcoming:
@@ -260,11 +283,17 @@ def handle_get(handler, app, connection, parsed, row) -> bool:
     if path == "/api/templates":
         self.send_json(200,{"templates":_templates(connection)}); return True
     if path == "/api/alert-rules":
-        self.send_json(200,{"alert_rules":_rows(connection,"SELECT * FROM alert_rules ORDER BY id")}); return True
+        rules = []
+        if _has_table(connection, "alert_rules"):
+            rules = _rows(connection, "SELECT * FROM alert_rules ORDER BY id")
+        self.send_json(200, {"alert_rules": rules}); return True
     if path == "/api/alerts":
-        self.send_json(200,{"alerts":_rows(connection,"""SELECT a.*,s.work_date,s.start_time,s.end_time,s.location_name,s.shift_type_name
+        alerts = []
+        if _has_table(connection, "alerts") and _has_table(connection, "shifts"):
+            alerts = _rows(connection, """SELECT a.*,s.work_date,s.start_time,s.end_time,s.location_name,s.shift_type_name
             FROM alerts a JOIN shifts s ON s.id=a.shift_id WHERE a.status='pending'
-            ORDER BY a.alert_at LIMIT 100""")}); return True
+            ORDER BY a.alert_at LIMIT 100""")
+        self.send_json(200, {"alerts": alerts}); return True
     if path == "/api/dashboard":
         self.send_json(200,app.dashboard(connection)); return True
     if path == "/api/address-search":
@@ -329,6 +358,7 @@ def handle_post(handler, app, connection, path, payload, row) -> bool:
         cur=connection.execute("INSERT INTO shift_templates(location_id,shift_type_id,label,sub_shift_type,start_time,end_time,break_minutes,applicable_days) VALUES(?,?,?,?,?,?,?,?)",(location_id,type_id,label,str(payload.get("sub_shift_type",""))[:80],start,end,break_minutes,json.dumps(payload.get("applicable_days",[]))))
         connection.commit(); self.send_json(201,{"id":cur.lastrowid}); return True
     if path == "/api/alert-rules":
+        _require_alert_rules(connection)
         title=str(payload.get("title","Shift reminder")).strip()[:120]; minutes=int(payload.get("minutes_before",15))
         if not 0<=minutes<=10080: raise ValueError("Reminder must be between 0 and 7 days.")
         cur=connection.execute("INSERT INTO alert_rules(title,minutes_before,active) VALUES(?,?,?)",(title,minutes,1))
@@ -359,6 +389,7 @@ def handle_put(handler, app, connection, path, payload, row) -> bool:
         _create_shift_alerts(connection,item_id,values[0],values[7],values[4]+" – "+values[5])
         connection.commit(); self.send_json(200,{"id":item_id}); return True
     if path.startswith("/api/alert-rules/"):
+        _require_alert_rules(connection)
         item_id=int(path.rsplit("/",1)[1]); title=str(payload.get("title","")).strip()[:80]; minutes=int(payload.get("minutes_before",60))
         if not title: raise ValueError("Give this alert a name.")
         if not 0<=minutes<=10080: raise ValueError("Reminder must be between 0 and 7 days.")
@@ -386,6 +417,7 @@ def handle_delete(handler, app, connection, path, row) -> bool:
     if path.startswith("/api/annual-leave/"):
         connection.execute("DELETE FROM annual_leave WHERE id=?",(int(path.rsplit("/",1)[1]),)); connection.commit(); self.send_json(200,{"ok":True}); return True
     if path.startswith("/api/alert-rules/"):
+        _require_alert_rules(connection)
         connection.execute("DELETE FROM alert_rules WHERE id=?",(int(path.rsplit("/",1)[1]),))
         _rebuild_shift_alerts(connection)
         connection.commit(); self.send_json(200,{"ok":True}); return True
