@@ -2,6 +2,7 @@
 
 No DDL, schema creation, data copying or fallback to local files is permitted.
 """
+import logging
 import os
 import re
 import sqlite3
