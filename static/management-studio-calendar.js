@@ -103,6 +103,17 @@
       const day=list.filter(e=>overlaps(e, from, to));
       body=`<div class="sc-day-list">${day.map(eventCard).join('')||'<p class="sc-empty-day">No events scheduled for this day.</p>'}</div>`;
     } else {
+      const day=list.filter(e=>dateKey(e.start)===dateKey(from));
+      if(mode==='day') body=`<div class="sc-day-list">${day.map(eventCard).join('')||'<p class="sc-empty-day">No events scheduled for this day.</p>'}</div>`;
+      else {
+        const nowHour=new Date().getHours();
+        body='<div class="sc-time-grid">'+Array.from({length:24},(_,hour)=>{const matches=day.filter(e=>!e.allDay && e.start.getHours()===hour);return `<div class="sc-hour" data-hour="${hour}"${hour===nowHour?' aria-current="time"':''}><time>${pad(hour)}:00</time><div>${matches.map(eventCard).join('')}</div></div>`;}).join('')+'</div>';
+        const allDay=day.filter(e=>e.allDay);if(allDay.length)body='<div class="sc-all-day"><strong>All day</strong>'+allDay.map(eventCard).join('')+'</div>'+body;
+      }
+    }
+    root.innerHTML=`<div class="sc-toolbar"><div class="sc-nav"><button type="button" data-cal-nav="-1" aria-label="Previous ${mode}">‹</button><button type="button" data-cal-today>Today</button><button type="button" data-cal-nav="1" aria-label="Next ${mode}">›</button><h2>${esc(heading)}</h2></div><div class="sc-modes" role="group" aria-label="Calendar view">${[['month','Month'],['week','Week'],['day','Day'],['hour','Day / Hour']].map(([key,label])=>`<button type="button" data-cal-mode="${key}" aria-pressed="${mode===key}">${label}</button>`).join('')}<button type="button" data-cal-add>+ Add event</button></div></div><p class="sc-source"><span></span> Source: saved Align events on this server. Imported calendar events are shown read-only.</p><div class="sc-status" role="status" aria-live="polite">${busy?'Loading saved events…':events.length?events.length+' saved events loaded.':'No saved events found in the selected date range.'}</div>${body}<form class="sc-add-form" hidden><h3>Add an Align event</h3><label>Title<input name="title" required maxlength="160"></label><div class="sc-form-grid"><label>Section<select name="section_id" required></select></label><label>Date<input name="date" type="date" required value="${dateKey(cursor)}"></label><label>Start<input name="start" type="time" value="09:00" required></label><label>End<input name="end" type="time" value="10:00" required></label></div><label>Location (optional)<input name="location" maxlength="240"></label><label>Notes (optional)<textarea name="notes" rows="2" maxlength="4000"></textarea></label><label class="sc-check"><input type="checkbox" name="all_day"> All-day event</label><div class="sc-form-actions"><button type="button" data-cal-cancel>Cancel</button><button type="submit">Save event</button></div></form>`;
+    const select=root.querySelector('[name="section_id"]');if(select)select.innerHTML=sections.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+    if(mode==='hour') root.querySelector(`[data-hour="${new Date().getHours()}"]`)?.scrollIntoView({block:'center'});
       body = list.length || true ? hourGrid(from, list) : '';
     }
     const values = formValues(editing);
