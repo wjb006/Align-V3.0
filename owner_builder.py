@@ -6,6 +6,8 @@ import os
 import re
 import secrets
 import subprocess
+import threading
+import time
 import urllib.error
 import urllib.request
 import bill_calculations
@@ -211,7 +213,7 @@ def fields_validate(fields):
         if fid in seen: raise BuilderError('Field identifiers must be unique.')
         seen.add(fid)
         kind = f.get('type')
-        if kind not in ('text', 'textarea', 'tel', 'email', 'number', 'date', 'select', 'checkbox', 'formula'):
+        if kind not in ('text', 'address', 'textarea', 'tel', 'email', 'number', 'date', 'select', 'checkbox', 'formula'):
             raise BuilderError('Unsupported field type.')
         label = text(f.get('label', ''), 80)
         if not label: raise BuilderError('Every field needs a label.')
@@ -1052,6 +1054,43 @@ def values_validate(fields, values):
             out[f['id']] = False if f['type'] == 'checkbox' else ''
             continue
         v = values.get(f['id'], False if f['type'] == 'checkbox' else '')
+        if f['type'] == 'address':
+            if isinstance(v, str):
+                v = {'label': v, 'postcode': '', 'town': '', 'country': '', 'latitude': None, 'longitude': None, 'place_id': ''}
+            if v in ('', None):
+                if f['required']:
+                    raise BuilderError(f"{f['label']} is required.")
+                out[f['id']] = ''
+                continue
+            if not isinstance(v, dict):
+                raise BuilderError(f"Enter a valid address for {f['label']}.")
+            label = text(v.get('label', ''), 500)
+            if not label:
+                if f['required']:
+                    raise BuilderError(f"{f['label']} is required.")
+                out[f['id']] = ''
+                continue
+            address = {
+                'label': label,
+                'postcode': text(v.get('postcode', ''), 30),
+                'town': text(v.get('town', ''), 120),
+                'country': text(v.get('country', ''), 80),
+                'place_id': text(str(v.get('place_id', '')), 80),
+                'latitude': None,
+                'longitude': None,
+            }
+            for coordinate, lower, upper in (('latitude', -90, 90), ('longitude', -180, 180)):
+                raw = v.get(coordinate)
+                if raw not in (None, ''):
+                    try:
+                        number = float(raw)
+                    except (ValueError, TypeError):
+                        raise BuilderError(f"Invalid address coordinates for {f['label']}.")
+                    if not math.isfinite(number) or not lower <= number <= upper:
+                        raise BuilderError(f"Invalid address coordinates for {f['label']}.")
+                    address[coordinate] = number
+            out[f['id']] = address
+            continue
         if f['required'] and (v is None or v == '' or (f['type'] == 'checkbox' and v is not True)):
             raise BuilderError(f"{f['label']} is required.")
         if v in ('', None) and f['type'] != 'checkbox':
@@ -1115,9 +1154,14 @@ def bootstrap(owner_path, c):
     )
 
 
+_ADDRESS_SEARCH_LOCK = threading.Lock()
+_ADDRESS_SEARCH_LAST = 0.0
+_ADDRESS_SEARCH_CACHE = {}
+
+
 def handle(handler, app, method):
     """Called before legacy handlers. Existing owner/session checks stay authoritative."""
-    from urllib.parse import urlparse, parse_qs
+    from urllib.parse import urlparse, parse_qs, urlencode
     path = urlparse(handler.path).path
     owner_pages = (
         '/studio', '/studio.html',
@@ -1376,6 +1420,67 @@ def handle(handler, app, method):
                 if not handler.beta_same_origin(): return True
             elif handler.headers.get('Origin') not in (None, 'http://' + handler.headers.get('Host', '')):
                 raise BuilderError('Use the current Align site.', 403)
+        if path == '/api/builder/address-search':
+            if method != 'GET':
+                raise BuilderError('Address search only supports GET.', 405)
+            query = (parse_qs(urlparse(handler.path).query).get('q') or [''])[0].strip()
+            if len(query) < 3:
+                handler.send_json(200, {'results': []})
+                return True
+            if len(query) > 120:
+                raise BuilderError('Search text is too long.', 400)
+            cache_key = query.casefold()
+            global _ADDRESS_SEARCH_LAST
+            with _ADDRESS_SEARCH_LOCK:
+                cached = _ADDRESS_SEARCH_CACHE.get(cache_key)
+                if cached is not None:
+                    results = cached
+                else:
+                    delay = 1.0 - (time.monotonic() - _ADDRESS_SEARCH_LAST)
+                    if delay > 0:
+                        time.sleep(delay)
+                    url = 'https://photon.komoot.io/api/?' + urlencode({
+                        'q': query,
+                        'limit': 5,
+                        'lang': 'en',
+                        'bbox': '-8.65,49.8,1.77,60.9',
+                    })
+                    request = urllib.request.Request(url, headers={
+                        'User-Agent': 'Align-V3.0/1.0 address-autocomplete',
+                        'Accept': 'application/json',
+                    })
+                    try:
+                        with urllib.request.urlopen(request, timeout=5) as response:
+                            payload = json.loads(response.read(500_000).decode('utf-8'))
+                    except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+                        raise BuilderError('Address suggestions are temporarily unavailable. Enter the address manually.', 503) from exc
+                    _ADDRESS_SEARCH_LAST = time.monotonic()
+                    results = []
+                    features = payload.get('features', []) if isinstance(payload, dict) else []
+                    for feature in features if isinstance(features, list) else []:
+                        properties = feature.get('properties') or {}
+                        coordinates = (feature.get('geometry') or {}).get('coordinates') or []
+                        town = properties.get('city') or properties.get('district') or properties.get('county') or properties.get('state') or ''
+                        street_line = ' '.join(part for part in (properties.get('housenumber', ''), properties.get('street', '')) if part)
+                        first = properties.get('name') or street_line
+                        label_parts = []
+                        for part in (first, street_line if street_line and street_line != first else '', properties.get('postcode', ''), town, properties.get('country', '')):
+                            if part and part not in label_parts:
+                                label_parts.append(part)
+                        results.append({
+                            'label': text(', '.join(label_parts), 500),
+                            'postcode': text(properties.get('postcode', ''), 30),
+                            'town': text(town, 120),
+                            'country': text(properties.get('country', ''), 80),
+                            'latitude': float(coordinates[1]) if len(coordinates) > 1 else None,
+                            'longitude': float(coordinates[0]) if len(coordinates) > 1 else None,
+                            'place_id': text(str(properties.get('osm_type', 'photon')) + ':' + str(properties.get('osm_id', properties.get('osm_key', ''))), 80),
+                        })
+                    _ADDRESS_SEARCH_CACHE[cache_key] = results
+                    if len(_ADDRESS_SEARCH_CACHE) > 100:
+                        _ADDRESS_SEARCH_CACHE.pop(next(iter(_ADDRESS_SEARCH_CACHE)))
+            handler.send_json(200, {'results': results})
+            return True
         if owner_action:
             if method == 'GET' and path.endswith('/history'):
                 handler.send_json(200, history(app.DATABASE))

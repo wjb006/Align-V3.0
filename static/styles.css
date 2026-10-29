@@ -742,3 +742,46 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .restored-event-open:focus-visible { outline:2px solid var(--blue,#365CE6); outline-offset:4px; border-radius:8px; }
 
 .restored-planner-warning { border-left:4px solid #d97706; background:var(--surface,#fff); }
+
+
+/* Address autocomplete field — shared by the form preview and published forms. */
+.address-search { position: relative; }
+.address-results {
+  position: relative;
+  z-index: 20;
+  display: grid;
+  gap: 0;
+  max-height: 260px;
+  margin-top: 6px;
+  overflow-y: auto;
+  border: 1px solid var(--edit-border, #cbd5e1);
+  border-radius: 12px;
+  background: var(--edit-surface, #fff);
+  box-shadow: 0 12px 28px rgba(10, 25, 50, .16);
+}
+.address-results[hidden] { display: none; }
+.address-result {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  border-bottom: 1px solid rgba(100, 116, 139, .18);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.address-result:last-child { border-bottom: 0; }
+.address-result:hover, .address-result:focus-visible {
+  outline: none;
+  background: rgba(54, 92, 230, .09);
+}
+.address-result strong { font-weight: 650; }
+.address-result small, .address-results-status { color: #64748b; font-size: .88em; }
+.address-results-status { margin: 0; padding: 12px 14px; }
+@media (max-width: 600px) {
+  .address-results { max-height: 220px; }
+  .address-result { padding: 14px 12px; }
+}
