@@ -325,8 +325,16 @@ async function verifyManagementStudio(browser) {
     });
     await page.waitForFunction(() => {
       const frame = document.querySelector('#management-live-frame');
-      return frame?.contentDocument?.getElementById('align-studio-live-preview-theme')?.textContent.includes('--blue: #123456');
+      const style = frame?.contentDocument?.getElementById('align-studio-live-preview-theme');
+      return style?.textContent.includes('--blue: #123456');
     });
+    const injectedTheme = await page.locator('#management-live-frame').evaluate(frame =>
+      frame.contentDocument.getElementById('align-studio-live-preview-theme')?.textContent || ''
+    );
+    assert.equal(injectedTheme.includes('.card, .weather-card'), false,
+      'Draft appearance must not flatten every live app card into the same forced styling');
+    assert.equal(injectedTheme.includes('background-image:none!important'), false,
+      'The live preview must preserve the app’s native gradients and component finish');
     assert.equal(await page.locator('#save').isEnabled(),true);
     await page.locator('#save').click();
     await page.waitForFunction(() => document.querySelector('#management-status')?.textContent.startsWith('Draft saved'));
