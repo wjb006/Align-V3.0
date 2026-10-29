@@ -47,7 +47,7 @@ class UiPolishTests(unittest.TestCase):
         self.assertIn("width: min(100%, var(--shell))", self.css)
         self.assertNotIn("white-space: nowrap; max-width: calc(100vw - 32px)", self.css)
         self.assertIn("#toast[data-tone=\"error\"]", self.css)
-        self.assertIn("--edit-background: #10142a !important", self.css)
+        self.assertIn("--edit-background: #061326 !important", self.css)
 
     def test_install_navigation_and_validation_feedback(self):
         self.assertIn('class="skip-link"', self.index)
@@ -68,6 +68,10 @@ class UiPolishTests(unittest.TestCase):
         self.assertIn("156-v56", self.index)
         self.assertIn("`${BUILD_VERSION}-v56`", self.app)
         self.assertIn("`${BUILD}-v56`", self.worker)
+        self.assertIn("156-v57", self.index)
+        self.assertIn("`${BUILD_VERSION}-v57`", self.app)
+        self.assertIn("`${BUILD}-v57`", self.worker)
+        self.assertIn("/visual-theme.css?v=156-v57", self.index)
         self.assertIn("align-v13-shell-${ASSET_VERSION}", self.worker)
         self.assertNotIn("156-v21", self.index)
 

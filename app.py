@@ -30,6 +30,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import Request, urlopen
 from colour_utils import colour as valid_colour
+from align_paths import source_root
 from beta_support import BetaError
 import personal_planner
 import phone_push
@@ -60,7 +61,7 @@ section_values = organiser_api.section_values
 organiser_event_values = organiser_api.organiser_event_values
 validate_parent_branch = admin_api.validate_parent_branch
 
-ROOT = Path(__file__).resolve().parent
+ROOT = source_root()
 STATIC = ROOT / "static"
 DATA_DIR = Path(os.environ.get("ALIGN_DATA_DIR") or ROOT).expanduser()
 DATABASE = DATA_DIR / "align.sqlite3"
@@ -565,9 +566,12 @@ def calendar_data(connection: sqlite3.Connection) -> dict:
            GROUP BY s.id ORDER BY s.name"""
     ))
     sync = dict(connection.execute("SELECT revision,modified_at FROM calendar_sync_state WHERE id=1").fetchone())
-    alert_rules = rows_as_dicts(connection.execute(
-        "SELECT * FROM alert_rules ORDER BY minutes_before,id"
-    ))
+    if _sqlite_table_exists(connection, "alert_rules"):
+        alert_rules = rows_as_dicts(connection.execute(
+            "SELECT * FROM alert_rules ORDER BY minutes_before,id"
+        ))
+    else:
+        alert_rules = []
     return {"sources": sources, "align_calendar_name": "Align",
             "feed_path": "/api/calendars/live.ics", "sync": sync,
             "alert_rules": alert_rules}
@@ -702,6 +706,30 @@ def _work_summary(connection: sqlite3.Connection, today: str) -> dict:
             "pay_estimate": round(hours_total*rate,2), "contracted_hours": contracted, "rate_of_pay": rate}
 
 
+def _sqlite_table_exists(connection: sqlite3.Connection, name: str) -> bool:
+    """True when this SQLite file has the table. Postgres uses its own schema."""
+    try:
+        row = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+            (name,),
+        ).fetchone()
+    except Exception:
+        return True
+    return bool(row)
+
+
+def _pending_shift_alerts(connection: sqlite3.Connection, now: datetime) -> list[dict]:
+    """Legacy shift reminders. Fresh V3 databases do not have this table."""
+    if not _sqlite_table_exists(connection, "alerts") or not _sqlite_table_exists(connection, "shifts"):
+        return []
+    return rows_as_dicts(connection.execute(
+        """SELECT a.*,s.work_date,s.start_time,s.end_time,s.location_name,s.shift_type_name
+           FROM alerts a JOIN shifts s ON s.id=a.shift_id
+           WHERE a.status='pending' AND a.alert_at>=? ORDER BY a.alert_at LIMIT 100""",
+        (now.replace(tzinfo=None).isoformat(timespec="minutes"),),
+    ))
+
+
 def dashboard(connection: sqlite3.Connection) -> dict:
     now = datetime.now(ZoneInfo('Europe/London'))
     today = now.date().isoformat()
@@ -731,12 +759,7 @@ def dashboard(connection: sqlite3.Connection) -> dict:
         "upcoming_events": upcoming_events,
         "annual_leave": [],
         "leave_balance": None,
-        "alerts": rows_as_dicts(connection.execute(
-            """SELECT a.*,s.work_date,s.start_time,s.end_time,s.location_name,s.shift_type_name
-               FROM alerts a JOIN shifts s ON s.id=a.shift_id
-               WHERE a.status='pending' AND a.alert_at>=? ORDER BY a.alert_at LIMIT 100""",
-            (now.replace(tzinfo=None).isoformat(timespec='minutes'),)
-        )),
+        "alerts": _pending_shift_alerts(connection, now),
         "reminder_alerts": [],
         "summary": _work_summary(connection, today),
     }
@@ -791,13 +814,17 @@ class AlignHandler(SimpleHTTPRequestHandler):
         # style-src still allows 'unsafe-inline' because shared pages use <style>
         # blocks and style attributes. Moving those out is a separate visual change.
         self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("X-Frame-Options", "DENY")
+        # The local Studio embeds the planner at "/". API and account pages stay
+        # unframeable. Same-origin only: other sites still cannot embed Align.
+        frameable = path in {"/", "/index.html"}
+        self.send_header("X-Frame-Options", "SAMEORIGIN" if frameable else "DENY")
         self.send_header("Referrer-Policy", "no-referrer")
+        ancestors = "'self'" if frameable else "'none'"
         self.send_header(
             "Content-Security-Policy",
             "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; "
-            "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'",
+            f"base-uri 'self'; object-src 'none'; frame-ancestors {ancestors}; form-action 'self'",
         )
         if path == "/service-worker.js":
             self.send_header("Service-Worker-Allowed", "/")
@@ -1127,6 +1154,10 @@ class AlignHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         self.rewrite_public_path()
+        if urlparse(self.path).path == "/api/desktop/status":
+            from desktop.status import handle_status
+            handle_status(self)
+            return
         if reject_retired_schedule_endpoint(self): return
         if build152.handle(self, sys.modules[__name__], 'GET'): return
         if phone_push.handle(self, sys.modules[__name__], 'GET'): return
@@ -1165,6 +1196,8 @@ class AlignHandler(SimpleHTTPRequestHandler):
             self.send_json(400, {"error": str(error)})
             return
         beta_http.apply_pages(self, sys.modules[__name__], parsed)
+        if urlparse(self.path).path in {"/desktop", "/desktop/"}:
+            self.path = "/desktop.html"
         super().do_GET()
 
     def do_POST(self):
@@ -1273,7 +1306,7 @@ class AlignServer(ThreadingHTTPServer):
         super().server_bind()
 
 
-if __name__ == "__main__":
+def main() -> None:
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
@@ -1334,10 +1367,14 @@ if __name__ == "__main__":
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print('\nAlign stopped. Your saved data is kept in align.sqlite3.')
+        print("\nAlign stopped. Your saved planner data was kept.")
     finally:
         LOG.info("Align server stopping")
         server.server_close()
         if admin_server is not None:
             admin_server.shutdown()
             admin_server.server_close()
+
+
+if __name__ == "__main__":
+    main()

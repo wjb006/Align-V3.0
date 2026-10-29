@@ -18,7 +18,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 156;
-const ASSET_VERSION = `${BUILD_VERSION}-v56`;
+const ASSET_VERSION = `${BUILD_VERSION}-v57`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -271,7 +271,7 @@ function applyManagementAppearance() {
   document.body.dataset.eventTimeSize = appearance.events?.time_size || 'large';
   document.body.dataset.managementTextScale = appearance.type?.scale || 'default';
   document.body.dataset.managementCorners = appearance.type?.corners || 'soft';
-  const theme = appearance.type?.theme || 'light';
+  const theme = appearance.type?.theme || 'dark';
   document.body.dataset.managementTheme = theme === 'auto' ? (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme;
   document.body.dataset.managementFont = appearance.type?.font || 'system';
   document.body.dataset.managementHeading = appearance.type?.heading || 'bold';
@@ -355,19 +355,47 @@ function renderHomeGreeting(dashboard) {
     ? (settings.user_name || 'Align admin')
     : `${greeting()}${settings.user_name ? `, ${settings.user_name}` : ''}`;
   const weather = typeof homeWeatherChip === 'function' ? homeWeatherChip() : '';
-  return `<div class="hero home-greeting"><div class="home-date-row"><p class="eyebrow">${escapeHtml(fullDateLabel(dashboard.today))}</p>${weather}</div><h1>${escapeHtml(title)}</h1></div>`;
+  return `<header class="dashboard-welcome home-greeting"><div class="home-date-row"><p class="eyebrow">${escapeHtml(fullDateLabel(dashboard.today))}</p>${weather}</div><h1>${escapeHtml(title)}</h1><p class="subtle">Everything in one place.</p></header>`;
+}
+function homeShortcutSection(pattern) {
+  return (state.sectionDefinitions || []).find(section => pattern.test(`${section.key || ''} ${section.name || ''}`));
+}
+function renderHomeShortcuts() {
+  const work = homeShortcutSection(/work|shift|rota/i);
+  const finance = homeShortcutSection(/finance|bill|budget/i);
+  const icons = {
+    work: '<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4m8-4v4M4 9h16M8 13h2m4 0h2m-8 4h2m4 0h2"/></svg>',
+    planner: '<svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>',
+    journeys: '<svg viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z"/><circle cx="12" cy="9" r="2.2"/></svg>',
+    finances: '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18m-5 5h2"/><path d="M6 6V4h13"/></svg>',
+  };
+  const shortcut = (key, title, detail, section, fallback) => {
+    const ready = section && (!section.optional || section.enabled);
+    const destination = ready ? `data-section-key="${escapeHtml(section.key)}"` : `data-nav="${fallback}"`;
+    return `<button class="dashboard-shortcut dashboard-shortcut--${key}" ${destination} aria-label="${title.replace('&amp;','&')}: ${escapeHtml(detail)}"><span class="dashboard-shortcut-icon" aria-hidden="true">${icons[key]}</span><span>${title}</span></button>`;
+  };
+  return `<nav class="dashboard-shortcuts" aria-label="Quick access">
+    ${shortcut('work','Work &amp; Shifts',work ? 'Open work records' : 'Set up in Sections',work,'sections')}
+    ${shortcut('planner','Planner','Open notes and reminders',null,'inbox')}
+    ${shortcut('journeys','Journeys','Plan a journey',null,'transport')}
+    ${shortcut('finances','Finances',finance ? 'Open your finance records' : 'Set up in Sections',finance,'sections')}
+  </nav>`;
 }
 function renderHome() {
   const { dashboard } = state.boot;
   const sections = state.boot.builder ? state.boot.sections : rootSections();
   return `<section class="page">
     ${renderHomeGreeting(dashboard)}
+    ${renderHomeShortcuts()}
     ${homeSection('stats') ? `<div class="hero-stat-row home-week-stats"><div class="hero-stat"><strong>${sections.length}</strong><span>your sections</span></div><div class="hero-stat"><strong>${dashboard.upcoming_events?.length || 0}</strong><span>upcoming events</span></div></div>` : ''}
-    ${homeSection('today') ? personalToday() : ''}
-    ${homeSection('upcoming') ? `<section class="section" data-management-banner="upcoming">
-      <div class="section-head"><h2>${homeSectionTitle('upcoming','Upcoming Events')}</h2><div class="button-row"><button class="text-button" data-build153-manage-contacts>Saved contacts</button></div></div>
-      ${renderUpcomingGrouped(dashboard)}
-    </section>` : ''}
+    <div class="dashboard-panels">
+      ${homeSection('today') ? `<div class="dashboard-today">${personalToday({includeQuickAdd:false})}</div>` : ''}
+      ${homeSection('upcoming') ? `<section class="section dashboard-upcoming" data-management-banner="upcoming">
+        <div class="section-head"><h2>${homeSectionTitle('upcoming','Upcoming Events')}</h2><div class="button-row"><button class="text-button" data-build153-manage-contacts>Saved contacts</button></div></div>
+        ${renderUpcomingGrouped(dashboard)}
+      </section>` : ''}
+    </div>
+    ${state.boot.personal && homeSection('today') && homeSectionContent('today','show_quick_add',true) && typeof personalQuickAdd === 'function' ? `<div class="dashboard-bottom-tools">${personalQuickAdd()}</div>` : ''}
     ${homeSection('calendar') ? `<section class="section home-calendar-section" data-management-banner="calendar"><div class="section-head"><h2>${homeSectionTitle('calendar','Calendar')}</h2><button type="button" class="text-button" data-nav="planner">Open calendar</button></div>${homeSectionContent('calendar','show_upcoming',true) ? renderUpcomingGrouped(dashboard) : '<p class="subtle">Your calendar is ready. Open it to view and manage your events.</p>'}</section>` : ''}
   </section>`;
 }

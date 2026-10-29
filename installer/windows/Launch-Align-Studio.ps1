@@ -1,15 +1,15 @@
 $ErrorActionPreference = "Stop"
 $InstallRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$PythonW = Join-Path $InstallRoot ".venv\Scripts\pythonw.exe"
 $Python = Join-Path $InstallRoot ".venv\Scripts\python.exe"
-$Launcher = Join-Path $InstallRoot "Align-Management-Studio.exe"
-$DataRoot = Join-Path $env:LOCALAPPDATA "Align"
-$EnvironmentFile = Join-Path $DataRoot "studio-environment.ps1"
-if (-not (Test-Path $Python) -or -not (Test-Path $Launcher)) {
+$App = Join-Path $InstallRoot "app"
+if (-not (Test-Path (Join-Path $App "app.py")) -or -not (Test-Path $Python)) {
     Add-Type -AssemblyName PresentationFramework
-    [System.Windows.MessageBox]::Show("Align Management Studio needs installation or repair. Run the installer again.","Align Management Studio") | Out-Null
+    [System.Windows.MessageBox]::Show("Align needs to be installed again. Your saved planner data was not removed.","Align") | Out-Null
     exit 1
 }
-if (Test-Path $EnvironmentFile) { . $EnvironmentFile }
-$env:ALIGN_DATA_DIR = $DataRoot
+$Runtime = if (Test-Path $PythonW) { $PythonW } else { $Python }
+$env:ALIGN_DATA_DIR = Join-Path $env:LOCALAPPDATA "Align"
 $env:ALIGN_STUDIO_LOCAL = "1"
-Start-Process -FilePath $Launcher -WorkingDirectory $InstallRoot
+$env:ALIGN_BETA_MODE = "0"
+Start-Process -FilePath $Runtime -ArgumentList @("-m", "desktop") -WorkingDirectory $App -WindowStyle Hidden
