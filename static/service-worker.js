@@ -33,6 +33,7 @@ const SHELL_ASSETS = [
   '/icon.svg',
 
   '/icons/align-180.png',
+  '/icons/align-brand.png',
   '/icons/align-192.png',
   '/icons/align-512.png',
   '/icons/align-maskable-512.png',

@@ -10,6 +10,12 @@
   "theme_color": "#061326",
   "icons": [
     {
+      "src": "/icons/align-brand.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
       "src": "/icons/align-192.png",
       "sizes": "192x192",
       "type": "image/png",

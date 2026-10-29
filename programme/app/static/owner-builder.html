@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport"
+          content="width=device-width,initial-scale=1">
+
+    <title>Align Management Studio — Build Studio</title>
+
+    <link rel="stylesheet"
+          href="/styles.css?v=151-week-alerts1">
+
+    <link rel="stylesheet"
+          href="/owner-builder.css?v=161-builder-menu-scroll">
+
+    <link rel="icon"
+          href="/icon.svg">
+</head>
+
+<body class="builder-body">
+
+    <header class="builder-topbar">
+
+        <div class="builder-topbar-left">
+
+            <button id="builder-nav-toggle"
+                    class="builder-icon-button"
+                    type="button"
+                    aria-label="Open Builder navigation"
+                    aria-expanded="false"
+                    aria-controls="builder-sidebar">
+                ☰
+            </button>
+
+            <a class="brand builder-brand"
+               href="/beta-admin">
+                <span class="brand-mark">A</span>
+
+                <span>
+                    Align
+                    <small>Builder</small>
+                </span>
+            </a>
+
+        </div>
+
+        <div class="builder-top-actions">
+
+            <span id="draft-indicator"
+                  class="builder-draft-state"
+                  role="status"></span>
+
+            <button id="undo"
+                    class="secondary-button"
+                    disabled>
+                Undo
+            </button>
+
+            <button id="redo"
+                    class="secondary-button"
+                    disabled>
+                Redo
+            </button>
+
+            <button id="save"
+                    class="secondary-button"
+                    disabled>
+                Save draft
+            </button>
+
+            <button id="publish"
+                    class="primary-button"
+                    disabled>
+                Publish
+            </button>
+
+        </div>
+
+    </header>
+
+
+    <div class="builder-app">
+
+        <aside id="builder-sidebar"
+               class="builder-sidebar"
+               aria-label="Builder navigation">
+
+            <div class="builder-sidebar-head">
+
+                <div>
+                    <p class="eyebrow">Management Studio</p>
+                    <h1>Build Studio</h1>
+                </div>
+
+                <button id="builder-nav-close"
+                        class="builder-icon-button builder-mobile-only"
+                        type="button"
+                        aria-label="Close navigation">
+                    ×
+                </button>
+
+            </div>
+
+
+            <label class="builder-search">
+
+                <span>Find anything</span>
+
+                <input id="edit-search"
+                       type="search"
+                       placeholder="Search..."
+                       autocomplete="off">
+
+            </label>
+
+
+            <nav class="builder-tabs"
+                 aria-label="Builder sections">
+
+                <div class="builder-tab-group">
+                    <span class="builder-tab-label">
+                        Core experience
+                    </span>
+                    <button data-tab="overview"
+                            aria-pressed="true">
+                        <span class="builder-nav-icon">⌂</span>
+                        Overview
+                    </button>
+                </div>
+
+                <div class="builder-tab-group">
+
+                    <span class="builder-tab-label">
+                        App
+                    </span>
+
+                    <button data-tab="startup"
+                            aria-pressed="false">
+                        <span class="builder-nav-icon">◉</span>
+                        Startup
+                    </button>
+
+                    <button data-tab="menus"
+                            aria-pressed="false">
+                        <span class="builder-nav-icon">☰</span>
+                        Menus
+                    </button>
+
+                    <button data-tab="home-nav"
+                            aria-pressed="false">
+                        <span class="builder-nav-icon">⌂</span>
+                        Home & navigation
+                    </button>
+
+                    <button data-tab="base-structure"
+                            aria-pressed="false">
+                        <span class="builder-nav-icon">◇</span>
+                        Base structure
+                    </button>
+
+                </div>
+
+
+                <div class="builder-tab-group">
+
+                    <span class="builder-tab-label">
+                        Data & journeys
+                    </span>
+
+                    <button data-tab="layouts"
+                            aria-pressed="false">
+                        <span class="builder-nav-icon">▦</span>
+                        Databases
+                    </button>
+
+                    <button data-tab="travel-results"
+                            aria-pressed="false">
+                        <span class="builder-nav-icon">→</span>
+                        Travel
+                    </button>
+
+                </div>
+
+
+                <div class="builder-tab-group">
+
+                    <span class="builder-tab-label">
+                        Finish
+                    </span>
+
+                    <button data-tab="review"
+                            aria-pressed="false">
+                        <span class="builder-nav-icon">✓</span>
+                        Review changes
+                    </button>
+
+                </div>
+
+            </nav>
+
+
+            <div class="builder-sidebar-footer">
+
+                <a class="text-button"
+                   href="/beta-admin">
+                    Owner controls
+                </a>
+
+                <a class="text-button"
+                   href="/admin">
+                    Work & calendar settings
+                </a>
+
+            </div>
+
+        </aside>
+
+
+        <main class="builder-main">
+
+            <section class="builder-page-head">
+
+                <div>
+
+                    <p class="eyebrow">
+                        Make Align your own
+                    </p>
+
+                    <h2 id="builder-page-title">
+                        Edit your app
+                    </h2>
+
+                    <p>
+                        Change one thing at a time.
+                        Save a draft whenever you want and publish when you're ready.
+                    </p>
+
+                </div>
+
+
+                <div class="builder-view-controls">
+
+                    <label>
+
+                        Preview
+
+                        <select id="preview-size">
+                            <option value="desktop">
+                                Desktop
+                            </option>
+
+                            <option value="phone">
+                                Phone
+                            </option>
+                        </select>
+
+                    </label>
+
+                    <button id="preview-toggle"
+                            class="secondary-button"
+                            type="button"
+                            aria-pressed="false">
+                        Hide preview
+                    </button>
+
+                </div>
+
+            </section>
+
+
+            <div id="builder-status"
+                 class="builder-status"
+                 role="status"
+                 aria-live="polite">
+                Loading your builder…
+            </div>
+
+
+            <div id="builder-content"></div>
+
+
+            <footer class="builder-footer">
+
+                <details>
+
+                    <summary>
+                        Advanced Builder tools
+                    </summary>
+
+                    <p>
+                        These tools are useful for backups or recovery.
+                        Normal editing does not require them.
+                    </p>
+
+                    <div class="button-row">
+
+                        <button id="export"
+                                class="text-button"
+                                type="button">
+                            Export configuration
+                        </button>
+
+                        <label class="text-button">
+
+                            Import configuration
+
+                            <input id="import"
+                                   type="file"
+                                   accept=".json,application/json"
+                                   hidden>
+
+                        </label>
+
+                        <button id="discard"
+                                class="text-button"
+                                type="button">
+                            Reset draft to published
+                        </button>
+
+                    </div>
+
+                </details>
+
+            </footer>
+
+        </main>
+
+    </div>
+
+
+    <button id="builder-sidebar-backdrop"
+            class="builder-sidebar-backdrop"
+            type="button"
+            aria-label="Close Builder navigation"
+            hidden></button>
+
+
+    <script src="/dates.js?v=156-v25"></script>
+    <script src="/builder-fields.js?v=157-finance"></script>
+    <script src="/builder-finance.js?v=157-finance"></script>
+
+    <script src="/owner-builder.js?v=156-v29"></script>
+
+    <script src="/owner-builder-layout.js?v=158-builder-layout"></script>
+
+</body>
+
+</html>
