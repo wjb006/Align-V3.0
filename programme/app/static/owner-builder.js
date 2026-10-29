@@ -102,11 +102,12 @@ async function api(path, options={}) {
     const paths = edges.map(edge => {
       const source = positions.get(edge.from), target = positions.get(edge.to); if (!source || !target) return '';
       let sx, sy, tx, ty, d;
-      if (target.row > source.row) { sx=source.x+nodeWidth/2; sy=source.y+nodeHeight; tx=target.x+nodeWidth/2; ty=target.y; const mid=(sy+ty)/2; d=`M ${sx} ${sy} C ${sx} ${mid}, ${tx} ${mid}, ${tx} ${ty}`; }
+      if (edge.from === edge.to) { sx=source.x+nodeWidth; sy=source.y+nodeHeight/2; tx=source.x; ty=source.y+nodeHeight/2; d=`M ${sx} ${sy} C ${sx+44} ${sy-44}, ${tx-44} ${ty-44}, ${tx} ${ty}`; }
+      else if (target.row > source.row) { sx=source.x+nodeWidth/2; sy=source.y+nodeHeight; tx=target.x+nodeWidth/2; ty=target.y; const mid=(sy+ty)/2; d=`M ${sx} ${sy} C ${sx} ${mid}, ${tx} ${mid}, ${tx} ${ty}`; }
       else if (target.row < source.row) { sx=source.x+nodeWidth/2; sy=source.y; tx=target.x+nodeWidth/2; ty=target.y+nodeHeight; const mid=(sy+ty)/2; d=`M ${sx} ${sy} C ${sx} ${mid}, ${tx} ${mid}, ${tx} ${ty}`; }
       else if (target.x > source.x) { sx=source.x+nodeWidth; sy=source.y+nodeHeight/2; tx=target.x; ty=target.y+nodeHeight/2; const mid=(sx+tx)/2; d=`M ${sx} ${sy} C ${mid} ${sy}, ${mid} ${ty}, ${tx} ${ty}`; }
       else { sx=source.x; sy=source.y+nodeHeight/2; tx=target.x+nodeWidth; ty=target.y+nodeHeight/2; const mid=(sx+tx)/2; d=`M ${sx} ${sy} C ${mid} ${sy}, ${mid} ${ty}, ${tx} ${ty}`; }
-      return `<path class="database-flow-svg-edge" d="${d}" marker-end="url(#database-flow-arrow)"/>`;
+      return `<path class="database-flow-svg-edge ${edge.repeat ? "is-repeat" : ""}" d="${d}" marker-end="url(#database-flow-arrow)"/>`;
     }).join('');
     const cards = nodes.map(node => {
       const p=positions.get(node.id), field=node.field, kind=node.kind;
@@ -876,12 +877,12 @@ function workflowFriendlyEditor(layout) {
             <label>Connect to
               <select id="workflow-connect-target">
                 <option value="">Choose a step…</option>
-                ${workflow.nodes.filter(item => item.id !== node.id && !outgoing.some(edge => edge.to === item.id)).map(item => '<option value="' + e(item.id) + '">' + e(workflowNodeLabel(layout,item)) + '</option>').join('')}
+                ${workflow.nodes.map(item => '<option value="' + e(item.id) + '">' + e(workflowNodeLabel(layout,item)) + '</option>').join('')}
               </select>
             </label>
-            <button type="button" class="secondary-button" data-workflow-add-edge="${e(node.id)}">Add connection</button>
+            <label class="workflow-loop-option"><input type="checkbox" id="workflow-connect-loop"> Create as a repeat / loop connection</label><label>Maximum repeats <input id="workflow-connect-loop-limit" type="number" min="1" max="20" value="3"></label><button type="button" class="secondary-button" data-workflow-add-edge="${e(node.id)}">Add connection</button>
             <div class="workflow-edit-connections">
-              ${(workflow.edges || []).map((edge,index) => '<div class="finance-next-step workflow-edge-editor"><div class="builder-two"><label>From<select data-workflow-edge-from="' + index + '">' + workflow.nodes.map(item => '<option value="' + e(item.id) + '"' + (item.id === edge.from ? ' selected' : '') + '>' + e(workflowNodeLabel(layout,item)) + '</option>').join('') + '</select></label><label>To<select data-workflow-edge-to="' + index + '">' + workflow.nodes.map(item => '<option value="' + e(item.id) + '"' + (item.id === edge.to ? ' selected' : '') + '>' + e(workflowNodeLabel(layout,item)) + '</option>').join('') + '</select></label></div>' + (edge.when ? '<small>Conditional · ' + e(workflowCondition(edge,layout)) + '</small>' : '<button type="button" class="secondary-button" data-workflow-make-conditional="' + index + '">Make conditional</button>') + '<div class="button-row"><button type="button" class="secondary-button" data-workflow-update-edge="' + index + '">Update connection</button><button type="button" class="secondary-button" data-workflow-remove-edge="' + index + '">Remove</button></div></div>').join('')}
+              ${(workflow.edges || []).map((edge,index) => '<div class="finance-next-step workflow-edge-editor"><div class="builder-two"><label>From<select data-workflow-edge-from="' + index + '">' + workflow.nodes.map(item => '<option value="' + e(item.id) + '"' + (item.id === edge.from ? ' selected' : '') + '>' + e(workflowNodeLabel(layout,item)) + '</option>').join('') + '</select></label><label>To<select data-workflow-edge-to="' + index + '">' + workflow.nodes.map(item => '<option value="' + e(item.id) + '"' + (item.id === edge.to ? ' selected' : '') + '>' + e(workflowNodeLabel(layout,item)) + '</option>').join('') + '</select></label></div>' + (edge.when ? '<small>Conditional · ' + e(workflowCondition(edge,layout)) + '</small>' : '<button type="button" class="secondary-button" data-workflow-make-conditional="' + index + '">Make conditional</button>') + '<label class="workflow-loop-option"><input type="checkbox" data-workflow-loop-toggle="' + index + '"' + (edge.action === "repeat" ? " checked" : "") + '> Repeat / loop</label><label>Maximum repeats <input type="number" min="1" max="20" value="' + e(String(edge.max_iterations || 3)) + '" data-workflow-loop-limit="' + index + '"' + (edge.action === "repeat" ? "" : " disabled") + '></label><div class="button-row"><button type="button" class="secondary-button" data-workflow-update-edge="' + index + '">Update connection</button><button type="button" class="secondary-button" data-workflow-remove-edge="' + index + '">Remove</button></div></div>').join('')}
             </div>
           </div>
         </div>
@@ -1742,10 +1743,10 @@ function render(previewOnly=false) {
                       <div class="database-flow-connect-controls">
                         <label>From<select id="database-flow-from">${databaseFlowOptions(layout, '__flow_start__')}</select></label>
                         <label>To<select id="database-flow-to">${databaseFlowOptions(layout, layout.fields?.[0]?.id || '__flow_finish__')}</select></label>
-                        <button type="button" class="secondary-button" data-database-flow-add-edge>Add connection</button>
+                        <label class="database-flow-loop-option"><input type="checkbox" id="database-flow-repeat"> Repeat / loop connection</label><label>Maximum repeats<input id="database-flow-repeat-limit" type="number" min="1" max="20" value="3"></label><button type="button" class="secondary-button" data-database-flow-add-edge>Add connection</button>
                       </div>
                       <div class="database-flow-edge-list">
-                        ${databaseFlowEdges(layout).map((edge,index)=>`<div class="database-flow-edge"><strong>${e(databaseFlowLabel(layout,edge.from))} <span aria-hidden="true">→</span> ${e(databaseFlowLabel(layout,edge.to))}</strong><button type="button" class="secondary-button" data-database-flow-remove-edge="${index}">Remove</button></div>`).join('') || '<p class="helper">No connections yet. Add one above.</p>'}
+                        ${databaseFlowEdges(layout).map((edge,index)=>`<div class="database-flow-edge"><strong>${e(databaseFlowLabel(layout,edge.from))} <span aria-hidden="true">→</span> ${e(databaseFlowLabel(layout,edge.to))}</strong>${edge.repeat ? '<small class="database-flow-loop-badge">Repeat · max ' + e(String(edge.max_iterations || 3)) + '</small>' : ''}<button type="button" class="secondary-button" data-database-flow-remove-edge="${index}">Remove</button></div>`).join('') || '<p class="helper">No connections yet. Add one above.</p>'}
                       </div>
                     </section>
                   </div>
@@ -1965,6 +1966,40 @@ function render(previewOnly=false) {
   $('#builder-content').addEventListener('change', ev=>{
     const el=ev.target,key=el.dataset.prop||'';
 
+    if (el.hasAttribute('data-workflow-loop-toggle')) {
+      const layout = currentLayout();
+      const index = Number(el.dataset.workflowLoopToggle);
+      const edge = layout?.workflow?.edges?.[index];
+      if (!edge) return;
+      changed();
+      if (el.checked) {
+        edge.action = 'repeat';
+        edge.max_iterations = Math.max(1, Math.min(20, Number(document.querySelector('[data-workflow-loop-limit="' + index + '"]')?.value || 3)));
+      } else {
+        delete edge.action;
+        delete edge.max_iterations;
+      }
+      status(el.checked ? 'Bounded repeat loop enabled. Set a maximum of 1–20 repeats.' : 'Repeat loop removed from this connection.');
+      render();
+      return;
+    }
+
+    if (el.hasAttribute('data-workflow-loop-limit')) {
+      const layout = currentLayout();
+      const index = Number(el.dataset.workflowLoopLimit);
+      const edge = layout?.workflow?.edges?.[index];
+      if (!edge || edge.action !== 'repeat') return;
+      const limit = Number(el.value);
+      if (!Number.isInteger(limit) || limit < 1 || limit > 20) {
+        status('Maximum repeats must be a whole number between 1 and 20.', true);
+        return;
+      }
+      changed();
+      edge.max_iterations = limit;
+      status('Repeat limit updated in the draft.');
+      return;
+    }
+
     if(el.hasAttribute('data-workflow-condition-field')){
       const layout=currentLayout();
       const index=Number(el.dataset.workflowConditionField);
@@ -2077,11 +2112,11 @@ if(b.dataset.workflowNode) {
      const adjacency = new Map();
      proposed.forEach(item => { if (!adjacency.has(item.from)) adjacency.set(item.from, []); adjacency.get(item.from).push(item.to); });
      const reaches = (from,to) => { const seen = new Set(); const stack = [from]; while (stack.length) { const current = stack.pop(); if (current === to) return true; if (seen.has(current)) continue; seen.add(current); (adjacency.get(current) || []).forEach(next => stack.push(next)); } return false; };
-     if (reaches(target,source)) { status('That connection would create a workflow loop.', true); return; }
+     if (reaches(target,source) && edge.action !== 'repeat') { status('That connection would create a workflow loop. Mark an intentional repeat as a bounded loop instead.', true); return; }
      const reachable = new Set(); const stack = [workflow.start_node];
      while (stack.length) { const current = stack.pop(); if (reachable.has(current)) continue; reachable.add(current); (adjacency.get(current) || []).forEach(next => stack.push(next)); }
      if (workflow.nodes.some(item => !reachable.has(item.id))) { status('That change would leave a workflow step disconnected. Reconnect every step before updating.', true); return; }
-     changed(); edge.from = source; edge.to = target;
+     changed(); edge.from = source; edge.to = target; if (edge.action === 'repeat') edge.max_iterations = Math.max(1, Math.min(20, Number(document.querySelector('[data-workflow-loop-limit="' + index + '"]')?.value || edge.max_iterations || 3)));
      status('Connection updated in the draft. Save the draft to keep it.'); render(); return;
    }
 
@@ -2106,10 +2141,16 @@ if(b.dataset.workflowNode) {
      const layout = currentLayout(); const workflow = layout?.workflow;
      const source = b.dataset.workflowAddEdge;
      const target = document.querySelector('#workflow-connect-target')?.value;
-     if (!workflow || !target || source === target) { status('Choose a different step to connect.', true); return; }
-     if ((workflow.edges || []).some(edge => edge.from === source && edge.to === target)) { status('Those steps are already connected.', true); return; }
-     changed(); workflow.edges = workflow.edges || []; workflow.edges.push({from:source,to:target});
-     status('Connection added to the draft. Use Show when to add a condition.'); render(); return;
+     const isLoop = Boolean(document.querySelector('#workflow-connect-loop')?.checked);
+     const maxIterations = Math.max(1, Math.min(20, Number(document.querySelector('#workflow-connect-loop-limit')?.value || 3)));
+     if (!workflow || !target || (source === target && !isLoop)) { status('Choose a different step, or enable repeat / loop for a self-connection.', true); return; }
+     if ((workflow.edges || []).some(edge => edge.from === source && edge.to === target && Boolean(edge.action === 'repeat') === isLoop)) { status('That connection already exists.', true); return; }
+     const proposed = (workflow.edges || []).concat([{from:source,to:target,...(isLoop ? {action:'repeat',max_iterations:maxIterations} : {})}]);
+     const adjacency = new Map(); proposed.filter(edge => edge.action !== 'repeat').forEach(edge => { if (!adjacency.has(edge.from)) adjacency.set(edge.from, []); adjacency.get(edge.from).push(edge.to); });
+     const reaches = (from,to) => { const seen = new Set(); const stack = [from]; while (stack.length) { const current = stack.pop(); if (current === to) return true; if (seen.has(current)) continue; seen.add(current); (adjacency.get(current) || []).forEach(next => stack.push(next)); } return false; };
+     if (!isLoop && reaches(target,source)) { status('That connection would create a cycle. Enable repeat / loop and set a repeat limit to allow it.', true); return; }
+     changed(); workflow.edges = workflow.edges || []; workflow.edges.push({from:source,to:target,...(isLoop ? {action:'repeat',max_iterations:maxIterations} : {})});
+     status(isLoop ? 'Bounded repeat loop added to the draft.' : 'Connection added to the draft. Use Show when to add a condition.'); render(); return;
    }
 
 if(b.hasAttribute('data-preview-create-layout')) {
@@ -2150,14 +2191,17 @@ if(b.dataset.previewEditLayout) {
       const from = document.querySelector('#database-flow-from')?.value;
       const to = document.querySelector('#database-flow-to')?.value;
       const nodes = databaseFlowNodes(layout);
-      if (!nodes.some(node => node.id === from) || !nodes.some(node => node.id === to) || from === to) { status('Choose two different nodes for the connection.', true); return; }
+      const repeat = Boolean(document.querySelector('#database-flow-repeat')?.checked);
+      const maxIterations = Math.max(1, Math.min(20, Number(document.querySelector('#database-flow-repeat-limit')?.value || 3)));
+      if (!nodes.some(node => node.id === from) || !nodes.some(node => node.id === to) || (from === to && !repeat)) { status('Choose two different nodes, or enable Repeat / loop for a self-connection.', true); return; }
       const edges = databaseFlowEdges(layout).map(edge => ({...edge}));
-      if (edges.some(edge => edge.from === from && edge.to === to)) { status('Those nodes are already connected.', true); return; }
-      const adjacency = new Map(); edges.forEach(edge => { if (!adjacency.has(edge.from)) adjacency.set(edge.from, []); adjacency.get(edge.from).push(edge.to); });
+      if (edges.some(edge => edge.from === from && edge.to === to && Boolean(edge.repeat) === repeat)) { status('That connection already exists.', true); return; }
+      const proposed = edges.concat([{from, to, ...(repeat ? {repeat:true,max_iterations:maxIterations} : {})}]);
+      const adjacency = new Map(); proposed.filter(edge => !edge.repeat).forEach(edge => { if (!adjacency.has(edge.from)) adjacency.set(edge.from, []); adjacency.get(edge.from).push(edge.to); });
       const reaches = (start, target) => { const seen = new Set(); const stack = [start]; while (stack.length) { const current = stack.pop(); if (current === target) return true; if (seen.has(current)) continue; seen.add(current); (adjacency.get(current) || []).forEach(next => stack.push(next)); } return false; };
-      if (reaches(to, from)) { status('That connection would create a loop. Choose another destination.', true); return; }
-      changed(); layout.database_flow = layout.database_flow || {}; layout.database_flow.edges = edges.concat([{from, to}]);
-      status('Connection added to the flowchart draft. Save the draft to keep it.'); render(); return;
+      if (!repeat && reaches(to, from)) { status('That connection would create a cycle. Enable Repeat / loop and set a repeat limit to allow it.', true); return; }
+      changed(); layout.database_flow = layout.database_flow || {}; layout.database_flow.edges = proposed;
+      status(repeat ? 'Bounded repeat loop added to the flowchart draft.' : 'Connection added to the flowchart draft. Save the draft to keep it.'); render(); return;
     }
     if (b.hasAttribute('data-database-flow-remove-edge')) {
       const layout = currentLayout(); if (!layout) return;

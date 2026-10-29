@@ -1443,3 +1443,47 @@ button.database-flow-node:focus-visible {
   .database-flow-editor-pane { order: 1; }
   .database-flow-visual-pane { order: 2; }
 }
+
+
+/* Branching and bounded repeat connections in the visual form flow. */
+.database-flow-svg-edge.is-repeat {
+    stroke: #9b65dc;
+    stroke-dasharray: 7 5;
+    stroke-width: 2.8;
+}
+.database-flow-loop-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #33445f;
+    font-size: 13px;
+    font-weight: 650;
+}
+.database-flow-loop-option input {
+    width: 18px;
+    height: 18px;
+}
+.database-flow-loop-badge {
+    display: inline-flex;
+    align-items: center;
+    margin: 4px 8px 4px 0;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: #f1e8ff;
+    color: #6841a5;
+    font-size: 12px;
+    font-weight: 700;
+}
+.workflow-loop-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 10px 0;
+    color: #33445f;
+    font-size: 13px;
+    font-weight: 650;
+}
+.workflow-loop-option input {
+    width: 18px;
+    height: 18px;
+}
