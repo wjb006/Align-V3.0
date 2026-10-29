@@ -168,6 +168,12 @@ class BuilderTests(unittest.TestCase):
         })
         self.assertEqual(defaults['colors']['accent'], '#aabbcc')
         self.assertEqual(defaults['colors']['canvas'], '#061326')
+        self.assertEqual(defaults['type']['theme'], 'dark')
+        upgraded = appearance_settings.validate_appearance(
+            appearance_settings.PREVIOUS_STOCK_APPEARANCE
+        )
+        self.assertEqual(upgraded['colors']['canvas'], '#061326')
+        self.assertEqual(upgraded['type']['theme'], 'dark')
         self.assertEqual(
             appearance_settings.validate_user_overrides(
                 {'colors': {'accent': '#abcdef'}},
