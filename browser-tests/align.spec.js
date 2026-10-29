@@ -294,6 +294,20 @@ async function verifyManagementStudio(browser) {
     assert.equal(await page.locator('.management-device-screen').count(),1);
     assert.equal(await page.locator('#management-live-frame').count(),1);
     await page.frameLocator('#management-live-frame').locator('#app').waitFor({state:'attached'});
+    const desktopPreview = await page.locator('.unified-phone .management-device').boundingBox();
+    assert.ok(desktopPreview && desktopPreview.width >= 380,
+      'The desktop live phone preview should use the enlarged device width');
+    const desktopScreen = await page.locator('.unified-phone .management-device-screen').boundingBox();
+    assert.ok(desktopScreen && desktopScreen.height >= 600,
+      'The live phone screen should have enough height to show the app at realistic proportions');
+    await page.setViewportSize({width:760,height:900});
+    await page.waitForFunction(() => {
+      const phone = document.querySelector('.unified-phone');
+      const device = phone?.querySelector('.management-device');
+      return phone && device && getComputedStyle(phone).display !== 'none' &&
+        device.getBoundingClientRect().width >= 360;
+    });
+    await page.setViewportSize({width:1440,height:1000});
     assert.equal(await page.locator('#management-phone .management-phone-event').count(),0);
     await page.locator('[data-management-tab="pages"]').click();
     assert.equal(await page.locator('#design-pane').isHidden(),false);
