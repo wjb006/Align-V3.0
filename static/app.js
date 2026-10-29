@@ -271,8 +271,8 @@ function applyManagementAppearance() {
   document.body.dataset.eventTimeSize = appearance.events?.time_size || 'large';
   document.body.dataset.managementTextScale = appearance.type?.scale || 'default';
   document.body.dataset.managementCorners = appearance.type?.corners || 'soft';
-  const theme = appearance.type?.theme || 'dark';
-  document.body.dataset.managementTheme = theme === 'auto' ? (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme;
+  const theme = 'dark'; // Align's approved navy appearance is the enforced default.
+  document.body.dataset.managementTheme = theme;
   document.body.dataset.managementFont = appearance.type?.font || 'system';
   document.body.dataset.managementHeading = appearance.type?.heading || 'bold';
   document.body.dataset.managementWeekHeadings = appearance.calendar?.week_headings || 'show';
