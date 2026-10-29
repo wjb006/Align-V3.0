@@ -102,11 +102,12 @@ async function api(path, options={}) {
     const paths = edges.map(edge => {
       const source = positions.get(edge.from), target = positions.get(edge.to); if (!source || !target) return '';
       let sx, sy, tx, ty, d;
-      if (target.row > source.row) { sx=source.x+nodeWidth/2; sy=source.y+nodeHeight; tx=target.x+nodeWidth/2; ty=target.y; const mid=(sy+ty)/2; d=`M ${sx} ${sy} C ${sx} ${mid}, ${tx} ${mid}, ${tx} ${ty}`; }
+      if (edge.from === edge.to) { sx=source.x+nodeWidth; sy=source.y+nodeHeight/2; tx=source.x; ty=source.y+nodeHeight/2; d=`M ${sx} ${sy} C ${sx+44} ${sy-44}, ${tx-44} ${ty-44}, ${tx} ${ty}`; }
+      else if (target.row > source.row) { sx=source.x+nodeWidth/2; sy=source.y+nodeHeight; tx=target.x+nodeWidth/2; ty=target.y; const mid=(sy+ty)/2; d=`M ${sx} ${sy} C ${sx} ${mid}, ${tx} ${mid}, ${tx} ${ty}`; }
       else if (target.row < source.row) { sx=source.x+nodeWidth/2; sy=source.y; tx=target.x+nodeWidth/2; ty=target.y+nodeHeight; const mid=(sy+ty)/2; d=`M ${sx} ${sy} C ${sx} ${mid}, ${tx} ${mid}, ${tx} ${ty}`; }
       else if (target.x > source.x) { sx=source.x+nodeWidth; sy=source.y+nodeHeight/2; tx=target.x; ty=target.y+nodeHeight/2; const mid=(sx+tx)/2; d=`M ${sx} ${sy} C ${mid} ${sy}, ${mid} ${ty}, ${tx} ${ty}`; }
       else { sx=source.x; sy=source.y+nodeHeight/2; tx=target.x+nodeWidth; ty=target.y+nodeHeight/2; const mid=(sx+tx)/2; d=`M ${sx} ${sy} C ${mid} ${sy}, ${mid} ${ty}, ${tx} ${ty}`; }
-      return `<path class="database-flow-svg-edge" d="${d}" marker-end="url(#database-flow-arrow)"/>`;
+      return `<path class="database-flow-svg-edge ${edge.repeat ? "is-repeat" : ""}" d="${d}" marker-end="url(#database-flow-arrow)"/>`;
     }).join('');
     const cards = nodes.map(node => {
       const p=positions.get(node.id), field=node.field, kind=node.kind;
