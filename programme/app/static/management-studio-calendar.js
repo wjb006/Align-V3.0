@@ -10,7 +10,7 @@
   const fmt = d => d.toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'});
   const time = d => d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
   const keyOf = e => `${e.source_kind || 'align'}:${e.id}`;
-  let mode = 'month', cursor = new Date(), sections = [], events = [], busy = false, selected = '', editing = null;
+  let mode = 'month', cursor = new Date(), sections = [], events = [], busy = false, selected = '', editing = null, forceNow = false;
   const byKey = new Map();
   const api = async (url, options={}) => {
     const r = await fetch(url,{cache:'no-store',credentials:'same-origin',headers:{'Content-Type':'application/json',...(options.headers||{})},...options});
@@ -43,7 +43,12 @@
     });
     const columns = Math.max(1, ...placed.map(item => item.col + 1));
     const px = 52;
-    const hours = Array.from({length:24}, (_, hour) => `<div class="sc-hour"><time>${pad(hour)}:00</time><div></div></div>`).join('');
+    const today = dateKey(start) === dateKey(new Date());
+    const nowHour = new Date().getHours();
+    const hours = Array.from({length:24}, (_, hour) => {
+      const current = today && hour === nowHour;
+      return `<div class="sc-hour${current ? ' is-now' : ''}"${current ? ' data-hour-now="true" aria-current="time"' : ''}><time>${pad(hour)}:00</time><div></div></div>`;
+    }).join('');
     const blocks = placed.map(({event, col}) => {
       const startMin = Math.max(0, (event.start - start) / 60000);
       const endMin = Math.min(1440, (event.end - start) / 60000);
@@ -56,6 +61,18 @@
     const allDay = list.filter(e => e.allDay && overlaps(e, start, end));
     const banner = allDay.length ? `<div class="sc-all-day"><strong>All day</strong>${allDay.map(eventCard).join('')}</div>` : '';
     return `${banner}<div class="sc-time-wrap"><div class="sc-time-hours">${hours}${blocks}</div></div>`;
+  }
+  function pinHourGrid(root, previousScroll) {
+    const wrap = root.querySelector('.sc-time-wrap');
+    if (!wrap) return;
+    if (previousScroll != null) {
+      wrap.scrollTop = previousScroll;
+      return;
+    }
+    const mark = wrap.querySelector('[data-hour-now]');
+    if (!mark) return;
+    const delta = mark.getBoundingClientRect().top - wrap.getBoundingClientRect().top;
+    wrap.scrollTop += delta - 8;
   }
   function detail() {
     const event = byKey.get(selected);
@@ -79,36 +96,50 @@
     };
   }
   function render() {
-    const root=document.getElementById('studio-calendar');
-    if(!root)return;
-    const [from,to]=range(), list=visibleEvents();
-    const heading=mode==='month'?cursor.toLocaleDateString(undefined,{month:'long',year:'numeric'}):mode==='week'?`${fmt(from)} – ${fmt(new Date(to.getTime()-86400000))}`:fmt(from);
-    let body='';
-    if(mode==='month') {
-      const gridStart=startOfWeek(new Date(cursor.getFullYear(),cursor.getMonth(),1));
-      body='<div class="sc-month-grid">'+['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(x=>`<div class="sc-weekday">${x}</div>`).join('');
-      for(let i=0;i<42;i++){
-        const d=new Date(gridStart); d.setDate(d.getDate()+i);
-        const todays=list.filter(e=>overlaps(e, dayStart(d), nextDay(d)));
-        body+=`<div class="sc-month-day ${d.getMonth()!==cursor.getMonth()?'is-outside':''} ${dateKey(d)===dateKey(new Date())?'is-today':''}"><span class="sc-date">${d.getDate()}</span>${todays.slice(0,3).map(eventCard).join('')}${todays.length>3?'<small>+'+(todays.length-3)+' more</small>':''}</div>`;
+    const root = document.getElementById('studio-calendar');
+    if (!root) return;
+    const previousWrap = root.querySelector('.sc-time-wrap');
+    const previousScroll = previousWrap ? previousWrap.scrollTop : null;
+    const jumpToNow = forceNow;
+    forceNow = false;
+    const [from, to] = range();
+    const list = visibleEvents();
+    const heading = mode === 'month'
+      ? cursor.toLocaleDateString(undefined, {month:'long', year:'numeric'})
+      : mode === 'week'
+        ? `${fmt(from)} – ${fmt(new Date(to.getTime() - 86400000))}`
+        : fmt(from);
+    let body = '';
+    if (mode === 'month') {
+      const gridStart = startOfWeek(new Date(cursor.getFullYear(), cursor.getMonth(), 1));
+      body = '<div class="sc-month-grid">' + ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(x => `<div class="sc-weekday">${x}</div>`).join('');
+      for (let i = 0; i < 42; i++) {
+        const d = new Date(gridStart);
+        d.setDate(d.getDate() + i);
+        const todays = list.filter(e => overlaps(e, dayStart(d), nextDay(d)));
+        body += `<div class="sc-month-day ${d.getMonth() !== cursor.getMonth() ? 'is-outside' : ''} ${dateKey(d) === dateKey(new Date()) ? 'is-today' : ''}"><span class="sc-date">${d.getDate()}</span>${todays.slice(0,3).map(eventCard).join('')}${todays.length > 3 ? '<small>+' + (todays.length - 3) + ' more</small>' : ''}</div>`;
       }
-      body+='</div>';
-    } else if(mode==='week') {
-      body='<div class="sc-week-grid">'+Array.from({length:7},(_,i)=>{
-        const d=new Date(from); d.setDate(d.getDate()+i);
-        const day=list.filter(e=>overlaps(e, dayStart(d), nextDay(d)));
-        return `<section class="sc-week-day"><h3>${esc(fmt(d))}</h3>${day.map(eventCard).join('')||'<p class="sc-empty-day">No events</p>'}</section>`;
-      }).join('')+'</div>';
-    } else if(mode==='day') {
-      const day=list.filter(e=>overlaps(e, from, to));
-      body=`<div class="sc-day-list">${day.map(eventCard).join('')||'<p class="sc-empty-day">No events scheduled for this day.</p>'}</div>`;
+      body += '</div>';
+    } else if (mode === 'week') {
+      body = '<div class="sc-week-grid">' + Array.from({length:7}, (_, i) => {
+        const d = new Date(from);
+        d.setDate(d.getDate() + i);
+        const day = list.filter(e => overlaps(e, dayStart(d), nextDay(d)));
+        return `<section class="sc-week-day"><h3>${esc(fmt(d))}</h3>${day.map(eventCard).join('') || '<p class="sc-empty-day">No events</p>'}</section>`;
+      }).join('') + '</div>';
+    } else if (mode === 'day') {
+      const day = list.filter(e => overlaps(e, from, to));
+      body = `<div class="sc-day-list">${day.map(eventCard).join('') || '<p class="sc-empty-day">No events scheduled for this day.</p>'}</div>`;
     } else {
-      body = list.length || true ? hourGrid(from, list) : '';
+      body = hourGrid(from, list);
     }
     const values = formValues(editing);
     const status = busy ? 'Loading saved events…' : (events.length ? `${events.length} saved events loaded. Times use this computer’s local timezone.` : 'No saved events found.');
-    root.innerHTML=`<div class="sc-toolbar"><div class="sc-nav"><button type="button" data-cal-nav="-1" aria-label="Previous ${mode}">‹</button><button type="button" data-cal-today>Today</button><button type="button" data-cal-nav="1" aria-label="Next ${mode}">›</button><h2>${esc(heading)}</h2></div><div class="sc-modes" role="group" aria-label="Calendar view">${[['month','Month'],['week','Week'],['day','Day'],['hour','Day / Hour']].map(([key,label])=>`<button type="button" data-cal-mode="${key}" aria-pressed="${mode===key}">${label}</button>`).join('')}<button type="button" data-cal-add>+ Add event</button></div></div><p class="sc-source"><span></span> Source: saved Align events on this server. Imported calendar events are shown read-only.</p><div class="sc-status" role="status" aria-live="polite">${esc(status)}</div>${detail()}${body}<form class="sc-add-form" ${editing || root.dataset.adding==='1' ? '' : 'hidden'}><h3>${editing ? 'Edit Align event' : 'Add an Align event'}</h3><label>Title<input name="title" required maxlength="160" value="${esc(values.title)}"></label><div class="sc-form-grid"><label>Section<select name="section_id" required>${sections.map(s=>`<option value="${s.id}"${String(s.id)===values.section?' selected':''}>${esc(s.name)}</option>`).join('')}</select></label><label>Date<input name="date" type="date" required value="${esc(values.date)}"></label><label>Start<input name="start" type="time" value="${esc(values.start)}" required ${values.allDay?'disabled':''}></label><label>End<input name="end" type="time" value="${esc(values.end)}" required ${values.allDay?'disabled':''}></label></div><label>Location (optional)<input name="location" maxlength="240" value="${esc(values.location)}"></label><label>Notes (optional)<textarea name="notes" rows="2" maxlength="4000">${esc(values.notes)}</textarea></label><label class="sc-check"><input type="checkbox" name="all_day" ${values.allDay?'checked':''}> All-day event</label><div class="sc-form-actions"><button type="button" data-cal-cancel>Cancel</button><button type="submit">${editing ? 'Save changes' : 'Save event'}</button></div></form>`;
+    const keepHour = jumpToNow || !previousWrap ? null : previousScroll;
+    root.innerHTML = `<div class="sc-toolbar"><div class="sc-nav"><button type="button" data-cal-nav="-1" aria-label="Previous ${mode}">‹</button><button type="button" data-cal-today>Today</button><button type="button" data-cal-nav="1" aria-label="Next ${mode}">›</button><h2>${esc(heading)}</h2></div><div class="sc-modes" role="group" aria-label="Calendar view">${[['month','Month'],['week','Week'],['day','Day'],['hour','Day / Hour']].map(([key,label]) => `<button type="button" data-cal-mode="${key}" aria-pressed="${mode === key}">${label}</button>`).join('')}<button type="button" data-cal-add>+ Add event</button></div></div><p class="sc-source"><span></span> Source: saved Align events on this server. Imported calendar events are shown read-only.</p><div class="sc-status" role="status" aria-live="polite">${esc(status)}</div>${detail()}${body}<form class="sc-add-form" ${editing || root.dataset.adding === '1' ? '' : 'hidden'}><h3>${editing ? 'Edit Align event' : 'Add an Align event'}</h3><label>Title<input name="title" required maxlength="160" value="${esc(values.title)}"></label><div class="sc-form-grid"><label>Section<select name="section_id" required>${sections.map(s => `<option value="${s.id}"${String(s.id) === values.section ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select></label><label>Date<input name="date" type="date" required value="${esc(values.date)}"></label><label>Start<input name="start" type="time" value="${esc(values.start)}" required ${values.allDay ? 'disabled' : ''}></label><label>End<input name="end" type="time" value="${esc(values.end)}" required ${values.allDay ? 'disabled' : ''}></label></div><label>Location (optional)<input name="location" maxlength="240" value="${esc(values.location)}"></label><label>Notes (optional)<textarea name="notes" rows="2" maxlength="4000">${esc(values.notes)}</textarea></label><label class="sc-check"><input type="checkbox" name="all_day" ${values.allDay ? 'checked' : ''}> All-day event</label><div class="sc-form-actions"><button type="button" data-cal-cancel>Cancel</button><button type="submit">${editing ? 'Save changes' : 'Save event'}</button></div></form>`;
+    if (mode === 'hour') requestAnimationFrame(() => pinHourGrid(root, keepHour));
   }
+
   async function load() {
     busy=true; render();
     try {
@@ -145,7 +176,7 @@
     const modeBtn=e.target.closest('[data-cal-mode]');
     if(modeBtn){mode=modeBtn.dataset.calMode; render(); return;}
     if(e.target.closest('[data-cal-nav]')){navigate(Number(e.target.closest('[data-cal-nav]').dataset.calNav)); return;}
-    if(e.target.closest('[data-cal-today]')){cursor=new Date(); render(); return;}
+    if(e.target.closest('[data-cal-today]')){cursor=new Date(); forceNow = mode === 'hour'; render(); return;}
     if(e.target.closest('[data-cal-add]')){editing=null; selected=''; root.dataset.adding = root.dataset.adding==='1' ? '' : '1'; render(); return;}
     if(e.target.closest('[data-cal-edit]')){editing=byKey.get(selected)||null; root.dataset.adding=''; render(); return;}
     if(e.target.closest('[data-cal-close]')){selected=''; render(); return;}

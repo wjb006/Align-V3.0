@@ -57,11 +57,11 @@ for (const [name, source] of [['app',app],['index',index],['service worker',work
   if (source.includes('maps173')) throw new Error(`Stale maps173 asset version remains in ${name}`);
 }
 if (!app.includes('const ASSET_VERSION = `${BUILD_VERSION}-v57`;')) throw new Error('App asset version template is not the current Build 156 assets');
-if (!index.includes('156-v57')) throw new Error('Index asset version is not 156-v57');
+if (!index.includes('156-v58')) throw new Error('Index asset version is not 156-v58');
 if (!worker.includes('align-v13-shell-${ASSET_VERSION}')) throw new Error('Shell cache template is missing');
 if (!worker.includes('align-v13-api-${ASSET_VERSION}')) throw new Error('API cache template is missing');
 if (!worker.includes("url.pathname === '/api/sections/definitions'")) throw new Error('Offline-safe API cache omits section definitions');
 if (!app.includes('const addressSearchTimers = new WeakMap();')) throw new Error('Address suggestions are missing their debounce timer store');
 if (!app.includes('data-address-search="true"')) throw new Error('Address fields do not support live suggestions');
-if (!index.includes('/work-setup.js?v=156-v57') || !worker.includes('/work-setup.js?v=${ASSET_VERSION}')) throw new Error('Restored Work Settings assets are not loaded and cached');
+if (!index.includes('/work-setup.js?v=156-v58') || !worker.includes('/work-setup.js?v=${ASSET_VERSION}')) throw new Error('Restored Work Settings assets are not loaded and cached');
 console.log('core navigation, Events, Work Settings and Planner settings checks passed');
