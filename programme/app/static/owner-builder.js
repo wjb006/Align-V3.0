@@ -1742,10 +1742,10 @@ function render(previewOnly=false) {
                       <div class="database-flow-connect-controls">
                         <label>From<select id="database-flow-from">${databaseFlowOptions(layout, '__flow_start__')}</select></label>
                         <label>To<select id="database-flow-to">${databaseFlowOptions(layout, layout.fields?.[0]?.id || '__flow_finish__')}</select></label>
-                        <button type="button" class="secondary-button" data-database-flow-add-edge>Add connection</button>
+                        <label class="database-flow-loop-option"><input type="checkbox" id="database-flow-repeat"> Repeat / loop connection</label><label>Maximum repeats<input id="database-flow-repeat-limit" type="number" min="1" max="20" value="3"></label><button type="button" class="secondary-button" data-database-flow-add-edge>Add connection</button>
                       </div>
                       <div class="database-flow-edge-list">
-                        ${databaseFlowEdges(layout).map((edge,index)=>`<div class="database-flow-edge"><strong>${e(databaseFlowLabel(layout,edge.from))} <span aria-hidden="true">→</span> ${e(databaseFlowLabel(layout,edge.to))}</strong><button type="button" class="secondary-button" data-database-flow-remove-edge="${index}">Remove</button></div>`).join('') || '<p class="helper">No connections yet. Add one above.</p>'}
+                        ${databaseFlowEdges(layout).map((edge,index)=>`<div class="database-flow-edge"><strong>${e(databaseFlowLabel(layout,edge.from))} <span aria-hidden="true">→</span> ${e(databaseFlowLabel(layout,edge.to))}</strong>${edge.repeat ? '<small class="database-flow-loop-badge">Repeat · max ' + e(String(edge.max_iterations || 3)) + '</small>' : ''}<button type="button" class="secondary-button" data-database-flow-remove-edge="${index}">Remove</button></div>`).join('') || '<p class="helper">No connections yet. Add one above.</p>'}
                       </div>
                     </section>
                   </div>
@@ -2190,14 +2190,17 @@ if(b.dataset.previewEditLayout) {
       const from = document.querySelector('#database-flow-from')?.value;
       const to = document.querySelector('#database-flow-to')?.value;
       const nodes = databaseFlowNodes(layout);
-      if (!nodes.some(node => node.id === from) || !nodes.some(node => node.id === to) || from === to) { status('Choose two different nodes for the connection.', true); return; }
+      const repeat = Boolean(document.querySelector('#database-flow-repeat')?.checked);
+      const maxIterations = Math.max(1, Math.min(20, Number(document.querySelector('#database-flow-repeat-limit')?.value || 3)));
+      if (!nodes.some(node => node.id === from) || !nodes.some(node => node.id === to) || (from === to && !repeat)) { status('Choose two different nodes, or enable Repeat / loop for a self-connection.', true); return; }
       const edges = databaseFlowEdges(layout).map(edge => ({...edge}));
-      if (edges.some(edge => edge.from === from && edge.to === to)) { status('Those nodes are already connected.', true); return; }
-      const adjacency = new Map(); edges.forEach(edge => { if (!adjacency.has(edge.from)) adjacency.set(edge.from, []); adjacency.get(edge.from).push(edge.to); });
+      if (edges.some(edge => edge.from === from && edge.to === to && Boolean(edge.repeat) === repeat)) { status('That connection already exists.', true); return; }
+      const proposed = edges.concat([{from, to, ...(repeat ? {repeat:true,max_iterations:maxIterations} : {})}]);
+      const adjacency = new Map(); proposed.filter(edge => !edge.repeat).forEach(edge => { if (!adjacency.has(edge.from)) adjacency.set(edge.from, []); adjacency.get(edge.from).push(edge.to); });
       const reaches = (start, target) => { const seen = new Set(); const stack = [start]; while (stack.length) { const current = stack.pop(); if (current === target) return true; if (seen.has(current)) continue; seen.add(current); (adjacency.get(current) || []).forEach(next => stack.push(next)); } return false; };
-      if (reaches(to, from)) { status('That connection would create a loop. Choose another destination.', true); return; }
-      changed(); layout.database_flow = layout.database_flow || {}; layout.database_flow.edges = edges.concat([{from, to}]);
-      status('Connection added to the flowchart draft. Save the draft to keep it.'); render(); return;
+      if (!repeat && reaches(to, from)) { status('That connection would create a cycle. Enable Repeat / loop and set a repeat limit to allow it.', true); return; }
+      changed(); layout.database_flow = layout.database_flow || {}; layout.database_flow.edges = proposed;
+      status(repeat ? 'Bounded repeat loop added to the flowchart draft.' : 'Connection added to the flowchart draft. Save the draft to keep it.'); render(); return;
     }
     if (b.hasAttribute('data-database-flow-remove-edge')) {
       const layout = currentLayout(); if (!layout) return;
