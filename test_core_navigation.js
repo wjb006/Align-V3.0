@@ -63,5 +63,5 @@ if (!worker.includes('align-v13-api-${ASSET_VERSION}')) throw new Error('API cac
 if (!worker.includes("url.pathname === '/api/sections/definitions'")) throw new Error('Offline-safe API cache omits section definitions');
 if (!app.includes('const addressSearchTimers = new WeakMap();')) throw new Error('Address suggestions are missing their debounce timer store');
 if (!app.includes('data-address-search="true"')) throw new Error('Address fields do not support live suggestions');
-if (!index.includes('/work-setup.js?v=156-v57') || !worker.includes('/work-setup.js?v=${ASSET_VERSION}')) throw new Error('Restored Work Settings assets are not loaded and cached');
+if (!index.includes('/work-setup.js?v=156-v58') || !worker.includes('/work-setup.js?v=${ASSET_VERSION}')) throw new Error('Restored Work Settings assets are not loaded and cached');
 console.log('core navigation, Events, Work Settings and Planner settings checks passed');
