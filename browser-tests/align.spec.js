@@ -361,7 +361,7 @@ async function verifyManagementStudio(browser) {
     assert.equal(writes.at(-1).document.appearance.events.density,'compact');
     assert.equal(await page.locator('a[href="/owner-builder"]').count(),0,
       'The unified Management Studio should not send normal users to the legacy Owner Builder page');
-    assert.equal(await page.locator('iframe').count(),0,'The Builder must be embedded without an iframe');
+    assert.equal(await page.locator('iframe').count(),1,'Management Studio should embed the real app as its live preview');
     assert.deepEqual(pageErrors,[],'Builder and Design should initialize without JavaScript exceptions');
     await page.screenshot({path:path.join(ROOT,'test-results','management-studio-desktop.png'),fullPage:true});
 
