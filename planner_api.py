@@ -14,18 +14,17 @@ def _rows(connection, sql, args=()):
 
 
 def _has_table(connection, name: str) -> bool:
-    """True when this database has the table.
-
-    Postgres has no sqlite_master. A failed lookup means use the hosted schema,
-    which already includes the shift-reminder tables.
-    """
-    try:
+    """Check table existence without poisoning a hosted PostgreSQL transaction."""
+    if hasattr(connection, "schema"):
+        row = connection.execute(
+            "SELECT 1 FROM information_schema.tables WHERE table_schema=? AND table_name=?",
+            (connection.schema, name),
+        ).fetchone()
+    else:
         row = connection.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
             (name,),
         ).fetchone()
-    except Exception:
-        return True
     return bool(row)
 
 
