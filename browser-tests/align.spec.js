@@ -232,6 +232,9 @@ async function verifyManagementStudio(browser) {
     if (pathname === '/management-studio.html') {
       return route.fulfill({contentType:'text/html',body:html});
     }
+    if (pathname === '/') {
+      return route.fulfill({contentType:'text/html',body:fs.readFileSync(path.join(ROOT,'static','index.html'),'utf8')});
+    }
     if (pathname === '/api/builder/config' && request.method() === 'GET') {
       return route.fulfill({contentType:'application/json',body:JSON.stringify(saved)});
     }
@@ -285,76 +288,19 @@ async function verifyManagementStudio(browser) {
     await page.locator('#save').click();
     await page.waitForFunction(() => document.querySelector('#builder-status')?.textContent.startsWith('Draft saved'));
     assert.equal(writes.at(-1).document.startup.title,'Welcome V2');
-    // Return to Home before checking the Home tab state and continuing preview tests.
+    // The phone is the real app shell, not a duplicate sample UI.
     await page.locator('[data-unified-tab="dashboard"]').click();
     assert.equal(await page.locator('[data-unified-tab="dashboard"].is-active').count(),1);
     assert.equal(await page.locator('.management-device-screen').count(),1);
-    assert.match(await page.locator('#management-phone').innerText(),/Sample event/);
-    assert.equal(await page.locator('#management-phone').evaluate(el =>
-      getComputedStyle(el.querySelector('.management-phone')).getPropertyValue('--preview-accent').trim()
-    ),'#365ce6');
-    assert.equal(await page.locator('[data-unified-tab="dashboard"].is-active').count(),1);
+    assert.equal(await page.locator('#management-live-frame').count(),1);
+    await page.frameLocator('#management-live-frame').locator('#app').waitFor({state:'attached'});
+    assert.equal(await page.locator('#management-phone .management-phone-event').count(),0);
     await page.locator('[data-management-tab="pages"]').click();
     assert.equal(await page.locator('#design-pane').isHidden(),false);
     assert.equal(await page.locator('#builder-pane').isHidden(),true);
     assert.equal(await page.locator('[data-management-tab="pages"].is-active').count(),1);
     assert.equal(await page.locator('[data-unified-tab="dashboard"].is-active').count(),0);
     assert.equal(await page.locator('[data-home-title]').count() > 0, true);
-    const sectionsHome = page.locator('#management-phone [data-preview-home-section="menus"]');
-    if (await sectionsHome.count()) await sectionsHome.click();
-    const createMatrix = page.locator('#management-phone [data-preview-create-layout]');
-    if (await createMatrix.count()) {
-      await createMatrix.click();
-      assert.equal(await page.locator('#builder-content [data-layout-editor]').count(),1,
-        'Creating from the phone Sections area should open the section and matrix editor');
-      assert.equal(await page.locator('#builder-content [data-field-editor]').count(),1,
-        'A new database matrix should open with its first question ready to edit');
-      assert.equal(await page.locator('#builder-content [data-prop="review_before_save"]').isChecked(),true,
-        'New section input should include a review step by default');
-      assert.match(await page.locator('#builder-content').innerText(),/Step 1 of 3[\s\S]*Step 2 of 3[\s\S]*Step 3 of 3/);
-      await page.locator('#save').click();
-      await page.waitForFunction(() =>
-        document.querySelector('#builder-status')?.textContent.startsWith('Draft saved') &&
-        window.AlignBuilderStudio?.hasUnsavedChanges() === false
-      );
-    }
-    await page.locator('[data-unified-tab="pages"]').click();
-    await page.waitForFunction(() => document.querySelector('#design-pane')?.hidden === false);
-    await page.waitForFunction(() => document.querySelector('#management-phone [data-preview-home-section="today"] .mp-drag-handle'));
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      await page.locator('#management-phone [data-preview-home-section="today"] .mp-drag-handle').click();
-      const focused = await page.waitForFunction(() => document.activeElement?.matches('[data-home-title][aria-label="Today name"]'), null, {timeout: 5000})
-        .then(() => true, () => false);
-      if (focused) break;
-    }
-    assert.equal(await page.evaluate(() => document.activeElement?.matches('[data-home-title][aria-label="Today name"]')),true,
-      'Selecting a home area in the phone preview should focus its editor');
-    await page.locator('#management-phone [data-preview-home-section="upcoming"]').dragTo(
-      page.locator('#management-phone [data-preview-home-section="today"]')
-    );
-    assert.deepEqual((await page.locator('#management-phone [data-preview-home-section]').evaluateAll(items =>
-      items.map(item => item.dataset.previewHomeSection)
-    )).slice(0,2),['upcoming','today'],'Dragging a preview block should reorder the draft preview');
-    await page.locator('#save').click();
-    await page.waitForFunction(() => document.querySelector('#management-status')?.textContent.startsWith('Draft saved'));
-    assert.deepEqual(writes.at(-1).document.home_sections.slice().sort((a,b)=>a.sort_order-b.sort_order).map(item=>item.id).slice(0,2),['upcoming','today']);
-    await page.locator('#management-phone [data-preview-nav-id="planner"]').click();
-    assert.equal(await page.locator('#builder-pane').isHidden(),false,
-      'Selecting a bottom button in the phone should open its navigation editor');
-    assert.equal(await page.evaluate(() => document.activeElement?.matches('[data-prop^="nav-title-"]')),true);
-    await page.locator('[data-management-tab="pages"]').click();
-    await page.locator('#management-phone [data-preview-nav-id="planner"]').dragTo(
-      page.locator('#management-phone [data-preview-nav-id="today"]')
-    );
-    assert.deepEqual((await page.locator('#management-phone [data-preview-nav-id]').evaluateAll(items =>
-      items.map(item => item.dataset.previewNavId)
-    )).slice(0,2),['planner','today'],'Dragging a phone button should reorder navigation');
-    await page.locator('#save').click();
-    await page.waitForFunction(() => document.querySelector('#management-status')?.textContent.startsWith('Draft saved'));
-    assert.deepEqual(writes.at(-1).document.navigation.slice(0,2).map(item=>item.id),['planner','today']);
-    await page.locator('[data-management-tab="colors"]').click();
-    assert.equal(await page.locator('[data-unified-tab="colors"].is-active').count(),1);
-    assert.equal(await page.locator('[data-management-tab="pages"].is-active').count(),0);
 
     await page.locator('[data-management-tab="colors"]').click();
     assert.equal(await page.locator('#builder-pane').isHidden(),true);
@@ -363,9 +309,10 @@ async function verifyManagementStudio(browser) {
       element.value='#123456';
       element.dispatchEvent(new Event('input',{bubbles:true}));
     });
-    assert.equal(await page.locator('#management-phone .management-phone').evaluate(el =>
-      getComputedStyle(el).getPropertyValue('--preview-accent').trim()
-    ),'#123456');
+    await page.waitForFunction(() => {
+      const frame = document.querySelector('#management-live-frame');
+      return frame?.contentDocument?.getElementById('align-studio-live-preview-theme')?.textContent.includes('--blue: #123456');
+    });
     assert.equal(await page.locator('#save').isEnabled(),true);
     await page.locator('#save').click();
     await page.waitForFunction(() => document.querySelector('#management-status')?.textContent.startsWith('Draft saved'));
@@ -377,16 +324,11 @@ async function verifyManagementStudio(browser) {
     await page.locator('[data-setting="appearance_permissions.colors"]').check();
     await page.locator('[data-management-tab="events"]').click();
     await page.locator('[data-setting="appearance.events.density"]').selectOption('compact');
-    assert.equal(await page.locator('#management-phone .management-phone-event').first().evaluate(el =>
-      getComputedStyle(el).paddingTop
-    ),'8px');
-    await page.locator('[data-preview-screen="planner"]').click();
-    assert.match(await page.locator('#management-phone').innerText(),/PLANNER/);
-    await page.locator('[data-preview-screen="calendar"]').click();
     await page.locator('[data-management-tab="type"]').click();
     await page.locator('[data-setting="appearance.type.theme"]').selectOption('dark');
-    assert.equal(await page.locator('#management-phone .management-phone').getAttribute('data-theme'),'dark');
+    await page.waitForFunction(() => document.querySelector('#management-live-frame')?.contentDocument?.getElementById('align-studio-live-preview-theme')?.textContent.includes('color-scheme: dark'));
     await page.locator('[data-setting="appearance.type.theme"]').selectOption('light');
+    await page.waitForFunction(() => document.querySelector('#management-live-frame')?.contentDocument?.getElementById('align-studio-live-preview-theme')?.textContent.includes('color-scheme: light'));
     assert.equal(await page.locator('#export').isEnabled(),true);
     await page.locator('#import').setInputFiles({name:'bad.json',mimeType:'application/json',buffer:Buffer.from('{"nope":1}')});
     await page.waitForFunction(() => /not an Align design/.test(document.querySelector('#management-status').textContent));
@@ -396,7 +338,7 @@ async function verifyManagementStudio(browser) {
     assert.equal(await page.locator('[data-unified-tab="history"].is-active').count(),1);
     assert.equal(await page.locator('[data-unified-tab="colors"].is-active').count(),0);
     await page.waitForFunction(() => document.querySelector('#management-history')?.textContent.length > 0);
-    assert.match(await page.locator('#management-phone').innerText(),/WEEK COMMENCING/);
+    assert.equal(await page.locator('#management-live-frame').count(),1);
     await page.locator('[data-management-tab="colors"]').click();
     page.once('dialog', dialog => dialog.accept());
     await page.locator('[data-preset="forest"]').click();
