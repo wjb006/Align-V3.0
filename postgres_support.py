@@ -14,6 +14,12 @@ from psycopg.pq import TransactionStatus
 from psycopg.conninfo import conninfo_to_dict
 
 
+def _statement_kind(statement):
+    """Return a non-sensitive SQL operation/table hint for diagnostic logs."""
+    tokens = re.findall(r'[A-Za-z_][A-Za-z_0-9]*', statement[:160])
+    return ' '.join(tokens[:3]) if tokens else 'unknown'
+
+
 class Row:
     def __init__(self, names, values):
         self.names = names
@@ -146,9 +152,19 @@ class Connection:
                 names = tuple(col.name for col in cursor.description) if cursor.description else ()
                 rows = [Row(names, row) for row in cursor.fetchall()] if names else []
                 return Result(rows, cursor.rowcount)
-        except psycopg.IntegrityError:
+        except psycopg.IntegrityError as exc:
+            logging.getLogger('align.postgres').error(
+                'Hosted PostgreSQL constraint error: sqlstate=%s statement=%s',
+                getattr(exc, 'sqlstate', None), _statement_kind(sql)
+            )
             raise sqlite3.IntegrityError('Hosted database constraint violation') from None
-        except psycopg.Error:
+        except psycopg.Error as exc:
+            # Log only the SQLSTATE and operation/table hint: never log SQL values,
+            # credentials, email addresses, or bound parameters.
+            logging.getLogger('align.postgres').error(
+                'Hosted PostgreSQL query error: type=%s sqlstate=%s statement=%s',
+                type(exc).__name__, getattr(exc, 'sqlstate', None), _statement_kind(sql)
+            )
             raise sqlite3.OperationalError('Hosted Postgres query failed; check schema compatibility and connectivity') from None
 
     def executemany(self, sql, parameters):
