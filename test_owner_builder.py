@@ -344,6 +344,35 @@ class BuilderTests(unittest.TestCase):
         with builder.connect(app.BETA_STORE.database_for(self.users[1][0])) as c:
             self.assertNotEqual(builder.profile(c).get('user_phone'),'0123')
 
+    def test_address_field_stores_structured_address_and_search_is_authenticated(self):
+        current, doc = self.fixture()
+        contacts = next(layout for layout in doc['layouts'] if layout['id'] == 'contacts')
+        contacts['fields'].append({
+            'id':'address','type':'address','label':'Home address',
+            'required':True,'help':'Choose an address or type it manually.','options':[],
+        })
+        status, published = self.request(
+            'POST','/api/builder/publish',
+            {'revision':current['revision'],'document':doc},self.owner_token
+        )
+        self.assertEqual(status,200,published)
+        token = self.users[0][1]
+        address = {
+            'label':'12 Example Street, Prenton, Wirral, CH43, United Kingdom',
+            'postcode':'CH43','town':'Prenton','country':'United Kingdom',
+            'latitude':53.39,'longitude':-3.05,'place_id':'way:12345',
+        }
+        status, saved = self.request(
+            'POST','/api/builder/records/contacts',
+            {'id':'record_address','values':{'name':'Home','phone':'','address':address}},
+            token
+        )
+        self.assertEqual(status,200,saved)
+        records = self.request('GET','/api/builder/records/contacts',token=token)[1]['records']
+        self.assertEqual(records[0]['values']['address'],address)
+        self.assertEqual(self.request('GET','/api/builder/address-search?q=ab',token=token)[1],{'results':[]})
+        self.assertEqual(self.request('GET','/api/builder/address-search?q=ab')[0],403)
+
     def test_removed_fields_preserve_values_and_published_types(self):
         current = self.publish()
         token = self.users[0][1]
