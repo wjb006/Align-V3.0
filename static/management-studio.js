@@ -55,6 +55,7 @@
     type: ['Text & shape', 'Let users adjust their own text size, font, headings and corner style.']
   };
   const presets = {
+    navy: {label: 'Navy', colors: {accent:'#0878f9',canvas:'#061326',surface:'#0b203b',text:'#f4f8ff'}, banners: {today:'#0b203b',upcoming:'#0878f9',annual_leave:'#22d6c4',section_detail:'#0878f9'}, calendar: {month_cell:'#0b203b',month_weekend:'#102b4b',month_date_band:'#143457',list_day:'#0b203b',list_day_header:'#102b4b',today_cell:'#12345a'}},
     classic: {label: 'Classic blue', colors: {accent:'#365ce6',canvas:'#f7f8fc',surface:'#ffffff',text:'#162147'}, banners: {today:'#172a62',upcoming:'#365ce6',annual_leave:'#0f9d8a',section_detail:'#365ce6'}, calendar: {month_cell:'#f1f5fd',month_weekend:'#e9eefb',month_date_band:'#dfe7fb',list_day:'#f1f5fd',list_day_header:'#edf2ff',today_cell:'#e4ecff'}},
     forest: {label: 'Forest', colors: {accent:'#2f7d5b',canvas:'#f4f8f5',surface:'#ffffff',text:'#14281f'}, banners: {today:'#1d4d38',upcoming:'#2f7d5b',annual_leave:'#b5651d',section_detail:'#2f7d5b'}, calendar: {month_cell:'#eef6f1',month_weekend:'#e3efe8',month_date_band:'#d3e6db',list_day:'#eef6f1',list_day_header:'#e0eee6',today_cell:'#d5ebdf'}},
     sunset: {label: 'Sunset', colors: {accent:'#c2410c',canvas:'#fbf7f4',surface:'#ffffff',text:'#2b1810'}, banners: {today:'#7c2d12',upcoming:'#c2410c',annual_leave:'#0f766e',section_detail:'#c2410c'}, calendar: {month_cell:'#fdf3ec',month_weekend:'#f9e8dc',month_date_band:'#f4dac8',list_day:'#fdf3ec',list_day_header:'#f9e8dc',today_cell:'#fbdcc6'}},
@@ -573,7 +574,8 @@
       }
       return `<section class="mp-editable-block" data-preview-home-section="${esc(section.id)}" draggable="true"><button class="mp-drag-handle" type="button" aria-label="Select or drag ${title}">⠿</button><p class="management-phone-banner">${title.toUpperCase()}</p>${contents}</section>`;
     }).join('');
-    return `<div class="management-phone-greeting-block"><p class="management-phone-date">Wednesday 7 October 2026</p><h3 class="management-phone-greeting">Good morning</h3></div>${blockMarkup || '<p class="mp-empty">Add a home area in Studio to preview it here.</p>'}`;
+    const addArea = '<button type="button" class="mp-empty mp-add-section" data-preview-add-home-area>Add a home area</button>';
+    return `<div class="management-phone-greeting-block"><p class="management-phone-date">Wednesday 7 October 2026</p><h3 class="management-phone-greeting">Good morning</h3></div>${blockMarkup || '<p class="mp-empty">Add a home area in Studio to preview it here.</p>'}${addArea}`;
   }
 
   function renderPreviewFallback() {
@@ -627,6 +629,18 @@
   const phone = $('#management-phone');
   let draggedPreviewItem = null;
   phone.addEventListener('click', event => {
+    const addHomeArea = event.target.closest('[data-preview-add-home-area]');
+    if (addHomeArea) {
+      if (!Array.isArray(documentDraft.home_sections)) documentDraft.home_sections = [];
+      documentDraft.home_sections.push(newListSection());
+      activeTab = 'pages';
+      if (window.AlignManagementStudioNav?.activate) window.AlignManagementStudioNav.activate('pages');
+      markStudioDirty('Home area added from the phone preview. Name it, then save a draft or publish when ready.');
+      const titles = document.querySelectorAll('[data-home-title]');
+      const created = titles[titles.length - 1];
+      created?.focus();
+      return;
+    }
     const sectionEntry = event.target.closest('[data-preview-edit-layout]');
     const createSection = event.target.closest('[data-preview-create-layout]');
     if (sectionEntry || createSection) {

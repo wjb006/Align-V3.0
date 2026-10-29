@@ -2,6 +2,7 @@
 
 No DDL, schema creation, data copying or fallback to local files is permitted.
 """
+import logging
 import os
 import re
 import sqlite3
@@ -12,6 +13,12 @@ import psycopg
 from psycopg import sql
 from psycopg.pq import TransactionStatus
 from psycopg.conninfo import conninfo_to_dict
+
+
+def _statement_kind(statement):
+    """Return a non-sensitive SQL operation/table hint for diagnostic logs."""
+    tokens = re.findall(r'[A-Za-z_][A-Za-z_0-9]*', statement[:160])
+    return ' '.join(tokens[:3]) if tokens else 'unknown'
 
 
 class Row:
@@ -146,9 +153,19 @@ class Connection:
                 names = tuple(col.name for col in cursor.description) if cursor.description else ()
                 rows = [Row(names, row) for row in cursor.fetchall()] if names else []
                 return Result(rows, cursor.rowcount)
-        except psycopg.IntegrityError:
+        except psycopg.IntegrityError as exc:
+            logging.getLogger('align.postgres').error(
+                'Hosted PostgreSQL constraint error: sqlstate=%s statement=%s',
+                getattr(exc, 'sqlstate', None), _statement_kind(sql)
+            )
             raise sqlite3.IntegrityError('Hosted database constraint violation') from None
-        except psycopg.Error:
+        except psycopg.Error as exc:
+            # Log only the SQLSTATE and operation/table hint: never log SQL values,
+            # credentials, email addresses, or bound parameters.
+            logging.getLogger('align.postgres').error(
+                'Hosted PostgreSQL query error: type=%s sqlstate=%s statement=%s',
+                type(exc).__name__, getattr(exc, 'sqlstate', None), _statement_kind(sql)
+            )
             raise sqlite3.OperationalError('Hosted Postgres query failed; check schema compatibility and connectivity') from None
 
     def executemany(self, sql, parameters):
@@ -277,7 +294,8 @@ def provision_tester_schema(path):
                 ('150_calendar_links',CURRENT_TIMESTAMP),('151_sections',CURRENT_TIMESTAMP),
                 ('152_personal_item_calendars',CURRENT_TIMESTAMP),
                 ('153_hosted_travel_and_calendar_location',CURRENT_TIMESTAMP),
-                ('154_user_favourites_contacts',CURRENT_TIMESTAMP),('156_shift_planner',CURRENT_TIMESTAMP)
+                ('154_user_favourites_contacts',CURRENT_TIMESTAMP),
+                ('155_here_transit_usage',CURRENT_TIMESTAMP),('156_shift_planner',CURRENT_TIMESTAMP)
                 ON CONFLICT(migration_id) DO NOTHING""").format(sql.Identifier(schema)))
     except psycopg.Error:
         raise RuntimeError('Could not create the tester schema from the reviewed hosted schema.') from None
@@ -309,7 +327,7 @@ def validate_auth(c):
 
 
 def validate_v3_storage(c):
-    """Validate the retained V3 data model without requiring retired shift tables.
+    """Validate the retained V3 data model, including the restored shift planner.
 
     This is deliberately validation-only: hosted schema installation and upgrades
     remain explicit deployment operations, never an application-startup side effect.
@@ -320,7 +338,9 @@ def validate_v3_storage(c):
                   'section_defs', 'section_fields', 'icloud_config', 'icloud_items', 'calendar_sync_state',
                   'assets', 'asset_categories', 'asset_variants', 'asset_usage_rules',
                   'asset_audit_log', 'transport_preferences', 'transport_journey_cache',
-                  'user_favourites', 'align_contacts'):
+                  'user_favourites', 'align_contacts',
+                  'locations', 'shift_types', 'location_shift_types', 'shift_templates',
+                  'shifts', 'shift_batches', 'annual_leave', 'alert_rules', 'alerts'):
         c.execute(f'SELECT * FROM {table} LIMIT 0')
     c.execute('SELECT layout_json FROM section_defs LIMIT 0')
     c.execute('SELECT calendar_id, calendar_event_id FROM personal_items LIMIT 0')

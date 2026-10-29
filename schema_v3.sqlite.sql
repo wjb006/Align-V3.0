@@ -1,6 +1,7 @@
--- Fresh Align V3.0 SQLite schema for local/offline development. No legacy schedule tables.
-
--- Existing SQLite files containing the legacy shifts table use the compatibility initializer and are never truncated.
+-- Fresh Align V3.0 SQLite schema for local/offline development.
+-- Includes the restored shift planner: locations, shifts, leave, and alerts.
+-- An older SQLite file that has schedule tables but no 156_shift_planner
+-- marker stays on the compatibility initializer and is never truncated.
 
 PRAGMA foreign_keys = ON;
 
@@ -153,6 +154,13 @@ CREATE INDEX IF NOT EXISTS idx_leave_date ON annual_leave(leave_date);
 
 -- Shift reminders. Older files that never received these tables are still
 -- readable: the alert routes return an empty list instead of failing.
+CREATE TABLE IF NOT EXISTS alert_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    minutes_before INTEGER NOT NULL CHECK (minutes_before BETWEEN 0 AND 10080),
+    active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1))
+);
+
 CREATE TABLE IF NOT EXISTS alerts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     shift_id INTEGER NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
@@ -421,4 +429,4 @@ CREATE TABLE IF NOT EXISTS align_contacts (
     phone TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL, UNIQUE(name,address,phone)
 );
-INSERT OR IGNORE INTO schema_migrations(migration_id,applied_at) VALUES ('149_asset_studio',CURRENT_TIMESTAMP),('149_transport',CURRENT_TIMESTAMP),('150_calendar_links',CURRENT_TIMESTAMP),('151_sections',CURRENT_TIMESTAMP),('152_personal_item_calendars',CURRENT_TIMESTAMP),('154_user_favourites_contacts',CURRENT_TIMESTAMP);
+INSERT OR IGNORE INTO schema_migrations(migration_id,applied_at) VALUES ('149_asset_studio',CURRENT_TIMESTAMP),('149_transport',CURRENT_TIMESTAMP),('150_calendar_links',CURRENT_TIMESTAMP),('151_sections',CURRENT_TIMESTAMP),('152_personal_item_calendars',CURRENT_TIMESTAMP),('154_user_favourites_contacts',CURRENT_TIMESTAMP),('156_shift_planner',CURRENT_TIMESTAMP);
