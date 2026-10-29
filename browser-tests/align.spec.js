@@ -249,8 +249,9 @@ async function verifyManagementStudio(browser) {
   });
   try {
     await page.goto('http://management.test/management-studio.html',{waitUntil:'domcontentloaded'});
-    assert.match(await page.locator('#management-phone').innerText(),/Team check-in/,
-      'The initial phone preview must be usable before Studio APIs load');
+    assert.equal(await page.locator('#management-live-frame').count(), 1,
+      'Studio should render the live app frame instead of sample content');
+    assert.equal(await page.locator('#management-live-frame').getAttribute('src'), '/?studioLivePreview=1');
     await page.addStyleTag({content:fs.readFileSync(path.join(ROOT,'static','styles.css'),'utf8')});
     await page.addStyleTag({content:fs.readFileSync(path.join(ROOT,'static','management-studio.css'),'utf8')});
     await page.addScriptTag({content:fs.readFileSync(path.join(ROOT,'static','builder-fields.js'),'utf8')});
