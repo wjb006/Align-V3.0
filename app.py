@@ -707,14 +707,17 @@ def _work_summary(connection: sqlite3.Connection, today: str) -> dict:
 
 
 def _sqlite_table_exists(connection: sqlite3.Connection, name: str) -> bool:
-    """True when this SQLite file has the table. Postgres uses its own schema."""
-    try:
+    """Check table existence using the active backend's catalog."""
+    if postgres_enabled():
+        row = connection.execute(
+            "SELECT 1 FROM information_schema.tables WHERE table_schema=? AND table_name=?",
+            (connection.schema, name),
+        ).fetchone()
+    else:
         row = connection.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
             (name,),
         ).fetchone()
-    except Exception:
-        return True
     return bool(row)
 
 
