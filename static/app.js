@@ -416,6 +416,8 @@ function eventViewAttributes(_event) {
   // Non-editable events remain readable; the optional details-view handler is not loaded here.
   return '';
 }
+// Explicit global export for legacy planner scripts loaded after app.js.
+window.eventViewAttributes = window.eventViewAttributes || eventViewAttributes;
 
 function renderEventRow(event, {
   day = null,
