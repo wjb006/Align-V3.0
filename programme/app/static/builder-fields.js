@@ -95,7 +95,7 @@ window.AlignFields = {
         if (input.value.trim() !== query) return;
         list.dataset.results = JSON.stringify(results);
         list.innerHTML = results.length ? results.map((item,index) =>
-          `<button type="button" class="address-result" role="option" data-address-index="${index}"><strong>${this.escape ? '' : ''}${String(item.label||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}</strong><small>${String([item.town,item.postcode].filter(Boolean).join(' · ')).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}</small></button>`
+          `<button type="button" class="address-result" role="option" data-address-index="${index}"><strong>${String(item.label||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}</strong><small>${String([item.town,item.postcode].filter(Boolean).join(' · ')).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}</small></button>`
         ).join('') : '<p class="address-results-status">No matches found. You can still enter the address manually.</p>';
       } catch (error) {
         if (input.value.trim() !== query) return;
@@ -127,6 +127,16 @@ window.AlignFields = {
     }
   });
   document.addEventListener('keydown', event => {
+    const option = event.target.closest?.('[data-address-index]');
+    if (option) {
+      const list = option.closest('[data-address-results]');
+      const options = list ? [...list.querySelectorAll('[data-address-index]')] : [];
+      const index = options.indexOf(option);
+      if (event.key === 'ArrowDown' && options.length) { event.preventDefault(); options[Math.min(index+1,options.length-1)].focus(); }
+      else if (event.key === 'ArrowUp' && options.length) { event.preventDefault(); if(index<=0) document.getElementById(list.dataset.addressResults)?.focus(); else options[index-1].focus(); }
+      else if (event.key === 'Escape') { event.preventDefault(); if(list) list.hidden=true; document.getElementById(list.dataset.addressResults)?.focus(); }
+      return;
+    }
     const input = event.target.closest?.('[data-address-search]');
     if (!input) return;
     const list = document.getElementById(input.id + '-results');
