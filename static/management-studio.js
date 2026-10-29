@@ -94,7 +94,6 @@
   }
   let documentDraft = null;
   let activeTab = 'pages';
-  let previewScreen = 'today';
   let dirty = false;
   let busy = false;
   let designActive = false;
@@ -492,90 +491,6 @@
     } finally {
       setBusy(false);
     }
-  }
-
-  function previewStyle() {
-    const appearance = documentDraft.appearance;
-    const colors = appearance.colors;
-    const events = appearance.events;
-    const type = appearance.type;
-    const bannerKey = previewScreen === 'today' ? 'today' : 'upcoming';
-    const cal = appearance.calendar;
-    const bannerColor = appearance.banners[bannerKey];
-    const channels = bannerColor.slice(1).match(/.{2}/g).map(value => parseInt(value, 16) / 255);
-    const luminance = channels.map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2)
-      .reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
-    const bannerInk = luminance > 0.43 ? '#162147' : '#ffffff';
-    const eventSurface = events.style === 'tinted' ? `${events.accent}22` : colors.surface;
-    return [
-      `--preview-accent:${colors.accent}`,
-      `--preview-canvas:${colors.canvas}`,
-      `--preview-surface:${colors.surface}`,
-      `--preview-text:${colors.text}`,
-      `--preview-banner:${bannerColor}`,
-      `--preview-banner-ink:${bannerInk}`,
-      `--preview-event-accent:${events.accent}`,
-      `--preview-event-surface:${eventSurface}`,
-      `--preview-font:${({serif:'Georgia,serif',rounded:'ui-rounded,"Nunito",system-ui,sans-serif',mono:'ui-monospace,Consolas,monospace'})[type.font] || 'inherit'}`,
-      `--preview-cal-cell:${cal.month_cell}`,
-      `--preview-cal-weekend:${cal.month_weekend}`,
-      `--preview-cal-band:${cal.month_date_band}`,
-      `--preview-cal-today:${cal.today_cell}`,
-      `--preview-cal-day:${cal.list_day}`,
-      `--preview-cal-head:${cal.list_day_header}`,
-      `--preview-radius:${type.corners === 'square' ? '3px' : '11px'}`,
-      `--preview-type-size:${type.scale === 'large' ? '15.5px' : '14px'}`,
-      `--preview-event-padding:${events.density === 'compact' || events.style === 'compact' ? '8px' : '11px'}`
-    ].join(';');
-  }
-
-  function previewContent() {
-    const upcomingTitle = (documentDraft.home_sections || []).find(section => section.id === 'upcoming')?.title || 'Upcoming Events';
-    const nav = (documentDraft.navigation || []).filter(item => item.active !== false).slice(0, 5);
-    if (previewScreen === 'calendar') {
-      const cells = Array.from({length: 14}, (_, i) => `<span class="mp-cell${i % 7 > 4 ? ' is-weekend' : ''}${i === 9 ? ' is-today' : ''}"><i>${i + 1}</i>${i % 3 === 0 ? '<b></b>' : ''}</span>`).join('');
-      const heading = documentDraft.appearance.calendar.week_headings === 'show' ? '<p class="mp-week">WEEK COMMENCING 5 OCT</p>' : '';
-      return `<p class="management-phone-banner">MONTH VIEW</p><div class="mp-grid">${cells}</div>
-        <p class="management-phone-banner">LIST VIEW</p>${heading}
-        <div class="mp-day"><h4>Monday 5 October</h4><div class="management-phone-event"><time>09:00</time><span><strong>Appointment</strong><small>Personal · sample</small></span></div></div>
-        <div class="mp-day"><h4>Tuesday 6 October</h4><div class="management-phone-event"><time>14:00</time><span><strong>Project review</strong><small>Personal · sample</small></span></div></div>`;
-    }
-    if (previewScreen === 'planner') {
-      return `<p class="management-phone-banner">PLANNER · TUESDAY</p>
-        <div class="management-phone-event"><time>09:00</time><span><strong>Appointment</strong><small>Personal · sample</small></span></div>
-        <div class="management-phone-event"><time>11:30</time><span><strong>Personal plan</strong><small>Personal · fictional sample</small></span></div>
-        <div class="management-phone-event"><time>14:00</time><span><strong>Project review</strong><small>Personal · sample</small></span></div>
-        <p class="management-phone-banner">${esc(upcomingTitle).toUpperCase()}</p>
-        <div class="mp-day"><h4>Thursday 8 October</h4>
-          <div class="management-phone-event"><time>09:00</time><span><strong>Planning session</strong><small>fictional sample event</small></span></div>
-          <div class="management-phone-event"><time>15:30</time><span><strong>Visit</strong><small>fictional sample event</small></span></div>
-        </div>`;
-    }
-    const blocks = [...(documentDraft.home_sections || [])].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-    const blockMarkup = blocks.filter(section => section.visible !== false).map(section => {
-      const title = esc(section.title || section.id);
-      let contents = '';
-      if (section.id === 'today') {
-        if (section.content?.show_weather !== false) contents += '<div class="management-phone-weather"><strong>Today’s weather</strong><span>Clear skies · sample preview</span></div>';
-        if (section.content?.show_schedule !== false) contents += '<div class="management-phone-event"><time>09:00</time><span><strong>Appointment</strong><small>Personal · sample</small></span></div><div class="management-phone-event"><time>11:30</time><span><strong>Personal plan</strong><small>Personal · sample</small></span></div>';
-      } else if (section.id === 'upcoming') {
-        contents = '<div class="mp-day"><h4>Thursday 8 October</h4><div class="management-phone-event"><time>09:00</time><span><strong>Planning session</strong><small>Sample event</small></span></div><div class="management-phone-event"><time>15:30</time><span><strong>Visit</strong><small>Sample event</small></span></div></div>';
-      } else if (section.id === 'menus') {
-        contents = (documentDraft.layouts || []).slice(0, 3).map(layout => `<button type="button" class="management-phone-event mp-section-entry" data-preview-edit-layout="${esc(layout.id)}" aria-label="Edit ${esc(layout.title)} section and input matrix"><span><strong>${esc(layout.title)}</strong><small>${(layout.fields || []).length} questions · tap to design</small></span></button>`).join('') || '<button type="button" class="mp-empty mp-add-section" data-preview-create-layout>Add a section and input matrix</button>';
-      } else if (section.id === 'annual_leave') {
-        contents = '<div class="management-phone-event"><time>FRI</time><span><strong>Annual leave</strong><small>Sample entry</small></span></div>';
-      } else if (section.type === 'list' || String(section.id).startsWith('list_')) {
-        const items = Array.isArray(section.content?.items) ? section.content.items : [];
-        contents = items.length
-          ? '<ul class="management-phone-list">' + items.map(item => '<li>' + esc(item || 'List item') + '</li>').join('') + '</ul>'
-          : '<p class="mp-empty">Add list items in the Sections editor.</p>';
-      } else {
-        contents = '<p class="mp-empty">Sample content</p>';
-      }
-      return `<section class="mp-editable-block" data-preview-home-section="${esc(section.id)}" draggable="true"><button class="mp-drag-handle" type="button" aria-label="Select or drag ${title}">⠿</button><p class="management-phone-banner">${title.toUpperCase()}</p>${contents}</section>`;
-    }).join('');
-    const addArea = '<button type="button" class="mp-empty mp-add-section" data-preview-add-home-area>Add a home area</button>';
-    return `<div class="management-phone-greeting-block"><p class="management-phone-date">Wednesday 7 October 2026</p><h3 class="management-phone-greeting">Good morning</h3></div>${blockMarkup || '<p class="mp-empty">Add a home area in Studio to preview it here.</p>'}${addArea}`;
   }
 
   function renderPreviewFallback() {
