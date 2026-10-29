@@ -113,29 +113,19 @@
 <aside class="unified-phone">
   <div class="studio-preview-head">
     <h2>What people see</h2>
-    <div class="management-preview-switch" role="group" aria-label="Preview screen">
-      <button type="button" class="is-active" data-preview-screen="today">Today</button>
-      <button type="button" data-preview-screen="planner">Planner</button>
-      <button type="button" data-preview-screen="calendar">Calendar</button>
+    <div class="management-preview-switch live-preview-tools" role="group" aria-label="Live app preview controls">
+      <span class="live-preview-status"><span aria-hidden="true"></span> Live app</span>
+      <button type="button" id="management-preview-reload" aria-label="Reload the live app preview">Refresh</button>
     </div>
   </div>
   <div class="management-device">
     <div class="management-device-camera"></div>
     <div class="management-device-screen" id="management-phone">
-      <div class="management-phone" data-theme="light">
-        <header class="management-phone-header"><span>Align<small>Your day, in view</small></span><span aria-hidden="true">☰</span></header>
-        <section class="management-phone-section"><h3>Today</h3>
-          <div class="management-phone-event"><time>09:00</time><span><strong>Team check-in</strong><small>Work · preview</small></span></div>
-          <div class="management-phone-event"><time>11:30</time><span><strong>Lunch break</strong><small>Personal · preview</small></span></div>
-          <p class="management-phone-banner">UPCOMING</p>
-          <div class="management-phone-event"><time>THU</time><span><strong>Planning session</strong><small>Preview event</small></span></div>
-        </section>
-        <nav class="management-phone-nav"><strong>Today</strong><span>Inbox</span><span>Planner</span><span>More</span></nav>
-      </div>
+      <iframe id="management-live-frame" title="Live Align application preview" src="/?studioLivePreview=1" loading="eager" referrerpolicy="same-origin" allow="clipboard-read; clipboard-write"></iframe>
     </div>
     <div class="management-device-home"></div>
   </div>
-  <p class="unified-note">Sample only. Publish when you want people to see your changes.</p>
+  <p class="unified-note">This is the real Align app running inside the device frame. App data and navigation are live; unpublished appearance edits are previewed here only.</p>
 </aside>
 </div>
 <div id="studio-toast" class="studio-toast" role="status" aria-live="polite" hidden></div>
