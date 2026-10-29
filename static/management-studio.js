@@ -579,32 +579,76 @@
   }
 
   function renderPreviewFallback() {
-    const phone = $('#management-phone');
-    if (!phone) return;
-    phone.innerHTML = `<div class="management-phone" data-theme="light">
-      <header class="management-phone-header"><span>Align<small>Your day, in view</small></span><span aria-hidden="true">☰</span></header>
-      <section class="management-phone-section"><h3>Today</h3>
-        <div class="management-phone-event"><time>09:00</time><span><strong>Appointment</strong><small>Work · preview</small></span></div>
-        <div class="management-phone-event"><time>11:30</time><span><strong>Personal plan</strong><small>Personal · preview</small></span></div>
-        <p class="management-phone-banner">UPCOMING</p>
-        <div class="management-phone-event"><time>THU</time><span><strong>Planning session</strong><small>Preview event</small></span></div>
-      </section>
-      <nav class="management-phone-nav"><strong>Today</strong><span>Inbox</span><span>Planner</span><span>More</span></nav>
-    </div>`;
+    const host = $('#management-phone');
+    if (!host) return null;
+    let frame = $('#management-live-frame');
+    if (!frame) {
+      frame = document.createElement('iframe');
+      frame.id = 'management-live-frame';
+      frame.title = 'Live Align application preview';
+      frame.loading = 'eager';
+      frame.referrerPolicy = 'same-origin';
+      frame.src = '/?studioLivePreview=1';
+      host.replaceChildren(frame);
+    }
+    if (!frame.dataset.studioThemeListener) {
+      frame.dataset.studioThemeListener = '1';
+      frame.addEventListener('load', () => applyLivePreviewAppearance());
+    }
+    return frame;
+  }
+
+  function applyLivePreviewAppearance() {
+    const frame = $('#management-live-frame');
+    if (!frame || !documentDraft?.appearance) return;
+    try {
+      const doc = frame.contentDocument;
+      if (!doc?.documentElement) return;
+      const appearance = documentDraft.appearance;
+      const colors = appearance.colors || {};
+      const safeColor = (value, fallback) => /^#[0-9a-f]{6}$/i.test(String(value || '')) ? value : fallback;
+      const accent = safeColor(colors.accent, '#0878f9');
+      const canvas = safeColor(colors.canvas, '#061326');
+      const surface = safeColor(colors.surface, '#0b203b');
+      const ink = safeColor(colors.text, '#f4f8ff');
+      const line = safeColor(colors.line, '#1a3858');
+      const isLight = appearance.type?.theme === 'light';
+      const font = ({serif:'Georgia,serif',rounded:'ui-rounded,"Nunito",system-ui,sans-serif',mono:'ui-monospace,Consolas,monospace'})[appearance.type?.font] || 'system-ui,sans-serif';
+      let style = doc.getElementById('align-studio-live-preview-theme');
+      if (!style) {
+        style = doc.createElement('style');
+        style.id = 'align-studio-live-preview-theme';
+        (doc.head || doc.documentElement).appendChild(style);
+      }
+      style.textContent = `
+        :root {
+          color-scheme: ${isLight ? 'light' : 'dark'};
+          --blue: ${accent}; --mint: ${accent}; --focus: ${accent};
+          --canvas: ${canvas}; --surface: ${surface}; --ink: ${ink};
+          --line: ${line}; --navy: ${surface}; --radius: ${appearance.type?.corners === 'square' ? '4px' : '18px'};
+        }
+        html, body { background-color:${canvas}!important; color:${ink}!important; background-image:none!important; font-family:${font}!important; }
+        .app-shell { background:${canvas}!important; color:${ink}!important; }
+        .card, .weather-card, .today-weather-day, .planner-list-day, .build152-list-day,
+        .month-day, .week-event-row, .shift-event, .quick-action, .option-card,
+        .week-choice, .day-choice, .month-event, .modal, .settings-form, .step-panel,
+        .info-card, .builder-panel, .builder-preview, .master-banner, .section-card {
+          background-color:${surface}!important; color:${ink}!important; border-color:${line}!important;
+        }
+        .tab-bar { background-color:${surface}!important; border-color:${line}!important; }
+        .tab-bar .active, .nav-item.active, .primary-button, .management-primary {
+          background-color:${accent}!important; border-color:${accent}!important;
+        }
+        input, select, textarea { font-family:${font}!important; }
+      `;
+    } catch (_) {
+      // If browser policy blocks parent styling, the real app remains usable in the frame.
+    }
   }
 
   function renderPreview() {
-    const colors = documentDraft.appearance.colors;
-    const nav = (documentDraft.navigation || []).filter(item => item.active !== false).slice(0, 5);
-    const navMarkup = nav.length
-      ? nav.map((item, index) => `<button type="button" class="${index === 0 ? 'is-current' : ''}" data-preview-nav-id="${esc(item.id)}" draggable="true" aria-label="Select or drag ${esc(item.title || 'navigation button')}">${esc(item.icon || '')} ${esc(item.title || '')}</button>`).join('')
-      : '<strong>Today</strong><span>Inbox</span><span>Planner</span><span>More</span>';
-    $('#management-phone').innerHTML = `<div class="management-phone" data-theme="${documentDraft.appearance.type.theme === 'dark' ? 'dark' : 'light'}" style="${previewStyle()}">
-      <header class="management-phone-header"><span>Align<small>Your day, in view</small></span><span aria-hidden="true">☰</span></header>
-      ${previewContent()}
-      <nav class="management-phone-nav" aria-label="Sample app navigation">${navMarkup}</nav>
-    </div>`;
-    $('#management-phone').style.background = documentDraft.appearance.type.theme === 'dark' ? '#10142a' : colors.canvas;
+    renderPreviewFallback();
+    applyLivePreviewAppearance();
   }
 
   function reorderFromPreview(kind, sourceId, targetId) {
@@ -844,16 +888,10 @@
     }
   }
 
-  document.querySelectorAll('[data-preview-screen]').forEach(button => {
-    button.addEventListener('click', () => {
-      previewScreen = button.dataset.previewScreen;
-      document.querySelectorAll('[data-preview-screen]').forEach(item => {
-        const active = item === button;
-        item.classList.toggle('is-active', active);
-        item.setAttribute('aria-pressed', String(active));
-      });
-      if (documentDraft) renderPreview();
-    });
+  $('#management-preview-reload')?.addEventListener('click', () => {
+    const frame = renderPreviewFallback();
+    if (!frame) return;
+    frame.src = '/?studioLivePreview=' + Date.now();
   });
   $('#export').addEventListener('click', () => {
     if (!designActive || !documentDraft) return;
