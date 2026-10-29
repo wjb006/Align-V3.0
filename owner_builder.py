@@ -1161,7 +1161,7 @@ _ADDRESS_SEARCH_CACHE = {}
 
 def handle(handler, app, method):
     """Called before legacy handlers. Existing owner/session checks stay authoritative."""
-    from urllib.parse import urlparse, parse_qs
+    from urllib.parse import urlparse, parse_qs, urlencode
     path = urlparse(handler.path).path
     owner_pages = (
         '/studio', '/studio.html',
@@ -1439,7 +1439,7 @@ def handle(handler, app, method):
                     delay = 1.0 - (time.monotonic() - _ADDRESS_SEARCH_LAST)
                     if delay > 0:
                         time.sleep(delay)
-                    url = 'https://nominatim.openstreetmap.org/search?' + urllib.parse.urlencode({
+                    url = 'https://nominatim.openstreetmap.org/search?' + urlencode({
                         'q': query,
                         'format': 'jsonv2',
                         'addressdetails': 1,
