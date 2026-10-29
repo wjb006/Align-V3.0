@@ -1965,6 +1965,40 @@ function render(previewOnly=false) {
   $('#builder-content').addEventListener('change', ev=>{
     const el=ev.target,key=el.dataset.prop||'';
 
+    if (el.hasAttribute('data-workflow-loop-toggle')) {
+      const layout = currentLayout();
+      const index = Number(el.dataset.workflowLoopToggle);
+      const edge = layout?.workflow?.edges?.[index];
+      if (!edge) return;
+      changed();
+      if (el.checked) {
+        edge.action = 'repeat';
+        edge.max_iterations = Math.max(1, Math.min(20, Number(document.querySelector('[data-workflow-loop-limit="' + index + '"]')?.value || 3)));
+      } else {
+        delete edge.action;
+        delete edge.max_iterations;
+      }
+      status(el.checked ? 'Bounded repeat loop enabled. Set a maximum of 1–20 repeats.' : 'Repeat loop removed from this connection.');
+      render();
+      return;
+    }
+
+    if (el.hasAttribute('data-workflow-loop-limit')) {
+      const layout = currentLayout();
+      const index = Number(el.dataset.workflowLoopLimit);
+      const edge = layout?.workflow?.edges?.[index];
+      if (!edge || edge.action !== 'repeat') return;
+      const limit = Number(el.value);
+      if (!Number.isInteger(limit) || limit < 1 || limit > 20) {
+        status('Maximum repeats must be a whole number between 1 and 20.', true);
+        return;
+      }
+      changed();
+      edge.max_iterations = limit;
+      status('Repeat limit updated in the draft.');
+      return;
+    }
+
     if(el.hasAttribute('data-workflow-condition-field')){
       const layout=currentLayout();
       const index=Number(el.dataset.workflowConditionField);
@@ -2100,16 +2134,6 @@ if(b.dataset.workflowNode) {
      if (!edge || !field) { status('Add a select or checkbox field before creating a condition.', true); return; }
      changed(); edge.when = {field:field.id,equals:field.type === 'checkbox' ? true : (field.options?.[0] ?? '')};
      status('Conditional branch added. Select its field and value in the destination step’s Show when settings.'); render(); return;
-   }
-
-   if (b.hasAttribute('data-workflow-loop-toggle')) {
-     const layout = currentLayout(); const index = Number(b.dataset.workflowLoopToggle); const edge = layout?.workflow?.edges?.[index];
-     if (!edge) return;
-     const checked = b.checked; changed();
-     if (checked) { edge.action = 'repeat'; edge.max_iterations = Math.max(1, Math.min(20, Number(document.querySelector('[data-workflow-loop-limit="' + index + '"]')?.value || 3))); }
-     else { delete edge.action; delete edge.max_iterations; }
-     status(checked ? 'Bounded repeat loop enabled. Set a maximum of 1–20 repeats.' : 'Repeat loop removed from this connection.');
-     render(); return;
    }
 
    if (b.hasAttribute('data-workflow-add-edge')) {
