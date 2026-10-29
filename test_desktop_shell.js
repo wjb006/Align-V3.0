@@ -24,6 +24,12 @@ if (!calendar.includes('const startMin') || !calendar.includes('const endMin')) 
 if (!calendar.includes('overlaps(e, dayStart(d), nextDay(d))')) {
   throw new Error('Calendar days must include events that overlap the day');
 }
+if (!calendar.includes('data-hour-now') || !calendar.includes('is-now') || !calendar.includes('wrap.scrollTop')) {
+  throw new Error('Day/hour view must scroll to and mark the current hour');
+}
+if (!calendar.includes('previousScroll')) {
+  throw new Error('Day/hour view must keep the scroll position when an event is opened');
+}
 if (!nav.includes("fetch('/api/health'")) throw new Error('Host overview must read /api/health');
 if (!nav.includes('The public website was not checked')) throw new Error('Host overview must say the public site was not checked');
 if (nav.includes('Live check not connected')) throw new Error('Host overview still shows the old disconnected placeholder');

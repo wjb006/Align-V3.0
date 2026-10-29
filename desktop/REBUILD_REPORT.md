@@ -46,13 +46,19 @@ Cache-version checks in `test_ui_polish.py`, `test_ui_polish.js`, `test_display_
 
 This environment cannot produce a Windows `.exe`. The spec and the Windows workflow are the build. They have not been executed on Windows in this session.
 
+## Follow-up on this branch
+
+- The day/hour grid scrolls to the current hour when that day is today, and marks the hour. Opening an event keeps the scroll position.
+- `/api/alerts` and `/api/alert-rules` return an empty list when those tables are missing. A fresh database now creates the tables, so a reminder can be saved. A write against a database that still lacks them says the reminders are not stored, instead of reporting a missing table.
+- The Go launcher again waits until Align is healthy, refuses another programme on the port, and opens one window. It starts Python with `--no-browser` so the window is not opened twice.
+- A source install still reads `%LOCALAPPDATA%\Align\studio-environment.ps1` when that file exists, then sets the data folder. Reinstalling removes the old “Align Management Studio” shortcut.
+
 ## Left open
 
 - The Windows executable has not been launched on Windows, and the installer has not been clicked through on a PC.
 - The executable is not code-signed.
 - Programme updates for an installed `Align.exe` are “install the new package”. Studio’s git update still works for a source checkout.
 - Host overview does not probe https://getalign.co.uk and does not perform backup, restore, or deploy. Those actions stay on their existing Studio controls.
-- The day/hour grid is a 24-hour column with overlapping events placed side by side. It does not scroll to the current hour on open.
 - `python app.py` and `python -m desktop` can point at different database files. See the decision below.
 
 ## Decisions for Will

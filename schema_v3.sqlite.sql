@@ -152,6 +152,8 @@ CREATE TABLE IF NOT EXISTS annual_leave (
 
 CREATE INDEX IF NOT EXISTS idx_leave_date ON annual_leave(leave_date);
 
+-- Shift reminders. Older files that never received these tables are still
+-- readable: the alert routes return an empty list instead of failing.
 CREATE TABLE IF NOT EXISTS alert_rules (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
@@ -168,6 +170,13 @@ CREATE TABLE IF NOT EXISTS alerts (
 );
 
 CREATE INDEX IF NOT EXISTS idx_alerts_time ON alerts(alert_at, status);
+
+CREATE TABLE IF NOT EXISTS alert_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    minutes_before INTEGER NOT NULL CHECK (minutes_before BETWEEN 0 AND 10080),
+    active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1))
+);
 
 CREATE TABLE IF NOT EXISTS calendar_sources (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

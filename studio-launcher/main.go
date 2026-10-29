@@ -1,5 +1,7 @@
 // Align desktop launcher.
-// It starts the Python desktop programme, which opens Planner and Management Studio.
+// It starts the Python desktop programme when this Align is not already
+// running, then opens the desktop home screen. The Python process is started
+// with --no-browser so this launcher opens the one window.
 package main
 
 import (
@@ -30,15 +32,54 @@ func main() {
 		port = "8001"
 	}
 	homeURL := "http://127.0.0.1:" + port + "/desktop"
+	ready, responding := healthStatus(port)
 	python, args := pythonLaunch(dir)
+	args = programmeArgs(args)
 	if *dryRun {
-		fmt.Printf("start %s %s\n", python, strings.Join(args, " "))
+		switch launchAction(ready, responding) {
+		case "open":
+			fmt.Printf("already running on %s\n", port)
+		case "blocked":
+			fmt.Printf("blocked %s\n", port)
+		default:
+			fmt.Printf("start %s %s\n", python, strings.Join(args, " "))
+		}
 		fmt.Println("open", homeURL)
 		return
+	}
+	if ready {
+		if err := openBrowser(homeURL); err != nil {
+			fail(fmt.Errorf("Align is already running at %s. Open that address.", homeURL))
+		}
+		return
+	}
+	if responding {
+		fail(fmt.Errorf("Port %s is already in use by something that is not Align. Close that programme or set ALIGN_PORT to another port.", port))
 	}
 	if err := startServer(dir, python, args); err != nil {
 		fail(fmt.Errorf("Align could not start. Install Python 3.12, or use the packaged Align.exe. %s", err))
 	}
+	if !waitHealthy(port, 30*time.Second) {
+		fail(fmt.Errorf("Align could not open. Check that Python 3.12 is installed, or use the packaged Align.exe. Port %s did not answer.", port))
+	}
+	if err := openBrowser(homeURL); err != nil {
+		fail(fmt.Errorf("Align is running at %s, but a window could not be opened.", homeURL))
+	}
+}
+
+func launchAction(ready, responding bool) string {
+	if ready {
+		return "open"
+	}
+	if responding {
+		return "blocked"
+	}
+	return "start"
+}
+
+func programmeArgs(args []string) []string {
+	out := append([]string{}, args...)
+	return append(out, "--no-browser")
 }
 
 func fail(err error) {

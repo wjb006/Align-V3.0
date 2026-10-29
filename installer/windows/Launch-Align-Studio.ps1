@@ -9,7 +9,10 @@ if (-not (Test-Path (Join-Path $App "app.py")) -or -not (Test-Path $Python)) {
     exit 1
 }
 $Runtime = if (Test-Path $PythonW) { $PythonW } else { $Python }
-$env:ALIGN_DATA_DIR = Join-Path $env:LOCALAPPDATA "Align"
+$DataRoot = Join-Path $env:LOCALAPPDATA "Align"
+$EnvironmentFile = Join-Path $DataRoot "studio-environment.ps1"
+if (Test-Path $EnvironmentFile) { . $EnvironmentFile }
+$env:ALIGN_DATA_DIR = $DataRoot
 $env:ALIGN_STUDIO_LOCAL = "1"
 $env:ALIGN_BETA_MODE = "0"
 Start-Process -FilePath $Runtime -ArgumentList @("-m", "desktop") -WorkingDirectory $App -WindowStyle Hidden

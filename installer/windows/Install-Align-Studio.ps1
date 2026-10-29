@@ -60,6 +60,10 @@ if ($Target -eq "powershell.exe") {
 $Shortcut.WorkingDirectory = $InstallRoot
 $Shortcut.Description = "Open Align planner and Management Studio"
 $Shortcut.Save()
+$OldShortcut = Join-Path $Desktop "Align Management Studio.lnk"
+if ((Test-Path -LiteralPath $OldShortcut) -and ($OldShortcut -ne $Shortcut.FullName)) {
+    Remove-Item -LiteralPath $OldShortcut -Force
+}
 Write-Host "Align is installed. Your planner data stays in $DataRoot." -ForegroundColor Green
 if ($Target -eq "powershell.exe") {
     Start-Process powershell.exe -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", (Join-Path $InstallRoot "Launch-Align-Studio.ps1"))
