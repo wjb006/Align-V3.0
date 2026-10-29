@@ -14,6 +14,7 @@ let state, doc,
 
 const types = {
   text: 'Short text',
+  address: 'Address',
   textarea: 'Long text',
   tel: 'Phone number',
   email: 'Email',
