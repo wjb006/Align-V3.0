@@ -5,7 +5,7 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: python render_start.py
     healthCheckPath: /api/health
-    autoDeploy: false
+    autoDeploy: true
     envVars:
       - key: ALIGN_HOSTING_MODE
         value: persistent
@@ -13,10 +13,14 @@ services:
         value: postgres
       - key: ALIGN_BETA_MODE
         value: "1"
-      # Keep hosted routing disabled until the separate OTP service has a
-      # persistent disk, a built Merseyside graph and a verified GraphQL endpoint.
-      - key: ALIGN_TRANSPORT_ENABLED
-        value: "0"
+      # Hosted journeys use the existing HERE account. render_start.py enables
+      # transport only when Postgres, HERE transit and the server-side key exist.
+      - key: ALIGN_JOURNEY_PROVIDER
+        value: here
+      - key: ALIGN_HERE_TRANSIT_ENABLED
+        value: "1"
+      - key: ALIGN_HERE_ROUTING_KEY
+        sync: false
       - key: DATABASE_URL
         sync: false
       - key: AWS_ENDPOINT_URL_S3
