@@ -14,7 +14,11 @@ services:
       - key: ALIGN_BETA_MODE
         value: "1"
       - key: ALIGN_TRANSPORT_ENABLED
-        value: "0"
+        value: "1"
+      - key: ALIGN_JOURNEY_PROVIDER
+        value: otp
+      - key: ALIGN_OTP_URL
+        value: https://align-otp.onrender.com/otp/gtfs/v1
       - key: DATABASE_URL
         sync: false
       - key: AWS_ENDPOINT_URL_S3
