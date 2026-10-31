@@ -17,7 +17,7 @@ for (const route of ['today: renderHome','inbox: renderInbox','sections: renderS
 }
 if (!app.includes('planner: renderPlannerCalendar')) throw new Error('Restored Planner route is missing');
 if (app.includes("if (['calendar','add','work-setup'].includes(state.tab))") || app.includes("if (['calendar','add'].includes(state.tab))")) throw new Error('Planner destinations must not be redirected to Sections');
-if (!app.includes('Work (optional)')) throw new Error('Optional Work section prompt is missing');
+if (!app.includes('Set up Work Calendar') || !app.includes("data-action=\\\"work-setup\\\"")) throw new Error('Set up Work Calendar entry is missing or does not open Work Settings');
 if (!app.includes("'/api/builder/records/work/enable'")) throw new Error('Work opt-in action is missing');
 const more = app.slice(app.indexOf('function renderMore()'), app.indexOf('function rootParentBranches()'));
 if (more.includes('Asset Studio') || more.includes("data-nav=\"assets\"")) throw new Error('Owner Asset Studio controls must stay in Align Management Studio, outside the user app');
