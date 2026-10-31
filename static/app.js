@@ -412,9 +412,14 @@ function eventSectionColour(event) {
 }
 // Safe fallback for read-only events. Older planner modules supplied this helper;
 // keep rendering available if that optional module is not loaded.
-function eventViewAttributes(_event) {
-  // Non-editable events remain readable; the optional details-view handler is not loaded here.
-  return '';
+function eventViewAttributes(event) {
+  // Read-only calendar imports still open a useful detail view.
+  const title = escapeHtml(event?.title || 'Calendar event');
+  const start = escapeHtml(event?.start_at || '');
+  const end = escapeHtml(event?.end_at || '');
+  const location = escapeHtml(event?.location || '');
+  const notes = escapeHtml(event?.notes || '');
+  return ` data-action="view-calendar-event" data-event-title="${title}" data-event-start="${start}" data-event-end="${end}" data-event-location="${location}" data-event-notes="${notes}" tabindex="0" role="button" aria-label="View ${title}"`;
 }
 // Explicit global export for legacy planner scripts loaded after app.js.
 window.eventViewAttributes = window.eventViewAttributes || eventViewAttributes;
@@ -429,7 +434,7 @@ function renderEventRow(event, {
   const colour = eventSectionColour(event);
   const editable = event.origin !== 'Calendar' && event.section_id && event.id && !event.all_day;
   const attrs = editable
-      ? ` data-week-action="event-edit" data-section-id="${event.section_id}" data-event-id="${event.id}" tabindex="0" role="button"`
+      ? ` data-action="open-section-event" data-section-id="${event.section_id}" data-event-id="${event.id}" tabindex="0" role="button" aria-label="Open ${escapeHtml(event.title || 'event')}"`
       : eventViewAttributes(event);
   const travel = typeof eventTravelMarkup === 'function' ? eventTravelMarkup(event) : '';
   const contact = condensed ? '' : (window.ALIGN152?.eventContactMarkup(event.notes) || '');
@@ -834,7 +839,25 @@ document.addEventListener('click', async event => {
   if (action === 'section-home') { state.tab = 'sections'; state.sectionData = null; state.sectionId = null; render(); return; }
   if (action === 'edit-section') { sectionModal(Number(element.dataset.id)); return; }
   if (action === 'new-section-event') { personalAvailability(state.sectionId); return; }
-  if (action === 'edit-section-event') { sectionEventModal(Number(element.dataset.id)); return; }
+  if (action === 'open-section-event') {
+    const sectionId = Number(element.dataset.sectionId), eventId = Number(element.dataset.eventId);
+    try {
+      if (!sectionId || !eventId) throw new Error('This event is missing its Align record reference.');
+      if (Number(state.sectionId) !== sectionId || !state.sectionData?.events?.some(item => item.source_kind === 'align' && Number(item.id) === eventId)) await openSection(sectionId);
+      if (!state.sectionData?.events?.some(item => item.source_kind === 'align' && Number(item.id) === eventId)) throw new Error('The event could not be found in its section.');
+      sectionEventModal(eventId);
+    } catch (error) { toast(error.message); }
+    return;
+  }
+  if (action === 'view-calendar-event') {
+    const title = element.dataset.eventTitle || 'Calendar event';
+    const start = element.dataset.eventStart || '';
+    const end = element.dataset.eventEnd || '';
+    const location = element.dataset.eventLocation || '';
+    const notes = element.dataset.eventNotes || '';
+    modal(title, `<div class="form-grid"><p><strong>${escapeHtml(start.replace('T',' '))}${end ? ' – ' + escapeHtml(end.slice(11,16)) : ''}</strong></p>${location ? `<p>${escapeHtml(location)}</p>` : ''}${notes ? `<div class="event-notes">${escapeHtml(notes).replace(/\\n/g,'<br>')}</div>` : '<p class="helper">No additional notes.</p>'}<div class="modal-actions"><button type="button" class="primary-button" data-action="close-modal">Close</button></div></div>`);
+    return;
+  }
   if (action === 'delete-section') {
     if (!window.confirm('Delete this section and its Align-created events? iCloud events themselves are left alone.')) return;
     try { await api(`/api/sections/${element.dataset.id}`, { method: 'DELETE' }); closeModal(); state.sectionData = null; state.sectionId = null; state.tab = 'sections'; await refresh(); toast('Section deleted.'); } catch (error) { toast(error.message); }
