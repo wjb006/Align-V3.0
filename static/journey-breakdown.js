@@ -51,6 +51,12 @@ function journeyEventSummary(notes = '') {
   steps=lines.map(line=>{
    const walk=line.match(/^Walk(?: approximately)?\\s+(\\d+)\\s+minutes?\\b/i);
    if(walk)return {mode:'walk',minutes:Number(walk[1])};
+   const oldFormat=line.match(/^(Walk|Bus|Train|Tram|Rail)\\s*([^·]*)·\\s*(\\d+)\\s*min\\s*·\\s*([^·]+)\\s*·\\s*(.*?)\\s*→\\s*(.*?)\\s*$/i);
+   if(oldFormat){
+    const mode=oldFormat[1].toLowerCase()==='rail'?'train':oldFormat[1].toLowerCase();
+    if(mode==='walk')return {mode,minutes:Number(oldFormat[3]),start:oldFormat[4].trim(),from:oldFormat[5].trim(),to:oldFormat[6].trim()};
+    return {mode,service:oldFormat[2].trim(),minutes:Number(oldFormat[3]),start:oldFormat[4].trim(),from:oldFormat[5].trim(),to:oldFormat[6].trim()};
+   }
    const transitLine=line.match(/^(Bus|Train|Tram|Rail)\\s+(.+?)\\s+·\\s+(.+?)\\s+(\\d{1,2}:\\d{2})\\s*→\\s*(.+?)\\s+(\\d{1,2}:\\d{2})$/i);
    if(!transitLine)return null;
    const mode=transitLine[1].toLowerCase()==='rail'?'train':transitLine[1].toLowerCase();
