@@ -44,7 +44,7 @@ function renderTravel150() {
  <small class="helper">OpenStreetMap address results are attributed to © OpenStreetMap contributors.</small>
  <label>Arrive this many minutes early <input name="buffer" type="number" min="0" max="120" value="10" required></label>
  <fieldset><legend>Transport</legend><label><input name="bus" type="checkbox" checked> Bus</label><label><input name="rail" type="checkbox" checked> Rail</label><p>Walking to and between stops is included.</p></fieldset>
- <label><input name="consent" type="checkbox" required> Send these locations to ${escapeHtml(travel150.status?.provider||'the journey provider')} to find this journey.</label>
+ <label><input name="consent" type="checkbox" required checked> Allow Align to send these locations to ${escapeHtml(travel150.status?.provider||'the journey provider')} to find journeys. You can switch this off before searching.</label>
  <button class="primary-button" type="submit">Find journeys</button><button type="button" class="secondary-button" data-t150="saved">Show saved journey</button><p id="travel-message" role="status"></p></form><div id="travel-results150">${travelResult150(travel150.result)}</div></section>`;
 }
 function travelResult150(r) {
