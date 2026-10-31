@@ -58,4 +58,16 @@ if (!eventSummary.includes('Bus 407') || !eventSummary.includes('08:00')) throw 
 if (!eventSummary.includes('Arrive') || !eventSummary.includes('08:50')) throw new Error('Event card must show the final arrival time');
 if (!eventSummary.includes('Birkenhead Bus Station') || !eventSummary.includes('Walk') || !eventSummary.includes('Arrowe Park Hospital')) throw new Error('Expanded journey details must include walking and transit legs');
 
+
+const betaNotes = `[Align travel]
+Leave: 07:42
+Bus 407 · 25 min · 08:00 · Birkenhead Bus Station → Arrowe Park Hospital
+Walk approximately 5 minutes
+Arrive: 08:50
+[/Align travel]`;
+const betaSummary = context.journeyEventSummary(betaNotes);
+if (!betaSummary.includes('Bus 407') || !betaSummary.includes('08:00')) throw new Error('Beta-era saved service details must remain visible');
+if (!betaSummary.includes('07:42') || !betaSummary.includes('08:50')) throw new Error('Beta-era leave and arrival times must remain visible');
+if (!betaSummary.includes('Birkenhead Bus Station')) throw new Error('Beta-era route legs must remain readable');
+
 console.log('journey artwork and event summary checks passed');
