@@ -1,5 +1,5 @@
 /* Travel and owner Asset Studio screens. No coordinates are saved by this UI. */
-const travel150 = {items:null, places:{origin:[],destination:[]}, points:{}, searches:{}, timers:{}, result:null, error:'', status:null, busy:false, liveTimer:null, liveSignature:''};
+const travel150 = {items:null, places:{origin:[],destination:[]}, points:{}, searches:{}, timers:{}, result:null, error:'', status:null, busy:false, liveTimer:null, liveSignature:'', autoBusy:false, autoSignature:''};
 const assets150 = {data:null,busy:false};
 function travelScope150(key) { return '/private-travel/'+encodeURIComponent(state.boot?.beta?.email || 'local')+'/'+key; }
 function travelTime150(value) { return formatDisplayDateTime(value, 'Europe/London'); }
@@ -39,7 +39,7 @@ function renderTravel150() {
  return `<section class="page"><div class="add-head"><p class="eyebrow">Journeys</p><h1>Travel</h1><p class="subtle">Bus and rail journeys across Merseyside, with walking directions between stops.</p></div>${travel150.error?`<div class="card form-error" role="alert"><p>${escapeHtml(travel150.error)}</p><button type="button" class="secondary-button" data-t150="retry">Retry loading Travel</button></div>`:''}<form id="travel150" class="card settings-form">
  <label for="travel-event">Your shift or event</label><select id="travel-event" name="event_key" required><option value="">Choose an upcoming item</option>${(travel150.items||[]).map(i=>`<option value="${escapeHtml(i.key)}">${escapeHtml(i.title+' · '+travelTime150(i.start))}</option>`).join('')}</select>
  <p id="travel-destination-hint" class="helper">${travel150.busy?'Loading your items…':travel150.error?'Your items could not be loaded. Retry above.':!travel150.items?.length?'Add a timed shift or event with a destination first.':''}</p>
- ${['origin','destination'].map(k=>`<fieldset><legend>${k==='origin'?'Travel from':'Travel to'}</legend><label for="${k}-query">Address, stop, station or full postcode</label><input id="${k}-query" maxlength="240" autocomplete="off" value="${escapeHtml(k==='origin'?(state.boot?.settings?.user_address||''):'')}"><button type="button" class="secondary-button" data-t150="search" data-side="${k}">Find places</button>${k==='origin'?'<button type="button" class="secondary-button" data-t150="location">Use my current location</button>':''}<label for="${k}-choice">Choose a matching place</label><select id="${k}-choice" data-place150="${k}"><option value="">Choose a result</option></select><p id="${k}-selected" aria-live="polite"></p></fieldset>`).join('')}
+ ${['origin','destination'].map(k=>`<fieldset><legend>${k==='origin'?'Travel from':'Travel to'}</legend><label for="${k}-query">Address, stop, station or full postcode</label><input id="${k}-query" maxlength="240" autocomplete="off" value="${escapeHtml(k==='origin'?(state.boot?.settings?.user_address||''):'')}">${k==='origin'?'<button type="button" class="secondary-button" data-t150="location">Use my current location</button>':''}<div id="${k}-suggestions" class="travel-place-suggestions" role="listbox" aria-label="${k==='origin'?'Starting place':'Destination'} suggestions" hidden></div><select id="${k}-choice" data-place150="${k}" hidden><option value="">Choose a result</option></select><p id="${k}-selected" aria-live="polite"></p></fieldset>`).join('')}
  <label><input type="checkbox" id="postcode-consent"> Allow live address suggestions through HERE or OpenStreetMap and postcode lookup with Postcodes.io. Without this, suggestions use saved addresses and Align’s built-in stops.</label>
  <small class="helper">OpenStreetMap address results are attributed to © OpenStreetMap contributors.</small>
  <label>Arrive this many minutes early <input name="buffer" type="number" min="0" max="120" value="10" required></label>
@@ -71,6 +71,24 @@ async function pollLiveTravel150() {
   // Live status is optional; the saved scheduled journey remains usable.
  }
 }
+async function maybeAutoFindTravel150(){
+ const f=document.querySelector('#travel150');if(!f||travel150.autoBusy)return;
+ const key=f.elements.event_key?.value,origin=document.querySelector('#origin-query')?.value.trim(),destination=document.querySelector('#destination-query')?.value.trim();
+ if(!key||!origin||!destination||!f.elements.consent?.checked)return;
+ const signature=[key,origin,destination,JSON.stringify(travel150.points.origin||null),JSON.stringify(travel150.points.destination||null),f.elements.buffer.value,f.elements.bus.checked,f.elements.rail.checked].join('|');
+ if(signature===travel150.autoSignature)return;travel150.autoSignature=signature;travel150.autoBusy=true;
+ const message=document.querySelector('#travel-message');if(message)message.textContent='Both places selected. Finding journeys automatically…';
+ try{
+  const modes=['walk'];if(f.bus.checked)modes.push('bus');if(f.rail.checked)modes.push('rail');
+  await api('/api/transport/preferences',{method:'POST',body:{arrival_buffer:Number(f.buffer.value),modes}});
+  const r=await api('/api/transport/journeys',{method:'POST',body:{event_key:key,origin:travel150.points.origin,destination:travel150.points.destination,origin_address:origin,destination_address:destination,location_consent:f.elements.consent.checked}});
+  travel150.result=r;travel150.liveSignature=liveSignature150(r);
+  document.querySelector('#travel-results150').innerHTML=travelResult150(r);
+  if(r.journeys?.length){clearInterval(travel150.liveTimer);travel150.liveTimer=setInterval(pollLiveTravel150,300000);void pollLiveTravel150();if(typeof AlignOffline!=='undefined'){const saved=await api('/api/transport/cached',{method:'POST',body:{event_key:key}});await AlignOffline.remember(travelScope150(key),saved);}}
+  if(message)message.textContent=r.journeys?.length?'Journey times found and saved for this event.':'No matching journey found for these places.';
+ }catch(error){if(message){message.textContent=error.message;message.classList.add('form-error');}travel150.autoSignature='';}
+ finally{travel150.autoBusy=false;}
+}
 async function savedTravel150(key) {
  if(!key)throw new Error('Choose a shift or event first');
  let r;
@@ -95,7 +113,7 @@ function clearTravelPlace150(side) {
  delete travel150.points[side];
  travel150.searches[side]=(travel150.searches[side]||0)+1;
  document.querySelector('#'+side+'-selected').textContent='';
- document.querySelector('#'+side+'-choice').innerHTML='<option value="">Choose a result</option>';
+ document.querySelector('#'+side+'-choice').innerHTML='<option value="">Choose a result</option>';const suggestions=document.querySelector('#'+side+'-suggestions');if(suggestions){suggestions.innerHTML='';suggestions.hidden=true;}
 }
 async function searchTravelPlace150(side, external=false) {
  const input=document.querySelector('#'+side+'-query'), query=input.value.trim();
@@ -108,19 +126,22 @@ async function searchTravelPlace150(side, external=false) {
  travel150.places[side]=[...new Set(saved)].map(name=>({name})).concat(r.places);
  document.querySelector('#'+side+'-choice').innerHTML='<option value="">Choose a result</option>'+travel150.places[side].map((p,i)=>`<option value="${i}">${escapeHtml(p.name)}</option>`).join('');
  document.querySelector('#'+side+'-choice').size=Math.min(5,travel150.places[side].length+1);
+ const suggestions=document.querySelector('#'+side+'-suggestions');if(suggestions){suggestions.innerHTML=travel150.places[side].map((p,i)=>`<button type="button" class="travel-place-option" role="option" data-place-suggestion="${side}" data-index="${i}"><strong>${escapeHtml(p.name)}</strong><small>Tap to use this place</small></button>`).join('');suggestions.hidden=!travel150.places[side].length;}
  document.querySelector('#'+side+'-selected').textContent=travel150.places[side].length?'Choose a suggestion, or keep your typed address.':'Keep your address; it will be located when you find journeys.';
 }
 document.addEventListener('input',e=>{
  if(!['origin-query','destination-query'].includes(e.target.id))return;
- const side=e.target.id.split('-')[0];clearTravelPlace150(side);clearTimeout(travel150.timers[side]);
+ const side=e.target.id.split('-')[0];clearTravelPlace150(side);clearTimeout(travel150.timers[side]);travel150.autoSignature='';
  travel150.timers[side]=setTimeout(()=>searchTravelPlace150(side,document.querySelector('#postcode-consent')?.checked===true).catch(err=>{const status=document.querySelector('#'+side+'-selected');if(status)status.textContent=err.message;}),850);
 });
 document.addEventListener('change',e=>{
- if(e.target.id==='travel-event'){const item=travel150.items?.find(i=>i.key===e.target.value);document.querySelector('#destination-query').value=item?.destination||'';clearTravelPlace150('destination');travel150.result=null;document.querySelector('#travel-results150').innerHTML='';clearInterval(travel150.liveTimer);const hint=document.querySelector('#travel-destination-hint');if(item?.destination)hint.innerHTML='Saved destination: '+appleDestinationLink(item.destination);else hint.textContent='Save an address on this item first.';}
+ if(e.target.id==='postcode-consent'){for(const side of ['origin','destination']){const input=document.querySelector('#'+side+'-query');if(input?.value.trim().length>=3){clearTimeout(travel150.timers[side]);travel150.timers[side]=setTimeout(()=>searchTravelPlace150(side,e.target.checked).catch(()=>{}),200);}}}
+ if(e.target.id==='travel-event'){const item=travel150.items?.find(i=>i.key===e.target.value);document.querySelector('#destination-query').value=item?.destination||'';clearTravelPlace150('destination');travel150.result=null;document.querySelector('#travel-results150').innerHTML='';clearInterval(travel150.liveTimer);const hint=document.querySelector('#travel-destination-hint');if(item?.destination)hint.innerHTML='Saved destination: '+appleDestinationLink(item.destination);else hint.textContent='Save an address on this item first.';travel150.autoSignature='';void maybeAutoFindTravel150().catch(()=>{});}
  if(e.target.dataset.place150){const side=e.target.dataset.place150;clearTimeout(travel150.timers[side]);travel150.searches[side]=(travel150.searches[side]||0)+1;const p=travel150.places[side][Number(e.target.value)];travel150.points[side]=e.target.value!==''?p?.point:null;if(p&&e.target.value!=='')document.querySelector('#'+side+'-query').value=p.name;document.querySelector('#'+side+'-selected').textContent=e.target.value!==''?p?.name||'':'';}
  if(e.target.matches('#assets-upload150 input[type=file]')){const f=e.target.files[0];const img=document.querySelector('#asset-preview150');if(img.dataset.url)URL.revokeObjectURL(img.dataset.url);if(f){img.dataset.url=URL.createObjectURL(f);img.src=img.dataset.url;img.hidden=false;}}
 });
 document.addEventListener('click',async e=>{
+ const suggestion=e.target.closest('[data-place-suggestion]');if(suggestion){const side=suggestion.dataset.placeSuggestion,index=Number(suggestion.dataset.index),p=travel150.places[side]?.[index];if(!p)return;clearTimeout(travel150.timers[side]);travel150.points[side]=p.point||null;document.querySelector('#'+side+'-query').value=p.name;const select=document.querySelector('#'+side+'-choice');select.value=String(index);const list=document.querySelector('#'+side+'-suggestions');if(list)list.hidden=true;document.querySelector('#'+side+'-selected').textContent='Selected: '+p.name;travel150.autoSignature='';void maybeAutoFindTravel150();return;}
  const b=e.target.closest('[data-t150],[data-a150]');if(!b)return;e.preventDefault();b.disabled=true;
  try{
  if(b.dataset.a150){const action=b.dataset.a150;const body={action,id:Number(b.dataset.id),version:Number(b.dataset.version)};if(action==='rename'){body.name=prompt('Image name');if(body.name===null)return;}await rawApi('/api/asset-studio/change',{method:'POST',body});assets150.data=await rawApi('/api/asset-studio');render();return;}
