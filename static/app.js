@@ -188,10 +188,9 @@ async function enableBrowserNotifications() {
   toast('Browser notifications enabled.');
 }
 
-function reminderIcon(title = '') {
-  if (/\b(train|rail|tram)\b/i.test(title)) return '/journey-icons/train.png';
-  if (/\bbus\b/i.test(title)) return '/journey-icons/bus.png';
-  if (/\b(leave|walk|travel|arriv)/i.test(title)) return '/journey-icons/walking.png';
+function reminderIcon(_title = '') {
+  // Keep notifications consistent with the Align V3 app identity; journey modes
+  // are shown with the inline transport artwork inside the app.
   return '/icon.svg';
 }
 async function notifyAlign(title, body, tag, url = '/', icon = '/icon.svg') {
