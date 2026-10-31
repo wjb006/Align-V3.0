@@ -4,7 +4,7 @@ function journeyClock(value) {
  const date = new Date(value);
  return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit'});
 }
-/* Align V3 iconography: lightweight inline line icons, no legacy Beta image assets. */
+/* Align V3 iconography: inline line icons, no legacy Beta image assets. */
 const JOURNEY_ICONS = {
   walk: {label:'Walk', glyph:'<circle cx="13" cy="4" r="2"/><path d="m10 22 2-6 2-3 3 2 3 1"/><path d="m12 10-3 3-4 1"/><path d="m14 13-2 4-4 2"/>'},
   bus: {label:'Bus', glyph:'<rect x="3" y="4" width="18" height="15" rx="3"/><path d="M3 10h18M7 19v2m10-2v2M7 15h.01M17 15h.01M7 4V2m10 2V2"/>'},
@@ -17,15 +17,15 @@ function journeyModeKey(mode) { return mode === 'rail' ? 'train' : String(mode |
 function journeyPlatformBadge(value) {
  const platform=String(value||'').trim();
  if(!platform)return '';
- return /^p(?:latform)?\\s*/i.test(platform)?platform.replace(/^platform\\s*/i,'P'):'P'+platform;
+ return /^p(?:latform)?\s*/i.test(platform)?platform.replace(/^platform\s*/i,'P'):'P'+platform;
 }
 function journeyModeArtwork(step,size=56) {
  const e=escapeHtml,key=journeyModeKey(step.mode),icon=JOURNEY_ICONS[key]||JOURNEY_ICONS.transit;
  const serviceNumber=String(step.service_number||step.service||'').trim();
- const busNumber=key==='bus' && /^[A-Z]?\\d{1,4}[A-Z]?$/i.test(serviceNumber)?serviceNumber:'';
+ const busNumber=key==='bus' && /^[A-Z]?\d{1,4}[A-Z]?$/i.test(serviceNumber)?serviceNumber:'';
  const badge=key==='bus'?busNumber:key==='train'&&step.platform?journeyPlatformBadge(step.platform):'';
- const badgeTitle=key==='bus'&&badge?\`Bus \${badge}\`:key==='train'&&badge?\`Platform \${String(step.platform).trim()}\`:'';
- return \`<span class="journey-mode-art journey-mode-\${e(key)}" style="--journey-icon-size:\${Number(size)||56}px"><svg viewBox="0 0 24 24" role="img" aria-label="\${e(icon.label)}" focusable="false"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">\${icon.glyph}</g></svg>\${badge?\`<span class="journey-icon-badge" title="\${e(badgeTitle)}">\${e(badge)}</span>\`:''}</span>\`;
+ const badgeTitle=key==='bus'&&badge?'Bus '+badge:key==='train'&&badge?'Platform '+String(step.platform).trim():'';
+ return '<span class="journey-mode-art journey-mode-'+e(key)+'" style="--journey-icon-size:'+(Number(size)||56)+'px"><svg viewBox="0 0 24 24" role="img" aria-label="'+e(icon.label)+'" focusable="false"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+icon.glyph+'</g></svg>'+(badge?'<span class="journey-icon-badge" title="'+e(badgeTitle)+'">'+e(badge)+'</span>':'')+'</span>';
 }
 function journeyBreakdown(steps = []) {
  const e=escapeHtml;
