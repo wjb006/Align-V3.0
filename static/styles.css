@@ -495,7 +495,7 @@ h3 { font-size: 15px; margin-bottom: 2px; }
 .journey-step { display:flex; gap:12px; align-items:center; margin:12px 0; }
 .journey-step-copy { min-width:0; }
 .journey-mode-art { --journey-icon-size:56px; position:relative; display:inline-grid; place-items:center; width:var(--journey-icon-size); height:var(--journey-icon-size); flex:0 0 var(--journey-icon-size); }
-.journey-mode-art > img { width:100%; height:100%; object-fit:contain; }
+.journey-mode-art > svg { width:100%; height:100%; display:block; overflow:visible; color:var(--journey-icon-colour, var(--accent, #7c9cff)); }
 .journey-icon-badge { position:absolute; z-index:1; display:grid; place-items:center; min-width:18px; min-height:15px; max-width:calc(var(--journey-icon-size) * .78); padding:1px 4px; border-radius:999px; font-size:clamp(8px, calc(var(--journey-icon-size) * .2), 12px); line-height:1.1; font-weight:850; letter-spacing:-.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-shadow:0 1px 3px #0003; }
 .journey-mode-bus .journey-icon-badge { left:50%; top:13%; transform:translateX(-50%); background:#fff; color:var(--navy); border:1px solid #172a6240; }
 .journey-mode-train .journey-icon-badge { right:-3px; bottom:-2px; background:var(--navy); color:#fff; border:2px solid #fff; }
