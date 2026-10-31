@@ -77,7 +77,7 @@ function eventIsUnderway(item) {
 function eventTravelMarkup(item) {
   if(!item||eventIsUnderway(item))return '';
   const notes=item.notes||'';
-  const travel=typeof travelCard==='function'?travelCard(notes):(typeof savedTravelSummary==='function'?savedTravelSummary(notes):'');
+  const travel=typeof journeyEventSummary==='function'?journeyEventSummary(notes):(typeof travelCard==='function'?travelCard(notes):(typeof savedTravelSummary==='function'?savedTravelSummary(notes):''));
   return travel+postTravelSummary(item);
 }
 setInterval(()=>{
