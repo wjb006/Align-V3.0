@@ -335,7 +335,8 @@ function renderSectionsIndex() {
   const sections = state.sectionDefinitions || [];
   const work = sections.find(section => section.key === 'work');
   const visible = sections.filter(section => !section.optional || section.enabled);
-  return `<section class="page"><div class="add-head"><p class="eyebrow">Your data, organised your way</p><h1>Sections</h1><p class="subtle">Sections set up in Align Management Studio appear here. Your records stay private to your account.</p></div><div class="quick-grid">${visible.map(section => `<button class="quick-action organiser-section-tile" data-section-key="${escapeHtml(section.key)}" style="border-left:4px solid ${escapeHtml(section.colour)}"><b>${escapeHtml(section.icon)}</b>${escapeHtml(section.name)}<small>${escapeHtml(section.description || 'Open your saved records')}</small></button>`).join('')}${!visible.length?'<div class="card empty">No sections have been added yet.</div>':''}</div>${!work || !work.enabled ? `<section class="section"><div class="card"><h2>Work (optional)</h2><p class="subtle">${work ? 'Add the Work database to your account. It can include locations, work areas, times, or any questions configured for Align.' : 'The Work database is not available yet. When it is ready, you can add it to your account and edit your records anytime.'}</p>${work ? '<button class="secondary-button" data-action="work-opt-in">Set up Work</button>' : ''}</div></section>` : ''}</section>`;
+  const showWorkSetup = !work || !work.enabled;
+  return `<section class="page"><div class="add-head"><p class="eyebrow">Your data, organised your way</p><h1>Sections</h1><p class="subtle">Sections set up in Align Management Studio appear here. Your records stay private to your account.</p></div><div class="quick-grid">${visible.map(section => `<button class="quick-action organiser-section-tile" data-section-key="${escapeHtml(section.key)}" style="border-left:4px solid ${escapeHtml(section.colour)}"><b>${escapeHtml(section.icon)}</b>${escapeHtml(section.name)}<small>${escapeHtml(section.description || 'Open your saved records')}</small></button>`).join('')}${!visible.length?'<div class="card empty">No sections have been added yet.</div>':''}</div>${showWorkSetup ? `<section class="section"><div class="card work-optional-card"><h2>Work Calendar</h2><p class="subtle">Set up your work locations, areas and shift times, then use them to organise your work calendar. You can add or change these details later.</p><button class="primary-button" data-action="work-opt-in">Set up Work Calendar</button></div></section>` : ''}</section>`;
 }
 
 function installPanel() {
@@ -879,12 +880,19 @@ document.addEventListener('click', async event => {
   }
 
   if (action === 'work-opt-in') {
-    const work = state.sectionDefinitions.find(section => section.key === 'work');
-    if (!work) { toast('Work setup is not available yet. The Work database will appear here when it is ready.'); return; }
+    const work = (state.sectionDefinitions || []).find(section => section.key === 'work');
     try {
-      await api('/api/builder/records/work/enable', {method:'POST', body:{}});
-      state.sectionDefinitions = (await api('/api/sections/definitions')).sections || [];
-      await builderOpenLayout('work');
+      if (work) {
+        if (!work.enabled) {
+          await api('/api/builder/records/work/enable', {method:'POST', body:{}});
+          state.sectionDefinitions = (await api('/api/sections/definitions')).sections || [];
+        }
+        await builderOpenLayout('work');
+      } else if (typeof openWorkSetup === 'function') {
+        await openWorkSetup();
+      } else {
+        throw new Error('Work Calendar setup is temporarily unavailable. Refresh Align and try again.');
+      }
     } catch (error) { toast(error.message); }
     return;
   }
