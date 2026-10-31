@@ -13,12 +13,10 @@ services:
         value: postgres
       - key: ALIGN_BETA_MODE
         value: "1"
+      # Keep hosted routing disabled until the separate OTP service has a
+      # persistent disk, a built Merseyside graph and a verified GraphQL endpoint.
       - key: ALIGN_TRANSPORT_ENABLED
-        value: "1"
-      - key: ALIGN_JOURNEY_PROVIDER
-        value: otp
-      - key: ALIGN_OTP_URL
-        value: https://align-otp.onrender.com/otp/gtfs/v1
+        value: "0"
       - key: DATABASE_URL
         sync: false
       - key: AWS_ENDPOINT_URL_S3
