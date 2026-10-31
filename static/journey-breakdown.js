@@ -46,6 +46,18 @@ function journeyEventSummary(notes = '') {
   const parsed=raw?JSON.parse(raw[1]):[];
   if(Array.isArray(parsed))steps=parsed;
  }catch(_){}
+ // Keep Beta-era saved event notes readable when they pre-date the structured steps block.
+ if(!steps.length){
+  steps=lines.map(line=>{
+   const walk=line.match(/^Walk(?: approximately)?\\s+(\\d+)\\s+minutes?\\b/i);
+   if(walk)return {mode:'walk',minutes:Number(walk[1])};
+   const transitLine=line.match(/^(Bus|Train|Tram|Rail)\\s+(.+?)\\s+·\\s+(.+?)\\s+(\\d{1,2}:\\d{2})\\s*→\\s*(.+?)\\s+(\\d{1,2}:\\d{2})$/i);
+   if(!transitLine)return null;
+   const mode=transitLine[1].toLowerCase()==='rail'?'train':transitLine[1].toLowerCase();
+   const serviceHead=transitLine[2].split(/\\s+towards\\s+/i);
+   return {mode,service:serviceHead[0].trim(),from:transitLine[3].trim(),start:transitLine[4],to:transitLine[5].trim(),end:transitLine[6]};
+  }).filter(Boolean);
+ }
  const transit=steps.filter(step=>['bus','train','rail','tram'].includes(journeyModeKey(step.mode)));
  const items=[];
  const add=(label,time,step=null)=>{
