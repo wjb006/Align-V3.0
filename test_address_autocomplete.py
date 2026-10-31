@@ -60,5 +60,47 @@ class AddressAutocompleteTests(unittest.TestCase):
         self.assertIn("photon.komoot.io/api?", fetch.call_args.args[0])
 
 
+    def test_falls_back_to_nominatim_when_photon_is_unavailable(self):
+        nominatim = [{
+            "place_id": 123,
+            "lat": "53.389",
+            "lon": "-3.014",
+            "name": "Arrowe Park Hospital",
+            "address": {
+                "house_number": "Arrowe Park",
+                "road": "Arrowe Park Road",
+                "postcode": "CH49 5PE",
+                "town": "Upton",
+            },
+        }]
+        with patch.dict(os.environ, {}, clear=True), patch.object(
+            app.personal_planner, "fetch_json",
+            side_effect=[ValueError("Photon unavailable"), nominatim],
+        ) as fetch:
+            results = app.find_addresses("Arrowe Park Road")
+        self.assertEqual(results[0]["label"], "Arrowe Park Arrowe Park Road, CH49 5PE, Upton")
+        self.assertEqual(results[0]["provider"], "OpenStreetMap Nominatim")
+        self.assertEqual(results[0]["latitude"], 53.389)
+        self.assertIn("nominatim.openstreetmap.org/search?", fetch.call_args.args[0])
+
+    def test_postcode_provider_failure_falls_through_to_address_provider(self):
+        photon = {"features": [{
+            "properties": {
+                "housenumber": "12", "street": "Example Street", "postcode": "CH43 2XX",
+                "city": "Prenton", "country": "United Kingdom", "countrycode": "gb",
+            },
+            "geometry": {"coordinates": [-3.02, 53.39]},
+        }]}
+        with patch.dict(os.environ, {}, clear=True), patch.object(
+            app.personal_planner, "fetch_json",
+            side_effect=[ValueError("Postcodes.io unavailable"), photon],
+        ) as fetch:
+            results = app.find_addresses("CH43")
+        self.assertEqual(results[0]["postcode"], "CH43 2XX")
+        self.assertEqual(results[0]["provider"], "OpenStreetMap")
+        self.assertEqual(fetch.call_count, 2)
+
+
+
 if __name__ == "__main__":
     unittest.main()
