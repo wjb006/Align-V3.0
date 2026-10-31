@@ -1432,8 +1432,26 @@ def handle(handler, app, method):
             try:
                 # Use Align's shared address provider, postcode fallback and cache.
                 results = app.find_addresses(query)
-            except (ValueError, OSError, TimeoutError) as exc:
-                raise BuilderError('Address suggestions are temporarily unavailable. Please try again or enter the address manually.', 503) from exc
+            except (ValueError, OSError, TimeoutError) as primary_error:
+                # A stale HERE key must not disable ordinary address suggestions.
+                try:
+                    fallback_url = 'https://photon.komoot.io/api?' + urlencode({'q': query, 'limit': 8, 'lang': 'en'})
+                    fallback = app.personal_planner.fetch_json(fallback_url)
+                    results = []
+                    for feature in fallback.get('features', []):
+                        properties = feature.get('properties') or {}
+                        coordinates = (feature.get('geometry') or {}).get('coordinates') or []
+                        if len(coordinates) < 2: continue
+                        country = str(properties.get('country') or '').casefold()
+                        country_code = str(properties.get('countrycode') or '').casefold()
+                        if country and country not in {'united kingdom', 'great britain'} and country_code != 'gb': continue
+                        street = ' '.join(part for part in (properties.get('housenumber', ''), properties.get('street', '')) if part)
+                        town = properties.get('city') or properties.get('town') or properties.get('village') or properties.get('county') or ''
+                        label = ', '.join(dict.fromkeys(part for part in (properties.get('name') or street, properties.get('postcode'), town, properties.get('country')) if part))
+                        if label: results.append({'label': label, 'postcode': properties.get('postcode', ''), 'town': town, 'country': properties.get('country', ''), 'latitude': coordinates[1], 'longitude': coordinates[0], 'provider': 'OpenStreetMap'})
+                        if len(results) >= 8: break
+                except (ValueError, OSError, TimeoutError) as fallback_error:
+                    raise BuilderError('Address suggestions are temporarily unavailable. Please try again or enter the address manually.', 503) from fallback_error
             handler.send_json(200, {'results': [
                 {
                     'label': item.get('label', ''),
