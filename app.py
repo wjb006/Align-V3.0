@@ -373,12 +373,12 @@ def normalise_leave_year_start(value) -> str:
 
 
 def find_addresses(query: str) -> list[dict]:
-    """Return UK address autocomplete results through the configured HERE key."""
+    """Return UK address autocomplete results, with resilient provider fallback."""
     query = " ".join(query.split())[:120]
-    postcode_prefix = re.sub(r"\s+", "", query).upper()
+    postcode_prefix = re.sub(r"\\s+", "", query).upper()
     postcode_query = bool(
-        re.fullmatch(r"[A-Z]{1,2}\d[A-Z\d]?", postcode_prefix)
-        or re.fullmatch(r"[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}", postcode_prefix)
+        re.fullmatch(r"[A-Z]{1,2}\\d[A-Z\\d]?", postcode_prefix)
+        or re.fullmatch(r"[A-Z]{1,2}\\d[A-Z\\d]?\\d[A-Z]{2}", postcode_prefix)
     )
     if len(query) < 3 and not postcode_query:
         raise ValueError("Enter at least three characters to search for an address.")
@@ -386,101 +386,132 @@ def find_addresses(query: str) -> list[dict]:
     cached = ADDRESS_CACHE.get(cache_key)
     if cached and time.monotonic() - cached[0] < 600:
         return cached[1]
+
     with ADDRESS_LOCK:
         cached = ADDRESS_CACHE.get(cache_key)
         if cached and time.monotonic() - cached[0] < 600:
             return cached[1]
+
+        failures = []
         key = os.environ.get("ALIGN_HERE_ROUTING_KEY", "").strip()
-        if not key:
-            if postcode_query:
+        if key:
+            url = "https://autosuggest.search.hereapi.com/v1/autosuggest?" + urlencode({
+                "q": query, "in": "countryCode:GBR", "limit": 8, "lang": "en-GB", "apiKey": key,
+            })
+            try:
+                payload = personal_planner.here_fetch(url)
+                results = []
+                for item in payload.get("items", []):
+                    position = item.get("position") or {}
+                    address = item.get("address") or {}
+                    label = address.get("label") or item.get("title") or ""
+                    if not label or not position:
+                        continue
+                    results.append({
+                        "label": label, "latitude": position.get("lat", ""),
+                        "longitude": position.get("lng", ""), "postcode": address.get("postalCode", ""),
+                        "country_code": address.get("countryCode", "gb").lower(),
+                        "place_id": item.get("id", ""), "provider": "HERE",
+                    })
+                if results:
+                    ADDRESS_CACHE[cache_key] = (time.monotonic(), results)
+                    return results[:8]
+            except (ValueError, OSError) as error:
+                failures.append(str(error))
+
+        # Postcodes.io is a useful fast path for partial and complete UK postcodes.
+        if postcode_query:
+            try:
                 data = personal_planner.fetch_json(
                     "https://api.postcodes.io/postcodes?" + urlencode({"q": postcode_prefix, "limit": 8})
                 )
-                results = [
-                    {
-                        "label": ", ".join(filter(None, [
-                            item.get("postcode"), item.get("admin_district"), item.get("country"),
-                        ])),
-                        "latitude": item.get("latitude", ""),
-                        "longitude": item.get("longitude", ""),
-                        "postcode": item.get("postcode", ""),
-                        "country_code": "gb",
-                        "provider": "Postcodes.io",
-                    }
-                    for item in data.get("result", [])
-                    if item.get("postcode")
-                ]
+                results = [{
+                    "label": ", ".join(filter(None, [
+                        item.get("postcode"), item.get("admin_district"), item.get("country"),
+                    ])),
+                    "latitude": item.get("latitude", ""), "longitude": item.get("longitude", ""),
+                    "postcode": item.get("postcode", ""), "country_code": "gb",
+                    "place_id": item.get("postcode", ""), "provider": "Postcodes.io",
+                } for item in data.get("result", []) if item.get("postcode")]
                 if results:
                     ADDRESS_CACHE[cache_key] = (time.monotonic(), results)
                     return results
-            # Photon supports address autocomplete without a credential. Keep
-            # this to short, cached, user-typed queries; HERE remains preferred
-            # when the installation has its own configured key.
-            url = "https://photon.komoot.io/api?" + urlencode({"q": query, "limit": 8, "lang": "en"})
+            except (ValueError, OSError) as error:
+                failures.append(str(error))
+
+        # Photon is the primary no-key provider. Nominatim is a secondary fallback
+        # so a temporary Photon outage does not disable the address field entirely.
+        providers = [
+            ("OpenStreetMap", "https://photon.komoot.io/api?" + urlencode({
+                "q": query, "limit": 8, "lang": "en",
+            })),
+            ("OpenStreetMap Nominatim", "https://nominatim.openstreetmap.org/search?" + urlencode({
+                "q": query + ", United Kingdom", "format": "jsonv2", "addressdetails": 1, "limit": 8,
+                "countrycodes": "gb",
+            })),
+        ]
+        for provider, url in providers:
             try:
-                payload = personal_planner.fetch_json(url)
-            except ValueError as error:
-                raise ValueError("Address suggestions are temporarily unavailable. You can enter the address manually.") from error
-            results = []
-            for feature in payload.get("features", []):
-                properties = feature.get("properties") or {}
-                geometry = feature.get("geometry") or {}
-                coordinates = geometry.get("coordinates") or []
-                country = str(properties.get("country") or "").casefold()
-                country_code = str(properties.get("countrycode") or "").casefold()
-                if country and country not in {"united kingdom", "great britain"} and country_code != "gb":
-                    continue
-                if len(coordinates) < 2:
-                    continue
-                street = " ".join(filter(None, [
-                    str(properties.get("housenumber") or "").strip(),
-                    str(properties.get("street") or "").strip(),
-                ]))
-                name = str(properties.get("name") or "").strip()
-                if not street:
-                    street = name
-                locality = str(properties.get("city") or properties.get("town") or properties.get("village") or "").strip()
-                postcode = str(properties.get("postcode") or "").strip()
-                label = ", ".join(dict.fromkeys(filter(None, [street, postcode, locality, properties.get("state")])))
-                if not label:
-                    continue
-                results.append({
-                    "label": label,
-                    "latitude": coordinates[1],
-                    "longitude": coordinates[0],
-                    "postcode": postcode,
-                    "country_code": country_code or "gb",
-                    "provider": "OpenStreetMap",
-                })
-                if len(results) == 8:
-                    break
-            ADDRESS_CACHE[cache_key] = (time.monotonic(), results)
-            return results
-        url = "https://autosuggest.search.hereapi.com/v1/autosuggest?" + urlencode({
-            "q": query, "in": "countryCode:GBR", "limit": 8, "lang": "en-GB", "apiKey": key,
-        })
-        try:
-            payload = personal_planner.here_fetch(url)
-        except ValueError as error:
-            raise ValueError("Address suggestions are temporarily unavailable. You can enter the address manually.") from error
-        results = []
-        for item in payload.get("items", []):
-            position = item.get("position") or {}
-            label = (item.get("address") or {}).get("label") or item.get("title") or ""
-            if not label or not position:
+                payload = personal_planner.fetch_json(url, headers={"Accept-Language": "en-GB"})
+            except (ValueError, OSError) as error:
+                failures.append(str(error))
                 continue
-            results.append({
-                "label": label,
-                "latitude": position.get("lat", ""),
-                "longitude": position.get("lng", ""),
-                "postcode": (item.get("address") or {}).get("postalCode", ""),
-                "country_code": (item.get("address") or {}).get("countryCode", "gb").lower(),
-                "provider": "HERE",
-            })
-            if len(results) == 8:
-                break
-        ADDRESS_CACHE[cache_key] = (time.monotonic(), results)
-        return results
+
+            results = []
+            if provider == "OpenStreetMap":
+                for feature in payload.get("features", []):
+                    properties = feature.get("properties") or {}
+                    geometry = feature.get("geometry") or {}
+                    coordinates = geometry.get("coordinates") or []
+                    country_code = str(properties.get("countrycode") or "").casefold()
+                    country = str(properties.get("country") or "").casefold()
+                    if (country and country not in {"united kingdom", "great britain"}) or (country_code and country_code != "gb"):
+                        continue
+                    if len(coordinates) < 2:
+                        continue
+                    street = " ".join(filter(None, [
+                        str(properties.get("housenumber") or "").strip(),
+                        str(properties.get("street") or properties.get("name") or "").strip(),
+                    ]))
+                    locality = str(properties.get("city") or properties.get("town") or properties.get("village") or properties.get("county") or "").strip()
+                    postcode = str(properties.get("postcode") or "").strip()
+                    label = ", ".join(dict.fromkeys(filter(None, [street, postcode, locality])))
+                    if label:
+                        results.append({
+                            "label": label, "latitude": coordinates[1], "longitude": coordinates[0],
+                            "postcode": postcode, "country_code": "gb",
+                            "place_id": str(properties.get("osm_id") or properties.get("osm_type") or ""),
+                            "provider": provider,
+                        })
+            else:
+                for item in payload if isinstance(payload, list) else []:
+                    address = item.get("address") or {}
+                    postcode = str(address.get("postcode") or "").strip()
+                    house = str(address.get("house_number") or "").strip()
+                    road = str(address.get("road") or address.get("pedestrian") or item.get("name") or "").strip()
+                    street = " ".join(filter(None, [house, road]))
+                    locality = str(address.get("town") or address.get("city") or address.get("village") or address.get("suburb") or address.get("county") or "").strip()
+                    label = ", ".join(dict.fromkeys(filter(None, [street, postcode, locality])))
+                    if not label:
+                        label = str(item.get("display_name") or "").strip()
+                    try:
+                        latitude, longitude = float(item.get("lat")), float(item.get("lon"))
+                    except (TypeError, ValueError):
+                        continue
+                    if label:
+                        results.append({
+                            "label": label, "latitude": latitude, "longitude": longitude,
+                            "postcode": postcode, "country_code": "gb",
+                            "place_id": str(item.get("place_id") or ""), "provider": provider,
+                        })
+            if results:
+                ADDRESS_CACHE[cache_key] = (time.monotonic(), results[:8])
+                return results[:8]
+
+        if failures:
+            raise ValueError("Address suggestions are temporarily unavailable. You can still enter and save the address manually.")
+        ADDRESS_CACHE[cache_key] = (time.monotonic(), [])
+        return []
 
 
 def navigation_data(connection: sqlite3.Connection) -> dict:
