@@ -27,6 +27,41 @@ function journeyModeArtwork(step,size=56) {
  const badgeTitle=key==='bus'&&badge?'Bus '+badge:key==='train'&&badge?'Platform '+String(step.platform).trim():'';
  return '<span class="journey-mode-art journey-mode-'+e(key)+'" style="--journey-icon-size:'+(Number(size)||56)+'px"><svg viewBox="0 0 24 24" role="img" aria-label="'+e(icon.label)+'" focusable="false"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+icon.glyph+'</g></svg>'+(badge?'<span class="journey-icon-badge" title="'+e(badgeTitle)+'">'+e(badge)+'</span>':'')+'</span>';
 }
+
+function journeyEventSummary(notes = '') {
+ const source=String(notes||'');
+ const block=source.match(/\\[Align travel\\]([\\s\\S]*?)(?:\\[\\/Align travel\\]|$)/i);
+ if(!block)return '';
+ const lines=block[1].split(/\\r?\\n/).map(line=>line.trim()).filter(Boolean);
+ const clockFromLine=(pattern)=>{
+  const line=lines.find(value=>pattern.test(value));
+  const match=String(line||'').match(/\\b([01]?\\d|2[0-3]):[0-5]\\d\\b/);
+  return match?match[0]:'';
+ };
+ const leave=clockFromLine(/^Leave(?: home)?\\b/i);
+ const arrival=clockFromLine(/^Arrive at event location\\b/i)||clockFromLine(/^Arrive\\b/i);
+ let steps=[];
+ try{
+  const raw=source.match(/\\[Align travel steps\\]([\\s\\S]*?)\\[\\/Align travel steps\\]/i);
+  const parsed=raw?JSON.parse(raw[1]):[];
+  if(Array.isArray(parsed))steps=parsed;
+ }catch(_){}
+ const transit=steps.filter(step=>['bus','train','rail','tram'].includes(journeyModeKey(step.mode)));
+ const items=[];
+ const add=(label,time,step=null)=>{
+  if(!time)return;
+  const art=step?journeyModeArtwork(step,34):journeyModeArtwork({mode:'walk'},30);
+  const service=step?.service?(' '+String(step.service).trim()):'';
+  items.push('<span class="journey-time-icon">'+art+'<span class="journey-time-copy"><small>'+escapeHtml(label+service)+'</small><strong>'+escapeHtml(time)+'</strong></span></span>');
+ };
+ add('Leave',leave);
+ transit.forEach(step=>add(journeyModeKey(step.mode)==='bus'?'Bus':'Train',journeyClock(step.expected_start||step.start),step));
+ add('Arrive',arrival);
+ if(!items.length)return '';
+ const legs=steps.length?journeyBreakdown(steps):'<p class="helper">Detailed walking and service steps are not available for this journey.</p>';
+ return '<details class="compact-event-details journey-event-details"><summary>'+items.join('')+'</summary>'+legs+'</details>';
+}
+
 function journeyBreakdown(steps = []) {
  const e=escapeHtml;
  return `<ol class="journey-breakdown">${steps.map(s=>{
