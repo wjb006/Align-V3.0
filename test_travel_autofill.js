@@ -6,6 +6,11 @@ let resolveSearch;
 const context={state:{boot:{settings:{user_address:'Saved home'},beta:{}},tab:'transport'},escapeHtml:String,document:{addEventListener:(name,fn)=>{listeners[name]=fn},querySelector:s=>elements[s]},setTimeout,clearTimeout,clearInterval,queueMicrotask:()=>{},api:()=>new Promise(r=>resolveSearch=r)};
 vm.createContext(context);vm.runInContext(fs.readFileSync('static/travel-assets.js','utf8'),context);
 assert(vm.runInContext('renderTravel150()',context).includes('value="Saved home"'));
+const travelMarkup=vm.runInContext('renderTravel150()',context);
+assert(travelMarkup.includes('id="origin-suggestions"'));
+assert(travelMarkup.includes('id="destination-suggestions"'));
+assert(!travelMarkup.includes('Find places'));
+assert(!travelMarkup.includes('Choose a matching place'));
 (async()=>{
  elements['#origin-query'].value='Liverpool';
  const pending=vm.runInContext("searchTravelPlace150('origin')",context);

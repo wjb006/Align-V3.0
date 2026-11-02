@@ -495,7 +495,7 @@ h3 { font-size: 15px; margin-bottom: 2px; }
 .journey-step { display:flex; gap:12px; align-items:center; margin:12px 0; }
 .journey-step-copy { min-width:0; }
 .journey-mode-art { --journey-icon-size:56px; position:relative; display:inline-grid; place-items:center; width:var(--journey-icon-size); height:var(--journey-icon-size); flex:0 0 var(--journey-icon-size); }
-.journey-mode-art > img { width:100%; height:100%; object-fit:contain; }
+.journey-mode-art > svg { width:100%; height:100%; display:block; overflow:visible; color:var(--journey-icon-colour, var(--accent, #7c9cff)); }
 .journey-icon-badge { position:absolute; z-index:1; display:grid; place-items:center; min-width:18px; min-height:15px; max-width:calc(var(--journey-icon-size) * .78); padding:1px 4px; border-radius:999px; font-size:clamp(8px, calc(var(--journey-icon-size) * .2), 12px); line-height:1.1; font-weight:850; letter-spacing:-.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-shadow:0 1px 3px #0003; }
 .journey-mode-bus .journey-icon-badge { left:50%; top:13%; transform:translateX(-50%); background:#fff; color:var(--navy); border:1px solid #172a6240; }
 .journey-mode-train .journey-icon-badge { right:-3px; bottom:-2px; background:var(--navy); color:#fff; border:2px solid #fff; }
@@ -785,3 +785,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .address-results { max-height: 220px; }
   .address-result { padding: 14px 12px; }
 }
+
+/* Compact journey summary shown directly on upcoming event cards. */
+.journey-event-details{margin-top:8px;border-top:1px solid var(--line,rgba(130,160,200,.2));padding-top:7px}.journey-event-details>summary{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;list-style:none;cursor:pointer}.journey-event-details>summary::-webkit-details-marker{display:none}.journey-event-details .journey-time-icon{gap:5px}.journey-event-details .journey-mode-art{flex:0 0 auto}.journey-event-details .journey-time-copy{display:grid;gap:1px}.journey-event-details .journey-time-copy small{font-size:.68rem;opacity:.78}.journey-event-details .journey-time-copy strong{font-size:.84rem;font-variant-numeric:tabular-nums}.journey-event-details .journey-breakdown{margin:10px 0 2px;padding:0;list-style:none}.journey-event-details .journey-step{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--line,rgba(130,160,200,.16))}.journey-event-details .journey-step-copy{min-width:0}.journey-event-details .journey-icon-badge{font-size:9px;}
+
+/* Travel autocomplete: choose a place directly from the live suggestions. */
+.travel-place-suggestions{display:grid;gap:6px;margin:8px 0 12px;max-height:240px;overflow:auto}.travel-place-option{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;min-height:48px;padding:10px 12px;border:1px solid var(--line,rgba(145,170,210,.3));border-radius:12px;background:var(--surface,rgba(15,35,60,.8));color:var(--text,inherit);text-align:left;font:inherit;cursor:pointer}.travel-place-option:focus-visible{outline:3px solid var(--accent,#365ce6);outline-offset:2px}.travel-place-option small{font-size:.78rem;opacity:.72}.travel-place-field select[data-place150]{display:none!important}

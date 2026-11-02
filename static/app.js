@@ -188,10 +188,9 @@ async function enableBrowserNotifications() {
   toast('Browser notifications enabled.');
 }
 
-function reminderIcon(title = '') {
-  if (/\b(train|rail|tram)\b/i.test(title)) return '/journey-icons/train.png';
-  if (/\bbus\b/i.test(title)) return '/journey-icons/bus.png';
-  if (/\b(leave|walk|travel|arriv)/i.test(title)) return '/journey-icons/walking.png';
+function reminderIcon(_title = '') {
+  // Keep notifications consistent with the Align V3 app identity; journey modes
+  // are shown with the inline transport artwork inside the app.
   return '/icon.svg';
 }
 async function notifyAlign(title, body, tag, url = '/', icon = '/icon.svg') {
@@ -335,6 +334,8 @@ function renderSectionsIndex() {
   const sections = state.sectionDefinitions || [];
   const visible = sections.filter(section => !section.optional || section.enabled);
   return `<section class="page"><div class="add-head"><p class="eyebrow">Your data, organised your way</p><h1>Sections</h1><p class="subtle">Sections set up in Align Management Studio appear here. Your records stay private to your account.</p></div><div class="quick-grid">${visible.map(section => `<button class="quick-action organiser-section-tile" data-section-key="${escapeHtml(section.key)}" style="border-left:4px solid ${escapeHtml(section.colour)}"><b>${escapeHtml(section.icon)}</b>${escapeHtml(section.name)}<small>${escapeHtml(section.description || 'Open your saved records')}</small></button>`).join('')}${!visible.length?'<div class="card empty">No sections have been added yet.</div>':''}</div><section class="section work-calendar-setup"><div class="card"><p class="eyebrow">Work planner</p><h2>Set up Work Calendar</h2><p class="subtle">Add your workplaces, addresses, shift areas, working times and pay details. These settings power your Work Calendar and shift planner.</p><button class="primary-button" data-action="work-setup">Set up Work Calendar</button></div></section></section>`;
+  const showWorkSetup = !work || !work.enabled;
+  return `<section class="page"><div class="add-head"><p class="eyebrow">Your data, organised your way</p><h1>Sections</h1><p class="subtle">Sections set up in Align Management Studio appear here. Your records stay private to your account.</p></div><div class="quick-grid">${visible.map(section => `<button class="quick-action organiser-section-tile" data-section-key="${escapeHtml(section.key)}" style="border-left:4px solid ${escapeHtml(section.colour)}"><b>${escapeHtml(section.icon)}</b>${escapeHtml(section.name)}<small>${escapeHtml(section.description || 'Open your saved records')}</small></button>`).join('')}${!visible.length?'<div class="card empty">No sections have been added yet.</div>':''}</div>${showWorkSetup ? `<section class="section"><div class="card work-optional-card"><h2>Work (optional)</h2><p class="subtle">Set up your Work Calendar with saved work locations, areas and shift times. You can add or change these details later.</p><button class="primary-button" data-action="work-opt-in">Set up Work Calendar</button></div></section>` : ''}</section>`;
 }
 
 function installPanel() {
@@ -411,9 +412,14 @@ function eventSectionColour(event) {
 }
 // Safe fallback for read-only events. Older planner modules supplied this helper;
 // keep rendering available if that optional module is not loaded.
-function eventViewAttributes(_event) {
-  // Non-editable events remain readable; the optional details-view handler is not loaded here.
-  return '';
+function eventViewAttributes(event) {
+  // Read-only calendar imports still open a useful detail view.
+  const title = escapeHtml(event?.title || 'Calendar event');
+  const start = escapeHtml(event?.start_at || '');
+  const end = escapeHtml(event?.end_at || '');
+  const location = escapeHtml(event?.location || '');
+  const notes = escapeHtml(event?.notes || '');
+  return ` data-action="view-calendar-event" data-event-title="${title}" data-event-start="${start}" data-event-end="${end}" data-event-location="${location}" data-event-notes="${notes}" tabindex="0" role="button" aria-label="View ${title}"`;
 }
 // Explicit global export for legacy planner scripts loaded after app.js.
 window.eventViewAttributes = window.eventViewAttributes || eventViewAttributes;
@@ -428,7 +434,7 @@ function renderEventRow(event, {
   const colour = eventSectionColour(event);
   const editable = event.origin !== 'Calendar' && event.section_id && event.id && !event.all_day;
   const attrs = editable
-      ? ` data-week-action="event-edit" data-section-id="${event.section_id}" data-event-id="${event.id}" tabindex="0" role="button"`
+      ? ` data-action="open-section-event" data-section-id="${event.section_id}" data-event-id="${event.id}" tabindex="0" role="button" aria-label="Open ${escapeHtml(event.title || 'event')}"`
       : eventViewAttributes(event);
   const travel = typeof eventTravelMarkup === 'function' ? eventTravelMarkup(event) : '';
   const contact = condensed ? '' : (window.ALIGN152?.eventContactMarkup(event.notes) || '');
@@ -833,7 +839,25 @@ document.addEventListener('click', async event => {
   if (action === 'section-home') { state.tab = 'sections'; state.sectionData = null; state.sectionId = null; render(); return; }
   if (action === 'edit-section') { sectionModal(Number(element.dataset.id)); return; }
   if (action === 'new-section-event') { personalAvailability(state.sectionId); return; }
-  if (action === 'edit-section-event') { sectionEventModal(Number(element.dataset.id)); return; }
+  if (action === 'open-section-event') {
+    const sectionId = Number(element.dataset.sectionId), eventId = Number(element.dataset.eventId);
+    try {
+      if (!sectionId || !eventId) throw new Error('This event is missing its Align record reference.');
+      if (Number(state.sectionId) !== sectionId || !state.sectionData?.events?.some(item => item.source_kind === 'align' && Number(item.id) === eventId)) await openSection(sectionId);
+      if (!state.sectionData?.events?.some(item => item.source_kind === 'align' && Number(item.id) === eventId)) throw new Error('The event could not be found in its section.');
+      sectionEventModal(eventId);
+    } catch (error) { toast(error.message); }
+    return;
+  }
+  if (action === 'view-calendar-event') {
+    const title = element.dataset.eventTitle || 'Calendar event';
+    const start = element.dataset.eventStart || '';
+    const end = element.dataset.eventEnd || '';
+    const location = element.dataset.eventLocation || '';
+    const notes = element.dataset.eventNotes || '';
+    modal(title, `<div class="form-grid"><p><strong>${escapeHtml(start.replace('T',' '))}${end ? ' – ' + escapeHtml(end.slice(11,16)) : ''}</strong></p>${location ? `<p>${escapeHtml(location)}</p>` : ''}${notes ? `<div class="event-notes">${escapeHtml(notes).replace(/\\n/g,'<br>')}</div>` : '<p class="helper">No additional notes.</p>'}<div class="modal-actions"><button type="button" class="primary-button" data-action="close-modal">Close</button></div></div>`);
+    return;
+  }
   if (action === 'delete-section') {
     if (!window.confirm('Delete this section and its Align-created events? iCloud events themselves are left alone.')) return;
     try { await api(`/api/sections/${element.dataset.id}`, { method: 'DELETE' }); closeModal(); state.sectionData = null; state.sectionId = null; state.tab = 'sections'; await refresh(); toast('Section deleted.'); } catch (error) { toast(error.message); }
@@ -855,12 +879,19 @@ document.addEventListener('click', async event => {
   }
 
   if (action === 'work-opt-in') {
-    const work = state.sectionDefinitions.find(section => section.key === 'work');
-    if (!work) { toast('Work setup is not available yet. The Work database will appear here when it is ready.'); return; }
+    const work = (state.sectionDefinitions || []).find(section => section.key === 'work');
     try {
-      await api('/api/builder/records/work/enable', {method:'POST', body:{}});
-      state.sectionDefinitions = (await api('/api/sections/definitions')).sections || [];
-      await builderOpenLayout('work');
+      if (work) {
+        if (!work.enabled) {
+          await api('/api/builder/records/work/enable', {method:'POST', body:{}});
+          state.sectionDefinitions = (await api('/api/sections/definitions')).sections || [];
+        }
+        await builderOpenLayout('work');
+      } else if (typeof openWorkSetup === 'function') {
+        await openWorkSetup();
+      } else {
+        throw new Error('Work Calendar setup is temporarily unavailable. Refresh Align and try again.');
+      }
     } catch (error) { toast(error.message); }
     return;
   }

@@ -525,9 +525,18 @@
       const accent = safeColor(colors.accent, '#0878f9');
       const canvas = safeColor(colors.canvas, '#061326');
       const surface = safeColor(colors.surface, '#0b203b');
-      const ink = safeColor(colors.text, '#f4f8ff');
+      const requestedInk = safeColor(colors.text, '');
       const line = safeColor(colors.line, '#1a3858');
       const isLight = appearance.type?.theme === 'light';
+      const luminance = hex => {
+        const rgb = String(hex || '').match(/[0-9a-f]{2}/ig)?.map(v => parseInt(v, 16) / 255) || [0, 0, 0];
+        const linear = rgb.map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4);
+        return linear[0] * .2126 + linear[1] * .7152 + linear[2] * .0722;
+      };
+      const canvasLuminance = luminance(canvas);
+      const ink = requestedInk && Math.abs(luminance(requestedInk) - canvasLuminance) >= .38
+        ? requestedInk
+        : (canvasLuminance > .42 ? '#14203c' : '#f4f8ff');
       const font = ({serif:'Georgia,serif',rounded:'ui-rounded,"Nunito",system-ui,sans-serif',mono:'ui-monospace,Consolas,monospace'})[appearance.type?.font] || 'system-ui,sans-serif';
       let style = doc.getElementById('align-studio-live-preview-theme');
       if (!style) {
@@ -542,19 +551,16 @@
           --canvas: ${canvas}; --surface: ${surface}; --ink: ${ink};
           --line: ${line}; --navy: ${surface}; --radius: ${appearance.type?.corners === 'square' ? '4px' : '18px'};
         }
-        html, body { background-color:${canvas}!important; color:${ink}!important; background-image:none!important; font-family:${font}!important; }
-        .app-shell { background:${canvas}!important; color:${ink}!important; }
-        .card, .weather-card, .today-weather-day, .planner-list-day, .build152-list-day,
-        .month-day, .week-event-row, .shift-event, .quick-action, .option-card,
-        .week-choice, .day-choice, .month-event, .modal, .settings-form, .step-panel,
-        .info-card, .builder-panel, .builder-preview, .master-banner, .section-card {
-          background-color:${surface}!important; color:${ink}!important; border-color:${line}!important;
-        }
-        .tab-bar { background-color:${surface}!important; border-color:${line}!important; }
+        html, body { background-color:${canvas}!important; color:${ink}!important; font-family:${font}!important; }
+        :root { --canvas:${canvas}; --surface:${surface}; --ink:${ink}; --line:${line}; }
+        .app-shell { background-color:${canvas}; color:${ink}; }
+        /* Keep each real app component's own contrast, spacing, shadows and responsive styling.
+           Broad !important card overrides made the live UI look washed out. */
+        .tab-bar { border-color:${line}; }
         .tab-bar .active, .nav-item.active, .primary-button, .management-primary {
-          background-color:${accent}!important; border-color:${accent}!important;
+          background-color:${accent}; border-color:${accent};
         }
-        input, select, textarea { font-family:${font}!important; }
+        input, select, textarea { font-family:${font}; }
       `;
     } catch (_) {
       // If browser policy blocks parent styling, the real app remains usable in the frame.
