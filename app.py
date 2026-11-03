@@ -46,6 +46,7 @@ import admin_api
 import beta_http
 import icloud_api
 import planner_api
+import work_rota_api
 
 health_status = health_backup.health_status
 local_database_backup = health_backup.local_database_backup
@@ -223,6 +224,7 @@ def initialise_database_at(database: Path) -> None:
                 "UPDATE icloud_config SET instance_id=? WHERE id=1 AND instance_id=''",
                 (secrets.token_hex(16),),
             )
+        migration_runner.ensure_work_rota_schema(database)
         return
     schema = (ROOT / "schema.sql").read_text(encoding="utf-8")
     migration_runner.upgrade(database)
@@ -1217,6 +1219,8 @@ class AlignHandler(SimpleHTTPRequestHandler):
                     return
                 if planner_api.handle_get(self, sys.modules[__name__], connection, parsed, row):
                     return
+                if work_rota_api.handle_get(self, sys.modules[__name__], connection, parsed.path):
+                    return
                 if align_settings.handle(self, sys.modules[__name__], "GET", connection):
                     return
 
@@ -1250,6 +1254,8 @@ class AlignHandler(SimpleHTTPRequestHandler):
 
             if health_backup.handle(self, sys.modules[__name__], "POST"):
                 return
+            if work_rota_api.handle_multipart(self, sys.modules[__name__], path):
+                return
 
             payload = self.read_json()
             if beta_http.handle_post(self, sys.modules[__name__], path, payload):
@@ -1269,6 +1275,8 @@ class AlignHandler(SimpleHTTPRequestHandler):
                 if admin_api.handle(self, sys.modules[__name__], "POST", connection, payload):
                     return
                 if planner_api.handle_post(self, sys.modules[__name__], connection, path, payload, row):
+                    return
+                if work_rota_api.handle_post(self, sys.modules[__name__], connection, path, payload):
                     return
         except BetaError as error:
             self.send_beta_error(error)
@@ -1325,7 +1333,28 @@ class AlignHandler(SimpleHTTPRequestHandler):
                     return
                 if planner_api.handle_delete(self, sys.modules[__name__], connection, path, row):
                     return
+                if work_rota_api.handle_delete(self, sys.modules[__name__], connection, path):
+                    return
         except (ValueError, sqlite3.Error) as error:
+            self.send_json(400, {"error": str(error)})
+            return
+        self.send_json(404, {"error": "Not found"})
+
+    def do_PATCH(self):
+        if reject_retired_schedule_endpoint(self): return
+        path = urlparse(self.path).path
+        try:
+            payload = self.read_json()
+            row = self.require_beta_user() if BETA_MODE else None
+            if BETA_MODE and not row: return
+            if BETA_MODE and not self.beta_same_origin(): return
+            with db_connection() as connection:
+                if work_rota_api.handle_patch(self, sys.modules[__name__], connection, path, payload):
+                    return
+        except BetaError as error:
+            self.send_beta_error(error)
+            return
+        except (KeyError, TypeError, ValueError, sqlite3.IntegrityError, sqlite3.Error) as error:
             self.send_json(400, {"error": str(error)})
             return
         self.send_json(404, {"error": "Not found"})
