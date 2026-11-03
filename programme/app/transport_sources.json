@@ -1,0 +1,6 @@
+{
+  "naptan": {"kind": "stops", "base_url": "https://naptan.api.dft.gov.uk/v1", "credentials": []},
+  "bods": {"kind": "bus", "base_url": "https://data.bus-data.dft.gov.uk/api", "credentials": ["BODS_API_KEY"]},
+  "darwin": {"kind": "rail", "base_url": "https://lite.realtime.nationalrail.co.uk/OpenLDBWS", "credentials": ["DARWIN_ACCESS_TOKEN"]},
+  "routing": {"kind": "walking", "base_url": "https://router.project-osrm.org", "credentials": []}
+}

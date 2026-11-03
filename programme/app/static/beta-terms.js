@@ -1,0 +1,3 @@
+async function post(path){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});const p=await r.json();if(!r.ok)throw new Error(p.error||'Unable to continue.');return p;}
+document.querySelector('#continue').onclick=async()=>{const m=document.querySelector('#message');if(!document.querySelector('#accept').checked){m.textContent='Please tick the acceptance box first.';return;}try{await post('/api/beta/accept');location.href='/welcome';}catch(e){m.textContent=e.message;}};
+document.querySelector('#logout').onclick=async()=>{try{await post('/api/beta/logout');}finally{location.href='/login';}};

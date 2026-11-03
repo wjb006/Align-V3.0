@@ -46,4 +46,8 @@ Management Studio is the control centre for the Align platform. It should be ins
 
 ## Current implementation note
 
-This document records the intended architecture and safety boundaries. It does not claim that the desktop shell, embedded App view, Host dashboard, installer, or any health/action endpoints have been implemented or tested yet.
+The local desktop programme is `python -m desktop` (and the PyInstaller `Align.exe` built from `desktop/align.spec`). It starts this server on loopback, stores the database outside the programme files, and opens a home screen with the planner and Management Studio.
+
+Inside Studio, **Open Align app** embeds the local planner, and **Host overview** reads `/api/health` plus `/api/desktop/status` for this computer. It does not mark https://getalign.co.uk healthy and it does not change production. The working calendar reads and saves real section events.
+
+The Windows package is built in GitHub Actions and installed with `installer/windows/Install-Align-Studio.ps1`. A signed installer, automatic programme updates, and a live check of the hosted service are still open. See `desktop/REBUILD_REPORT.md`.

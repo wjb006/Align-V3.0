@@ -9,6 +9,7 @@ import post_event_travel
 
 import json
 import hashlib
+import mimetypes
 import logging
 import os
 import re
@@ -28,8 +29,12 @@ from http.cookies import SimpleCookie
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlparse
+
+mimetypes.add_type("image/svg+xml", ".svg")
+mimetypes.add_type("image/vnd.microsoft.icon", ".ico")
 from urllib.request import Request, urlopen
 from colour_utils import colour as valid_colour
+from align_paths import source_root
 from beta_support import BetaError
 import personal_planner
 import phone_push
@@ -45,6 +50,7 @@ import admin_api
 import beta_http
 import icloud_api
 import planner_api
+import work_rota_api
 
 health_status = health_backup.health_status
 local_database_backup = health_backup.local_database_backup
@@ -60,7 +66,7 @@ section_values = organiser_api.section_values
 organiser_event_values = organiser_api.organiser_event_values
 validate_parent_branch = admin_api.validate_parent_branch
 
-ROOT = Path(__file__).resolve().parent
+ROOT = source_root()
 STATIC = ROOT / "static"
 DATA_DIR = Path(os.environ.get("ALIGN_DATA_DIR") or ROOT).expanduser()
 DATABASE = DATA_DIR / "align.sqlite3"
@@ -190,11 +196,23 @@ def initialise_database_at(database: Path) -> None:
     legacy_schema = False
     if database.exists() and database.stat().st_size:
         with sqlite3.connect(str(database)) as probe:
-            legacy_schema = bool(probe.execute(
+            has_schedule = bool(probe.execute(
                 "SELECT 1 FROM sqlite_master WHERE type='table' AND name IN "
                 "('shifts','shift_templates','shift_types','locations','location_shift_types',"
                 "'annual_leave','alert_rules','alerts','shift_batches') LIMIT 1"
             ).fetchone())
+            # Fresh V3 databases include the restored planner and record
+            # 156_shift_planner. Older files with those tables, and no marker,
+            # stay on the compatibility initializer.
+            marked_v3 = False
+            if has_schedule:
+                try:
+                    marked_v3 = bool(probe.execute(
+                        "SELECT 1 FROM schema_migrations WHERE migration_id='156_shift_planner'"
+                    ).fetchone())
+                except sqlite3.OperationalError:
+                    marked_v3 = False
+            legacy_schema = has_schedule and not marked_v3
     if not legacy_schema:
         schema = (ROOT / "schema_v3.sqlite.sql").read_text(encoding="utf-8")
         connection = connect(database, factory=ClosingConnection)
@@ -210,6 +228,7 @@ def initialise_database_at(database: Path) -> None:
                 "UPDATE icloud_config SET instance_id=? WHERE id=1 AND instance_id=''",
                 (secrets.token_hex(16),),
             )
+        migration_runner.ensure_work_rota_schema(database)
         return
     schema = (ROOT / "schema.sql").read_text(encoding="utf-8")
     migration_runner.upgrade(database)
@@ -360,12 +379,12 @@ def normalise_leave_year_start(value) -> str:
 
 
 def find_addresses(query: str) -> list[dict]:
-    """Return UK address autocomplete results through the configured HERE key."""
+    """Return UK address autocomplete results, with resilient provider fallback."""
     query = " ".join(query.split())[:120]
-    postcode_prefix = re.sub(r"\s+", "", query).upper()
+    postcode_prefix = re.sub(r"\\s+", "", query).upper()
     postcode_query = bool(
-        re.fullmatch(r"[A-Z]{1,2}\d[A-Z\d]?", postcode_prefix)
-        or re.fullmatch(r"[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}", postcode_prefix)
+        re.fullmatch(r"[A-Z]{1,2}\\d[A-Z\\d]?", postcode_prefix)
+        or re.fullmatch(r"[A-Z]{1,2}\\d[A-Z\\d]?\\d[A-Z]{2}", postcode_prefix)
     )
     if len(query) < 3 and not postcode_query:
         raise ValueError("Enter at least three characters to search for an address.")
@@ -373,101 +392,132 @@ def find_addresses(query: str) -> list[dict]:
     cached = ADDRESS_CACHE.get(cache_key)
     if cached and time.monotonic() - cached[0] < 600:
         return cached[1]
+
     with ADDRESS_LOCK:
         cached = ADDRESS_CACHE.get(cache_key)
         if cached and time.monotonic() - cached[0] < 600:
             return cached[1]
+
+        failures = []
         key = os.environ.get("ALIGN_HERE_ROUTING_KEY", "").strip()
-        if not key:
-            if postcode_query:
+        if key:
+            url = "https://autosuggest.search.hereapi.com/v1/autosuggest?" + urlencode({
+                "q": query, "in": "countryCode:GBR", "limit": 8, "lang": "en-GB", "apiKey": key,
+            })
+            try:
+                payload = personal_planner.here_fetch(url)
+                results = []
+                for item in payload.get("items", []):
+                    position = item.get("position") or {}
+                    address = item.get("address") or {}
+                    label = address.get("label") or item.get("title") or ""
+                    if not label or not position:
+                        continue
+                    results.append({
+                        "label": label, "latitude": position.get("lat", ""),
+                        "longitude": position.get("lng", ""), "postcode": address.get("postalCode", ""),
+                        "country_code": address.get("countryCode", "gb").lower(),
+                        "place_id": item.get("id", ""), "provider": "HERE",
+                    })
+                if results:
+                    ADDRESS_CACHE[cache_key] = (time.monotonic(), results)
+                    return results[:8]
+            except (ValueError, OSError) as error:
+                failures.append(str(error))
+
+        # Postcodes.io is a useful fast path for partial and complete UK postcodes.
+        if postcode_query:
+            try:
                 data = personal_planner.fetch_json(
                     "https://api.postcodes.io/postcodes?" + urlencode({"q": postcode_prefix, "limit": 8})
                 )
-                results = [
-                    {
-                        "label": ", ".join(filter(None, [
-                            item.get("postcode"), item.get("admin_district"), item.get("country"),
-                        ])),
-                        "latitude": item.get("latitude", ""),
-                        "longitude": item.get("longitude", ""),
-                        "postcode": item.get("postcode", ""),
-                        "country_code": "gb",
-                        "provider": "Postcodes.io",
-                    }
-                    for item in data.get("result", [])
-                    if item.get("postcode")
-                ]
+                results = [{
+                    "label": ", ".join(filter(None, [
+                        item.get("postcode"), item.get("admin_district"), item.get("country"),
+                    ])),
+                    "latitude": item.get("latitude", ""), "longitude": item.get("longitude", ""),
+                    "postcode": item.get("postcode", ""), "country_code": "gb",
+                    "place_id": item.get("postcode", ""), "provider": "Postcodes.io",
+                } for item in data.get("result", []) if item.get("postcode")]
                 if results:
                     ADDRESS_CACHE[cache_key] = (time.monotonic(), results)
                     return results
-            # Photon supports address autocomplete without a credential. Keep
-            # this to short, cached, user-typed queries; HERE remains preferred
-            # when the installation has its own configured key.
-            url = "https://photon.komoot.io/api?" + urlencode({"q": query, "limit": 8, "lang": "en"})
+            except (ValueError, OSError) as error:
+                failures.append(str(error))
+
+        # Photon is the primary no-key provider. Nominatim is a secondary fallback
+        # so a temporary Photon outage does not disable the address field entirely.
+        providers = [
+            ("OpenStreetMap", "https://photon.komoot.io/api?" + urlencode({
+                "q": query, "limit": 8, "lang": "en",
+            })),
+            ("OpenStreetMap Nominatim", "https://nominatim.openstreetmap.org/search?" + urlencode({
+                "q": query + ", United Kingdom", "format": "jsonv2", "addressdetails": 1, "limit": 8,
+                "countrycodes": "gb",
+            })),
+        ]
+        for provider, url in providers:
             try:
-                payload = personal_planner.fetch_json(url)
-            except ValueError as error:
-                raise ValueError("Address suggestions are temporarily unavailable. You can enter the address manually.") from error
-            results = []
-            for feature in payload.get("features", []):
-                properties = feature.get("properties") or {}
-                geometry = feature.get("geometry") or {}
-                coordinates = geometry.get("coordinates") or []
-                country = str(properties.get("country") or "").casefold()
-                country_code = str(properties.get("countrycode") or "").casefold()
-                if country and country not in {"united kingdom", "great britain"} and country_code != "gb":
-                    continue
-                if len(coordinates) < 2:
-                    continue
-                street = " ".join(filter(None, [
-                    str(properties.get("housenumber") or "").strip(),
-                    str(properties.get("street") or "").strip(),
-                ]))
-                name = str(properties.get("name") or "").strip()
-                if not street:
-                    street = name
-                locality = str(properties.get("city") or properties.get("town") or properties.get("village") or "").strip()
-                postcode = str(properties.get("postcode") or "").strip()
-                label = ", ".join(dict.fromkeys(filter(None, [street, postcode, locality, properties.get("state")])))
-                if not label:
-                    continue
-                results.append({
-                    "label": label,
-                    "latitude": coordinates[1],
-                    "longitude": coordinates[0],
-                    "postcode": postcode,
-                    "country_code": country_code or "gb",
-                    "provider": "OpenStreetMap",
-                })
-                if len(results) == 8:
-                    break
-            ADDRESS_CACHE[cache_key] = (time.monotonic(), results)
-            return results
-        url = "https://autosuggest.search.hereapi.com/v1/autosuggest?" + urlencode({
-            "q": query, "in": "countryCode:GBR", "limit": 8, "lang": "en-GB", "apiKey": key,
-        })
-        try:
-            payload = personal_planner.here_fetch(url)
-        except ValueError as error:
-            raise ValueError("Address suggestions are temporarily unavailable. You can enter the address manually.") from error
-        results = []
-        for item in payload.get("items", []):
-            position = item.get("position") or {}
-            label = (item.get("address") or {}).get("label") or item.get("title") or ""
-            if not label or not position:
+                payload = personal_planner.fetch_json(url, headers={"Accept-Language": "en-GB"})
+            except (ValueError, OSError) as error:
+                failures.append(str(error))
                 continue
-            results.append({
-                "label": label,
-                "latitude": position.get("lat", ""),
-                "longitude": position.get("lng", ""),
-                "postcode": (item.get("address") or {}).get("postalCode", ""),
-                "country_code": (item.get("address") or {}).get("countryCode", "gb").lower(),
-                "provider": "HERE",
-            })
-            if len(results) == 8:
-                break
-        ADDRESS_CACHE[cache_key] = (time.monotonic(), results)
-        return results
+
+            results = []
+            if provider == "OpenStreetMap":
+                for feature in payload.get("features", []):
+                    properties = feature.get("properties") or {}
+                    geometry = feature.get("geometry") or {}
+                    coordinates = geometry.get("coordinates") or []
+                    country_code = str(properties.get("countrycode") or "").casefold()
+                    country = str(properties.get("country") or "").casefold()
+                    if (country and country not in {"united kingdom", "great britain"}) or (country_code and country_code != "gb"):
+                        continue
+                    if len(coordinates) < 2:
+                        continue
+                    street = " ".join(filter(None, [
+                        str(properties.get("housenumber") or "").strip(),
+                        str(properties.get("street") or properties.get("name") or "").strip(),
+                    ]))
+                    locality = str(properties.get("city") or properties.get("town") or properties.get("village") or properties.get("county") or "").strip()
+                    postcode = str(properties.get("postcode") or "").strip()
+                    label = ", ".join(dict.fromkeys(filter(None, [street, postcode, locality])))
+                    if label:
+                        results.append({
+                            "label": label, "latitude": coordinates[1], "longitude": coordinates[0],
+                            "postcode": postcode, "country_code": "gb",
+                            "place_id": str(properties.get("osm_id") or properties.get("osm_type") or ""),
+                            "provider": provider,
+                        })
+            else:
+                for item in payload if isinstance(payload, list) else []:
+                    address = item.get("address") or {}
+                    postcode = str(address.get("postcode") or "").strip()
+                    house = str(address.get("house_number") or "").strip()
+                    road = str(address.get("road") or address.get("pedestrian") or item.get("name") or "").strip()
+                    street = " ".join(filter(None, [house, road]))
+                    locality = str(address.get("town") or address.get("city") or address.get("village") or address.get("suburb") or address.get("county") or "").strip()
+                    label = ", ".join(dict.fromkeys(filter(None, [street, postcode, locality])))
+                    if not label:
+                        label = str(item.get("display_name") or "").strip()
+                    try:
+                        latitude, longitude = float(item.get("lat")), float(item.get("lon"))
+                    except (TypeError, ValueError):
+                        continue
+                    if label:
+                        results.append({
+                            "label": label, "latitude": latitude, "longitude": longitude,
+                            "postcode": postcode, "country_code": "gb",
+                            "place_id": str(item.get("place_id") or ""), "provider": provider,
+                        })
+            if results:
+                ADDRESS_CACHE[cache_key] = (time.monotonic(), results[:8])
+                return results[:8]
+
+        if failures:
+            raise ValueError("Address suggestions are temporarily unavailable. You can still enter and save the address manually.")
+        ADDRESS_CACHE[cache_key] = (time.monotonic(), [])
+        return []
 
 
 def navigation_data(connection: sqlite3.Connection) -> dict:
@@ -553,9 +603,12 @@ def calendar_data(connection: sqlite3.Connection) -> dict:
            GROUP BY s.id ORDER BY s.name"""
     ))
     sync = dict(connection.execute("SELECT revision,modified_at FROM calendar_sync_state WHERE id=1").fetchone())
-    alert_rules = rows_as_dicts(connection.execute(
-        "SELECT * FROM alert_rules ORDER BY minutes_before,id"
-    ))
+    if _sqlite_table_exists(connection, "alert_rules"):
+        alert_rules = rows_as_dicts(connection.execute(
+            "SELECT * FROM alert_rules ORDER BY minutes_before,id"
+        ))
+    else:
+        alert_rules = []
     return {"sources": sources, "align_calendar_name": "Align",
             "feed_path": "/api/calendars/live.ics", "sync": sync,
             "alert_rules": alert_rules}
@@ -690,6 +743,33 @@ def _work_summary(connection: sqlite3.Connection, today: str) -> dict:
             "pay_estimate": round(hours_total*rate,2), "contracted_hours": contracted, "rate_of_pay": rate}
 
 
+def _sqlite_table_exists(connection: sqlite3.Connection, name: str) -> bool:
+    """Check table existence using the active backend's catalog."""
+    if postgres_enabled():
+        row = connection.execute(
+            "SELECT 1 FROM information_schema.tables WHERE table_schema=? AND table_name=?",
+            (connection.schema, name),
+        ).fetchone()
+    else:
+        row = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+            (name,),
+        ).fetchone()
+    return bool(row)
+
+
+def _pending_shift_alerts(connection: sqlite3.Connection, now: datetime) -> list[dict]:
+    """Legacy shift reminders. Fresh V3 databases do not have this table."""
+    if not _sqlite_table_exists(connection, "alerts") or not _sqlite_table_exists(connection, "shifts"):
+        return []
+    return rows_as_dicts(connection.execute(
+        """SELECT a.*,s.work_date,s.start_time,s.end_time,s.location_name,s.shift_type_name
+           FROM alerts a JOIN shifts s ON s.id=a.shift_id
+           WHERE a.status='pending' AND a.alert_at>=? ORDER BY a.alert_at LIMIT 100""",
+        (now.replace(tzinfo=None).isoformat(timespec="minutes"),),
+    ))
+
+
 def dashboard(connection: sqlite3.Connection) -> dict:
     now = datetime.now(ZoneInfo('Europe/London'))
     today = now.date().isoformat()
@@ -719,12 +799,7 @@ def dashboard(connection: sqlite3.Connection) -> dict:
         "upcoming_events": upcoming_events,
         "annual_leave": [],
         "leave_balance": None,
-        "alerts": rows_as_dicts(connection.execute(
-            """SELECT a.*,s.work_date,s.start_time,s.end_time,s.location_name,s.shift_type_name
-               FROM alerts a JOIN shifts s ON s.id=a.shift_id
-               WHERE a.status='pending' AND a.alert_at>=? ORDER BY a.alert_at LIMIT 100""",
-            (now.replace(tzinfo=None).isoformat(timespec='minutes'),)
-        )),
+        "alerts": _pending_shift_alerts(connection, now),
         "reminder_alerts": [],
         "summary": _work_summary(connection, today),
     }
@@ -779,13 +854,17 @@ class AlignHandler(SimpleHTTPRequestHandler):
         # style-src still allows 'unsafe-inline' because shared pages use <style>
         # blocks and style attributes. Moving those out is a separate visual change.
         self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("X-Frame-Options", "DENY")
+        # The local Studio embeds the planner at "/". API and account pages stay
+        # unframeable. Same-origin only: other sites still cannot embed Align.
+        frameable = path in {"/", "/index.html"}
+        self.send_header("X-Frame-Options", "SAMEORIGIN" if frameable else "DENY")
         self.send_header("Referrer-Policy", "no-referrer")
+        ancestors = "'self'" if frameable else "'none'"
         self.send_header(
             "Content-Security-Policy",
             "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; "
-            "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'",
+            f"base-uri 'self'; object-src 'none'; frame-ancestors {ancestors}; form-action 'self'",
         )
         if path == "/service-worker.js":
             self.send_header("Service-Worker-Allowed", "/")
@@ -1115,6 +1194,10 @@ class AlignHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         self.rewrite_public_path()
+        if urlparse(self.path).path == "/api/desktop/status":
+            from desktop.status import handle_status
+            handle_status(self)
+            return
         if reject_retired_schedule_endpoint(self): return
         if build152.handle(self, sys.modules[__name__], 'GET'): return
         if phone_push.handle(self, sys.modules[__name__], 'GET'): return
@@ -1140,6 +1223,8 @@ class AlignHandler(SimpleHTTPRequestHandler):
                     return
                 if planner_api.handle_get(self, sys.modules[__name__], connection, parsed, row):
                     return
+                if work_rota_api.handle_get(self, sys.modules[__name__], connection, parsed.path):
+                    return
                 if align_settings.handle(self, sys.modules[__name__], "GET", connection):
                     return
 
@@ -1153,6 +1238,8 @@ class AlignHandler(SimpleHTTPRequestHandler):
             self.send_json(400, {"error": str(error)})
             return
         beta_http.apply_pages(self, sys.modules[__name__], parsed)
+        if urlparse(self.path).path in {"/desktop", "/desktop/"}:
+            self.path = "/desktop.html"
         super().do_GET()
 
     def do_POST(self):
@@ -1170,6 +1257,8 @@ class AlignHandler(SimpleHTTPRequestHandler):
                 return
 
             if health_backup.handle(self, sys.modules[__name__], "POST"):
+                return
+            if work_rota_api.handle_multipart(self, sys.modules[__name__], path):
                 return
 
             payload = self.read_json()
@@ -1190,6 +1279,8 @@ class AlignHandler(SimpleHTTPRequestHandler):
                 if admin_api.handle(self, sys.modules[__name__], "POST", connection, payload):
                     return
                 if planner_api.handle_post(self, sys.modules[__name__], connection, path, payload, row):
+                    return
+                if work_rota_api.handle_post(self, sys.modules[__name__], connection, path, payload):
                     return
         except BetaError as error:
             self.send_beta_error(error)
@@ -1246,7 +1337,28 @@ class AlignHandler(SimpleHTTPRequestHandler):
                     return
                 if planner_api.handle_delete(self, sys.modules[__name__], connection, path, row):
                     return
+                if work_rota_api.handle_delete(self, sys.modules[__name__], connection, path):
+                    return
         except (ValueError, sqlite3.Error) as error:
+            self.send_json(400, {"error": str(error)})
+            return
+        self.send_json(404, {"error": "Not found"})
+
+    def do_PATCH(self):
+        if reject_retired_schedule_endpoint(self): return
+        path = urlparse(self.path).path
+        try:
+            payload = self.read_json()
+            row = self.require_beta_user() if BETA_MODE else None
+            if BETA_MODE and not row: return
+            if BETA_MODE and not self.beta_same_origin(): return
+            with db_connection() as connection:
+                if work_rota_api.handle_patch(self, sys.modules[__name__], connection, path, payload):
+                    return
+        except BetaError as error:
+            self.send_beta_error(error)
+            return
+        except (KeyError, TypeError, ValueError, sqlite3.IntegrityError, sqlite3.Error) as error:
             self.send_json(400, {"error": str(error)})
             return
         self.send_json(404, {"error": "Not found"})
@@ -1261,7 +1373,7 @@ class AlignServer(ThreadingHTTPServer):
         super().server_bind()
 
 
-if __name__ == "__main__":
+def main() -> None:
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
@@ -1322,10 +1434,14 @@ if __name__ == "__main__":
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print('\nAlign stopped. Your saved data is kept in align.sqlite3.')
+        print("\nAlign stopped. Your saved planner data was kept.")
     finally:
         LOG.info("Align server stopping")
         server.server_close()
         if admin_server is not None:
             admin_server.shutdown()
             admin_server.server_close()
+
+
+if __name__ == "__main__":
+    main()

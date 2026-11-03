@@ -296,9 +296,10 @@
 }
 @media(max-width:700px){
   .studio-calm .unified-shell{display:block}
-  .studio-calm .unified-sidebar{position:sticky;top:0;z-index:15;display:grid;gap:8px;padding:10px 12px;border-right:0;border-bottom:1px solid var(--line);overflow:visible}
+  .studio-calm .unified-sidebar{position:sticky;top:0;z-index:15;display:grid;gap:8px;width:100%;max-width:100%;min-width:0;padding:10px 12px;border-right:0;border-bottom:1px solid var(--line);overflow:hidden;box-sizing:border-box}
   .studio-calm .unified-brand{margin:0 4px}
-  .studio-calm .unified-nav{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;max-height:min(42vh,360px);overflow:auto;padding:0 2px}
+  .studio-calm .unified-nav{grid-template-columns:minmax(0,1fr);gap:6px;width:100%;min-width:0;max-width:100%;max-height:min(42vh,360px);overflow:auto;padding:0}
+  .studio-calm .unified-nav button,.studio-calm .unified-nav-group>summary{min-width:0;overflow-wrap:anywhere;white-space:normal}
   .studio-calm .unified-nav-group{align-self:start;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
   .studio-calm .unified-nav-group[open]{grid-column:1/-1}
   .studio-calm .unified-nav-group>summary{min-height:40px;margin:0;padding:8px 12px}
@@ -309,7 +310,8 @@
   .studio-calm .unified-main{padding:0 16px 40px}
   .studio-calm .unified-topbar{height:auto;align-items:flex-start;flex-direction:column;margin:0 -16px 12px;padding:12px 16px}
   .studio-calm .unified-actions{width:100%}
-  .studio-calm #management-status{max-width:100%}
+  .studio-calm .unified-shell,.studio-calm .unified-main,.studio-calm .unified-topbar,.studio-calm .unified-title{max-width:100%;min-width:0}
+  .studio-calm #management-status{width:100%;max-width:100%;min-width:0;box-sizing:border-box}
   .studio-calm .management-area-row{grid-template-columns:minmax(0,1fr) auto}
   .studio-toast{right:12px;left:12px;bottom:12px}
 }
@@ -623,4 +625,150 @@
   .studio-calm .studio-list-item { grid-template-columns: minmax(0, 1fr); }
   .studio-calm .studio-list-item span { justify-content: flex-end; }
   .studio-calm .studio-remove-section { margin-left: 0; }
+}
+
+
+/* The Studio device is a real, same-origin app instance rather than a duplicated mock screen. */
+.live-preview-tools { align-items:center; gap:8px; background:transparent; border:0; padding:0; }
+.live-preview-status { display:inline-flex; align-items:center; gap:6px; color:#36506f; font-size:11px; font-weight:750; white-space:nowrap; }
+.live-preview-status > span { width:7px; height:7px; border-radius:50%; background:#1aa879; box-shadow:0 0 0 3px #1aa87920; }
+.live-preview-tools button { min-height:30px; padding:6px 10px; border:1px solid #d6dfec; border-radius:8px; color:#28436b; background:#fff; font-size:11px; font-weight:700; cursor:pointer; }
+.live-preview-tools button:hover { background:#edf3ff; border-color:#b8c9e8; }
+.management-device-screen { overflow:hidden; padding:0; background:#061326; }
+#management-live-frame { display:block; width:100%; height:100%; min-height:100%; border:0; border-radius:24px; background:#061326; }
+@media(max-width:800px) {
+  .management-device-screen { height:min(72vh,690px); min-height:480px; }
+}
+
+
+/* Live preview sizing: give the actual app room to render at normal phone proportions. */
+.studio-calm .unified-shell {
+  grid-template-columns: 220px minmax(360px, 1fr) minmax(380px, 440px);
+}
+.studio-calm .unified-phone {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  min-width: 0;
+  width: 100%;
+  height: 100dvh;
+  padding: 18px 12px 24px;
+  box-sizing: border-box;
+}
+.studio-calm .unified-phone .management-device {
+  width: min(100%, 420px);
+  box-sizing: border-box;
+}
+.studio-calm .unified-phone .management-device-screen {
+  height: min(78dvh, 840px);
+  min-height: 600px;
+  overflow: hidden;
+}
+.studio-calm #management-live-frame {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+@media (max-width: 1180px) {
+  .studio-calm .unified-shell {
+    grid-template-columns: 200px minmax(300px, 1fr) minmax(340px, 390px);
+  }
+  .studio-calm .unified-phone {
+    display: grid;
+  }
+  .studio-calm .unified-phone .management-device {
+    width: min(100%, 380px);
+  }
+}
+@media (max-width: 900px) {
+  .studio-calm .unified-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .studio-calm .unified-phone {
+    position: static;
+    display: grid;
+    width: 100%;
+    height: auto;
+    padding: 20px 12px 32px;
+  }
+  .studio-calm .unified-phone .management-device {
+    width: min(100%, 420px);
+  }
+  .studio-calm .unified-phone .management-device-screen {
+    height: min(76svh, 820px);
+    min-height: 560px;
+  }
+}
+@media (max-width: 520px) {
+  .studio-calm .unified-phone {
+    padding-inline: 8px;
+  }
+  .studio-calm .unified-phone .management-device {
+    width: min(100%, 400px);
+  }
+  .studio-calm .unified-phone .management-device-screen {
+    height: min(74svh, 760px);
+    min-height: 500px;
+  }
+}
+
+
+/* Final layout correction: reserve a genuinely wide column for the live phone. */
+@media (min-width: 1181px) {
+  .studio-calm .unified-shell {
+    grid-template-columns: 220px minmax(420px, 1fr) minmax(440px, 480px) !important;
+  }
+  .studio-calm .unified-phone {
+    grid-column: 3;
+    width: 100%;
+    min-width: 440px;
+  }
+  .studio-calm .unified-phone .management-device {
+    width: min(100%, 440px) !important;
+  }
+}
+@media (min-width: 901px) and (max-width: 1180px) {
+  .studio-calm .unified-shell {
+    grid-template-columns: 200px minmax(0, 1fr) !important;
+  }
+  .studio-calm .unified-main {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .studio-calm .unified-phone {
+    grid-column: 2;
+    grid-row: 2;
+    position: static;
+    display: grid !important;
+    width: 100%;
+    height: auto;
+    min-width: 0;
+  }
+  .studio-calm .unified-phone .management-device {
+    width: min(calc(100vw - 260px), 440px) !important;
+  }
+}
+@media (max-width: 900px) {
+  .studio-calm .unified-shell {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .studio-calm .unified-main,
+  .studio-calm .unified-phone {
+    grid-column: 1;
+    width: 100%;
+    min-width: 0;
+  }
+  .studio-calm .unified-phone {
+    grid-row: auto;
+    padding-inline: 8px;
+  }
+  .studio-calm .unified-phone .management-device {
+    width: min(calc(100vw - 32px), 420px) !important;
+    max-width: 100%;
+  }
+  .studio-calm .unified-phone .management-device-screen {
+    height: min(76svh, 820px);
+    min-height: min(560px, 70svh);
+  }
 }

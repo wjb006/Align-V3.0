@@ -193,6 +193,17 @@ def validate(workflow, fields):
         if edge.get('action'):
             clean['action'] = short_text(edge['action'], 40)
 
+        if clean.get('action') == 'repeat':
+            try:
+                max_iterations = int(edge.get('max_iterations', 3))
+            except (TypeError, ValueError) as exc:
+                raise ValueError('Repeat loops require a maximum of 1–20 iterations.') from exc
+            if isinstance(edge.get('max_iterations', 3), bool) or not 1 <= max_iterations <= 20:
+                raise ValueError('Repeat loops require a maximum of 1–20 iterations.')
+            clean['max_iterations'] = max_iterations
+        elif 'max_iterations' in edge:
+            raise ValueError('Maximum iterations are only valid on repeat loop connections.')
+
         if edge.get('on'):
             clean['on'] = short_text(edge['on'], 40)
 
@@ -218,7 +229,11 @@ def validate(workflow, fields):
         if edge_key in seen_edges:
             raise ValueError('Workflow connections must be unique.')
         seen_edges.add(edge_key)
-        adjacency.setdefault(edge['from'], []).append(edge['to'])
+        # Explicit repeat edges are bounded by max_iterations; exclude them
+        # from the acyclic control-flow graph while retaining them in the saved
+        # workflow and reachability checks.
+        if edge.get('action') != 'repeat':
+            adjacency.setdefault(edge['from'], []).append(edge['to'])
 
     visiting = set()
     visited = set()

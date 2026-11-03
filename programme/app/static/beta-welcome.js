@@ -1,0 +1,1 @@
+document.querySelector('#continue').onclick=async()=>{const m=document.querySelector('#message');try{const r=await fetch('/api/beta/welcome',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});const p=await r.json();if(!r.ok)throw new Error(p.error||'Unable to continue.');location.href='/';}catch(e){m.textContent=e.message;}};

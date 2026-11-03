@@ -46,14 +46,15 @@
     preview: 'The phone on the right is a sample. It updates as you edit.',
     builds: 'Older published copies and notes.',
     publish: 'Check the draft, then publish on this computer or on the website.',
-    app: 'Open the real Align application from inside Management Studio.',
-    host: 'A safe starting point for service and integration health. Live checks and host actions must be connected to authorized server endpoints before they can be reported as operational.'
+    app: 'Open the planner running on this computer. It uses this computer’s saved data when the desktop programme started it.',
+    host: 'Local checks come from this computer. The public website is not marked healthy from here.'
   };
   const placeFor = {
     dashboard: 'Set up', startup: 'Set up', menus: 'Set up', 'home-nav': 'Set up', layouts: 'Set up',
     'travel-results': 'Set up', 'base-structure': 'Set up', review: 'Set up',
     pages: 'Look', colors: 'Look', banners: 'Look', events: 'Look', calendar: 'Look', type: 'Look',
-    users: 'People', owner: 'People', history: 'People'
+    users: 'People', owner: 'People', history: 'People',
+    'working-calendar': 'Look', app: 'Platform', host: 'Platform'
   };
   const builderTabs = new Set(['dashboard', 'startup', 'menus', 'home-nav', 'base-structure', 'layouts', 'travel-results', 'review']);
   const workingTabs = new Set(['working-calendar']);
@@ -130,18 +131,19 @@
   function renderSpecial(tab) {
     const box = $('#special-content');
     if (tab === 'app') {
-      box.innerHTML = '<div class="builder-panel studio-special"><h2>Align app</h2><p>The app opens here using this server, so it can use the existing application session and backend. If it does not appear, open it directly in a new tab.</p><div class="studio-platform-actions"><a class="management-primary" href="/" target="_blank" rel="noopener">Open Align in a new tab</a></div><iframe title="Align application" src="/" loading="lazy" style="width:100%;height:min(72vh,900px);border:1px solid var(--line,#ddd);border-radius:12px;background:white"></iframe></div>';
+      box.innerHTML = '<div class="builder-panel studio-special"><h2>Align app</h2><p>This is the planner on this computer. It uses the same local server as Studio. If the frame is empty, open the planner in its own window.</p><div class="studio-platform-actions"><a class="management-primary" href="/" target="_blank" rel="noopener">Open the planner</a></div><iframe title="Align planner" src="/" style="width:100%;height:min(72vh,900px);border:1px solid var(--line,#ddd);border-radius:12px;background:white"></iframe></div>';
       return;
     }
     if (tab === 'host') {
       box.innerHTML = `<div class="builder-panel studio-special">
         <h2>Host overview</h2>
-        <p>This panel is a starting point, not a live health report. No service is marked healthy until an authorized check confirms it.</p>
-        <div class="studio-platform-grid">
-          <section><h3>Application</h3><p>The production Align service connected to this Studio.</p><a href="https://getalign.co.uk" target="_blank" rel="noopener">Open production app</a></section>
-          <section><h3>Database</h3><p>Production data remains in the configured hosted database. Connection strings and credentials are never shown here.</p><span>Live check not connected</span></section>
-          <section><h3>Transport &amp; OTP</h3><p>Existing routing, timetable feeds and OTP configuration must be preserved.</p><span>Live check not connected</span></section>
+        <p id="studio-host-intro">Checking this computer…</p>
+        <div class="studio-platform-grid" id="studio-host-local">
+          <section><h3>This computer</h3><p id="studio-host-local-copy">Waiting for the local health check.</p></section>
+          <section><h3>Planner data</h3><p id="studio-host-data">Waiting for the local data check.</p></section>
+          <section><h3>Public website</h3><p>getalign.co.uk is a separate hosted Align. This screen does not check it and does not change it.</p><a href="https://getalign.co.uk" target="_blank" rel="noopener">Open the public site</a></section>
         </div>
+        <p><button type="button" class="management-secondary" id="studio-host-retry">Check this computer again</button></p>
         <section class="studio-release-panel" aria-labelledby="studio-release-title">
           <h3 id="studio-release-title">Send a software release</h3>
           <p>Choose a GitHub branch or tag. GitHub runs the release checks first; Render updates only if they pass. The production environment can pause for an additional approval if configured.</p>
@@ -156,6 +158,7 @@
         </section>
       </div>`;
       setupReleasePanel();
+      loadLocalHost();
       return;
     }
     if (tab === 'owner') {
@@ -170,6 +173,46 @@
     };
     const x = copy[tab] || ['Home', 'Choose a section on the left to begin.'];
     box.innerHTML = `<div class="builder-panel studio-special"><h2>${x[0]}</h2><p>${x[1]}</p></div>`;
+  }
+
+  async function loadLocalHost() {
+    const intro = $('#studio-host-intro');
+    const localCopy = $('#studio-host-local-copy');
+    const dataCopy = $('#studio-host-data');
+    const retry = $('#studio-host-retry');
+    if (!intro || !localCopy || !dataCopy) return;
+    intro.textContent = 'Checking this computer…';
+    try {
+      const healthResponse = await fetch('/api/health', { cache: 'no-store', credentials: 'same-origin' });
+      const health = await healthResponse.json().catch(() => ({}));
+      if (!healthResponse.ok) throw new Error(health.error || 'The local health check did not succeed.');
+      const version = health.version || {};
+      const database = health.database || {};
+      const ready = database.available === true && database.integrity === 'ok';
+      localCopy.textContent = ready
+        ? `Align ${version.app || ''} build ${version.build || ''} is answering on this computer. The local database passed its integrity check.`
+        : `Align answered, but the local database is not ready (${database.integrity || 'unavailable'}).`;
+      const statusResponse = await fetch('/api/desktop/status', { cache: 'no-store', credentials: 'same-origin' });
+      const status = await statusResponse.json().catch(() => ({}));
+      if (statusResponse.ok && status.database_present) {
+        dataCopy.textContent = 'Saved planner data is on this computer. Reinstalling the programme does not replace that copy. No database address or credential is shown here.';
+      } else if (statusResponse.ok) {
+        dataCopy.textContent = 'This server has not created a local database file yet. It will be created on this computer when you start using the planner.';
+      } else {
+        dataCopy.textContent = 'The local data check is only available from this computer.';
+      }
+      intro.textContent = ready
+        ? 'This computer is ready. The public website was not checked.'
+        : 'This computer answered, with a database warning. The public website was not checked.';
+    } catch (error) {
+      intro.textContent = 'This computer could not be checked.';
+      localCopy.textContent = error.message;
+      dataCopy.textContent = 'Planner data stays on this computer. This screen does not show file paths or secrets.';
+    }
+    if (retry && !retry.dataset.bound) {
+      retry.dataset.bound = '1';
+      retry.addEventListener('click', () => { void loadLocalHost(); });
+    }
   }
 
   async function setupReleasePanel() {

@@ -98,7 +98,13 @@ function Update-Live {
         throw "The live folder has no Git history: $LiveRoot"
     }
     Write-Host "Updating $LiveRoot"
-    & git pull --ff-only origin main
+    $remoteHead = @(& git ls-remote --symref origin HEAD 2>$null)
+if ($LASTEXITCODE -ne 0) { throw 'Could not query the origin remote.' }
+$headLine = $remoteHead | Where-Object { "$_" -match '^ref: refs/heads/(.+)\s+HEAD$' } | Select-Object -First 1
+if (-not $headLine) { throw 'Could not determine the origin default branch.' }
+$defaultBranch = [regex]::Match("$headLine", '^ref: refs/heads/(.+)\s+HEAD$').Groups[1].Value
+Write-Host "Updating from origin/$defaultBranch using fast-forward only."
+& git pull --ff-only origin $defaultBranch
     if ($LASTEXITCODE -ne 0) { throw 'The live folder could not be updated. Local changes may need attention first.' }
     if ($python -and (Test-Path -LiteralPath $python -PathType Leaf)) {
         & $python -c "import app, owner_builder; app.initialise_database(); owner_builder.config(app.DATABASE); print('existing database updated')"

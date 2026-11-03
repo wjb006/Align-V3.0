@@ -44,6 +44,11 @@ def upstream_branch() -> tuple[str, str]:
 
 def update_from_github(initialise) -> dict:
     """Fast-forward this folder to the upstream branch it is checked out from."""
+    if getattr(sys, "frozen", False):
+        raise RuntimeError(
+            "This installed Align programme is updated by installing a new Windows package. "
+            "Your saved planner data is kept."
+        )
     before = current_commit()
     remote, branch = upstream_branch()
     result = _git("pull", "--ff-only", remote, branch)

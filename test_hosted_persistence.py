@@ -155,7 +155,8 @@ class StartupTests(unittest.TestCase):
         owner_context.__enter__.return_value = owner
         with patch("postgres_support.connect", side_effect=[auth_context, owner_context]):
             pg.verify_hosted_storage()
-        self.assertFalse(any("shifts" in statement for statement in owner.statements))
+        self.assertTrue(any("FROM shifts" in statement for statement in owner.statements))
+        self.assertTrue(all(statement.lstrip().upper().startswith("SELECT") for statement in owner.statements))
         self.assertTrue(any("COUNT(*) FROM personal_items" in statement for statement in owner.statements))
         self.assertTrue(any('asset_audit_log' in statement for statement in owner.statements))
         self.assertTrue(any('transport_preferences' in statement for statement in owner.statements))

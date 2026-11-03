@@ -12,7 +12,7 @@ These badges follow the development branch and update automatically when GitHub 
 
 **Latest fully verified historical CI baseline:** commit [594cd085](https://github.com/wjb006/Align-V3.0/commit/594cd085e52bd2a014426ab6ef61e65a76fd34f8) — browser regressions, hosted persistence integration tests, and navigation checks passed on 11 October 2026. Newer GitHub Actions runs are currently terminating before any steps start and provide no logs, so the current branch is not yet marked green.
 
-> Green CI means the automated workflows passed. It does not mean production hosting is ready. V3 now has separate fresh PostgreSQL and local SQLite schemas without legacy shift-planner tables, plus explicit upgrade migrations and a legacy-data preservation path. Release remains blocked on verified CI, dedicated Neon/Render provisioning, durable object-storage credentials, and live authentication, sync, backup/restore, and device checks. The old Align app and its domain/DNS remain untouched until release gates pass. Track the work in [BUILD_CHECKLIST.md](BUILD_CHECKLIST.md).
+> Green CI means the automated workflows passed. It does not mean production hosting is ready. Fresh PostgreSQL and local SQLite schemas include the restored shift planner, migration `156_shift_planner`, and a preservation path for older SQLite files. Release remains blocked on a GitHub Actions run that actually starts, installing `fresh_v3_schema.sql` plus migration 156 on the dedicated Neon database, Render provisioning, durable object-storage credentials, and live authentication, sync, backup/restore, and device checks. The old Align app and its domain/DNS remain untouched until those gates pass. Track the work in [BUILD_CHECKLIST.md](BUILD_CHECKLIST.md).
 
 ## Local development
 
@@ -25,6 +25,18 @@ py -3.12 -m venv .venv
 ```
 
 Run the local regression suite with `.\\.venv\\Scripts\\python.exe -m pytest -q`. Browser regressions use the pinned Playwright package under `browser-tests/`.
+
+## Windows desktop programme
+
+The planner and Management Studio run together as a local programme. From this folder:
+
+```powershell
+py -3.12 -m desktop
+```
+
+That keeps planner data in `%LOCALAPPDATA%\Align` on Windows (or the XDG data folder elsewhere), reuses an Align server that is already running, and opens `http://127.0.0.1:8001/desktop`. `python app.py` is unchanged and still uses `align.sqlite3` in the folder where you start it.
+
+To build `Align.exe` without asking the person to install Python, see [desktop/README.md](desktop/README.md). What changed, and the choices still open, are in [desktop/REBUILD_REPORT.md](desktop/REBUILD_REPORT.md).
 
 ## Hosted deployment
 

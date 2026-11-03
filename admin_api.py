@@ -33,16 +33,10 @@ def _require(handler) -> bool:
 def handle(handler, app, method, connection=None, payload=None) -> bool:
     path = urlparse(handler.path).path
 
-    # Schedule-planner APIs are retired in Align V3.0. Return an explicit 404
-    # before touching legacy tables, including writes from stale clients.
+    # Menu-branch admin routes stay retired. Shift locations, types, and
+    # templates are served by planner_api.
     retired_schedule_paths = (
-        path == "/api/locations"
-        or re.fullmatch(r"/api/locations/[0-9]+", path)
-        or path == "/api/shift-types"
-        or re.fullmatch(r"/api/shift-types/[0-9]+", path)
-        or path == "/api/templates"
-        or re.fullmatch(r"/api/templates/[0-9]+(?:/apply)?", path)
-        or path == "/api/menu-branches"
+        path == "/api/menu-branches"
         or re.fullmatch(r"/api/menu-branches/[0-9]+", path)
         or path == "/api/parent-menu-branches"
         or re.fullmatch(r"/api/parent-menu-branches/[0-9]+", path)

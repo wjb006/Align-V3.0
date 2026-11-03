@@ -28,6 +28,7 @@ jobs:
           node --check static/management-studio.js
           node --check static/management-studio-nav.js
           node --check static/management-studio-calendar.js
+          node --check static/desktop.js
           node --check static/owner-builder.js
 
       - name: Run core navigation regression check
@@ -37,6 +38,7 @@ jobs:
           node test_display_dates.js
           node test_travel_autofill.js
           node test_related_travel.js
+          node test_desktop_shell.js
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -55,3 +57,4 @@ jobs:
           test_owner_builder.BuilderTests.test_cycles_and_missing_layout_rejected
           test_owner_builder.BuilderTests.test_private_record_crud_validation_archive_restore
           test_owner_builder.BuilderTests.test_removed_fields_preserve_values_and_published_types
+          test_desktop_programme.py

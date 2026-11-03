@@ -5,8 +5,9 @@ from pathlib import Path
 import sqlite3
 import uuid
 from sqlite_support import connect
+from align_paths import source_root
 
-ROOT = Path(__file__).resolve().parent / 'migrations'
+ROOT = source_root() / 'migrations'
 ID = '149_asset_studio'
 LOG = logging.getLogger(__name__)
 
@@ -103,7 +104,62 @@ def upgrade(database):
             for sql in statements((ROOT/'154_user_favourites_contacts.sql').read_text(encoding='utf-8-sig')):
                 c.execute(sql)
             c.execute("INSERT INTO schema_migrations VALUES('154_user_favourites_contacts',CURRENT_TIMESTAMP)")
+    ensure_work_rota_schema(database, folder=ROOT)
     return result
+
+
+def ensure_work_rota_schema(database, folder=ROOT):
+    """Add rota review tables and shift provenance for an existing SQLite file.
+
+    schema_v3.sqlite.sql is reapplied on startup, so the new shifts column cannot
+    live there as an unconditional ALTER. This step is idempotent.
+    """
+    folder = Path(folder)
+    rota_id = '157_work_rota_import'
+    with connect(database) as probe:
+        ready = _rota_schema_ready(probe)
+        marked = False
+        if probe.execute("SELECT 1 FROM sqlite_master WHERE name='schema_migrations'").fetchone():
+            marked = bool(probe.execute(
+                'SELECT 1 FROM schema_migrations WHERE migration_id=?', (rota_id,)
+            ).fetchone())
+        needs_column = False
+        if probe.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='shifts'").fetchone():
+            columns = {row[1] for row in probe.execute('PRAGMA table_info(shifts)')}
+            needs_column = 'source_import_entry_id' not in columns
+    if ready and marked and not needs_column:
+        return {'status': 'skipped'}
+    if needs_column:
+        backup(database)
+    with connect(database) as connection:
+        connection.execute('BEGIN IMMEDIATE')
+        connection.execute(
+            'CREATE TABLE IF NOT EXISTS schema_migrations(migration_id TEXT PRIMARY KEY, applied_at TEXT NOT NULL)'
+        )
+        if connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='shifts'").fetchone():
+            columns = {row[1] for row in connection.execute('PRAGMA table_info(shifts)')}
+            if 'source_import_entry_id' not in columns:
+                connection.execute('ALTER TABLE shifts ADD COLUMN source_import_entry_id TEXT')
+        for statement in statements((folder / '157_work_rota_import.sql').read_text(encoding='utf-8')):
+            connection.execute(statement)
+        if connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='shifts'").fetchone():
+            connection.execute(
+                'CREATE UNIQUE INDEX IF NOT EXISTS idx_shifts_source_import_entry ON shifts(source_import_entry_id)'
+            )
+        connection.execute(
+            'INSERT OR IGNORE INTO schema_migrations(migration_id,applied_at) VALUES (?,CURRENT_TIMESTAMP)',
+            (rota_id,),
+        )
+        connection.commit()
+    return {'status': 'applied'}
+
+
+def _rota_schema_ready(connection):
+    tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    if not {'work_rota_imports', 'work_rota_entries', 'work_rota_approvals', 'shifts'} <= tables:
+        return False
+    columns = {row[1] for row in connection.execute('PRAGMA table_info(shifts)')}
+    return 'source_import_entry_id' in columns
 
 
 def upgrade_planner_schema(database, folder=ROOT):

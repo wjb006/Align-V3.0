@@ -210,4 +210,4 @@ def save_setup(connection, payload):
               'work_setup_area_slots': json.dumps({str(maps['areas'][item['key']]): [slots[key]['key'] for key in item['slots']] for item in payload['areas']}),
               'leave_allowance_days': str(allowance), 'leave_year_start': f'{month:02d}-{day:02d}', 'minimum_rest_hours': str(rest)}
     connection.executemany('INSERT INTO settings VALUES(?,?) ON CONFLICT(setting_key) DO UPDATE SET setting_value=excluded.setting_value', values.items())
-    return {'patterns': len(keep), 'retired': len(set(visible_ids) - keep)}
+    return {'patterns': len(keep), 'retired': len(set(visible_ids) - keep), 'revision': revision(connection)}

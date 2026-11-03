@@ -44,6 +44,48 @@ DEFAULT_APPEARANCE = {
     },
 }
 
+# Accounts that still have the previous stock light palette have not chosen
+# their own colours. Loading them should show the current navy design.
+PREVIOUS_STOCK_APPEARANCE = {
+    "colors": {
+        "accent": "#365ce6",
+        "canvas": "#f7f8fc",
+        "surface": "#ffffff",
+        "text": "#162147",
+    },
+    "banners": {
+        "today": "#0b203b",
+        "upcoming": "#0878f9",
+        "annual_leave": "#22d6c4",
+        "section_detail": "#0878f9",
+    },
+    "events": {
+        "style": "standard",
+        "density": "comfortable",
+        "accent": "#16d9f2",
+        "location_banner": "on",
+        "time_place": "left",
+        "time_size": "large",
+        "title_format": "location_area",
+    },
+    "type": {
+        "scale": "default",
+        "corners": "soft",
+        "font": "system",
+        "heading": "bold",
+        "theme": "dark",
+    },
+    "calendar": {
+        "month_cell": "#0b203b",
+        "month_weekend": "#102b4b",
+        "month_date_band": "#143457",
+        "list_day": "#0b203b",
+        "list_day_header": "#102b4b",
+        "today_cell": "#12345a",
+        "week_headings": "show",
+    },
+}
+
 DEFAULT_PERMISSIONS = {
     "colors": False,
     "banners": False,
@@ -136,6 +178,11 @@ def validate_appearance(value: object) -> dict:
                 result[category][key] = item
             else:
                 raise ValueError(f"Unsupported {category} option.")
+    if result == PREVIOUS_STOCK_APPEARANCE:
+        return {
+            category: dict(defaults)
+            for category, defaults in DEFAULT_APPEARANCE.items()
+        }
     return result
 
 

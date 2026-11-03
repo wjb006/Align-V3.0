@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#172335"><link rel="manifest" href="/manifest.json"><link rel="apple-touch-icon" href="/icons/align-180.png">
+<title>Align — Phone notifications</title>
+<style>body{font:17px/1.5 system-ui;background:#f7f8fc;color:#172335;margin:0;padding:24px}main{max-width:580px;margin:auto}section{background:white;padding:22px;border-radius:18px;margin:18px 0}button,a{font:inherit}button{padding:12px 16px;margin:6px 4px 6px 0;border:0;border-radius:10px;background:#244dcc;color:white;cursor:pointer}button:disabled{opacity:.5}a{color:#244dcc}#status{white-space:pre-line}small{display:block;color:#526074}</style></head>
+<body><main><a href="/#home">← Back to Align</a><h1>Phone notifications</h1>
+<section><h2>Reminders, even when Align is closed</h2><p>On iPhone, first open Align in Safari, tap Share → Add to Home Screen, then open it using that Home Screen icon. Requires iOS 16.4 or later.</p>
+<p>Tap Enable below and allow notifications. This is separate from the Scriptable widget.</p>
+<p id="status" role="status" aria-live="polite">Checking setup…</p>
+<button id="enable" disabled>Enable on this device</button><button id="test" disabled>Send test notification</button><button id="disable" disabled>Disable on this device</button>
+<p id="check"></p></section>
+<section><h2>What is included</h2><p>Saved personal reminders and existing work alerts. Other appointment and category reminder features are still to be added.</p>
+<p>Lock-screen messages hide your reminder details. Open Align to read them.</p><small>The scheduler checks every minute once activated. Network outages, Focus settings and free-hosting restarts may delay alerts. Do not rely on these as your only time-critical or medication reminder.</small></section>
+</main><script src="/dates.js?v=156-v25"></script><script src="/phone-notifications.js?v=1"></script></body></html>

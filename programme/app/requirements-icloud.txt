@@ -1,0 +1,3 @@
+# Optional iCloud CalDAV support for Align.
+# Keep this separate from the core install so Align works without iCloud.
+caldav==3.2.1

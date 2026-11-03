@@ -18,7 +18,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 156;
-const ASSET_VERSION = `${BUILD_VERSION}-v57`;
+const ASSET_VERSION = `${BUILD_VERSION}-v63`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -188,10 +188,9 @@ async function enableBrowserNotifications() {
   toast('Browser notifications enabled.');
 }
 
-function reminderIcon(title = '') {
-  if (/\b(train|rail|tram)\b/i.test(title)) return '/journey-icons/train.png';
-  if (/\bbus\b/i.test(title)) return '/journey-icons/bus.png';
-  if (/\b(leave|walk|travel|arriv)/i.test(title)) return '/journey-icons/walking.png';
+function reminderIcon(_title = '') {
+  // Keep notifications consistent with the Align V3 app identity; journey modes
+  // are shown with the inline transport artwork inside the app.
   return '/icon.svg';
 }
 async function notifyAlign(title, body, tag, url = '/', icon = '/icon.svg') {
@@ -233,7 +232,7 @@ function render() {
     return;
   }
   if (state.tab === 'add') state.tab = 'sections';
-  const content = { today: renderHome, home: renderHome, inbox: renderInbox, planner: renderPlannerCalendar, calendar: renderPlannerCalendar, sections: renderSectionsIndex, section: renderSection, more: renderMore, transport: renderTransport, assets: renderAssets150, settings: renderUserSettings, 'work-setup': renderWorkSetup, 'builder-records': builderRecordsPage, 'builder-profile': () => builderStartup(true) }[state.tab]?.() || renderHome();
+  const content = { today: renderHome, home: renderHome, inbox: renderInbox, planner: renderPlannerCalendar, calendar: renderPlannerCalendar, sections: renderSectionsIndex, section: renderSection, more: renderMore, transport: renderTransport, assets: renderAssets150, settings: renderUserSettings, 'work-setup': renderWorkSetup, 'work-rota': renderWorkRota, 'builder-records': builderRecordsPage, 'builder-profile': () => builderStartup(true) }[state.tab]?.() || renderHome();
   const cloudNotice = state.boot.icloud_public?.reconnect_required ? `<div class="card" role="status"><strong>iCloud needs reconnecting</strong><p>${escapeHtml(state.boot.icloud_public.message)}</p><button class="small-button" data-nav="settings">Open settings</button></div>` : '';
   app.innerHTML = cloudNotice + content;
   app.focus({ preventScroll: true });
@@ -271,8 +270,8 @@ function applyManagementAppearance() {
   document.body.dataset.eventTimeSize = appearance.events?.time_size || 'large';
   document.body.dataset.managementTextScale = appearance.type?.scale || 'default';
   document.body.dataset.managementCorners = appearance.type?.corners || 'soft';
-  const theme = appearance.type?.theme || 'dark';
-  document.body.dataset.managementTheme = theme === 'auto' ? (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme;
+  const theme = 'dark'; // Align's approved navy appearance is the enforced default.
+  document.body.dataset.managementTheme = theme;
   document.body.dataset.managementFont = appearance.type?.font || 'system';
   document.body.dataset.managementHeading = appearance.type?.heading || 'bold';
   document.body.dataset.managementWeekHeadings = appearance.calendar?.week_headings || 'show';
@@ -333,9 +332,10 @@ function renderInbox() {
 
 function renderSectionsIndex() {
   const sections = state.sectionDefinitions || [];
-  const work = sections.find(section => section.key === 'work');
   const visible = sections.filter(section => !section.optional || section.enabled);
-  return `<section class="page"><div class="add-head"><p class="eyebrow">Your data, organised your way</p><h1>Sections</h1><p class="subtle">Sections set up in Align Management Studio appear here. Your records stay private to your account.</p></div><div class="quick-grid">${visible.map(section => `<button class="quick-action organiser-section-tile" data-section-key="${escapeHtml(section.key)}" style="border-left:4px solid ${escapeHtml(section.colour)}"><b>${escapeHtml(section.icon)}</b>${escapeHtml(section.name)}<small>${escapeHtml(section.description || 'Open your saved records')}</small></button>`).join('')}${!visible.length?'<div class="card empty">No sections have been added yet.</div>':''}</div>${!work || !work.enabled ? `<section class="section"><div class="card"><h2>Work (optional)</h2><p class="subtle">${work ? 'Add the Work database to your account. It can include locations, work areas, times, or any questions configured for Align.' : 'The Work database is not available yet. When it is ready, you can add it to your account and edit your records anytime.'}</p>${work ? '<button class="secondary-button" data-action="work-opt-in">Set up Work</button>' : ''}</div></section>` : ''}</section>`;
+  return `<section class="page"><div class="add-head"><p class="eyebrow">Your data, organised your way</p><h1>Sections</h1><p class="subtle">Sections set up in Align Management Studio appear here. Your records stay private to your account.</p></div><div class="quick-grid">${visible.map(section => `<button class="quick-action organiser-section-tile" data-section-key="${escapeHtml(section.key)}" style="border-left:4px solid ${escapeHtml(section.colour)}"><b>${escapeHtml(section.icon)}</b>${escapeHtml(section.name)}<small>${escapeHtml(section.description || 'Open your saved records')}</small></button>`).join('')}${!visible.length?'<div class="card empty">No sections have been added yet.</div>':''}</div><section class="section work-calendar-setup"><div class="card"><p class="eyebrow">Work planner</p><h2>Set up Work Calendar</h2><p class="subtle">Add your workplaces, addresses, shift areas, working times and pay details. These settings power your Work Calendar and shift planner.</p><div class="button-row"><button class="primary-button" data-action="work-setup">Set up Work Calendar</button><button class="secondary-button" data-action="work-rota">Upload my rota</button></div></div></section></section>`;
+  const showWorkSetup = !work || !work.enabled;
+  return `<section class="page"><div class="add-head"><p class="eyebrow">Your data, organised your way</p><h1>Sections</h1><p class="subtle">Sections set up in Align Management Studio appear here. Your records stay private to your account.</p></div><div class="quick-grid">${visible.map(section => `<button class="quick-action organiser-section-tile" data-section-key="${escapeHtml(section.key)}" style="border-left:4px solid ${escapeHtml(section.colour)}"><b>${escapeHtml(section.icon)}</b>${escapeHtml(section.name)}<small>${escapeHtml(section.description || 'Open your saved records')}</small></button>`).join('')}${!visible.length?'<div class="card empty">No sections have been added yet.</div>':''}</div>${showWorkSetup ? `<section class="section"><div class="card work-optional-card"><h2>Work (optional)</h2><p class="subtle">Set up your Work Calendar with saved work locations, areas and shift times. You can add or change these details later.</p><button class="primary-button" data-action="work-opt-in">Set up Work Calendar</button></div></section>` : ''}</section>`;
 }
 
 function installPanel() {
@@ -343,7 +343,7 @@ function installPanel() {
 }
 
 function renderMore() {
-  return `<section class="page"><div class="add-head"><p class="eyebrow">Everything else</p><h1>More</h1><p class="subtle">Personal settings and tools.</p></div>${installPanel()}<div class="quick-grid"><button class="quick-action" data-nav="planner"><b>▦</b>Planner<small>Events, shifts and annual leave</small></button><button class="quick-action" data-nav="settings"><b>⚙</b>Settings<small>Your details and calendars</small></button><button class="quick-action" data-nav="transport"><b>↗</b>Travel<small>Saved places and journey planning</small></button><button class="quick-action" data-action="work-setup"><b>▣</b>Work settings<small>Locations, shift areas, hours and pay</small></button><button class="quick-action" data-action="go-planner-settings"><b>◌</b>Planner settings<small>Shift reminders and calendar connections</small></button></div></section>`;
+  return `<section class="page"><div class="add-head"><p class="eyebrow">Everything else</p><h1>More</h1><p class="subtle">Personal settings and tools.</p></div>${installPanel()}<div class="quick-grid"><button class="quick-action" data-nav="planner"><b>▦</b>Planner<small>Events, shifts and annual leave</small></button><button class="quick-action" data-nav="settings"><b>⚙</b>Settings<small>Your details and calendars</small></button><button class="quick-action" data-nav="transport"><b>↗</b>Travel<small>Saved places and journey planning</small></button><button class="quick-action" data-action="work-setup"><b>▣</b>Work settings<small>Locations, shift areas, hours and pay</small></button><button class="quick-action" data-action="work-rota"><b>↥</b>Upload my rota<small>Review a spreadsheet or text PDF before anything is added</small></button><button class="quick-action" data-action="go-planner-settings"><b>◌</b>Planner settings<small>Shift reminders and calendar connections</small></button></div></section>`;
 }
 
 function rootSections() { return (state.boot?.sections || []).filter(section => !section.parent_branch_id); }
@@ -412,10 +412,17 @@ function eventSectionColour(event) {
 }
 // Safe fallback for read-only events. Older planner modules supplied this helper;
 // keep rendering available if that optional module is not loaded.
-function eventViewAttributes(_event) {
-  // Non-editable events remain readable; the optional details-view handler is not loaded here.
-  return '';
+function eventViewAttributes(event) {
+  // Read-only calendar imports still open a useful detail view.
+  const title = escapeHtml(event?.title || 'Calendar event');
+  const start = escapeHtml(event?.start_at || '');
+  const end = escapeHtml(event?.end_at || '');
+  const location = escapeHtml(event?.location || '');
+  const notes = escapeHtml(event?.notes || '');
+  return ` data-action="view-calendar-event" data-event-title="${title}" data-event-start="${start}" data-event-end="${end}" data-event-location="${location}" data-event-notes="${notes}" tabindex="0" role="button" aria-label="View ${title}"`;
 }
+// Explicit global export for legacy planner scripts loaded after app.js.
+window.eventViewAttributes = window.eventViewAttributes || eventViewAttributes;
 
 function renderEventRow(event, {
   day = null,
@@ -427,7 +434,7 @@ function renderEventRow(event, {
   const colour = eventSectionColour(event);
   const editable = event.origin !== 'Calendar' && event.section_id && event.id && !event.all_day;
   const attrs = editable
-      ? ` data-week-action="event-edit" data-section-id="${event.section_id}" data-event-id="${event.id}" tabindex="0" role="button"`
+      ? ` data-action="open-section-event" data-section-id="${event.section_id}" data-event-id="${event.id}" tabindex="0" role="button" aria-label="Open ${escapeHtml(event.title || 'event')}"`
       : eventViewAttributes(event);
   const travel = typeof eventTravelMarkup === 'function' ? eventTravelMarkup(event) : '';
   const contact = condensed ? '' : (window.ALIGN152?.eventContactMarkup(event.notes) || '');
@@ -632,7 +639,7 @@ function renderUserBranch(branch) {
   const settings = state.boot.settings;
   if (branch.branch_type === 'appearance') return renderPersonalAppearance();
   if (branch.branch_type === 'colours') return renderUserColours();
-  if (branch.branch_type === 'work') return '<section class="card settings-form"><h2>Work Settings</h2><p class="helper">Configure work locations, shift areas, saved start times, working hours, pay and leave allowances. These settings drive your planner choices without rewriting existing bookings.</p><button class="primary-button" data-action="work-setup">Open Work Settings</button></section>';
+  if (branch.branch_type === 'work') return '<section class="card settings-form"><h2>Work Settings</h2><p class="helper">Configure work locations, shift areas, saved start times, working hours, pay and leave allowances. These settings drive your planner choices without rewriting existing bookings.</p><div class="button-row"><button class="primary-button" data-action="work-setup">Open Work Settings</button><button class="secondary-button" data-action="work-rota">Upload my rota</button></div></section>';
   if (branch.branch_type === 'profile') return `<div class="section-head"><h2>${escapeHtml(branch.title)}</h2></div><form class="card settings-form" data-form="user-settings"><p class="helper">${escapeHtml(branch.description)}</p><div class="field"><label>Your name</label><input name="user_name" required value="${escapeHtml(settings.user_name)}" /></div>${addressFields('profile-address', 'user_address', settings.user_address)}<button class="primary-button">Save details</button></form>`;
   if (branch.branch_type === 'alerts') return renderAlertSettings();
   if (branch.branch_type === 'calendar') return renderCalendarSettings();
@@ -832,7 +839,25 @@ document.addEventListener('click', async event => {
   if (action === 'section-home') { state.tab = 'sections'; state.sectionData = null; state.sectionId = null; render(); return; }
   if (action === 'edit-section') { sectionModal(Number(element.dataset.id)); return; }
   if (action === 'new-section-event') { personalAvailability(state.sectionId); return; }
-  if (action === 'edit-section-event') { sectionEventModal(Number(element.dataset.id)); return; }
+  if (action === 'open-section-event') {
+    const sectionId = Number(element.dataset.sectionId), eventId = Number(element.dataset.eventId);
+    try {
+      if (!sectionId || !eventId) throw new Error('This event is missing its Align record reference.');
+      if (Number(state.sectionId) !== sectionId || !state.sectionData?.events?.some(item => item.source_kind === 'align' && Number(item.id) === eventId)) await openSection(sectionId);
+      if (!state.sectionData?.events?.some(item => item.source_kind === 'align' && Number(item.id) === eventId)) throw new Error('The event could not be found in its section.');
+      sectionEventModal(eventId);
+    } catch (error) { toast(error.message); }
+    return;
+  }
+  if (action === 'view-calendar-event') {
+    const title = element.dataset.eventTitle || 'Calendar event';
+    const start = element.dataset.eventStart || '';
+    const end = element.dataset.eventEnd || '';
+    const location = element.dataset.eventLocation || '';
+    const notes = element.dataset.eventNotes || '';
+    modal(title, `<div class="form-grid"><p><strong>${escapeHtml(start.replace('T',' '))}${end ? ' – ' + escapeHtml(end.slice(11,16)) : ''}</strong></p>${location ? `<p>${escapeHtml(location)}</p>` : ''}${notes ? `<div class="event-notes">${escapeHtml(notes).replace(/\\n/g,'<br>')}</div>` : '<p class="helper">No additional notes.</p>'}<div class="modal-actions"><button type="button" class="primary-button" data-action="close-modal">Close</button></div></div>`);
+    return;
+  }
   if (action === 'delete-section') {
     if (!window.confirm('Delete this section and its Align-created events? iCloud events themselves are left alone.')) return;
     try { await api(`/api/sections/${element.dataset.id}`, { method: 'DELETE' }); closeModal(); state.sectionData = null; state.sectionId = null; state.tab = 'sections'; await refresh(); toast('Section deleted.'); } catch (error) { toast(error.message); }
@@ -844,6 +869,7 @@ document.addEventListener('click', async event => {
     return;
   }
   if (action === 'work-setup') { void openWorkSetup(); return; }
+  if (action === 'work-rota') { void openWorkRota(); return; }
   if (action === 'go-planner-settings') { state.settingsBranch = 'alerts'; state.tab = 'settings'; render(); return; }
   if (action === 'reload-app') { window.location.reload(); return; }
   if (action === 'go-calendar-settings') { state.settingsBranch = 'events'; state.tab = 'settings'; render(); }
@@ -854,12 +880,19 @@ document.addEventListener('click', async event => {
   }
 
   if (action === 'work-opt-in') {
-    const work = state.sectionDefinitions.find(section => section.key === 'work');
-    if (!work) { toast('Work setup is not available yet. The Work database will appear here when it is ready.'); return; }
+    const work = (state.sectionDefinitions || []).find(section => section.key === 'work');
     try {
-      await api('/api/builder/records/work/enable', {method:'POST', body:{}});
-      state.sectionDefinitions = (await api('/api/sections/definitions')).sections || [];
-      await builderOpenLayout('work');
+      if (work) {
+        if (!work.enabled) {
+          await api('/api/builder/records/work/enable', {method:'POST', body:{}});
+          state.sectionDefinitions = (await api('/api/sections/definitions')).sections || [];
+        }
+        await builderOpenLayout('work');
+      } else if (typeof openWorkSetup === 'function') {
+        await openWorkSetup();
+      } else {
+        throw new Error('Work Calendar setup is temporarily unavailable. Refresh Align and try again.');
+      }
     } catch (error) { toast(error.message); }
     return;
   }

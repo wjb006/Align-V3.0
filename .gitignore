@@ -13,6 +13,8 @@ beta_secret.key
 .env.*
 !.env.example
 dist/*.exe
+dist/Align/
+build/
 otp-runtime/
 .align_https/
 .align_beta/

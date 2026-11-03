@@ -1,5 +1,5 @@
 const BUILD = 156;
-const ASSET_VERSION = `${BUILD}-v57`;
+const ASSET_VERSION = `${BUILD}-v63`;
 
 const SHELL_CACHE = `align-v13-shell-${ASSET_VERSION}`;
 const API_CACHE = `align-v13-api-${ASSET_VERSION}`;
@@ -23,6 +23,7 @@ const SHELL_ASSETS = [
   `/personal-planner.js?v=${ASSET_VERSION}`,
   `/shift-planner.js?v=${ASSET_VERSION}`,
   `/work-setup.js?v=${ASSET_VERSION}`,
+  `/work-rota.js?v=${ASSET_VERSION}`,
   `/travel-assets.js?v=${ASSET_VERSION}`,
   `/app.js?v=${ASSET_VERSION}`,
   `/build152.js?v=${ASSET_VERSION}`,

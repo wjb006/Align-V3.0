@@ -1,0 +1,28 @@
+CREATE TABLE IF NOT EXISTS section_defs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    icon TEXT NOT NULL DEFAULT '◫',
+    colour TEXT NOT NULL DEFAULT '#365CE6',
+    sort_order INTEGER NOT NULL DEFAULT 100,
+    active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+    revision INTEGER NOT NULL DEFAULT 1,
+    published_revision INTEGER NOT NULL DEFAULT 0,
+    layout_json TEXT NOT NULL DEFAULT '{}'
+);
+CREATE INDEX IF NOT EXISTS idx_section_defs_published
+    ON section_defs(active, published_revision, revision, sort_order);
+CREATE TABLE IF NOT EXISTS section_fields (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    section_id INTEGER NOT NULL REFERENCES section_defs(id) ON DELETE CASCADE,
+    field_key TEXT NOT NULL,
+    label TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('text','number','date','select','checkbox','tel','textarea','calculated')),
+    required INTEGER NOT NULL DEFAULT 0 CHECK (required IN (0, 1)),
+    options_json TEXT NOT NULL DEFAULT '[]',
+    validation_json TEXT NOT NULL DEFAULT '{}',
+    formula TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER NOT NULL DEFAULT 100,
+    UNIQUE(section_id, field_key)
+);
+CREATE INDEX IF NOT EXISTS idx_section_fields_order ON section_fields(section_id, sort_order, id);
