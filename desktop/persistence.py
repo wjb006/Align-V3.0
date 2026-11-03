@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -15,11 +16,26 @@ def _connect_readonly(path: Path) -> sqlite3.Connection:
     return sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True, timeout=30)
 
 
+@contextmanager
+def _readonly(path: Path):
+    """Open a database and close it before the caller renames or deletes the file.
+
+    sqlite3's own context manager commits, and it does not close the
+    connection. On Windows an unclosed connection keeps the file locked, so
+    adopting a database then fails with "the process cannot access the file".
+    """
+    connection = _connect_readonly(path)
+    try:
+        yield connection
+    finally:
+        connection.close()
+
+
 def integrity_ok(path: Path) -> bool:
     if not path.is_file() or path.stat().st_size <= 0:
         return False
     try:
-        with _connect_readonly(path) as connection:
+        with _readonly(path) as connection:
             row = connection.execute("PRAGMA quick_check").fetchone()
         return bool(row) and row[0] == "ok"
     except sqlite3.Error:
@@ -37,7 +53,7 @@ def is_align_database(path: Path) -> bool:
     if not integrity_ok(path):
         return False
     try:
-        with _connect_readonly(path) as connection:
+        with _readonly(path) as connection:
             return bool(_tables(connection) & set(_ALIGN_TABLES))
     except sqlite3.Error:
         return False
@@ -48,7 +64,7 @@ def content_score(path: Path) -> int:
     if not path.is_file():
         return -1
     try:
-        with _connect_readonly(path) as connection:
+        with _readonly(path) as connection:
             names = _tables(connection)
             if not (names & set(_ALIGN_TABLES)):
                 return 0
