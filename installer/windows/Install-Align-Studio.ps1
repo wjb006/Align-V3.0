@@ -59,6 +59,12 @@ if ($Target -eq "powershell.exe") {
 }
 $Shortcut.WorkingDirectory = $InstallRoot
 $Shortcut.Description = "Open Align planner and Management Studio"
+$IconFile = Join-Path $InstallRoot "align.ico"
+if (-not (Test-Path $IconFile)) {
+    $SourceIcon = Join-Path $InstallRoot "app\static\icons\align.ico"
+    if (Test-Path $SourceIcon) { Copy-Item $SourceIcon $IconFile -Force }
+}
+if (Test-Path $IconFile) { $Shortcut.IconLocation = $IconFile }
 $Shortcut.Save()
 $OldShortcut = Join-Path $Desktop "Align Management Studio.lnk"
 if ((Test-Path -LiteralPath $OldShortcut) -and ($OldShortcut -ne $Shortcut.FullName)) {

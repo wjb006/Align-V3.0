@@ -437,6 +437,8 @@ class InstallerGuardTests(unittest.TestCase):
         launcher = (Path(__file__).resolve().parent / "installer" / "windows" / "Launch-Align-Studio.ps1").read_text(encoding="utf-8")
         self.assertIn("studio-environment.ps1", launcher)
         self.assertIn("Align Management Studio.lnk", text)
+        self.assertIn("align.ico", text)
+        self.assertIn("IconLocation", text)
 
 
 if __name__ == "__main__":

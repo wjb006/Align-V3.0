@@ -71,8 +71,8 @@ input, select, textarea { color-scheme: dark; }
 .nav-item.active { color: #16d9f2; background: #102b4b; box-shadow: inset 0 -2px #0878f9; }
 .tab-bar { background: color-mix(in srgb,#0b203b 94%,transparent); border-color: #1a3858; }
 .header-action, .brand-mark { color: #16d9f2; background: linear-gradient(145deg,#102b4b,#071a32); border: 1px solid #1a3858; }
-.brand-logo-crop { position: relative; display: block; flex: 0 0 44px; width: 44px; height: 40px; overflow: hidden; }
-.brand-logo-crop img { position: absolute; left: -13px; top: -8px; display: block; width: 70px; height: 70px; max-width: none; border: 0; border-radius: 0; box-shadow: none; }
+.brand-logo-crop { position: relative; display: block; flex: 0 0 44px; width: 44px; height: 44px; overflow: hidden; border-radius: 12px; }
+.brand-logo-crop img { position: static; display: block; width: 44px; height: 44px; max-width: none; border: 0; border-radius: 12px; box-shadow: none; }
 .brand-wordmark { color: #f4f8ff; font-size: 24px; font-weight: 760; letter-spacing: -.75px; line-height: 1.1; }
 .brand-wordmark small { display: block; margin-top: 2px; color: #afc2d9; font-size: 12px; font-weight: 600; letter-spacing: 0; }
 .brand > span:last-child small { display: block; }
