@@ -10,7 +10,7 @@
 
 ## 1. Current status — read this first
 
-<badge>Planning committed</badge> **The rota-import feature is NOT implemented yet.**
+**Status: Planning committed. The rota-import feature is NOT implemented yet.**
 
 Completed:
 - Created the feature branch `codex/work-rota-import` from `codex/align-v3-rebuild`.
