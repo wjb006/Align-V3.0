@@ -9,6 +9,7 @@ import post_event_travel
 
 import json
 import hashlib
+import mimetypes
 import logging
 import os
 import re
@@ -28,6 +29,9 @@ from http.cookies import SimpleCookie
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlparse
+
+mimetypes.add_type("image/svg+xml", ".svg")
+mimetypes.add_type("image/vnd.microsoft.icon", ".ico")
 from urllib.request import Request, urlopen
 from colour_utils import colour as valid_colour
 from align_paths import source_root

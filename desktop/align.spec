@@ -57,6 +57,7 @@ exe = EXE(
     [],
     exclude_binaries=True,
     name="Align",
+    icon=str(ROOT / "static" / "icons" / "align.ico"),
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
