@@ -23,6 +23,7 @@ const SHELL_ASSETS = [
   `/personal-planner.js?v=${ASSET_VERSION}`,
   `/shift-planner.js?v=${ASSET_VERSION}`,
   `/work-setup.js?v=${ASSET_VERSION}`,
+  `/work-rota.js?v=${ASSET_VERSION}`,
   `/travel-assets.js?v=${ASSET_VERSION}`,
   `/app.js?v=${ASSET_VERSION}`,
   `/build152.js?v=${ASSET_VERSION}`,

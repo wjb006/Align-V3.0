@@ -294,10 +294,12 @@ CREATE TABLE IF NOT EXISTS align_owner.shifts (
   break_minutes integer NOT NULL DEFAULT 0,
   hours real NOT NULL,
   notes text NOT NULL DEFAULT '',
-  created_at text NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at text NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  source_import_entry_id text
 );
 CREATE INDEX IF NOT EXISTS idx_shifts_date ON align_owner.shifts(work_date);
 CREATE INDEX IF NOT EXISTS idx_shifts_template ON align_owner.shifts(template_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_shifts_source_import_entry ON align_owner.shifts(source_import_entry_id);
 CREATE TABLE IF NOT EXISTS align_owner.shift_batches (
   request_id text PRIMARY KEY,
   payload_hash text NOT NULL DEFAULT '',
@@ -543,4 +545,61 @@ CREATE TABLE align_owner.align_contacts (
 INSERT INTO align_owner.schema_migrations(migration_id, applied_at) VALUES ('149_asset_studio',CURRENT_TIMESTAMP),('149_transport',CURRENT_TIMESTAMP),('150_calendar_links',CURRENT_TIMESTAMP),('151_sections',CURRENT_TIMESTAMP),('152_personal_item_calendars',CURRENT_TIMESTAMP),('153_hosted_travel_and_calendar_location',CURRENT_TIMESTAMP) ON CONFLICT(migration_id) DO NOTHING;
 INSERT INTO align_owner.schema_migrations(migration_id, applied_at) VALUES ('154_user_favourites_contacts',CURRENT_TIMESTAMP) ON CONFLICT(migration_id) DO NOTHING;
 INSERT INTO align_owner.schema_migrations(migration_id, applied_at) VALUES ('155_here_transit_usage',CURRENT_TIMESTAMP) ON CONFLICT(migration_id) DO NOTHING;
+CREATE TABLE IF NOT EXISTS align_owner.work_rota_imports (
+  id text PRIMARY KEY,
+  status text NOT NULL CHECK (status IN ('processing','review','partially_imported','imported','failed','cancelled')),
+  source_file_count integer NOT NULL DEFAULT 0 CHECK (source_file_count >= 0),
+  candidate_count integer NOT NULL DEFAULT 0 CHECK (candidate_count >= 0),
+  created_count integer NOT NULL DEFAULT 0 CHECK (created_count >= 0),
+  skipped_count integer NOT NULL DEFAULT 0 CHECK (skipped_count >= 0),
+  error_code text NOT NULL DEFAULT '',
+  notice_codes text NOT NULL DEFAULT '[]',
+  created_at text NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at text NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  completed_at text
+);
+CREATE TABLE IF NOT EXISTS align_owner.work_rota_entries (
+  id text PRIMARY KEY,
+  import_id text NOT NULL REFERENCES align_owner.work_rota_imports(id) ON DELETE CASCADE,
+  work_date text,
+  source_date_text text NOT NULL DEFAULT '',
+  start_time text NOT NULL DEFAULT '',
+  end_time text NOT NULL DEFAULT '',
+  shift_label text NOT NULL DEFAULT '',
+  department text NOT NULL DEFAULT '',
+  location_id bigint REFERENCES align_owner.locations(id) ON DELETE SET NULL,
+  location_text text NOT NULL DEFAULT '',
+  shift_type_id bigint REFERENCES align_owner.shift_types(id) ON DELETE SET NULL,
+  template_id bigint REFERENCES align_owner.shift_templates(id) ON DELETE SET NULL,
+  entry_kind text NOT NULL DEFAULT 'unknown' CHECK (entry_kind IN ('shift','day_off','leave','sickness','unknown')),
+  confidence double precision NOT NULL DEFAULT 0 CHECK (confidence >= 0 AND confidence <= 1),
+  review_status text NOT NULL DEFAULT 'pending' CHECK (review_status IN ('pending','approved','rejected','imported')),
+  created_shift_id bigint,
+  created_leave_id bigint,
+  duplicate_shift_id bigint,
+  ambiguity text NOT NULL DEFAULT '',
+  approvable integer NOT NULL DEFAULT 0 CHECK (approvable IN (0, 1)),
+  fingerprint text NOT NULL DEFAULT '',
+  published_snapshot text NOT NULL DEFAULT '',
+  revision integer NOT NULL DEFAULT 1 CHECK (revision >= 1),
+  created_at text NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at text NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_work_rota_entries_import_status ON align_owner.work_rota_entries(import_id, review_status);
+CREATE INDEX IF NOT EXISTS idx_work_rota_entries_fingerprint ON align_owner.work_rota_entries(fingerprint);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_work_rota_entries_shift ON align_owner.work_rota_entries(created_shift_id);
+CREATE TABLE IF NOT EXISTS align_owner.work_rota_approvals (
+  import_id text NOT NULL REFERENCES align_owner.work_rota_imports(id) ON DELETE CASCADE,
+  idempotency_key text NOT NULL,
+  result_json text NOT NULL,
+  created_at text NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (import_id, idempotency_key)
+);
+ALTER TABLE align_owner.shifts
+  ADD CONSTRAINT shifts_source_import_entry_fk
+  FOREIGN KEY (source_import_entry_id)
+  REFERENCES align_owner.work_rota_entries(id)
+  ON DELETE RESTRICT;
+
 INSERT INTO align_owner.schema_migrations(migration_id, applied_at) VALUES ('156_shift_planner',CURRENT_TIMESTAMP) ON CONFLICT(migration_id) DO NOTHING;
+INSERT INTO align_owner.schema_migrations(migration_id, applied_at) VALUES ('157_work_rota_import',CURRENT_TIMESTAMP) ON CONFLICT(migration_id) DO NOTHING;
