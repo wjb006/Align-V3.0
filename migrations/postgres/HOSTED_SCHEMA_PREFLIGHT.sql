@@ -27,7 +27,9 @@ WITH required_tables(schema_name, table_name) AS (
       ('align_owner','asset_categories'), ('align_owner','asset_variants'),
       ('align_owner','asset_usage_rules'), ('align_owner','asset_audit_log'),
       ('align_owner','transport_preferences'), ('align_owner','transport_journey_cache'),
-      ('align_owner','user_favourites'), ('align_owner','align_contacts')
+      ('align_owner','user_favourites'), ('align_owner','align_contacts'),
+      ('align_owner','work_rota_imports'), ('align_owner','work_rota_entries'),
+      ('align_owner','work_rota_approvals')
 )
 SELECT 'missing required table: ' || r.schema_name || '.' || r.table_name AS check_name,
        1 AS violations
@@ -64,6 +66,12 @@ WHERE NOT EXISTS (
     WHERE table_schema='align_auth' AND table_name='align_here_transit_usage' AND column_name='requested_at'
 )
 UNION ALL
+SELECT 'missing required column: align_owner.shifts.source_import_entry_id', 1
+WHERE NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='align_owner' AND table_name='shifts' AND column_name='source_import_entry_id'
+)
+UNION ALL
 SELECT 'missing required column: align_owner.transport_preferences.' || c.column_name, 1
 FROM (VALUES ('arrival_buffer'), ('modes'), ('home_lat'), ('home_lon')) AS c(column_name)
 WHERE NOT EXISTS (
@@ -75,7 +83,7 @@ WHERE NOT EXISTS (
 SELECT m.migration_id, COUNT(sm.migration_id)::bigint AS applied_count
 FROM (VALUES ('149_asset_studio'), ('149_transport'), ('150_calendar_links'),
              ('151_sections'), ('152_personal_item_calendars'),
-             ('153_hosted_travel_and_calendar_location'), ('154_user_favourites_contacts'), ('155_here_transit_usage'), ('156_shift_planner')) AS m(migration_id)
+             ('153_hosted_travel_and_calendar_location'), ('154_user_favourites_contacts'), ('155_here_transit_usage'), ('156_shift_planner'), ('157_work_rota_import')) AS m(migration_id)
 LEFT JOIN align_owner.schema_migrations sm ON sm.migration_id=m.migration_id
 GROUP BY m.migration_id
 ORDER BY m.migration_id;

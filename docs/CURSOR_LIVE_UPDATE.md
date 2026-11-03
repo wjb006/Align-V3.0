@@ -4,29 +4,30 @@
 >
 > **Last verified against GitHub:** 3 November 2026  
 > **Repository:** `wjb006/Align-V3.0`  
-> **Working branch:** `codex/work-rota-import`  
-> **Verified branch HEAD at handover creation:** `ee56761f830d0779efa925200484bc5a8c2ce43b`  
-> **Base branch:** `codex/align-v3-rebuild`
+> **Spec branch:** `codex/work-rota-import`  
+> **Implementation branch:** `cursor/work-rota-import-06dc` (from `codex/work-rota-import`)  
+> **Implementation commit:** `0ea6aeb52b52580b3ce09999e07dfe415b362758`  
+> **Base branch for review:** `codex/align-v3-rebuild`
 
 ## 1. Current status — read this first
 
-**Status: Planning committed. The rota-import feature is NOT implemented yet.**
+**Status: First implementation is committed and tested locally. It is not deployed, and hosted migration 157 has not been applied.**
 
 Completed:
-- Created the feature branch `codex/work-rota-import` from `codex/align-v3-rebuild`.
-- Added and reviewed `docs/WORK_ROTA_IMPORT_SPEC.md`.
-- Confirmed the restored Build 156 shift planner is present and active. The earlier assumption that it had been retired was incorrect; do not revive a legacy planner or create a parallel one.
-- Re-inspected the live branch files and schema layout before preparing this handover.
+- Spec remains in `docs/WORK_ROTA_IMPORT_SPEC.md`.
+- Local SQLite and fresh PostgreSQL schemas include `work_rota_imports`, `work_rota_entries` and `work_rota_approvals`. Existing hosted databases get the same tables from `migrations/postgres/157_work_rota_import.sql`, which must be applied explicitly. Startup validation does not require migration 157, so current hosted databases still boot.
+- `POST /api/work/rota/imports` accepts a bounded multipart upload before JSON parsing. Review, correct, reject, approve, undo and delete routes are registered. Work opt-in is required.
+- CSV, XLSX and text-PDF extraction run locally with stdlib only. JPEG, PNG, HEIC and scanned PDFs are signature-checked and reported `ocr_unavailable`. No OCR provider is configured and no file bytes are sent anywhere.
+- Approval writes the existing `shifts` table, creates the existing shift alerts, and does not copy rows into `organiser_events`. Today’s schedule reads shifts directly. The week planner already reads `shifts`.
+- Original uploads are temporary, outside `static/`, and deleted after processing. Abandoned temp files can be cleaned up.
+- Upload my rota is in Work settings, Sections and More. The page states that image reading is not switched on.
 
 Not completed:
-- No rota upload endpoint or upload UI.
-- No import-session or pending-entry database tables.
-- No PDF, spreadsheet, image extraction or OCR implementation.
-- No review/edit/approval/undo workflow.
-- No new automated tests for rota import.
-- No production deployment or live database change.
-
-**Do not describe the feature as working until these items have been implemented and tested.** The only feature-specific deliverable currently committed is the implementation specification.
+- No OCR engine, and no claim that photos or scanned PDFs are read.
+- Migration 157 has not been applied to production or any hosted database. Do not apply it from this session.
+- No shift-specific travel hook exists, so approval does not call `post_event_travel` or `transport_service`.
+- `programme/app` was left unchanged. It is not the running source tree.
+- Hosted PostgreSQL tests were not executed in this environment (`psycopg` is not installed). Do not treat the SQL as production-proven.
 
 ## 2. Product decisions already agreed
 
@@ -186,6 +187,30 @@ Important: `app.py` currently calls `read_json()` for POST requests in its norma
 - Do not invent completed functionality or passing test results.
 - Prefer complete, integrated implementations over disconnected placeholders. Keep this handover accurate after each meaningful commit.
 
-## 11. Cursor's immediate next action
+## 11. Verification recorded with `0ea6aeb52b52580b3ce09999e07dfe415b362758`
 
-Start with the migration and route-dispatch inspection, then implement the first vertical slice (schema + secure import session/upload endpoint + tests) on this branch. Keep the upload UI honest about which formats have working extraction. Continue through review and approval rather than stopping after scaffolding. Update this file with commit SHAs, files changed, tests run and outstanding blockers as work progresses.
+Files in that commit:
+- `rota_file_processor.py`, `rota_ocr_provider.py`, `rota_parser.py`
+- `work_rota_api.py`, `work_rota_import.py`, `work_rota_storage.py`
+- `migrations/157_work_rota_import.sql`, `migrations/postgres/157_work_rota_import.sql`
+- `schema_v3.sqlite.sql`, `migrations/postgres/fresh_v3_schema.sql`, `migration_runner.py`, `postgres_support.py`
+- `migrations/postgres/HOSTED_SCHEMA_PREFLIGHT.sql`, `migrations/postgres/README.md`, `HOSTED_PERSISTENCE.md`
+- `app.py`, `personal_planner.py`
+- `static/work-rota.js`, `static/app.js`, `static/index.html`, `static/service-worker.js`, `static/styles.css`
+- `test_work_rota_import.py`
+
+Tests actually run, all on 3 November 2026, after that commit’s code was in the working tree:
+- `python3 -m unittest test_work_rota_import` — 7 tests, OK. Covers opt-in, signatures, limits, CSV approval, idempotency, Today and week visibility, alerts, no organiser copy, undo of an edited shift, overlap, duplicate re-import, revision conflict, account isolation, shared-name refusal, PDF text, XLSX, HEIC unread, DST and schema text.
+- `node --check static/work-rota.js` — OK.
+- `node test_core_navigation.js` — passed. Asset strings `156-v57` and `156-v58` were left in place. `work-rota.js` is loaded as `/work-rota.js?v=156-v62` before the first `app.js`.
+- `python3 -m unittest test_retired_shift_api test_local_backup` — planner routes that do not import `psycopg` passed. `test_v3_storage_validator_requires_restored_planner_tables` errored because `psycopg` is not installed. `test_week_reminders151` could not be imported because `icalendar` is not installed. Those two failures are environment gaps, not rota results.
+- Headless Chrome against a temporary local database: More → Upload my rota shows the unread-image notice; a CSV reached review with the row preselected; approval placed **Main Hospital – Ward** on Today’s schedule and on the week planner for Tuesday 3 Nov. A 390px-wide review showed the actions clear of the tab bar. This was not a production browser or a hosted database.
+
+Outstanding for Will:
+- Choose whether any OCR provider is acceptable. Until then, images and scanned PDFs stay unread.
+- Apply `migrations/postgres/157_work_rota_import.sql` only when a hosted database should gain the feature. The app will return `rota_schema_unavailable` until then.
+- There is no existing shift travel contract. Approval does not invent one.
+- SQLite does not add a foreign key from `shifts.source_import_entry_id` to `work_rota_entries`. Fresh PostgreSQL and migration 157 do. Undo still checks provenance in application code.
+- If any imported row was edited after approval, undo changes nothing and reports the conflict.
+- Opening Upload my rota enables the optional Work section when it is not already enabled, matching the existing Work database opener.
+- `index.html` already contained two script blocks (`156-v58`/`156-v59` and `156-v62`). The second block still throws “already been declared” in the console. The rota script is in the first block so the page can render. Removing the duplicate block was left alone.

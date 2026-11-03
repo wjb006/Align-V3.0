@@ -791,3 +791,17 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 
 /* Travel autocomplete: choose a place directly from the live suggestions. */
 .travel-place-suggestions{display:grid;gap:6px;margin:8px 0 12px;max-height:240px;overflow:auto}.travel-place-option{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;min-height:48px;padding:10px 12px;border:1px solid var(--line,rgba(145,170,210,.3));border-radius:12px;background:var(--surface,rgba(15,35,60,.8));color:var(--text,inherit);text-align:left;font:inherit;cursor:pointer}.travel-place-option:focus-visible{outline:3px solid var(--accent,#365ce6);outline-offset:2px}.travel-place-option small{font-size:.78rem;opacity:.72}.travel-place-field select[data-place150]{display:none!important}
+
+.work-rota { max-width: 850px; margin-inline: auto; }
+.work-rota-drop { display: grid; gap: 8px; min-height: 120px; padding: 18px; border: 1px dashed var(--line); border-radius: 16px; background: var(--soft); cursor: pointer; }
+.work-rota-drop input { min-height: 44px; }
+.work-rota-drop:focus-within { outline: 3px solid var(--blue); outline-offset: 2px; }
+.work-rota-list { display: grid; gap: 12px; }
+.work-rota-entry { display: grid; gap: 6px; padding: 14px 0; border-top: 1px solid var(--line); }
+.work-rota-entry span { margin-left: 8px; color: var(--muted); }
+.work-rota-medium { background: #fff8e8; border-radius: 12px; padding-inline: 12px; }
+.work-rota-low { background: #fff1f0; border-radius: 12px; padding-inline: 12px; }
+@media (max-width: 640px) {
+  .work-rota-entry .form-grid.two { grid-template-columns: 1fr; }
+  .work-rota .button-row { display: grid; }
+}

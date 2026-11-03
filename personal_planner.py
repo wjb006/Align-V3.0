@@ -92,7 +92,42 @@ def events(c, day):
         result.append({**dict(r),'kind':'Event','origin':'Calendar'})
     # A shared calendar may also appear as an imported source: show identical events once.
     unique={(r['start_at'],r['end_at'],r['title']):r for r in result}
-    return sorted(unique.values(),key=lambda r:r['start_at'])
+    combined=list(unique.values())
+    combined.extend(_shift_schedule(c, day))
+    return sorted(combined,key=lambda r:r['start_at'])
+
+
+def _shift_schedule(c, day):
+    """Today reads the shifts table directly. Shifts are not copied into organiser events."""
+    import planner_api
+    if not planner_api._has_table(c, 'shifts'):
+        return []
+    window_start=datetime.combine(day, time.min)
+    window_end=window_start+timedelta(days=1)
+    previous=(day-timedelta(days=1)).isoformat()
+    rows=[]
+    for record in c.execute(
+        '''SELECT id,work_date,start_time,end_time,location_name,shift_type_name,colour
+           FROM shifts WHERE work_date IN (?,?) ORDER BY work_date,start_time,id''',
+        (previous, day.isoformat())):
+        item=dict(record)
+        try:
+            begins, finishes=planner_api._bounds(item['work_date'], item['start_time'], item['end_time'])
+        except (TypeError, ValueError):
+            continue
+        if begins>=window_end or finishes<=window_start:
+            continue
+        rows.append({
+            'id':item['id'], 'section_id':None,
+            'title':f"{item['location_name']} – {item['shift_type_name']}",
+            'start_at':begins.isoformat(timespec='minutes'),
+            'end_at':finishes.isoformat(timespec='minutes'),
+            'all_day':0, 'location':item['location_name'] or '', 'notes':'',
+            'section_colour':item['colour'] or '#365CE6',
+            'category_name':item['shift_type_name'] or '',
+            'kind':'Shift', 'origin':'Shift',
+        })
+    return rows
 
 def bootstrap(c):
     ensure(c)
