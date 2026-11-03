@@ -20,22 +20,24 @@ Scope: private, user-approved rota import into the existing Align Work and calen
 
 ## 2. Existing V3 architecture mapping
 
-The implementation must extend the current V3 app rather than restore the retired legacy shift-planner UI/API.
+The implementation must extend the current V3 Work setup and restored Build 156 shift-planner infrastructure. The shift-planner tables and planner_api.py handlers are present and active on this branch; do not build a parallel Work shift store or duplicate calendar pipeline.
 
 | Existing module / surface | Integration responsibility |
 |---|---|
-| app.py | Register the new rota API handler alongside the existing API handlers; reuse authentication, request parsing, JSON responses and database connection lifecycle. |
-| owner_builder.py | Reuse the authenticated-account boundary and optional Work database opt-in rules. Do not bypass account scoping. |
-| builder_records / published Work layout | Reuse for configurable Work profile or supporting metadata where appropriate; do not force time-critical shift rows into arbitrary form fields. |
-| organiser_api.py | Reuse the existing organiser/calendar event model and its section/calendar associations when approved shifts are published. |
-| personal_planner.py | Ensure approved work events surface in Today and daily planning using existing read paths. |
-| post_event_travel.py and transport_service.py | Reuse existing journey enrichment and transport providers after an approved shift has a resolved location. |
-| static/app.js | Add the Work > Import rota entry and navigation/state integration using existing application conventions. |
+| app.py | Import and dispatch the rota API handler through the existing authenticated request lifecycle. GET/POST/PUT/DELETE already dispatch to planner_api.py and organiser_api.py with a shared database connection. |
+| planner_api.py | Primary integration point. Existing GET planner data reads shifts, locations, shift types, templates and leave; POST /api/shifts validates and inserts shifts, checks overlaps, creates alerts and supports batch idempotency; PUT/DELETE already manage shifts. Extend this service for import provenance and safe bulk approval rather than creating a second shift engine. |
+| work_setup.py | Existing Work setup/profile persistence. Use its saved work configuration when matching imported rota details. |
+| locations, shift_types, shift_templates, shifts, shift_batches | Existing canonical shift-planner schema, restored by Build 156 and present in the PostgreSQL fresh schema. Reuse these as the source of truth. |
+| owner_builder.py | Reuse authenticated-account boundary and optional Work database opt-in rules where applicable. Do not bypass account scoping. |
+| organiser_api.py | Existing separate personal/organiser event system. Do not create duplicate organiser_events for shifts already stored in shifts; only use organiser APIs if a future explicit user choice requires a separate calendar event. |
+| personal_planner.py | Existing Today/daily planner integration; verify how it surfaces planner_api shift data before wiring import UI. |
+| post_event_travel.py and transport_service.py | Reuse existing journey enrichment and transport providers only after approved shifts have a resolved location and the existing shift-travel contract is confirmed. |
+| static/app.js | Add the Work > Upload my rota entry and navigation/state integration using existing application conventions. |
 | static/builder-runtime.js | Reuse visual conventions and existing Work database interactions where suitable; keep the import-review experience in a dedicated module. |
 | static/styles.css | Extend existing Align tokens/components; avoid a parallel visual system. |
-| SQLite/PostgreSQL storage adapters and migration conventions | Add equivalent schema changes for local and hosted storage; never rely on application-startup schema mutation in hosted production. |
+| SQLite/PostgreSQL migration conventions | Add equivalent additive schema changes for local and hosted storage; never rely on application-startup schema mutation in hosted production. |
 
-Before implementation, verify the exact current route-dispatch order and the organiser event creation contract in the target branch. The importer must call the existing event-creation service/contract rather than writing directly to calendar tables.
+Confirmed route contract: app.py dispatches GET to planner_api.handle_get and POST/PUT/DELETE to planner_api.handle_post/handle_put/handle_delete. The existing POST /api/shifts accepts up to 100 shifts, validates through _shift_values and _check_shift, inserts into shifts, creates alerts and supports shift_batches request_id idempotency. Refactor reusable validation/insert logic or add an importer-specific service that calls the same functions; avoid HTTP self-calls and avoid direct calendar-table writes.
 
 ## 3. Proposed modules
 
@@ -66,13 +68,13 @@ These names are proposals and should be reconciled with repository naming conven
 7. Matcher checks the user's configured Work profile, shift templates and saved locations. It must not assume an abbreviation is globally meaningful.
 8. Candidate entries are stored as pending review records. Raw source files, OCR text and temporary derivatives are deleted in a finally cleanup path.
 9. User edits/approves/rejects individual entries or approves a validated selection.
-10. Approval writes confirmed Work shifts and creates/links calendar events through the existing V3 event service in a transaction or a recoverable idempotent workflow.
+10. Approval writes confirmed shifts through the existing planner validation and alert-generation logic, with an import-entry provenance link and idempotency. Do not create a duplicate organiser_events row for each shift: shifts are already first-class planner records.
 11. Existing travel enrichment is triggered only after event publication and only where a location is resolved.
 12. Import summary shows created, skipped, duplicate and unresolved counts. Undo reverses only records/events created by that import, subject to revision checks.
 
 ## 5. Proposed data model
 
-Use dedicated relational tables rather than placing shift rows into generic builder JSON records. Keep all rows in the authenticated user's existing database/schema.
+Use dedicated relational tables for import sessions and pending extracted entries, but use the existing shifts table for approved shifts. Keep all rows in the authenticated user's existing database/schema.
 
 ### work_rota_imports
 
@@ -98,13 +100,12 @@ Do not store original filenames unless necessary; if retained for display, sanit
 - entry_kind — shift, day_off, leave, unknown
 - confidence numeric, bounded 0..1
 - review_status — pending, approved, rejected, imported
-- calendar_event_id nullable
-- created_work_shift_id nullable if a dedicated Work shift entity is used
+- created_shift_id nullable, linking to the existing shifts.id
 - revision, timestamps
 
 ### Confirmed shift storage
 
-First inspect the existing current Work/shift schema and the organiser event contract. Reuse an existing canonical Work shift table if it is genuinely active in V3. If none exists, add a dedicated work_shifts table with a stable link to its calendar event. Do not revive legacy endpoints merely because similarly named tables exist.
+The canonical confirmed shift table already exists: shifts, with work_date, template_id, location_id, shift_type_id, location_name, shift_type_name, colour, start_time, end_time, break_minutes, hours and notes. Reuse it. Add nullable import provenance (for example source_import_entry_id with a unique constraint/index) only if needed to make approval and undo safe. Do not introduce a parallel work_shifts table. Imported shifts should appear through the existing planner_api week/month data and shift UI.
 
 ### Indexes and constraints
 
@@ -157,13 +158,12 @@ Do not expose temporary file paths or OCR provider payloads to the browser. Retu
 
 ## 9. Calendar and travel integration
 
-- Approval is the only point at which calendar publication occurs.
-- Use the existing organiser event creation/update service and current section/calendar-link conventions.
-- Store a durable relationship between the imported Work shift and its calendar event.
-- Do not create a second independent calendar source or duplicate event pipeline.
-- Preserve user edits to an already-published event; an import must not overwrite them on re-import.
-- Trigger existing travel enrichment after successful event creation when start/end location information is sufficient.
-- If calendar publication fails after Work data is written, use a transaction where supported or a recoverable outbox/status pattern; never report success for a partial import without explaining it.
+- Approval is the only point at which a shift is written to the existing shifts table.
+- Reuse planner_api.py validation, overlap checks and alert generation; refactor these into reusable service functions if necessary.
+- Preserve the existing shift planner as the single source of truth; do not mirror shifts into organiser_events or create a second calendar source.
+- Ensure imported shifts are visible in the existing planner week/month and Today views.
+- Trigger existing travel enrichment only through the supported shift-travel integration after the shift is saved and its location is resolved.
+- Use a database transaction plus per-entry idempotency/provenance so partial approval can be retried safely and undo removes only shifts created by that import.
 
 ## 10. UI requirements
 
@@ -192,7 +192,7 @@ Integration tests:
 - upload size/page/row limits
 - temporary file deletion on success, failure, cancellation and abandoned-session cleanup
 - local SQLite and hosted PostgreSQL migration parity
-- approval creates exactly one Work shift and one linked calendar event
+- approval creates exactly one existing shifts row, one set of shift alerts and one import-provenance link; no duplicate organiser event
 - failed calendar publication is recoverable and never falsely reported as complete
 - Today/calendar visibility
 - travel enrichment uses the existing transport pipeline
@@ -212,7 +212,7 @@ Release gates:
 4. Build upload and review UI using Align's existing components/styles.
 5. Add native PDF/spreadsheet extraction and an OCR provider adapter.
 6. Add parser, matching, confidence and correction logic.
-7. Add approval, calendar publication, travel trigger and undo.
+7. Add approval into the existing shifts table, alert generation, supported travel trigger and undo.
 8. Run full local and hosted-schema tests; review diff before deployment.
 
 ## 13. Explicit non-goals for the first release
