@@ -40,7 +40,7 @@ function travel_reminders_label(minutes) {
   if (minutes % 60 === 0) { const hours = minutes / 60; return `${hours} hour${hours === 1 ? '' : 's'}`; }
   return `${minutes} minutes`;
 }
-function renderTransport() { return renderTravel150(); }
+function renderTransport() { return callOptional('renderTravel150'); }
 const offlineRuntime = { preparing: false, ready: false, diagnostics: null, registration: null, registrationError: '', registrationState: '', reloadingForControl: false };
 
 function isoToday() { return toIso(new Date()); }
@@ -208,8 +208,22 @@ function leaveClock(alert) {
   return match ? match[1] : '';
 }
 
+function callOptional(name, ...args) {
+  // Property lookup, not a bare name. Safari reports a missing global as
+  // "Can't find variable", and evaluating that name inside the route map
+  // used to reject the whole planner before any screen could paint.
+  try {
+    const fn = globalThis[name];
+    if (typeof fn === 'function') return fn(...args);
+  } catch (error) {
+    if (error?.name !== 'ReferenceError') throw error;
+  }
+  return null;
+}
+
 function render() {
-  AlignFormatting.apply(document.body,state.boot?.builder?.document?.formatting);
+  const formatting = globalThis.AlignFormatting;
+  if (formatting && typeof formatting.apply === 'function') formatting.apply(document.body, state.boot?.builder?.document?.formatting);
   applyManagementAppearance();
   renderBottomNavigation();
   if (state.tab === 'master') state.tab = 'more';
@@ -232,7 +246,27 @@ function render() {
     return;
   }
   if (state.tab === 'add') state.tab = 'sections';
-  const content = { today: renderHome, home: renderHome, inbox: renderInbox, planner: renderPlannerCalendar, calendar: renderPlannerCalendar, sections: renderSectionsIndex, section: renderSection, more: renderMore, transport: renderTransport, assets: renderAssets150, settings: renderUserSettings, 'work-setup': renderWorkSetup, 'work-rota': renderWorkRota, 'builder-records': builderRecordsPage, 'builder-profile': () => builderStartup(true) }[state.tab]?.() || renderHome();
+  const pages = {
+    today: renderHome,
+    home: renderHome,
+    inbox: renderInbox,
+    planner: renderPlannerCalendar,
+    calendar: renderPlannerCalendar,
+    sections: renderSectionsIndex,
+    section: renderSection,
+    more: renderMore,
+    transport: renderTransport,
+    assets: () => callOptional('renderAssets150'),
+    settings: renderUserSettings,
+    'work-setup': () => callOptional('renderWorkSetup'),
+    'work-rota': () => callOptional('renderWorkRota'),
+    'builder-records': () => callOptional('builderRecordsPage'),
+    'builder-profile': () => callOptional('builderStartup', true),
+  };
+  const renderer = pages[state.tab];
+  let content = renderer ? renderer() : '';
+  if (content == null) content = '<section class="page"><div class="card empty">This screen is still loading. Refresh Align if it stays blank.</div></section>';
+  else if (!content) content = renderHome();
   const cloudNotice = state.boot.icloud_public?.reconnect_required ? `<div class="card" role="status"><strong>iCloud needs reconnecting</strong><p>${escapeHtml(state.boot.icloud_public.message)}</p><button class="small-button" data-nav="settings">Open settings</button></div>` : '';
   app.innerHTML = cloudNotice + content;
   app.focus({ preventScroll: true });
@@ -389,7 +423,7 @@ function renderHome() {
     ${renderHomeShortcuts()}
     ${homeSection('stats') ? `<div class="hero-stat-row home-week-stats"><div class="hero-stat"><strong>${sections.length}</strong><span>your sections</span></div><div class="hero-stat"><strong>${dashboard.upcoming_events?.length || 0}</strong><span>upcoming events</span></div></div>` : ''}
     <div class="dashboard-panels">
-      ${homeSection('today') ? `<div class="dashboard-today">${personalToday({includeQuickAdd:false})}</div>` : ''}
+      ${homeSection('today') ? `<div class="dashboard-today">${callOptional('personalToday', {includeQuickAdd:false}) || ''}</div>` : ''}
       ${homeSection('upcoming') ? `<section class="section dashboard-upcoming" data-management-banner="upcoming">
         <div class="section-head"><h2>${homeSectionTitle('upcoming','Upcoming Events')}</h2><div class="button-row"><button class="text-button" data-build153-manage-contacts>Saved contacts</button></div></div>
         ${renderUpcomingGrouped(dashboard)}
@@ -582,7 +616,10 @@ function locationSearchField(value = '', name = 'location') {
 }
 
 function renderOnboarding() {
-  if (state.boot.builder) return builderStartup();
+  if (state.boot.builder) {
+    const page = callOptional('builderStartup');
+    if (page) return page;
+  }
   const settings = state.boot.settings;
   const dataNote = state.boot.beta
     ? 'Your planner data belongs to this hosted account.'
@@ -635,7 +672,10 @@ function renderUserSettings() {
 }
 
 function renderUserBranch(branch) {
-  if (branch.branch_type === 'profile' && state.boot.builder) return builderStartup(true);
+  if (branch.branch_type === 'profile' && state.boot.builder) {
+    const page = callOptional('builderStartup', true);
+    if (page) return page;
+  }
   const settings = state.boot.settings;
   if (branch.branch_type === 'appearance') return renderPersonalAppearance();
   if (branch.branch_type === 'colours') return renderUserColours();
@@ -698,7 +738,7 @@ function renderCalendarSettings() {
   const feed = new URL(state.boot.calendar.feed_path, window.location.origin).href;
   const webcal = feed.replace(/^https?:/, 'webcal:');
   const localOnly = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-  return `${renderICloud()}<div class="section-head"><h2>Connect your calendar</h2></div><div class="card settings-form">
+  return `${callOptional('renderICloud') || ''}<div class="section-head"><h2>Connect your calendar</h2></div><div class="card settings-form">
     <h3>Subscribe to Align</h3><p class="helper">Events added, changed or removed in Align are reflected when your calendar refreshes this subscription. Make changes in Align; this connection sends updates one way to Calendar.</p>
     <a class="primary-button calendar-link" href="${escapeHtml(webcal)}">Subscribe on iPhone</a>
     <div class="field"><label for="calendar-feed-url">Calendar subscription address</label><input id="calendar-feed-url" readonly value="${escapeHtml(feed)}"/><button type="button" class="secondary-button" data-action="copy-calendar-link">Copy subscription address</button></div>
