@@ -21,6 +21,23 @@ from desktop.supervisor import fetch_health, free_port, is_align_health, start_s
 from desktop.window import windows_app_command
 
 
+class _ServerFolder:
+    """Temp folder whose server is stopped before Windows deletes the files."""
+
+    def __enter__(self):
+        import tempfile
+        self.folder = tempfile.mkdtemp()
+        self.handle = None
+        return self
+
+    def __exit__(self, *exc):
+        import shutil
+        if self.handle is not None:
+            self.handle.stop()
+        shutil.rmtree(self.folder, ignore_errors=True)
+        return False
+
+
 def make_align_db(path: Path, events: int = 0, user_name: str = "") -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(path)
@@ -219,8 +236,8 @@ class DesktopLaunchTests(unittest.TestCase):
             thread.join(timeout=5)
 
     def test_desktop_home_planner_and_studio_answer(self):
-        import tempfile
-        with tempfile.TemporaryDirectory() as folder:
+        with _ServerFolder() as box:
+            folder = box.folder
             env = {
                 "ALIGN_DATA_DIR": folder,
                 "ALIGN_LEGACY_DATABASES": "",
@@ -229,7 +246,7 @@ class DesktopLaunchTests(unittest.TestCase):
             port = free_port()
             with patch.dict(os.environ, env, clear=False):
                 handle = start_server(Path(folder), port, wait_seconds=40)
-            self.addCleanup(handle.stop)
+            box.handle = handle
             base = f"http://127.0.0.1:{handle.port}"
 
             def get(path):
@@ -304,7 +321,8 @@ class DesktopLaunchTests(unittest.TestCase):
             with patch.object(app, "DATABASE", database):
                 app.initialise_database()
                 when = (datetime.now() + timedelta(days=1)).replace(microsecond=0).isoformat(timespec="minutes")
-                with sqlite3.connect(database) as connection:
+                connection = sqlite3.connect(database)
+                try:
                     connection.execute(
                         """INSERT INTO shifts(work_date,location_name,shift_type_name,colour,start_time,end_time,hours)
                            VALUES('2026-10-28','Lime Street','Early','#365CE6','09:00','17:00',8)"""
@@ -317,6 +335,9 @@ class DesktopLaunchTests(unittest.TestCase):
                     connection.execute(
                         "INSERT INTO alert_rules(title,minutes_before,active) VALUES('Before',30,1)"
                     )
+                    connection.commit()
+                finally:
+                    connection.close()
                 with app.db_connection() as connection:
                     payload = app.dashboard(connection)
                     rules = app.calendar_data(connection)["alert_rules"]
@@ -335,7 +356,8 @@ class FreshAlertRouteTests(unittest.TestCase):
         import urllib.error
         from datetime import datetime, timedelta
 
-        with tempfile.TemporaryDirectory() as folder:
+        with _ServerFolder() as box:
+            folder = box.folder
             env = {
                 "ALIGN_DATA_DIR": folder,
                 "ALIGN_LEGACY_DATABASES": "",
@@ -344,7 +366,7 @@ class FreshAlertRouteTests(unittest.TestCase):
             port = free_port()
             with patch.dict(os.environ, env, clear=False):
                 handle = start_server(Path(folder), port, wait_seconds=40)
-            self.addCleanup(handle.stop)
+            box.handle = handle
             base = f"http://127.0.0.1:{handle.port}"
 
             def call(method, path, payload=None):
@@ -377,7 +399,8 @@ class FreshAlertRouteTests(unittest.TestCase):
 
             database = Path(folder) / "align.sqlite3"
             when = (datetime.now() + timedelta(hours=2)).replace(microsecond=0).isoformat(timespec="minutes")
-            with sqlite3.connect(database) as connection:
+            connection = sqlite3.connect(database)
+            try:
                 connection.execute(
                     """INSERT INTO shifts(work_date,location_name,shift_type_name,colour,start_time,end_time,hours)
                        VALUES('2026-10-28','Lime Street','Early','#365CE6','09:00','17:00',8)"""
@@ -387,13 +410,20 @@ class FreshAlertRouteTests(unittest.TestCase):
                     "INSERT INTO alerts(shift_id,title,alert_at,status) VALUES(?,?,?,'pending')",
                     (shift_id, "Leave home", when),
                 )
+                connection.commit()
+            finally:
+                connection.close()
             status, body = call("GET", "/api/alerts")
             self.assertEqual(status, 200)
             self.assertEqual([item["title"] for item in body["alerts"]], ["Leave home"])
 
-            with sqlite3.connect(database) as connection:
+            connection = sqlite3.connect(database)
+            try:
                 connection.execute("DROP TABLE alerts")
                 connection.execute("DROP TABLE alert_rules")
+                connection.commit()
+            finally:
+                connection.close()
             status, body = call("GET", "/api/alerts")
             self.assertEqual((status, body["alerts"]), (200, []))
             status, body = call("GET", "/api/alert-rules")
