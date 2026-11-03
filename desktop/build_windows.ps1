@@ -15,5 +15,6 @@ Invoke-Expression "$Python -m PyInstaller --noconfirm --clean desktop/align.spec
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller did not produce Align." }
 $Built = Join-Path $Root "dist\Align\Align.exe"
 if (-not (Test-Path $Built)) { throw "Expected $Built" }
+Copy-Item (Join-Path $Root "static\icons\align.ico") (Join-Path $Root "dist\Align\align.ico") -Force
 Write-Host "Built $Built"
 Write-Host "Installer input is dist\Align plus installer\windows\Install-Align-Studio.ps1"

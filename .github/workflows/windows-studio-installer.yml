@@ -39,6 +39,7 @@ jobs:
           python -m unittest test_desktop_programme.py
           python -m PyInstaller --noconfirm --clean desktop/align.spec
           if (-not (Test-Path "dist\Align\Align.exe")) { throw "Align.exe was not built" }
+          Copy-Item "static/icons/align.ico" "dist/Align/align.ico" -Force
       - name: Assemble installer package
         shell: pwsh
         run: |
