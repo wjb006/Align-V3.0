@@ -404,3 +404,14 @@ CREATE TABLE IF NOT EXISTS align_contacts (
     updated_at TEXT NOT NULL, UNIQUE(name,address,phone)
 );
 INSERT OR IGNORE INTO schema_migrations(migration_id,applied_at) VALUES ('149_asset_studio',CURRENT_TIMESTAMP),('149_transport',CURRENT_TIMESTAMP),('150_calendar_links',CURRENT_TIMESTAMP),('151_sections',CURRENT_TIMESTAMP),('152_personal_item_calendars',CURRENT_TIMESTAMP),('154_user_favourites_contacts',CURRENT_TIMESTAMP);
+
+
+-- Alerts used by the shift planner.
+CREATE TABLE IF NOT EXISTS alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shift_id INTEGER NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    alert_at TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending'
+);
+CREATE INDEX IF NOT EXISTS idx_alerts_time ON alerts(alert_at, status);
