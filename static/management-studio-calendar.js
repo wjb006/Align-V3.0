@@ -11,6 +11,7 @@
   const time = d => d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
   const keyOf = e => `${e.source_kind || 'align'}:${e.id}`;
   let mode = 'month', cursor = new Date(), sections = [], events = [], busy = false, selected = '', editing = null, forceNow = false;
+  let hourAnchored = false, hourPaint = 0;
   const byKey = new Map();
   const api = async (url, options={}) => {
     const r = await fetch(url,{cache:'no-store',credentials:'same-origin',headers:{'Content-Type':'application/json',...(options.headers||{})},...options});
@@ -67,12 +68,15 @@
     if (!wrap) return;
     if (previousScroll != null) {
       wrap.scrollTop = previousScroll;
+      hourAnchored = true;
       return;
     }
     const mark = wrap.querySelector('[data-hour-now]');
-    if (!mark) return;
-    const delta = mark.getBoundingClientRect().top - wrap.getBoundingClientRect().top;
-    wrap.scrollTop += delta - 8;
+    if (mark) {
+      const delta = mark.getBoundingClientRect().top - wrap.getBoundingClientRect().top;
+      wrap.scrollTop += delta - 8;
+    }
+    hourAnchored = true;
   }
   function detail() {
     const event = byKey.get(selected);
@@ -102,6 +106,7 @@
     const previousScroll = previousWrap ? previousWrap.scrollTop : null;
     const jumpToNow = forceNow;
     forceNow = false;
+    if (jumpToNow) hourAnchored = false;
     const [from, to] = range();
     const list = visibleEvents();
     const heading = mode === 'month'
@@ -135,9 +140,10 @@
     }
     const values = formValues(editing);
     const status = busy ? 'Loading saved events…' : (events.length ? `${events.length} saved events loaded. Times use this computer’s local timezone.` : 'No saved events found.');
-    const keepHour = jumpToNow || !previousWrap ? null : previousScroll;
+    const keepHour = (hourAnchored && previousWrap && !jumpToNow) ? previousScroll : null;
     root.innerHTML = `<div class="sc-toolbar"><div class="sc-nav"><button type="button" data-cal-nav="-1" aria-label="Previous ${mode}">‹</button><button type="button" data-cal-today>Today</button><button type="button" data-cal-nav="1" aria-label="Next ${mode}">›</button><h2>${esc(heading)}</h2></div><div class="sc-modes" role="group" aria-label="Calendar view">${[['month','Month'],['week','Week'],['day','Day'],['hour','Day / Hour']].map(([key,label]) => `<button type="button" data-cal-mode="${key}" aria-pressed="${mode === key}">${label}</button>`).join('')}<button type="button" data-cal-add>+ Add event</button></div></div><p class="sc-source"><span></span> Source: saved Align events on this server. Imported calendar events are shown read-only.</p><div class="sc-status" role="status" aria-live="polite">${esc(status)}</div>${detail()}${body}<form class="sc-add-form" ${editing || root.dataset.adding === '1' ? '' : 'hidden'}><h3>${editing ? 'Edit Align event' : 'Add an Align event'}</h3><label>Title<input name="title" required maxlength="160" value="${esc(values.title)}"></label><div class="sc-form-grid"><label>Section<select name="section_id" required>${sections.map(s => `<option value="${s.id}"${String(s.id) === values.section ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select></label><label>Date<input name="date" type="date" required value="${esc(values.date)}"></label><label>Start<input name="start" type="time" value="${esc(values.start)}" required ${values.allDay ? 'disabled' : ''}></label><label>End<input name="end" type="time" value="${esc(values.end)}" required ${values.allDay ? 'disabled' : ''}></label></div><label>Location (optional)<input name="location" maxlength="240" value="${esc(values.location)}"></label><label>Notes (optional)<textarea name="notes" rows="2" maxlength="4000">${esc(values.notes)}</textarea></label><label class="sc-check"><input type="checkbox" name="all_day" ${values.allDay ? 'checked' : ''}> All-day event</label><div class="sc-form-actions"><button type="button" data-cal-cancel>Cancel</button><button type="submit">${editing ? 'Save changes' : 'Save event'}</button></div></form>`;
-    if (mode === 'hour') requestAnimationFrame(() => pinHourGrid(root, keepHour));
+    const paint = ++hourPaint;
+    if (mode === 'hour') requestAnimationFrame(() => { if (paint === hourPaint) pinHourGrid(root, keepHour); });
   }
 
   async function load() {

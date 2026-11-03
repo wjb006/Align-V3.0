@@ -24,7 +24,7 @@ if (!calendar.includes('const startMin') || !calendar.includes('const endMin')) 
 if (!calendar.includes('overlaps(e, dayStart(d), nextDay(d))')) {
   throw new Error('Calendar days must include events that overlap the day');
 }
-if (!calendar.includes('data-hour-now') || !calendar.includes('is-now') || !calendar.includes('wrap.scrollTop')) {
+if (!calendar.includes('data-hour-now') || !calendar.includes('is-now') || !calendar.includes('wrap.scrollTop') || !calendar.includes('hourAnchored')) {
   throw new Error('Day/hour view must scroll to and mark the current hour');
 }
 if (!calendar.includes('previousScroll')) {

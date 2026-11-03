@@ -61,14 +61,15 @@ class UiPolishTests(unittest.TestCase):
         self.assertIn("addEventListener('invalid'", self.app)
         self.assertIn("loading-state", self.app)
         self.assertIn("async function promptAlignInstall()", self.app)
-        self.assertIn('class="secondary-button" data-t150="search"', self.travel)
         self.assertIn("f.checkValidity()", self.travel)
+        self.assertIn("message.classList.add('form-error')", self.travel)
+        self.assertIn('id="travel-message"', self.travel)
 
     def test_offline_cache_version_matches_the_shell(self):
-        self.assertIn("156-v58", self.index)
+        self.assertIn("156-v62", self.index)
         self.assertIn("`${BUILD_VERSION}-v57`", self.app)
-        self.assertIn("`${BUILD}-v58`", self.worker)
-        self.assertIn("/visual-theme.css?v=156-v58", self.index)
+        self.assertIn("`${BUILD}-v62`", self.worker)
+        self.assertIn("/visual-theme.css?v=156-v62", self.index)
         self.assertIn("align-v13-shell-${ASSET_VERSION}", self.worker)
         self.assertNotIn("156-v21", self.index)
 
