@@ -4,42 +4,55 @@
 **Repository:** `wjb006/Align-V3.0`  
 **Working branch:** `codex/align-v3-full-repair`  
 **Base:** `codex/align-v3-rebuild`  
-**Scope:** full end-to-end application repair; no live deployment or production database changes.
+**Scope:** full end-to-end repair; no live deployment or production database changes.
 
 ## Verified architecture
 
-- The canonical application is the repository-root `app.py` with `static/` and `migrations/`. `align_paths.py` resolves source files relative to the root application, and `desktop/align.spec` packages the root `static/` and `migrations/` directories.
-- `programme/app/` contains a divergent older copy. It is not the source used by the current root entry point or desktop PyInstaller spec. Do not blindly copy it over the canonical source.
-- The Build 156 shift planner is present in the current branch. The rota importer is also present in the root source: `work_rota_api.py`, `work_rota_import.py`, `work_rota_storage.py`, `rota_file_processor.py`, `rota_parser.py`, and `static/work-rota.js`.
-- Rota approval writes to the existing `shifts` table, not a parallel shift store. Existing hosted databases require explicit migration 157 before rota import; migration 158 is required for guided sections/events. The application does not apply hosted schema migrations at startup.
-- The current Management Studio embeds the real app at `/?studioLivePreview=1`. Its page had a stale shared stylesheet URL (`styles.css?v=156-v48`) while the main app shell uses `156-v67`. This repair branch updates that shared stylesheet reference to the current cache revision.
+- The canonical application is repository-root `app.py` with root `static/` and `migrations/`. `align_paths.py` resolves source files relative to the root application, and `desktop/align.spec` packages root static assets and migrations.
+- `programme/app/` is a divergent older copy. It is not the source used by the current root entry point or desktop PyInstaller spec. Do not blindly copy it over the canonical source.
+- Build 156 shift planner and Work rota import are present. Rota approval writes to the existing `shifts` table, not a parallel shift store.
+- Existing hosted databases require migration 157 for rota import and migration 158 for guided sections/events. Hosted schema migrations are not automatically applied at startup.
+- Management Studio embeds the real app at `/?studioLivePreview=1`. The root Studio page had a stale shared stylesheet reference (`styles.css?v=156-v48`) while the app shell uses `156-v67`.
 
-## Verified gaps and risks
+## Repairs made on this branch
 
-1. **Rota image recognition:** JPEG/PNG/HEIC and scanned PDFs are accepted for safe type checking but are not OCR-read. No OCR provider is configured or approved. The UI correctly discloses this; do not imply photo-based extraction works.
-2. **Rota travel enrichment:** the rota handover explicitly records that approved shifts do not yet trigger a shift-specific travel hook. Existing post-event travel is for organiser/imported-calendar events and must not be assumed to cover shifts.
-3. **Hosted migration state:** migration 157 and 158 must be verified/applied separately to each relevant existing hosted schema. No production migration is performed by this repair branch.
-4. **Launcher / transport configuration:** the no-console VBS launcher sets the port and standard Align mode but does not set `ALIGN_TRANSPORT_ENABLED` or `ALIGN_OTP_URL`. The dedicated Transport and Merseyside launchers do set these. The transport API explicitly returns disabled when the flag is absent. Confirm the intended local OTP startup path before changing the VBS launcher; blindly enabling transport without a running OTP service would only replace a clear disabled state with provider errors.
-5. **CI acceptance:** the README records an older fully verified baseline (commit `594cd085`) and states newer runs were terminating before executing steps. The latest merge commit and the new repair PR currently have no workflow runs or status checks returned by the connected GitHub Actions lookup. No current green CI claim is made.
-6. **Runtime acceptance:** no local Windows environment, user database, browser session, or live provider credentials are available through this repository inspection. No local or live end-to-end test is claimed.
-7. **Legacy account compatibility:** `/api/beta/*`, `beta_users.sqlite3`, `beta_*` modules and `ALIGN_BETA_MODE` remain active compatibility plumbing for hosted authentication, Owner access, iCloud credentials and remote access. Removing these names without a data/API migration would risk existing accounts.
-8. **Source-copy divergence:** root and `programme/app/` Management Studio pages differ in markup and assets. The root is canonical for current builds. Any packaged/legacy copy should be reconciled deliberately, not overwritten wholesale.
+- **Home weather:** Home previously rendered a weather chip only if weather had already been loaded elsewhere; the fetch was started by Today, not Home. Home now starts the existing phone-location → saved-town fallback → weather request flow, shows a loading state, exposes a visible unavailable/retry state on failure, and labels a saved forecast when a refresh fails.
+- **Weather regression coverage:** `test_weather_timeout.js` now covers Home-only loading, successful display, provider failure/retry, location timeout, saved-town fallback and late geolocation callbacks.
+- **Shift travel selection:** The Travel screen advertised “shift or event” and the setup guide documented `shift:<id>`, but the picker only listed organiser/imported-calendar events and the resolver rejected shifts. Upcoming shifts now appear in the picker, and `shift:<id>` resolves to the saved workplace and local shift start time.
+- **Travel geocoding:** OTP requires coordinate-backed place selections; it cannot geocode free-text addresses. The UI previously suggested that typed addresses could be left unresolved and sent them to OTP. It now requires selected coordinate-backed places for OTP, while HERE can resolve typed addresses after consent. Saved text-only addresses are not offered as usable OTP coordinates.
+- **Travel regression coverage:** `test_transport_build149.py` covers shift discovery, destination/time resolution and the no-shift-schema response. `test_travel_autofill.js` covers OTP coordinate requirements and HERE address resolution.
+- **No-console launcher:** `Start Align (No CMD).vbs` now enables Transport only when an OTP URL is already configured or the local listener on port 8080 is reachable. It does not start OTP itself; the Merseyside launcher remains responsible for starting the service.
+- **Launcher documentation:** `TRANSPORT_SETUP.md` documents the no-console detection behaviour.
+- **Database selection:** desktop content scoring now counts all user-data tables, including shifts/rota, rather than overlooking records outside the original organiser tables. A regression case proves a shift-only legacy database is not overlooked. Database adoption uses SQLite's backup API and retains the source database.
+- **Management Studio asset:** the root Studio page now uses the current shared stylesheet cache revision.
+
+## Remaining gaps and release blockers
+
+1. **Automatic shift-travel enrichment:** manual Transport-tab planning for shifts is restored. Automatically enriching a newly approved shift with a route/reminder is not yet implemented. It needs a separate idempotent design that does not create duplicate organiser events or make rota undo mistake generated travel notes for user edits.
+2. **Rota image recognition:** JPEG/PNG/HEIC and scanned PDFs are accepted for safe type checking but are not OCR-read. No OCR provider is configured or approved. The UI discloses this; do not imply photo-based extraction works.
+3. **Hosted migration state:** migrations 157 and 158 must be verified on disposable SQLite and PostgreSQL fixtures, then the actual hosted schema must be inspected before any production migration. No production migration is performed by this branch.
+4. **OTP runtime:** the no-console launcher detects an existing OTP listener but does not start it. Use the Merseyside launcher when the local service needs to be started. An explicit `ALIGN_OTP_URL` is inherited; a configured URL alone does not prove the provider is reachable.
+5. **Management Studio:** live iframe sizing/reload, Builder/Design/Owner tabs, form/database builder, Flowchart Builder and phone-width behaviour still need a full browser audit.
+6. **CI acceptance:** the latest observed browser, navigation, hosted-persistence and Windows-package workflows all failed before executing any job steps, with no runner assigned. A retry of failed jobs produced the same result. The job-log endpoint had no log blob. This is a GitHub Actions job-start failure, not evidence that an application test failed; no current test pass is claimed.
+7. **Runtime acceptance:** no local Windows environment, user database, browser session or live provider credentials are available through this repository inspection. No local or live end-to-end test is claimed.
+8. **Legacy account compatibility:** `/api/beta/*`, `beta_users.sqlite3`, `beta_*` modules and `ALIGN_BETA_MODE` remain compatibility plumbing for hosted authentication, Owner access, iCloud credentials and remote access. Do not remove these names without a data/API migration and rollback plan.
+9. **Source-copy divergence:** root and `programme/app/` Management Studio pages differ in markup and assets. The root is canonical for current builds. Any packaged/legacy copy must be reconciled deliberately, not overwritten wholesale.
 
 ## Repair order
 
+- [x] Restore Home dashboard weather loading and visible failure/retry behaviour.
+- [x] Add Home weather regression coverage.
+- [x] Restore manual Transport-tab journey selection and route resolution for first-class shifts.
+- [x] Correct OTP/HERE place-resolution behaviour and add focused UI regression coverage.
+- [x] Enable Transport safely in the no-console launcher only when an OTP URL is configured or the local listener is reachable.
+- [x] Count all user-data tables when choosing between desktop database candidates.
 - [x] Refresh the stale shared stylesheet cache reference in the canonical Management Studio page.
-- [x] Make Home weather show a visible unavailable state and retry action when the provider fails; add a regression case for the failure state.
-- [~] Restore Home dashboard weather loading, expose a retry state when the provider fails, and add regression coverage; the CI jobs currently fail before any test steps start, so runtime verification remains blocked.
-- [ ] Re-run the full Python suite, JavaScript/navigation checks, Playwright desktop/mobile browser matrix, desktop package build, and PowerShell parser checks on the current source. The latest PR-triggered browser, navigation, hosted-persistence and Windows-package runs, including a retry of the failed jobs, all conclude `failure` with zero job steps and no runner assigned. The job-log endpoint has no log blob. This is a GitHub Actions job-start failure, not evidence that an application test failed.
-- [ ] Exercise the complete Work opt-in → rota upload → review/correction → approval → planner/Today visibility → undo flow against an isolated database.
-- [ ] Verify migration 157/158 on disposable SQLite and PostgreSQL fixtures; separately inspect the actual hosted schema before any production migration.
-- [x] Restore manual Transport-tab journey selection for shifts by including upcoming shifts in the picker and resolving `shift:<id>` against the existing shifts table; add a focused regression test.
-- [x] Correct the provider-specific place-resolution flow: OTP now requires coordinate-backed place selections, while HERE can resolve typed addresses after consent. The UI no longer tries to send un-geocoded free text to OTP or advertises that OTP can geocode it; add focused UI regression coverage. [ ] Add and test automatic shift-travel enrichment after approval, with idempotency, provider-unavailable handling and no duplicate organiser events.
-- [ ] Audit journey provider configuration, address resolution, OTP/HERE selection, cached journeys and leave-time display with focused integration tests.
-- [ ] Audit Management Studio live iframe sizing, preview reload, Builder/Design/Owner tabs, form/database builder and Flowchart Builder at desktop and phone widths.
-- [x] Improve desktop database selection so content scoring counts all user-data tables (including shifts/rota), not only organiser events/sections and builder records; add a rota-only legacy-database regression case.
-- [x] Update the no-console VBS launcher to enable Transport only when an OTP URL is configured or the local OTP listener is already reachable; it does not start OTP itself. The dedicated Merseyside launcher remains responsible for starting the service.
-- [ ] Verify launcher modes and database selection, including preservation of existing local data and hosted account authentication.
+- [ ] Execute the full Python suite, JavaScript/navigation checks, Playwright desktop/mobile browser matrix, desktop package build and PowerShell/VBScript parser checks. CI job-start failures currently block automated execution.
+- [ ] Exercise Work opt-in → rota upload → review/correction → approval → planner/Today visibility → undo against an isolated database.
+- [ ] Verify migrations 157/158 on disposable SQLite and PostgreSQL fixtures.
+- [ ] Implement and test automatic shift-travel enrichment after approval.
+- [ ] Audit Management Studio live preview, Builder/Design/Owner controls, form/database builder and Flowchart Builder at desktop and phone widths.
+- [ ] Verify launcher modes and database selection with the moved local database, preserving all originals and hosted account authentication.
 - [ ] Reconcile release packaging and deployment configuration; deploy only after CI, backup, migration and live health gates pass.
 
 ## Safety constraints
