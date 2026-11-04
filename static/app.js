@@ -260,6 +260,7 @@ function render() {
     settings: renderUserSettings,
     'work-setup': () => callOptional('renderWorkSetup'),
     'work-rota': () => callOptional('renderWorkRota'),
+    finance: () => callOptional('renderFinanceLedger'),
     'section-guide': () => callOptional('renderSectionGuide'),
     'event-guide': () => callOptional('renderEventGuide'),
     'builder-records': () => callOptional('builderRecordsPage'),
@@ -379,7 +380,7 @@ function installPanel() {
 }
 
 function renderMore() {
-  return `<section class="page"><div class="add-head"><p class="eyebrow">Everything else</p><h1>More</h1><p class="subtle">Personal settings and tools.</p></div>${installPanel()}<div class="quick-grid"><button class="quick-action" data-nav="planner"><b>▦</b>Planner<small>Events, shifts and annual leave</small></button><button class="quick-action" data-nav="settings"><b>⚙</b>Settings<small>Your details and calendars</small></button><button class="quick-action" data-nav="transport"><b>↗</b>Travel<small>Saved places and journey planning</small></button><button class="quick-action" data-action="work-setup"><b>▣</b>Work settings<small>Locations, shift areas, hours and pay</small></button><button class="quick-action" data-action="work-rota"><b>↥</b>Upload my rota<small>Review a spreadsheet or text PDF before anything is added</small></button><button class="quick-action" data-action="go-planner-settings"><b>◌</b>Planner settings<small>Shift reminders and calendar connections</small></button></div></section>`;
+  return `<section class="page"><div class="add-head"><p class="eyebrow">Everything else</p><h1>More</h1><p class="subtle">Personal settings and tools.</p></div>${installPanel()}<div class="quick-grid"><button class="quick-action" data-nav="planner"><b>▦</b>Planner<small>Events, shifts and annual leave</small></button><button class="quick-action" data-nav="settings"><b>⚙</b>Settings<small>Your details and calendars</small></button><button class="quick-action" data-nav="transport"><b>↗</b>Travel<small>Saved places and journey planning</small></button><button class="quick-action" data-action="work-setup"><b>▣</b>Work settings<small>Locations, shift areas, hours and pay</small></button><button class="quick-action" data-action="work-rota"><b>↥</b>Upload my rota<small>Review a spreadsheet or text PDF before anything is added</small></button><button class="quick-action" data-action="finance"><b>£</b>Finance<small>Money in, money out, bills and reminders</small></button><button class="quick-action" data-action="go-planner-settings"><b>◌</b>Planner settings<small>Shift reminders and calendar connections</small></button></div></section>`;
 }
 
 function rootSections() { return (state.boot?.sections || []).filter(section => !section.parent_branch_id); }
@@ -914,6 +915,7 @@ document.addEventListener('click', async event => {
   }
   if (action === 'work-setup') { void openWorkSetup(); return; }
   if (action === 'work-rota') { void openWorkRota(); return; }
+  if (action === 'finance') { void openFinance(); return; }
   if (action === 'go-planner-settings') { state.settingsBranch = 'alerts'; state.tab = 'settings'; render(); return; }
   if (action === 'reload-app') { window.location.reload(); return; }
   if (action === 'go-calendar-settings') { state.settingsBranch = 'events'; state.tab = 'settings'; render(); }

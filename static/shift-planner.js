@@ -77,6 +77,12 @@
       '<p class="restored-shift-time">'+esc(s.start_time)+'–'+esc(s.end_time)+(Number(s.break_minutes)?' · '+esc(s.break_minutes)+' min break':'')+'</p>'+
       '<div class="button-row"><button class="secondary-button" data-shift-action="edit" data-id="'+esc(s.id)+'">Edit shift</button><button class="secondary-button" data-shift-action="delete" data-id="'+esc(s.id)+'">Delete</button></div></article>';
   }
+  function visibleFinance(data) {
+    return data.finance_calendar && data.finance_calendar.visible === false ? [] : (data.finance_events || []);
+  }
+  function financeCard(entry) {
+    return '<article class="card"><strong>'+esc(entry.title||'Finance')+'</strong><p class="helper">Finance calendar</p><button class="text-button" type="button" data-action="finance">Open finance</button></article>';
+  }
   function eventCard(e, imported=false) {
     const start=String(e.start_at||''), end=String(e.end_at||'');
     const allDay=!!Number(e.all_day);
@@ -120,7 +126,7 @@
   function calendarMarkup(data) {
     const month=state.plannerAnchor.slice(0,7), first=new Date(month+'-01T12:00:00');
     const count=new Date(first.getFullYear(),first.getMonth()+1,0).getDate(), offset=(first.getDay()+6)%7;
-    const shifts=data.shifts||[], leaves=data.annual_leave||[], events=[...(data.events||[]),...(data.imported_events||[])];
+    const shifts=data.shifts||[], leaves=data.annual_leave||[], events=[...(data.events||[]),...(data.imported_events||[]),...visibleFinance(data)];
     let cells=Array.from({length:offset},()=>'<span class="restored-month-empty"></span>').join('');
     for(let i=1;i<=count;i++){
       const day=month+'-'+String(i).padStart(2,'0'), n=shifts.filter(s=>s.work_date===day).length, leave=leaves.some(l=>l.leave_date===day);
@@ -134,14 +140,15 @@
     const first=new Date(month+'-01T12:00:00');
     const count=new Date(first.getFullYear(),first.getMonth()+1,0).getDate();
     const shifts=data.shifts||[], leaves=data.annual_leave||[];
-    const events=[...(data.events||[]),...(data.imported_events||[])];
+    const events=[...(data.events||[]),...(data.imported_events||[]),...visibleFinance(data)];
     const rows=[];
     for(let i=1;i<=count;i++){
       const day=month+'-'+String(i).padStart(2,'0');
       const ds=shifts.filter(s=>s.work_date===day), ls=leaves.filter(l=>l.leave_date===day);
-      const es=events.filter(e=>String(e.start_at||'').slice(0,10)<=day&&String(e.end_at||'').slice(0,10)>=day);
-      if(!ds.length&&!ls.length&&!es.length)continue;
-      rows.push('<section class="restored-planner-day"><h3>'+esc(fmtDay(day))+'</h3>'+ds.map(shiftCard).join('')+es.map(e=>eventCard(e,(e.origin==='Calendar')||(!e.section_name&&!!e.category_name))).join('')+ls.map(leaveCard).join('')+'</section>');
+      const es=events.filter(e=>e.origin!=='Finance'&&String(e.start_at||'').slice(0,10)<=day&&String(e.end_at||'').slice(0,10)>=day);
+      const fes=visibleFinance(data).filter(e=>String(e.start_at||'').slice(0,10)===day);
+      if(!ds.length&&!ls.length&&!es.length&&!fes.length)continue;
+      rows.push('<section class="restored-planner-day"><h3>'+esc(fmtDay(day))+'</h3>'+ds.map(shiftCard).join('')+es.map(e=>eventCard(e,(e.origin==='Calendar')||(!e.section_name&&!!e.category_name))).join('')+fes.map(financeCard).join('')+ls.map(leaveCard).join('')+'</section>');
     }
     return rows.length?'<div class="restored-week-list">'+rows.join('')+'</div>':'<p class="empty">Nothing planned this month.</p>';
   }
@@ -158,13 +165,15 @@
         const ds=shifts.filter(s=>s.work_date===day), ls=leaves.filter(l=>l.leave_date===day);
         const es=(d.events||[]).filter(e=>String(e.start_at||'')<day+'T23:59:59'&&String(e.end_at||'')>day+'T00:00');
         const ies=(d.imported_events||[]).filter(e=>String(e.start_at||'')<day+'T23:59:59'&&String(e.end_at||'')>day+'T00:00');
-        return '<section class="restored-planner-day"><h3>'+esc(fmtDay(day))+'</h3>'+(ds.length?ds.map(shiftCard).join(''):'')+es.map(e=>eventCard(e,false)).join('')+ies.map(e=>eventCard(e,true)).join('')+ls.map(leaveCard).join('')+(!ds.length&&!ls.length&&!es.length&&!ies.length?'<p class="restored-rest-day">Nothing planned</p>':'')+'</section>';
+        const fes=visibleFinance(d).filter(e=>String(e.start_at||'').slice(0,10)===day);
+        return '<section class="restored-planner-day"><h3>'+esc(fmtDay(day))+'</h3>'+(ds.length?ds.map(shiftCard).join(''):'')+es.map(e=>eventCard(e,false)).join('')+ies.map(e=>eventCard(e,true)).join('')+fes.map(financeCard).join('')+ls.map(leaveCard).join('')+(!ds.length&&!ls.length&&!es.length&&!ies.length&&!fes.length?'<p class="restored-rest-day">Nothing planned</p>':'')+'</section>';
       }).join('')
       : state.plannerMode==='list' ? renderMonthList(d)
-      : calendarMarkup(d)+'<div class="restored-planner-list">'+shifts.map(shiftCard).join('')+[...(d.events||[]).map(e=>eventCard(e,false)),...(d.imported_events||[]).map(e=>eventCard(e,true))].join('')+leaves.map(leaveCard).join('')+(!shifts.length&&!leaves.length&&!(d.events||[]).length&&!(d.imported_events||[]).length?'<p class="empty">No shifts, events or leave this month.</p>':'')+'</div>';
+      : calendarMarkup(d)+'<div class="restored-planner-list">'+shifts.map(shiftCard).join('')+[...(d.events||[]).map(e=>eventCard(e,false)),...(d.imported_events||[]).map(e=>eventCard(e,true)),...visibleFinance(d).map(financeCard)].join('')+leaves.map(leaveCard).join('')+(!shifts.length&&!leaves.length&&!(d.events||[]).length&&!(d.imported_events||[]).length&&!visibleFinance(d).length?'<p class="empty">No shifts, events or leave this month.</p>':'')+'</div>';
     return '<section class="page planner-page restored-planner-page"><div class="add-head"><p class="eyebrow">Work schedule</p><h1>Planner</h1><p class="subtle">Your shifts, saved patterns and annual leave — together in one place.</p></div>'+
       '<div class="card restored-planner-toolbar"><div class="schedule-week-nav"><button class="secondary-button" data-shift-action="previous" aria-label="Previous '+state.plannerMode+'">‹</button><h2>'+esc(title)+'</h2><button class="secondary-button" data-shift-action="next" aria-label="Next '+state.plannerMode+'">›</button></div><div class="button-row"><button class="'+(state.plannerMode==='list'?'primary-button':'secondary-button')+'" data-shift-action="list">List</button><button class="'+(state.plannerMode==='week'?'primary-button':'secondary-button')+'" data-shift-action="week">Week</button><button class="'+(state.plannerMode==='month'?'primary-button':'secondary-button')+'" data-shift-action="month">Month</button><button class="secondary-button" data-shift-action="today">Today</button></div>'+
       '<label class="field">Jump to date<input type="date" data-shift-jump value="'+esc(state.plannerAnchor)+'"></label>'+
+      '<label class="setup-check"><input type="checkbox" data-finance-calendar '+(d.finance_calendar&&d.finance_calendar.visible===false?'':'checked')+'> Show Finance calendar</label>'+
       '<div class="restored-planner-stats"><span><strong>'+esc(fmtHours(t.hours))+'</strong> scheduled</span><span><strong>'+shifts.length+'</strong> shifts</span>'+(t.contracted?'<span><strong>'+esc(fmtHours(t.overtime))+'</strong> overtime</span>':'')+(t.pay?'<span><strong>£'+t.pay.toFixed(2)+'</strong> estimated pay</span>':'')+(d.leave_balance?.allowance?'<span><strong>'+esc(d.leave_balance.remaining)+'</strong> leave days left of '+esc(d.leave_balance.allowance)+'</span>':'')+'</div></div>'+restWarnings.map(w=>'<p class="card restored-planner-warning">'+esc(w)+'</p>').join('')+
       (state.shiftPlannerError?'<div class="card planner-error" role="alert">'+esc(state.shiftPlannerError)+'<button class="secondary-button" data-shift-action="retry">Retry</button></div>':'')+
       (state.shiftPlannerLoading?'<p class="empty" role="status">Loading planner…</p>':'')+
@@ -178,6 +187,15 @@
     state.shiftPlannerData=null; state.shiftPlannerError=''; await load();
   }
   function formObject(form) { return Object.fromEntries(new FormData(form).entries()); }
+  document.addEventListener('change', async event => {
+    if (!event.target.matches('[data-finance-calendar]')) return;
+    try {
+      await api('/api/finance/settings', {method:'PATCH', body:{calendar_visible: event.target.checked}});
+      await reload();
+    } catch (error) {
+      if (typeof toast === 'function') toast(error.message);
+    }
+  });
   document.addEventListener('click',async event=>{
     const button=event.target.closest('[data-shift-action],[data-shift-date]');
     if(!button)return;

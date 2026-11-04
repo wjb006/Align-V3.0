@@ -109,6 +109,12 @@ def due_items(c, now):
                 yield digest(f'{kind}:{rid}:{value}'), at
         except ValueError:
             continue
+    try:
+        import finance_db
+        for event_id, at in finance_db.push_reminders(c, now):
+            yield digest(event_id), at
+    except Exception:
+        return
 
 
 def dispatch(c, now=None, sender=send, deadline=None):

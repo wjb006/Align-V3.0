@@ -24,6 +24,7 @@ const SHELL_ASSETS = [
   `/shift-planner.js?v=${ASSET_VERSION}`,
   `/work-setup.js?v=${ASSET_VERSION}`,
   `/work-rota.js?v=${ASSET_VERSION}`,
+  `/finance.js?v=${ASSET_VERSION}`,
   `/travel-assets.js?v=${ASSET_VERSION}`,
   `/app.js?v=${ASSET_VERSION}`,
   `/section-guide.js?v=${ASSET_VERSION}`,
