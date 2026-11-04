@@ -47,6 +47,7 @@
 - [x] Add Home weather regression coverage.
 - [x] Restore manual Transport-tab journey selection and route resolution for first-class shifts.
 - [x] Correct OTP/HERE place-resolution behaviour and add focused UI regression coverage.
+- [x] Require and visibly identify the trusted local PC Owner session in Management Studio; retain hosted Owner account authentication and refresh the script cache.
 - [x] Enable Transport safely in the no-console launcher only when an OTP URL is configured or the local listener is reachable.
 - [x] Automatically establish and visibly confirm the local PC Owner session in Management Studio, while keeping hosted Owner sign-in separate; add a regression test for local trust, host validation and hosted-login isolation.
 - [x] Count all user-data tables when choosing between desktop database candidates.
