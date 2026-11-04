@@ -18,6 +18,7 @@
 
 - **Home weather:** Home previously rendered a weather chip only if weather had already been loaded elsewhere; the fetch was started by Today, not Home. Home now starts the existing phone-location → saved-town fallback → weather request flow, shows a loading state, exposes a visible unavailable/retry state on failure, and labels a saved forecast when a refresh fails.
 - **Weather regression coverage:** `test_weather_timeout.js` now covers Home-only loading, successful display, provider failure/retry, location timeout, saved-town fallback and late geolocation callbacks.
+- **Work Calendar setup:** The Sections renderer had an unconditional early return that bypassed the Work opt-in path; the intended opt-in code was unreachable and referenced an undefined variable. It now routes first-time users through the optional Work database enable/form flow, then shows Manage Work Calendar and Upload my rota once enabled. A focused regression test covers both states.
 - **Shift travel selection:** The Travel screen advertised “shift or event” and the setup guide documented `shift:<id>`, but the picker only listed organiser/imported-calendar events and the resolver rejected shifts. Upcoming shifts now appear in the picker, and `shift:<id>` resolves to the saved workplace and local shift start time.
 - **Travel geocoding:** OTP requires coordinate-backed place selections; it cannot geocode free-text addresses. The UI previously suggested that typed addresses could be left unresolved and sent them to OTP. It now requires selected coordinate-backed places for OTP, while HERE can resolve typed addresses after consent. Saved text-only addresses are not offered as usable OTP coordinates.
 - **Travel regression coverage:** `test_transport_build149.py` covers shift discovery, destination/time resolution and the no-shift-schema response. `test_travel_autofill.js` covers OTP coordinate requirements and HERE address resolution.
@@ -41,6 +42,7 @@
 ## Repair order
 
 - [x] Restore Home dashboard weather loading and visible failure/retry behaviour.
+- [x] Repair the Sections-page Work Calendar entry point so first-time setup enables the optional Work database/form before opening Work settings; add a regression test.
 - [x] Add Home weather regression coverage.
 - [x] Restore manual Transport-tab journey selection and route resolution for first-class shifts.
 - [x] Correct OTP/HERE place-resolution behaviour and add focused UI regression coverage.
