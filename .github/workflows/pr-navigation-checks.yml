@@ -34,6 +34,7 @@ jobs:
       - name: Run core navigation regression check
         run: |
           node test_core_navigation.js
+          node test_page_scripts.js
           node test_ui_polish.js
           node test_display_dates.js
           node test_travel_autofill.js
