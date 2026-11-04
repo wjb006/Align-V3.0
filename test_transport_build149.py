@@ -37,6 +37,8 @@ class Build149TransportTests(unittest.TestCase):
         result = transport_places.items(connection)
         self.assertEqual({item["title"] for item in result["items"]}, {"Dentist", "Meeting"})
         self.assertFalse(any(item["key"].startswith("shift:") for item in result["items"]))
+        with self.assertRaisesRegex(ValueError, "Shift planner is not available"):
+            transport_service.event(connection, "shift:1")
         connection.close()
 
     def test_shift_items_are_listed_and_resolved_for_travel(self):
