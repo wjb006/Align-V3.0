@@ -33,5 +33,8 @@ if '--network' in sys.argv:
     print('Use the PC-only Admin address above to connect iCloud. It is not exposed to Wi-Fi devices.')
     print('If Safari warns about the certificate, run Install Align Add-ons.bat and choose iPhone HTTPS certificate support.')
 else:
+    # The local PC launcher is the trusted single-user Owner workspace.
+    # Wi-Fi mode deliberately does not inherit this privilege.
+    os.environ['ALIGN_STUDIO_LOCAL'] = '1'
     print(f'On this PC, open http://127.0.0.1:{port}/')
 runpy.run_path(str(Path(__file__).with_name('app.py')), run_name='__main__')
