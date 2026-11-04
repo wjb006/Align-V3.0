@@ -520,7 +520,7 @@ ALTER TABLE align_owner.asset_usage_rules ADD FOREIGN KEY (asset_id) REFERENCES 
 ALTER TABLE align_owner.organiser_sections ADD FOREIGN KEY (parent_branch_id) REFERENCES align_owner.parent_menu_branches(id) ON DELETE SET NULL;
 ALTER TABLE align_owner.calendar_events ADD FOREIGN KEY (source_id) REFERENCES align_owner.calendar_sources(id) ON DELETE CASCADE;
 ALTER TABLE align_owner.section_fields ADD FOREIGN KEY (section_id) REFERENCES align_owner.section_defs(id) ON DELETE CASCADE;
-ALTER TABLE align_owner.section_fields ADD CHECK ((type = ANY (ARRAY['text','number','date','select','checkbox','tel','textarea','calculated'])));
+ALTER TABLE align_owner.section_fields ADD CHECK ((type = ANY (ARRAY['text','number','date','select','checkbox','tel','textarea','calculated','address'])));
 ALTER TABLE align_owner.section_fields ADD CHECK ((required = ANY (ARRAY[0,1])));
 ALTER TABLE align_auth.beta_invites ADD FOREIGN KEY (replaced_by_invite_id) REFERENCES align_auth.beta_invites(invite_id);
 ALTER TABLE align_owner.asset_audit_log ADD FOREIGN KEY (asset_id) REFERENCES align_owner.assets(asset_id) ON DELETE SET NULL;

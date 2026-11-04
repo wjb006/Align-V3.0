@@ -371,7 +371,9 @@ class BuilderTests(unittest.TestCase):
         records = self.request('GET','/api/builder/records/contacts',token=token)[1]['records']
         self.assertEqual(records[0]['values']['address'],address)
         self.assertEqual(self.request('GET','/api/builder/address-search?q=ab',token=token)[1],{'results':[]})
-        self.assertEqual(self.request('GET','/api/builder/address-search?q=ab')[0],403)
+        status, body = self.request('GET','/api/builder/address-search?q=ab')
+        self.assertEqual(status, 401, body)
+        self.assertEqual(body.get('code'), 'beta_login')
 
     def test_removed_fields_preserve_values_and_published_types(self):
         current = self.publish()

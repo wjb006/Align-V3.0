@@ -16,8 +16,7 @@ async function run(mode) {
         this.response={statusCode:mode==='bad-login'?401:200,cookies:[{name:'align_beta',value:'test-session'}]};
         if(this.url.endsWith('/login')){assert.equal(JSON.parse(this.body).password,'test-password');return '{}'}
         assert.equal(this.headers.Cookie,'align_beta=test-session');
-        if(this.url.endsWith('/bootstrap'))return JSON.stringify({beta:{},dashboard:{today:'2026-09-28'}});
-        if(this.url.includes('/shifts?'))return JSON.stringify([{work_date:'2026-09-28',start_time:'09:00',end_time:'17:00',notes:'[Align travel]\nLeave at 08:15\n[/Align travel]'}]);
+        if(this.url.endsWith('/bootstrap'))return JSON.stringify({beta:{},dashboard:{today:'2026-09-28',upcoming_events:[{id:'evt-1',title:'Clinic',location:'Hospital',all_day:false,start_at:'2026-09-28T09:00:00',end_at:'2026-09-28T17:00:00'}]}});
         return '{}';
       }
     }
@@ -25,6 +24,6 @@ async function run(mode) {
   vm.createContext(scope);vm.runInContext(source.split('function ukClock')[0]+';this.run=updateSchedule;',scope);
   if(mode==='bad-login'||mode==='timeout'){await assert.rejects(scope.run());assert.equal(saved,null)}
   else if(mode==='cancel'){assert.equal(await scope.run(),false);assert.equal(calls.length,0)}
-  else {assert.equal(await scope.run(),true);assert.equal(saved.shifts[0].leave,'08:15');assert.ok(calls.at(-1).endsWith('/logout'));assert.ok(!JSON.stringify(saved).includes('test-password'))}
+  else {assert.equal(await scope.run(),true);assert.equal(saved.events[0].title,'Clinic');assert.equal(saved.events[0].day,'2026-09-28');assert.equal(saved.events[0].start,'09:00');assert.ok(calls.at(-1).endsWith('/logout'));assert.ok(!JSON.stringify(saved).includes('test-password'))}
 }
 (async()=>{for(const mode of ['success','bad-login','timeout','cancel'])await run(mode);console.log('PASS: native sign-in, save, logout, rejected credentials, stalled request timeout and cancel');})().catch(e=>{console.error(e);process.exitCode=1});

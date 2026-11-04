@@ -383,10 +383,10 @@ def normalise_leave_year_start(value) -> str:
 def find_addresses(query: str) -> list[dict]:
     """Return UK address autocomplete results, with resilient provider fallback."""
     query = " ".join(query.split())[:120]
-    postcode_prefix = re.sub(r"\\s+", "", query).upper()
+    postcode_prefix = re.sub(r"\s+", "", query).upper()
     postcode_query = bool(
-        re.fullmatch(r"[A-Z]{1,2}\\d[A-Z\\d]?", postcode_prefix)
-        or re.fullmatch(r"[A-Z]{1,2}\\d[A-Z\\d]?\\d[A-Z]{2}", postcode_prefix)
+        re.fullmatch(r"[A-Z]{1,2}\d[A-Z\d]?", postcode_prefix)
+        or re.fullmatch(r"[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}", postcode_prefix)
     )
     if len(query) < 3 and not postcode_query:
         raise ValueError("Enter at least three characters to search for an address.")

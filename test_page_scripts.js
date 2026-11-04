@@ -276,6 +276,19 @@ runPage(planner, `
   state.settingsBranch = 'work';
   render();
   if (!document.querySelector('#app').innerHTML.includes('Work Settings')) missing.push('settings did not render Work Settings');
+  state.settingsBranch = 'colours';
+  state.boot.sections = [];
+  render();
+  const emptyColours = document.querySelector('#app').innerHTML;
+  if (emptyColours.includes('is not defined') || emptyColours.includes('Unable to load Align') || !emptyColours.includes('No personal calendars yet')) {
+    missing.push('colours settings did not open an empty calendar list');
+  }
+  state.boot.sections = [{ id: 4, name: 'Appointments', icon: '📅', colour: '#0878F9', calendar_name: 'Home', active: 1, align_event_count: 2, imported_event_count: 0 }];
+  render();
+  const colours = document.querySelector('#app').innerHTML;
+  if (!colours.includes('Appointments') || !colours.includes('type="color"') || !colours.includes('#0878F9') || !colours.includes('2 events use this colour')) {
+    missing.push('colours settings did not show the calendar colour');
+  }
   workSetup = {
     data: {
       locations: [], areas: [], slots: [], assignments: [],

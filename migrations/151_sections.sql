@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS section_fields (
     section_id INTEGER NOT NULL REFERENCES section_defs(id) ON DELETE CASCADE,
     field_key TEXT NOT NULL,
     label TEXT NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('text','number','date','select','checkbox','tel','textarea','calculated')),
+    type TEXT NOT NULL CHECK (type IN ('text','number','date','select','checkbox','tel','textarea','calculated','address')),
     required INTEGER NOT NULL DEFAULT 0 CHECK (required IN (0, 1)),
     options_json TEXT NOT NULL DEFAULT '[]',
     validation_json TEXT NOT NULL DEFAULT '{}',

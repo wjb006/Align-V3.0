@@ -966,7 +966,7 @@ def save_config(path, body, publish=False):
 SECTION_FIELD_TYPES = {
     'text': 'text', 'textarea': 'textarea', 'tel': 'tel', 'number': 'number',
     'date': 'date', 'select': 'select', 'checkbox': 'checkbox',
-    'formula': 'calculated', 'email': 'text',
+    'formula': 'calculated', 'email': 'text', 'address': 'address',
 }
 
 
