@@ -58,6 +58,12 @@ def event(c, key):
         return when.astimezone(timezone.utc),row[3]
     match=re.fullmatch(r'shift:(\d+)',str(key))
     if match:
+        from sqlite_support import postgres_enabled
+        if postgres_enabled():
+            has_shifts=c.execute("SELECT 1 FROM information_schema.tables WHERE table_schema=current_schema() AND table_name='shifts'").fetchone()
+        else:
+            has_shifts=c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='shifts'").fetchone()
+        if not has_shifts: raise ValueError('Shift planner is not available in this account.')
         row=c.execute('SELECT work_date,start_time,location_name FROM shifts WHERE id=?',(match.group(1),)).fetchone()
         if not row: raise ValueError('This shift no longer exists. Reload Travel.')
         day,start_time,destination=row[0],row[1],row[2]
