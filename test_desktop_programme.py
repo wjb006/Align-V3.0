@@ -91,6 +91,18 @@ class DesktopPersistenceTests(unittest.TestCase):
             self.assertTrue(legacy.is_file())
             self.assertEqual(content_score(current), 3)
 
+    def test_database_score_ignores_seeded_defaults_but_counts_user_settings(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            database = Path(folder) / "align.sqlite3"
+            make_align_db(database)
+            self.assertEqual(content_score(database), 0)
+            with sqlite3.connect(database) as connection:
+                connection.execute("UPDATE settings SET setting_value='Will' WHERE setting_key='user_name'")
+                connection.execute("UPDATE transport_preferences SET home_lat=53.39,home_lon=-3.01 WHERE id=1")
+                connection.execute("INSERT INTO asset_categories(category_key,built_in) VALUES('my-category',0)")
+            self.assertEqual(content_score(database), 3)
+
     def test_shift_only_legacy_database_is_not_overlooked(self):
         import tempfile
         with tempfile.TemporaryDirectory() as folder:
