@@ -28,6 +28,7 @@ assert(!travelMarkup.includes('Choose a matching place'));
  assert(!elements['#origin-choice'].innerHTML.includes('Saved home'),'OTP must not offer an un-geocoded saved address as a usable place');
  assert.match(elements['#origin-selected'].textContent,/No matching place/,'OTP must explain that a coordinate-backed suggestion is required');
  context.travel150.status={provider:'HERE'};
+ elements['#origin-query'].value='Unmatched address';
  await vm.runInContext("searchTravelPlace150('origin',false)",context);
  assert(elements['#origin-choice'].innerHTML.includes('Saved home'),'HERE may resolve a saved address server-side after consent');
  assert.match(elements['#origin-selected'].textContent,/HERE will locate it/);
