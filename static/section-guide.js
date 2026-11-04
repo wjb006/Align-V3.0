@@ -208,11 +208,12 @@ function renderEventStep() {
   const draft = guideScreen.draft;
   const section = state.sectionData || {};
   if (guideScreen.step === 1) {
-    return `<h2>What are you adding?</h2><p class="helper">The rest of this ${escapeHtml(section.name || 'section')} event starts from the section defaults. Everything stays editable.</p><div class="guide-types">${GUIDE_TYPES.map(type => `<button type="button" class="guide-choice ${draft.event_type === type ? 'selected' : ''}" data-guide-action="pick-type" data-value="${escapeHtml(type)}" aria-pressed="${draft.event_type === type}"><strong>${escapeHtml(type)}</strong><span>${type === 'Other' ? 'Type your own name on the next step.' : `Saved as ${escapeHtml(type)}.`}</span></button>`).join('')}</div>${draft.event_type === 'Other' ? guideField('guide-custom-type', 'Custom type', `<input id="guide-custom-type" data-guide-field="custom_type" maxlength="40" value="${escapeHtml(draft.custom_type)}" placeholder="Check-up">`) : ''}`;
+    return `<h2>What are you adding?</h2><p class="helper">The rest of this ${escapeHtml(section.name || 'section')} event starts from the section defaults. Everything stays editable.</p><div class="guide-types">${GUIDE_TYPES.map(type => `<button type="button" class="guide-choice ${draft.event_type === type ? 'selected' : ''}" data-guide-action="pick-type" data-value="${escapeHtml(type)}" aria-pressed="${draft.event_type === type}"><strong>${escapeHtml(type)}</strong><span>${type === 'Other' ? 'Type a short name below.' : `Saved as ${escapeHtml(type)}.`}</span></button>`).join('')}</div>${draft.event_type === 'Other' ? guideField('guide-custom-type', 'Custom type', `<input id="guide-custom-type" data-guide-field="custom_type" maxlength="40" value="${escapeHtml(draft.custom_type)}" placeholder="Check-up">`) : ''}`;
   }
   if (guideScreen.step === 2) {
     const calendars = guideCalendars();
-    return `<h2>Details from ${escapeHtml(section.name || 'this section')}</h2><p class="helper">Calendar, place, travel time and alerts are filled in from the section. Change anything that is different this time.</p>${guideField('guide-event-date', 'Date', `<input id="guide-event-date" data-guide-field="date" type="date" required value="${escapeHtml(draft.date)}">`)}<label class="setup-check"><input data-guide-field="all_day" type="checkbox" ${draft.all_day ? 'checked' : ''}> All-day event</label>${draft.all_day ? '' : `<div class="guide-two">${guideField('guide-start', 'Start', `<input id="guide-start" data-guide-field="start_time" type="time" required value="${escapeHtml(draft.start_time)}">`)}${guideField('guide-end', 'End', `<input id="guide-end" data-guide-field="end_time" type="time" required value="${escapeHtml(draft.end_time)}">`)}</div>`}${guideField('guide-event-calendar', 'Calendar', `<select id="guide-event-calendar" data-guide-field="calendar_id"><option value="">Align only</option>${calendars.map(calendar => `<option value="${escapeHtml(calendar.id)}" ${calendar.id === draft.calendar_id ? 'selected' : ''}>${escapeHtml(calendar.name)}</option>`).join('')}</select>`)}${guideField('guide-event-place', 'Place', `<input id="guide-event-place" data-guide-field="location" maxlength="240" value="${escapeHtml(draft.location)}" placeholder="Default place, or type another" autocomplete="off">`)}<div class="guide-suggest" data-guide-suggestions></div><div class="guide-two">${guideField('guide-event-travel', 'Travel time (minutes)', `<input id="guide-event-travel" data-guide-field="travel_minutes" type="number" min="0" max="10080" inputmode="numeric" value="${escapeHtml(draft.travel_minutes)}">`)}${guideField('guide-event-mode', 'Travel method', `<select id="guide-event-mode" data-guide-field="travel_mode">${guideModeOptions(draft.travel_mode)}</select>`)}</div>${guideField('guide-event-travel-info', 'Travel note', `<textarea id="guide-event-travel-info" data-guide-field="travel_info" maxlength="500" rows="3">${escapeHtml(draft.travel_info)}</textarea>`)}${draft.all_day ? '' : guideField('guide-event-leave', 'Leave-by travel alert', `<select id="guide-event-leave" data-guide-field="leave_alert_minutes">${guideOffsetOptions(draft.leave_alert_minutes)}</select>`)}${guideField('guide-event-reminder', 'Reminder before the event', `<select id="guide-event-reminder" data-guide-field="reminder_minutes">${guideOffsetOptions(draft.reminder_minutes)}</select>`)}<label class="setup-check"><input data-guide-field="lookup_travel" type="checkbox" ${draft.lookup_travel ? 'checked' : ''}> Look up a journey when I save</label>`;
+    const usual = [draft.place_name, draft.location].filter(Boolean).join(' · ') || 'No default place yet';
+    return `<h2>Details from ${escapeHtml(section.name || 'this section')}</h2><p class="helper">Filled in from this section: ${escapeHtml(usual)}. Travel is ${escapeHtml(String(draft.travel_minutes || 0))} minutes. Alerts use the section defaults. Change anything that is different this time.</p>${guideField('guide-event-date', 'Date', `<input id="guide-event-date" data-guide-field="date" type="date" required value="${escapeHtml(draft.date)}">`)}<label class="setup-check"><input data-guide-field="all_day" type="checkbox" ${draft.all_day ? 'checked' : ''}> All-day event</label>${draft.all_day ? '' : `<div class="guide-two">${guideField('guide-start', 'Start', `<input id="guide-start" data-guide-field="start_time" type="time" required value="${escapeHtml(draft.start_time)}">`)}${guideField('guide-end', 'End', `<input id="guide-end" data-guide-field="end_time" type="time" required value="${escapeHtml(draft.end_time)}">`)}</div>`}${guideField('guide-event-calendar', 'Calendar', `<select id="guide-event-calendar" data-guide-field="calendar_id"><option value="">Align only</option>${calendars.map(calendar => `<option value="${escapeHtml(calendar.id)}" ${calendar.id === draft.calendar_id ? 'selected' : ''}>${escapeHtml(calendar.name)}</option>`).join('')}</select>`)}${guideField('guide-event-place', 'Place', `<input id="guide-event-place" data-guide-field="location" maxlength="240" value="${escapeHtml(draft.location)}" placeholder="Default place, or type another" autocomplete="off">`)}<div class="guide-suggest" data-guide-suggestions role="listbox" aria-label="Saved places">${placeSuggestionHtml()}</div><div class="guide-two">${guideField('guide-event-travel', 'Travel time (minutes)', `<input id="guide-event-travel" data-guide-field="travel_minutes" type="number" min="0" max="10080" inputmode="numeric" value="${escapeHtml(draft.travel_minutes)}">`)}${guideField('guide-event-mode', 'Travel method', `<select id="guide-event-mode" data-guide-field="travel_mode">${guideModeOptions(draft.travel_mode)}</select>`)}</div>${guideField('guide-event-travel-info', 'Travel note', `<textarea id="guide-event-travel-info" data-guide-field="travel_info" maxlength="500" rows="3">${escapeHtml(draft.travel_info)}</textarea>`)}${draft.all_day ? '' : guideField('guide-event-leave', 'Leave-by travel alert', `<select id="guide-event-leave" data-guide-field="leave_alert_minutes">${guideOffsetOptions(draft.leave_alert_minutes)}</select>`)}${guideField('guide-event-reminder', 'Reminder before the event', `<select id="guide-event-reminder" data-guide-field="reminder_minutes">${guideOffsetOptions(draft.reminder_minutes)}</select>`)}<label class="setup-check"><input data-guide-field="lookup_travel" type="checkbox" ${draft.lookup_travel ? 'checked' : ''}> Look up a journey when I save</label>`;
   }
   if (guideScreen.step === 3) {
     const labels = guideScreen.catalog?.labels || section.labels || [];
@@ -223,7 +224,7 @@ function renderEventStep() {
   }
   const typeName = draft.event_type === 'Other' ? (draft.custom_type || 'Other') : draft.event_type;
   const calendar = guideCalendars().find(item => item.id === draft.calendar_id);
-  return `<h2>Name and where</h2><p class="helper">Start typing a saved place to reuse it. You can also save this location for next time.</p>${guideField('guide-title', 'Name', `<input id="guide-title" data-guide-field="title" required maxlength="160" value="${escapeHtml(draft.title)}" placeholder="Dentist">`)}${guideField('guide-where', 'Where', `<input id="guide-where" data-guide-field="location" maxlength="240" data-address-search="true" data-address-target="guide-where" value="${escapeHtml(draft.location)}" placeholder="Start typing a saved place or address" autocomplete="off">`)}<div class="address-results" id="guide-where-results" data-address-results="guide-where" role="listbox" aria-label="Address suggestions"></div><div class="guide-suggest" data-guide-suggestions role="listbox" aria-label="Saved places"></div><label class="setup-check"><input data-guide-field="save_place" type="checkbox" ${draft.save_place ? 'checked' : ''}> Save this place for next time</label>${draft.save_place ? guideField('guide-place-save-name', 'Name on the saved places list', `<input id="guide-place-save-name" data-guide-field="place_name" maxlength="80" value="${escapeHtml(draft.place_name)}" placeholder="GP or hospital">`) : ''}<aside class="guide-summary"><p><strong>${escapeHtml(typeName)}</strong> in ${escapeHtml(section.name || 'this section')}</p><p>${escapeHtml(calendar?.name || 'Align only')} · ${escapeHtml(draft.location || 'No place yet')}</p><p>${draft.all_day ? 'All day' : `${escapeHtml(draft.date)} · ${escapeHtml(draft.start_time)}–${escapeHtml(draft.end_time)}`}</p><p>Travel ${escapeHtml(String(draft.travel_minutes || 0))} min · leave alert ${escapeHtml(String(draft.leave_alert_minutes || 0))} min · reminder ${escapeHtml(String(draft.reminder_minutes || 0))} min</p></aside>${guideScreen.id ? `<button type="button" class="danger-button" data-action="delete-section-event" data-id="${guideScreen.id}">Delete event</button>` : ''}`;
+  return `<h2>Name and where</h2><p class="helper">Start typing a saved place to reuse it. You can also save this location for next time.</p>${guideField('guide-title', 'Name', `<input id="guide-title" data-guide-field="title" required maxlength="160" value="${escapeHtml(draft.title)}" placeholder="Dentist">`)}${guideField('guide-where', 'Where', `<input id="guide-where" data-guide-field="location" maxlength="240" data-address-search="true" data-address-target="guide-where" value="${escapeHtml(draft.location)}" placeholder="Start typing a saved place or address" autocomplete="off">`)}<div class="guide-suggest" data-guide-suggestions role="listbox" aria-label="Saved places">${placeSuggestionHtml()}</div><div class="address-results" id="guide-where-results" data-address-results="guide-where" role="listbox" aria-label="Address suggestions"></div><label class="setup-check"><input data-guide-field="save_place" type="checkbox" ${draft.save_place ? 'checked' : ''}> Save this place for next time</label>${draft.save_place ? guideField('guide-place-save-name', 'Name on the saved places list', `<input id="guide-place-save-name" data-guide-field="place_name" maxlength="80" value="${escapeHtml(draft.place_name)}" placeholder="GP or hospital">`) : ''}<aside class="guide-summary"><p><strong>${escapeHtml(typeName)}</strong> in ${escapeHtml(section.name || 'this section')}</p><p data-guide-summary-place>${escapeHtml(calendar?.name || 'Align only')} · ${escapeHtml(draft.location || 'No place yet')}</p><p>${draft.all_day ? 'All day' : `${escapeHtml(draft.date)} · ${escapeHtml(draft.start_time)}–${escapeHtml(draft.end_time)}`}</p><p data-guide-summary-travel>Travel ${escapeHtml(String(draft.travel_minutes || 0))} min · leave alert ${escapeHtml(String(draft.leave_alert_minutes || 0))} min · reminder ${escapeHtml(String(draft.reminder_minutes || 0))} min</p></aside>${guideScreen.id ? `<button type="button" class="danger-button" data-action="delete-section-event" data-id="${guideScreen.id}">Delete event</button>` : ''}`;
 }
 
 function renderSectionGuide() {
@@ -254,19 +255,58 @@ function guidePlaces() {
   return rows;
 }
 
+function matchingPlaces() {
+  const rows = guidePlaces();
+  const query = String(guideScreen?.draft?.location || '').trim().toLowerCase();
+  const exact = rows.some(place => String(place.location || '').trim().toLowerCase() === query);
+  if (!query || exact) return rows.slice(0, 8);
+  return rows.filter(place => `${place.name || ''} ${place.location || ''}`.toLowerCase().includes(query)).slice(0, 8);
+}
+
+function placeSuggestionHtml() {
+  if (!guideScreen || guideScreen.kind !== 'event') return '';
+  const matches = matchingPlaces();
+  if (matches.length) {
+    return matches.map(place => `<button type="button" class="guide-suggestion" data-guide-action="use-place" data-name="${encodeURIComponent(place.name || '')}" data-location="${encodeURIComponent(place.location || '')}"><strong>${escapeHtml(place.name || place.location)}</strong>${place.name ? `<small>${escapeHtml(place.location)}</small>` : ''}</button>`).join('');
+  }
+  return String(guideScreen.draft.location || '').trim()
+    ? '<p class="helper">No saved places match. You can type the address yourself.</p>'
+    : '<p class="helper">No saved places yet. Type an address, then save it for next time.</p>';
+}
+
 function refreshPlaceSuggestions() {
   const box = document.querySelector('[data-guide-suggestions]');
   if (!box || !guideScreen) return;
-  const query = `${guideScreen.draft.location || ''} ${guideScreen.draft.title || ''} ${guideScreen.draft.place_name || ''}`.trim().toLowerCase();
-  const matches = guidePlaces().filter(place => {
-    const haystack = `${place.name || ''} ${place.location || ''}`.toLowerCase();
-    return !query || haystack.includes(query);
-  }).slice(0, 6);
-  box.innerHTML = matches.length ? matches.map(place => `<button type="button" class="guide-suggestion" data-guide-action="use-place" data-name="${encodeURIComponent(place.name || '')}" data-location="${encodeURIComponent(place.location || '')}"><strong>${escapeHtml(place.name || place.location)}</strong>${place.name ? `<small>${escapeHtml(place.location)}</small>` : ''}</button>`).join('') : '';
+  box.innerHTML = placeSuggestionHtml();
+}
+
+function clearGuideError() {
+  if (!guideScreen || !guideScreen.error) return;
+  guideScreen.error = '';
+  const note = document.querySelector('.guide-page .form-error');
+  if (note) {
+    note.hidden = true;
+    note.textContent = '';
+  }
+}
+
+function paintGuideSummary() {
+  if (!guideScreen || guideScreen.kind !== 'event') return;
+  const draft = guideScreen.draft;
+  const placeLine = document.querySelector('[data-guide-summary-place]');
+  const travelLine = document.querySelector('[data-guide-summary-travel]');
+  if (placeLine) {
+    const calendar = guideCalendars().find(item => item.id === draft.calendar_id);
+    placeLine.textContent = `${calendar?.name || 'Align only'} · ${draft.location || 'No place yet'}`;
+  }
+  if (travelLine) {
+    travelLine.textContent = `Travel ${draft.travel_minutes || 0} min · leave alert ${draft.leave_alert_minutes || 0} min · reminder ${draft.reminder_minutes || 0} min`;
+  }
 }
 
 function syncGuideControl(target) {
   if (!guideScreen || !target?.dataset) return;
+  clearGuideError();
   if (target.dataset.guideCalendarName !== undefined && target.hasAttribute('data-guide-calendar-name')) {
     guideScreen.calendarName = target.value;
   }
@@ -279,7 +319,10 @@ function syncGuideControl(target) {
   const value = target.type === 'checkbox' ? target.checked : target.value;
   guideScreen.draft[key] = value;
   if (key === 'all_day' || key === 'save_place' || key === 'event_type') render();
-  if (key === 'location' || key === 'title' || key === 'place_name') refreshPlaceSuggestions();
+  if (key === 'location' || key === 'title' || key === 'place_name' || key === 'travel_minutes' || key === 'leave_alert_minutes' || key === 'reminder_minutes') {
+    refreshPlaceSuggestions();
+    paintGuideSummary();
+  }
 }
 
 function guideFail(message) {
@@ -387,8 +430,9 @@ document.addEventListener('click', async event => {
   try {
     if (action === 'start-section') { openSectionGuide(); return; }
     if (!guideScreen) return;
+    clearGuideError();
     if (action === 'cancel') {
-      const backTo = guideScreen.kind === 'event' && state.sectionId ? 'section' : 'sections';
+      const backTo = state.sectionId && (guideScreen.kind === 'event' || guideScreen.id) ? 'section' : 'sections';
       guideScreen = null;
       state.tab = backTo;
       render();
@@ -427,7 +471,7 @@ document.addEventListener('click', async event => {
       const location = decodeURIComponent(button.dataset.location || '');
       guideScreen.draft.location = location;
       if (!guideScreen.draft.title.trim() && name) guideScreen.draft.title = name;
-      if (!guideScreen.draft.place_name.trim() && name) guideScreen.draft.place_name = name;
+      guideScreen.draft.place_name = name;
       render();
       return;
     }
@@ -443,7 +487,7 @@ document.addEventListener('click', async event => {
         }
         guideScreen.step += 1;
         render();
-        if (guideScreen.kind === 'event' && guideScreen.step === 5) refreshPlaceSuggestions();
+        if (guideScreen.kind === 'event' && (guideScreen.step === 2 || guideScreen.step === 5)) refreshPlaceSuggestions();
         return;
       }
       guideScreen.saving = true; render();

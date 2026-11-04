@@ -328,6 +328,27 @@ runPage(planner, `
   render();
   const details = document.querySelector('#app').innerHTML;
   if (!details.includes('1 High Street') || !details.includes('Leave-by travel alert') || !details.includes('value="45"')) missing.push('event details were not filled from the section');
+  if (!details.includes('Filled in from this section') || !details.includes('GP')) missing.push('saved place was not offered on the event');
+  guideScreen.draft.title = 'Check-up';
+  guideScreen.draft.location = 'High';
+  refreshPlaceSuggestions();
+  const matched = document.querySelector('[data-guide-suggestions]').innerHTML;
+  if (!matched.includes('GP') || !matched.includes('1 High Street')) missing.push('saved place autocomplete missed GP');
+  guideScreen.draft.location = 'zzzz';
+  refreshPlaceSuggestions();
+  if (!document.querySelector('[data-guide-suggestions]').innerHTML.includes('No saved places match')) missing.push('autocomplete empty state missing');
+  guideScreen.draft.title = '';
+  guideScreen.step = 1;
+  guideScreen.draft.event_type = 'Other';
+  render();
+  const custom = document.querySelector('#app').innerHTML;
+  if (!custom.includes('Custom type') || !custom.includes('Type a short name below.')) missing.push('custom event type field missing');
+  guideScreen.draft.custom_type = '';
+  if (validateGuideStep() !== 'Type a name for this event type.') missing.push('blank custom type was accepted');
+  guideScreen.kind = 'section';
+  guideScreen.step = 1;
+  guideScreen.draft.name = '   ';
+  if (validateGuideStep() !== 'Give this section a name.') missing.push('blank section name was accepted');
   if (missing.length) throw new Error(missing.join('; '));
 `);
 
