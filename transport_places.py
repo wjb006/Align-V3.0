@@ -74,6 +74,17 @@ def items(c):
     cutoff=(datetime.now(timezone.utc)-timedelta(days=1)).date().isoformat()
     for r in c.execute("SELECT id,title,start_at,location FROM organiser_events WHERE all_day=0 AND start_at>=? ORDER BY start_at LIMIT 300", (cutoff,)):
         result.append({'key':'event:'+str(r[0]),'title':r[1],'start':r[2],'destination':r[3]})
+    # Shifts are first-class planner records, not organiser_events. Include
+    # them explicitly so the Travel screen's "shift or event" picker works.
+    from sqlite_support import postgres_enabled
+    if postgres_enabled():
+        has_shifts=c.execute("SELECT 1 FROM information_schema.tables WHERE table_schema=current_schema() AND table_name='shifts'").fetchone()
+    else:
+        has_shifts=c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='shifts'").fetchone()
+    if has_shifts:
+        for r in c.execute("SELECT id,work_date,start_time,location_name,shift_type_name FROM shifts WHERE work_date>=? ORDER BY work_date,start_time LIMIT 300",(cutoff,)):
+            start=f'{r[1]}T{r[2]}'
+            result.append({'key':'shift:'+str(r[0]),'title':f'{r[3]} – {r[4]}','start':start,'destination':r[3] or ''})
     for r in c.execute("SELECT id,event_uid,title,start_at,location FROM calendar_events WHERE all_day=0 AND start_at>=? AND TRIM(location)<>'' ORDER BY start_at LIMIT 300", (cutoff,)):
         result.append({'key':calendar_key(r),'title':r[2],'start':r[3],'destination':r[4]})
     now=datetime.now(timezone.utc)
