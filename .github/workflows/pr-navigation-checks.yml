@@ -62,3 +62,4 @@ jobs:
           test_owner_builder.BuilderTests.test_private_record_crud_validation_archive_restore
           test_owner_builder.BuilderTests.test_removed_fields_preserve_values_and_published_types
           test_desktop_programme.py
+          test_admin_owner_status.py
