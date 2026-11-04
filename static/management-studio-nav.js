@@ -64,6 +64,28 @@
   let active = 'dashboard';
   const $ = s => document.querySelector(s);
 
+  async function loadOwnerSession() {
+    const badge = $('#studio-owner-session');
+    if (!badge) return;
+    try {
+      const response = await fetch('/api/admin/status', {
+        cache: 'no-store',
+        credentials: 'same-origin'
+      });
+      const session = await response.json().catch(() => ({}));
+      if (!response.ok || session.authenticated !== true || session.role !== 'Owner') {
+        throw new Error(session.error || 'Owner sign-in is required.');
+      }
+      badge.textContent = session.local_studio
+        ? 'Logged on as Owner · This PC'
+        : 'Logged on as Owner';
+      badge.dataset.state = 'owner';
+    } catch (error) {
+      badge.textContent = error.message || 'Owner sign-in required';
+      badge.dataset.state = 'error';
+    }
+  }
+
   function syncNavGroups(tab = active) {
     if (!mobileNav.matches) return;
     const activeButton = [...document.querySelectorAll('.unified-nav [data-unified-tab]')]
@@ -312,5 +334,6 @@
     else syncNavGroups();
   });
   window.AlignManagementStudioNav = { activate };
+  void loadOwnerSession();
   activate('dashboard');
 })();
