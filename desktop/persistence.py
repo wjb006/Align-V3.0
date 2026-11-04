@@ -68,24 +68,21 @@ def content_score(path: Path) -> int:
             names = _tables(connection)
             if not (names & set(_ALIGN_TABLES)):
                 return 0
+
+            # Score every user-data table, not just the original organiser
+            # tables. Work/rota, calendar, finance and newer planner records
+            # must count too; otherwise a populated legacy database can lose
+            # to a mostly-empty target simply because its tables are newer.
             score = 0
-            if "organiser_events" in names:
-                score += int(connection.execute("SELECT COUNT(*) FROM organiser_events").fetchone()[0])
-            if "organiser_sections" in names:
-                score += int(connection.execute("SELECT COUNT(*) FROM organiser_sections").fetchone()[0])
-            if "builder_records" in names:
-                score += int(connection.execute("SELECT COUNT(*) FROM builder_records").fetchone()[0])
-            if "settings" in names:
-                named = connection.execute(
-                    "SELECT setting_value FROM settings WHERE setting_key='user_name'"
-                ).fetchone()
-                if named and str(named[0]).strip():
-                    score += 1
-                onboarded = connection.execute(
-                    "SELECT setting_value FROM settings WHERE setting_key='onboarding_completed'"
-                ).fetchone()
-                if onboarded and str(onboarded[0]) == "1":
-                    score += 1
+            for name in names:
+                if name.startswith("sqlite_") or name in {
+                    "schema_migrations", "alembic_version", "migration_history"
+                }:
+                    continue
+                quoted = '"' + name.replace('"', '""') + '"'
+                score += int(connection.execute(
+                    f"SELECT COUNT(*) FROM {quoted}"
+                ).fetchone()[0])
             return score
     except sqlite3.Error:
         return -1
