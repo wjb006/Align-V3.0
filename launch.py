@@ -20,6 +20,8 @@ if '--network' in sys.argv and not os.environ.get('ALIGN_ADMIN_PASSWORD'):
 
 port = os.environ.get('ALIGN_PORT', '8001')
 if '--network' in sys.argv:
+    # Never carry the PC-only Owner trust into Wi-Fi mode.
+    os.environ['ALIGN_STUDIO_LOCAL'] = '0'
     try:
         from https_setup import issue_server_certificate
         cert_path, key_path, lan_ip = issue_server_certificate()
