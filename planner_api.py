@@ -203,11 +203,14 @@ def _week(connection, raw_date):
         WHERE e.start_at < ? AND e.end_at >= ? ORDER BY e.start_at""",
         ((end+timedelta(days=1)).isoformat(),start.isoformat()))
     import work_setup
+    import finance_db
     work_settings = work_setup.load_setup(connection)
+    finance = finance_db.planner_slice(connection, start, end)
     return {"start":start.isoformat(),"end":end.isoformat(),"shifts":shifts,"annual_leave":leave,"events":events,"imported_events":imported,
             "locations":_rows(connection,"SELECT * FROM locations WHERE active=1 ORDER BY name"),
             "shift_types":_rows(connection,"SELECT * FROM shift_types WHERE active=1 ORDER BY name"),
-            "templates":_templates(connection),"work_settings":work_settings,"leave_balance":_leave_balance(connection,work_settings)}
+            "templates":_templates(connection),"work_settings":work_settings,"leave_balance":_leave_balance(connection,work_settings),
+            "finance_calendar":{"visible":finance["visible"]},"finance_events":finance["events"]}
 
 
 def _month(connection, raw_month, app):
@@ -218,9 +221,12 @@ def _month(connection, raw_month, app):
     event_data = app.month_data(connection, month)
     shifts = _rows(connection,"SELECT * FROM shifts WHERE work_date BETWEEN ? AND ? ORDER BY work_date,start_time",(start.isoformat(),end.isoformat()))
     leave = _rows(connection,"SELECT * FROM annual_leave WHERE leave_date BETWEEN ? AND ? ORDER BY leave_date",(start.isoformat(),end.isoformat()))
+    import finance_db
+    finance = finance_db.planner_slice(connection, start, end)
     return {**event_data,"month":month,"shifts":shifts,"annual_leave":leave,
             "locations":data["locations"],"shift_types":data["shift_types"],"templates":data["templates"],
-            "work_settings":data["work_settings"],"leave_balance":data["leave_balance"]}
+            "work_settings":data["work_settings"],"leave_balance":data["leave_balance"],
+            "finance_calendar":{"visible":finance["visible"]},"finance_events":finance["events"]}
 
 
 def handle_get(handler, app, connection, parsed, row) -> bool:

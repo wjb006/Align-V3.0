@@ -51,6 +51,7 @@ import beta_http
 import icloud_api
 import planner_api
 import work_rota_api
+import finance_api
 
 health_status = health_backup.health_status
 local_database_backup = health_backup.local_database_backup
@@ -1226,6 +1227,8 @@ class AlignHandler(SimpleHTTPRequestHandler):
                     return
                 if work_rota_api.handle_get(self, sys.modules[__name__], connection, parsed.path):
                     return
+                if finance_api.handle_get(self, sys.modules[__name__], connection, parsed.path):
+                    return
                 if align_settings.handle(self, sys.modules[__name__], "GET", connection):
                     return
 
@@ -1282,6 +1285,8 @@ class AlignHandler(SimpleHTTPRequestHandler):
                 if planner_api.handle_post(self, sys.modules[__name__], connection, path, payload, row):
                     return
                 if work_rota_api.handle_post(self, sys.modules[__name__], connection, path, payload):
+                    return
+                if finance_api.handle_post(self, sys.modules[__name__], path, payload):
                     return
         except BetaError as error:
             self.send_beta_error(error)
@@ -1340,6 +1345,8 @@ class AlignHandler(SimpleHTTPRequestHandler):
                     return
                 if work_rota_api.handle_delete(self, sys.modules[__name__], connection, path):
                     return
+                if finance_api.handle_delete(self, sys.modules[__name__], path):
+                    return
         except (ValueError, sqlite3.Error) as error:
             self.send_json(400, {"error": str(error)})
             return
@@ -1355,6 +1362,8 @@ class AlignHandler(SimpleHTTPRequestHandler):
             if BETA_MODE and not self.beta_same_origin(): return
             with db_connection() as connection:
                 if work_rota_api.handle_patch(self, sys.modules[__name__], connection, path, payload):
+                    return
+                if finance_api.handle_patch(self, sys.modules[__name__], path, payload):
                     return
         except BetaError as error:
             self.send_beta_error(error)

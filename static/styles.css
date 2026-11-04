@@ -838,3 +838,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .guide-types { grid-template-columns: 1fr 1fr; }
   .guide-two { grid-template-columns: 1fr 1fr; }
 }
+.finance-page { max-width: 850px; margin-inline: auto; }
+.finance-stats { display: grid; gap: 12px; }
+.finance-stats strong { display: block; font-size: 1.4rem; margin-top: 6px; }
+.finance-row { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); }
+@media (min-width: 720px) {
+  .finance-stats { grid-template-columns: repeat(3, 1fr); }
+}

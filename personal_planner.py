@@ -94,6 +94,7 @@ def events(c, day):
     unique={(r['start_at'],r['end_at'],r['title']):r for r in result}
     combined=list(unique.values())
     combined.extend(_shift_schedule(c, day))
+    combined.extend(_finance_schedule(c, day))
     return sorted(combined,key=lambda r:r['start_at'])
 
 
@@ -128,6 +129,20 @@ def _shift_schedule(c, day):
             'kind':'Shift', 'origin':'Shift',
         })
     return rows
+
+
+def _finance_schedule(c, day):
+    """Today shows the Finance calendar when it is switched on. Rows stay in finance.db."""
+    import finance_db
+    view = finance_db.planner_slice(c, day, day)
+    if not view['visible']:
+        return []
+    return [{
+        'id': item['id'], 'section_id': None, 'title': item['title'],
+        'start_at': item['start_at'], 'end_at': item['end_at'], 'all_day': 1,
+        'location': '', 'notes': '', 'section_colour': item['section_colour'],
+        'category_name': 'Finance', 'kind': 'Event', 'origin': 'Finance',
+    } for item in view['events']]
 
 def bootstrap(c):
     ensure(c)
