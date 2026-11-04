@@ -19,7 +19,7 @@ shell.Environment("Process")("ALIGN_PORT") = port
 ' Align at a service that has not started.
 Dim otpUrl, otpProbe, otpCommand
 otpUrl = Trim(shell.Environment("Process")("ALIGN_OTP_URL"))
-If Len(otpUrl) = 0 And fso.FileExists(appDir & "\otp-data\graph.obj") Then
+If Len(otpUrl) = 0 Then
     otpCommand = "powershell.exe -NoProfile -Command " & Chr(34) & _
         "$client=New-Object Net.Sockets.TcpClient; try { $wait=$client.BeginConnect('127.0.0.1',8080,$null,$null); " & _
         "if(-not $wait.AsyncWaitHandle.WaitOne(700)){exit 1}; $client.EndConnect($wait); exit 0 } " & _
