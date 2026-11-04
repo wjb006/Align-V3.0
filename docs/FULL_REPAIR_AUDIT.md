@@ -12,7 +12,7 @@
 - `programme/app/` is a divergent older copy. It is not the source used by the current root entry point or desktop PyInstaller spec. Do not blindly copy it over the canonical source.
 - Build 156 shift planner and Work rota import are present. Rota approval writes to the existing `shifts` table, not a parallel shift store.
 - Existing hosted databases require migration 157 for rota import and migration 158 for guided sections/events. Hosted schema migrations are not automatically applied at startup.
-- Management Studio embeds the real app at `/?studioLivePreview=1`. The root Studio page had a stale shared stylesheet reference (`styles.css?v=156-v48`) while the app shell uses `156-v67`.
+- Management Studio embeds the real app at `/?studioLivePreview=1`. The root Studio page had a stale shared stylesheet reference (`styles.css?v=156-v48`) while the app shell uses `156-v68`.
 
 ## Repairs made on this branch
 
