@@ -24,7 +24,7 @@
 - **Travel regression coverage:** `test_transport_build149.py` covers shift discovery, destination/time resolution and the no-shift-schema response. `test_travel_autofill.js` covers OTP coordinate requirements and HERE address resolution.
 - **No-console launcher:** `Start Align (No CMD).vbs` now enables Transport only when an OTP URL is already configured or the local listener on port 8080 is reachable. It does not start OTP itself; the Merseyside launcher remains responsible for starting the service.
 - **Launcher documentation:** `TRANSPORT_SETUP.md` documents the no-console detection behaviour.
-- **Database selection:** desktop content scoring now counts all user-data tables, including shifts/rota, rather than overlooking records outside the original organiser tables. A regression case proves a shift-only legacy database is not overlooked. Database adoption uses SQLite's backup API and retains the source database.
+- **Database selection:** desktop content scoring now counts meaningful user data across all tables, including shifts/rota, while ignoring seeded V3 defaults (built-in asset categories, default settings, default transport/iCloud state and the untouched default builder document). Regression cases cover a fresh default-only database, custom settings and a shift-only legacy database. Database adoption uses SQLite's backup API and retains the source database.
 - **Management Studio asset:** the root Studio page now uses the current shared stylesheet cache revision.
 
 ## Remaining gaps and release blockers
