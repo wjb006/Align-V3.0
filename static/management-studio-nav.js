@@ -76,6 +76,12 @@
       if (!response.ok || session.authenticated !== true || session.role !== 'Owner') {
         throw new Error(session.error || 'Owner sign-in is required.');
       }
+      // The installed PC Studio must be using the trusted loopback Owner
+      // context, not merely an unauthenticated local admin endpoint. Hosted
+      // Owner accounts continue to use their authenticated account session.
+      if (!session.beta && session.local_studio !== true) {
+        throw new Error('Open Management Studio from the installed Align launcher on this PC to sign in as Owner.');
+      }
       badge.textContent = session.local_studio
         ? 'Logged on as Owner · This PC'
         : 'Logged on as Owner';
