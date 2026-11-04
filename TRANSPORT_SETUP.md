@@ -19,6 +19,11 @@ the portable Java or Docker OTP server, double-click **Stop Align OTP.bat**.
 The lower-level **Start Align Transport.bat** launcher also defaults to the
 same local URL and is useful when the OTP server is already running.
 
+The **Start Align (No CMD).vbs** launcher also detects an already-running
+local listener on port 8080 and enables the same transport URL for that run.
+It does not start OTP itself; start the OTP service first, or use the
+Merseyside launcher.
+
 For a local OTP server, the supplied setup uses a portable Java runtime, so
 Docker Desktop and copy/paste are not required. The prepared data lives in
 `C:\Align\otp-data`: a Merseyside OSM extract, the North West bus/metro feed,
