@@ -12,6 +12,7 @@ port = "8010"
 browserUrl = "http://127.0.0.1:" & port & "/"
 
 shell.Environment("Process")("ALIGN_BETA_MODE") = "0"
+shell.Environment("Process")("ALIGN_STUDIO_LOCAL") = "1"
 shell.Environment("Process")("ALIGN_PORT") = port
 
 ' Enable scheduled transport only when an OTP URL is configured or the
