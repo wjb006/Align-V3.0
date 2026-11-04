@@ -42,12 +42,27 @@ def make_align_db(path: Path, events: int = 0, user_name: str = "", shift_rows: 
     path.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(path)
     connection.execute("CREATE TABLE settings(setting_key TEXT PRIMARY KEY, setting_value TEXT)")
+    connection.executemany("INSERT INTO settings(setting_key,setting_value) VALUES(?,?)", [
+        ("user_name",""),("user_address",""),("user_phone",""),("user_home_location",""),
+        ("travel_bus","true"),("travel_rail","true"),("travel_walk","true"),
+        ("default_calendar","Align"),("notifications","1"),("onboarding_completed","0")
+    ])
     connection.execute("CREATE TABLE organiser_sections(id INTEGER PRIMARY KEY, name TEXT)")
     connection.execute("CREATE TABLE organiser_events(id INTEGER PRIMARY KEY, title TEXT)")
     connection.execute("CREATE TABLE builder_records(id INTEGER PRIMARY KEY)")
     connection.execute("CREATE TABLE shifts(id INTEGER PRIMARY KEY, work_date TEXT)")
+    connection.execute("CREATE TABLE asset_categories(id INTEGER PRIMARY KEY, category_key TEXT, built_in INTEGER)")
+    connection.executemany("INSERT INTO asset_categories(category_key,built_in) VALUES(?,1)", [(f"built-in-{i}",) for i in range(40)])
+    connection.execute("CREATE TABLE transport_preferences(id INTEGER PRIMARY KEY, arrival_buffer INTEGER, modes TEXT, home_lat REAL, home_lon REAL)")
+    connection.execute("INSERT INTO transport_preferences VALUES(1,10,'[\"bus\",\"rail\",\"walk\"]',NULL,NULL)")
+    connection.execute("CREATE TABLE icloud_config(id INTEGER PRIMARY KEY, instance_id TEXT, account_hash TEXT, target_url TEXT, read_urls TEXT)")
+    connection.execute("INSERT INTO icloud_config VALUES(1,'generated-instance','','','[]')")
+    connection.execute("CREATE TABLE calendar_sync_state(id INTEGER PRIMARY KEY, revision INTEGER, modified_at TEXT)")
+    connection.execute("INSERT INTO calendar_sync_state VALUES(1,0,'2026-11-04T00:00:00Z')")
+    connection.execute("CREATE TABLE builder_config(id INTEGER PRIMARY KEY, revision INTEGER, published_revision INTEGER, draft TEXT, published TEXT)")
+    connection.execute("INSERT INTO builder_config VALUES(1,1,1,'{}','{}')")
     if user_name:
-        connection.execute("INSERT INTO settings(setting_key, setting_value) VALUES('user_name', ?)", (user_name,))
+        connection.execute("UPDATE settings SET setting_value=? WHERE setting_key='user_name'", (user_name,))
     for index in range(events):
         connection.execute("INSERT INTO organiser_events(title) VALUES(?)", (f"Event {index}",))
     for index in range(shift_rows):
@@ -82,10 +97,11 @@ class DesktopPersistenceTests(unittest.TestCase):
             base = Path(folder)
             current = base / "data" / "align.sqlite3"
             legacy = base / "install" / "align.sqlite3"
-            # The current DB has a little settings data; the older install
+            # The current DB has only seeded V3 defaults; the older install
             # contains the user's actual rota shifts but no organiser events.
-            make_align_db(current, user_name="Will")
+            make_align_db(current)
             make_align_db(legacy, shift_rows=4)
+            self.assertEqual(content_score(current), 0)
             plan = inspect_database(current.parent, [legacy])
             self.assertEqual(plan["action"], "copy")
             self.assertEqual(plan["source"], legacy)
