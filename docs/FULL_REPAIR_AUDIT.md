@@ -20,9 +20,9 @@
 2. **Rota travel enrichment:** the rota handover explicitly records that approved shifts do not yet trigger a shift-specific travel hook. Existing post-event travel is for organiser/imported-calendar events and must not be assumed to cover shifts.
 3. **Hosted migration state:** migration 157 and 158 must be verified/applied separately to each relevant existing hosted schema. No production migration is performed by this repair branch.
 4. **CI acceptance:** the README records an older fully verified baseline (commit `594cd085`) and states newer runs were terminating before executing steps. The latest merge commit inspected in this audit had no pull-request workflow runs returned by the connected GitHub Actions lookup. No current green CI claim is made.
-5. **Runtime acceptance:** no local Windows environment, user database, browser session, or live provider credentials are available through this repository inspection. No local or live end-to-end test is claimed.
-6. **Legacy account compatibility:** `/api/beta/*`, `beta_users.sqlite3`, `beta_*` modules and `ALIGN_BETA_MODE` remain active compatibility plumbing for hosted authentication, Owner access, iCloud credentials and remote access. Removing these names without a data/API migration would risk existing accounts.
-7. **Source-copy divergence:** root and `programme/app/` Management Studio pages differ in markup and assets. The root is canonical for current builds. Any packaged/legacy copy should be reconciled deliberately, not overwritten wholesale.
+6. **Runtime acceptance:** no local Windows environment, user database, browser session, or live provider credentials are available through this repository inspection. No local or live end-to-end test is claimed.
+7. **Legacy account compatibility:** `/api/beta/*`, `beta_users.sqlite3`, `beta_*` modules and `ALIGN_BETA_MODE` remain active compatibility plumbing for hosted authentication, Owner access, iCloud credentials and remote access. Removing these names without a data/API migration would risk existing accounts.
+8. **Source-copy divergence:** root and `programme/app/` Management Studio pages differ in markup and assets. The root is canonical for current builds. Any packaged/legacy copy should be reconciled deliberately, not overwritten wholesale.
 
 ## Repair order
 
