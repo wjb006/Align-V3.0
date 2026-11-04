@@ -229,6 +229,7 @@ def initialise_database_at(database: Path) -> None:
                 (secrets.token_hex(16),),
             )
         migration_runner.ensure_work_rota_schema(database)
+        migration_runner.ensure_section_guide_schema(database)
         return
     schema = (ROOT / "schema.sql").read_text(encoding="utf-8")
     migration_runner.upgrade(database)

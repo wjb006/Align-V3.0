@@ -83,7 +83,11 @@ def calendar_description(notes, fallback='Scheduled in Align'):
     arrive = ARRIVE.search(text)
     transit = _transit_lines(text)
     if not numeric and not leave and not arrive and not transit:
-        return text.strip() or fallback
+        visible = re.sub(r"\[Align travel-info\]\s*", '', text)
+        visible = re.sub(r"\[/Align travel-info\]", '', visible)
+        visible = re.sub(r"\[Align travel reminder: \d{1,5} minutes before\]", '', visible)
+        visible = re.sub(r"\[Align event reminder: \d{1,5} minutes before\]", '', visible)
+        return visible.strip() or fallback
     bullets = []
     if numeric:
         bullets.append(f"- Leave: {int(numeric.group(4)):02d}:{int(numeric.group(5)):02d}")
@@ -100,7 +104,10 @@ def calendar_description(notes, fallback='Scheduled in Align'):
     # Keep any free-form notes outside the Align travel block.
     remainder = re.sub(r"\[Align travel\][\s\S]*?\[/Align travel\]", '', text)
     remainder = re.sub(r"\[Align travel steps\][\s\S]*?\[/Align travel steps\]", '', remainder)
+    remainder = re.sub(r"\[Align travel-info\]\s*", '', remainder)
+    remainder = re.sub(r"\[/Align travel-info\]", '', remainder)
     remainder = re.sub(r"\[Align travel reminder: \d{1,5} minutes before\]", '', remainder)
+    remainder = re.sub(r"\[Align event reminder: \d{1,5} minutes before\]", '', remainder)
     remainder = remainder.strip()
     if remainder:
         bullets.append('')

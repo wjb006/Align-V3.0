@@ -105,6 +105,7 @@ def upgrade(database):
                 c.execute(sql)
             c.execute("INSERT INTO schema_migrations VALUES('154_user_favourites_contacts',CURRENT_TIMESTAMP)")
     ensure_work_rota_schema(database, folder=ROOT)
+    ensure_section_guide_schema(database, folder=ROOT)
     return result
 
 
@@ -193,4 +194,42 @@ def upgrade_planner_schema(database, folder=ROOT):
             c.execute('INSERT INTO schema_migrations VALUES (?,CURRENT_TIMESTAMP)', (migration_id,))
             c.commit()
             applied.append(migration_id)
-        return {'status': 'applied' if applied else 'skipped', 'migrations': applied}
+    guide = ensure_section_guide_schema(database, folder=folder)
+    if guide.get('status') == 'applied':
+        applied.append('158_section_guides')
+    return {'status': 'applied' if applied else 'skipped', 'migrations': applied}
+
+
+def ensure_section_guide_schema(database, folder=ROOT):
+    """Add saved places, labels and section defaults.
+
+    schema_v3.sqlite.sql is reapplied on startup, so the tables are created with
+    IF NOT EXISTS there and in the numbered migration. No ALTER is repeated.
+    """
+    folder = Path(folder)
+    guide_id = '158_section_guides'
+    needed = {'saved_places', 'planner_labels', 'section_defaults', 'organiser_event_details'}
+    with connect(database) as probe:
+        tables = {row[0] for row in probe.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        marked = False
+        if 'schema_migrations' in tables:
+            marked = bool(probe.execute(
+                'SELECT 1 FROM schema_migrations WHERE migration_id=?', (guide_id,)
+            ).fetchone())
+        if needed <= tables and marked:
+            return {'status': 'skipped'}
+        if 'organiser_sections' not in tables or 'organiser_events' not in tables:
+            return {'status': 'waiting'}
+    with connect(database) as connection:
+        connection.execute('BEGIN IMMEDIATE')
+        connection.execute(
+            'CREATE TABLE IF NOT EXISTS schema_migrations(migration_id TEXT PRIMARY KEY, applied_at TEXT NOT NULL)'
+        )
+        for statement in statements((folder / '158_section_guides.sql').read_text(encoding='utf-8')):
+            connection.execute(statement)
+        connection.execute(
+            'INSERT OR IGNORE INTO schema_migrations(migration_id,applied_at) VALUES (?,CURRENT_TIMESTAMP)',
+            (guide_id,),
+        )
+        connection.commit()
+    return {'status': 'applied'}

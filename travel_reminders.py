@@ -2,6 +2,8 @@
 import re
 
 PATTERN = re.compile(r"\[Align travel reminder: (\d{1,5}) minutes before\]")
+EVENT_PATTERN = re.compile(r"\[Align event reminder: (\d{1,5}) minutes before\]")
+INFO_PATTERN = re.compile(r"\[Align travel-info\][\s\S]*?\[/Align travel-info\]")
 MAX_MINUTES = 10080  # 1 week
 
 # Dropdown offsets for travel reminders and other Align calendar alerts.
@@ -20,10 +22,38 @@ ALERT_OFFSETS = (
 )
 
 
-def minutes(notes):
-    match = PATTERN.search(notes or '')
+def _bounded(notes, pattern):
+    match = pattern.search(notes or '')
     value = int(match.group(1)) if match else 0
     return value if 1 <= value <= MAX_MINUTES else None
+
+
+def minutes(notes):
+    return _bounded(notes, PATTERN)
+
+
+def event_minutes(notes):
+    return _bounded(notes, EVENT_PATTERN)
+
+
+def with_guide(notes, leave_minutes=0, reminder_minutes=0, travel_info=''):
+    """Store section travel text and the same reminder markers the calendar already reads."""
+    text = INFO_PATTERN.sub('', notes or '')
+    text = PATTERN.sub('', text)
+    text = EVENT_PATTERN.sub('', text).strip()
+    blocks = []
+    info = str(travel_info or '').strip()[:500]
+    if info:
+        blocks.append(f'[Align travel-info]\n{info}\n[/Align travel-info]')
+    if text:
+        blocks.append(text)
+    leave = int(leave_minutes or 0)
+    reminder = int(reminder_minutes or 0)
+    if leave:
+        blocks.append(f'[Align travel reminder: {leave} minutes before]')
+    if reminder:
+        blocks.append(f'[Align event reminder: {reminder} minutes before]')
+    return '\n'.join(blocks).strip()
 
 
 def label(value):
@@ -47,4 +77,9 @@ def rules(notes, existing=()):
     if value is not None:
         result = [r for r in result if r.get('title') != 'Time to Leave']
         result.append({'title': 'Time to leave (including walking)', 'minutes_before': value})
+    reminder = event_minutes(notes)
+    if reminder is not None and not any(
+        item.get('title') == 'Reminder' and item.get('minutes_before') == reminder for item in result
+    ):
+        result.append({'title': 'Reminder', 'minutes_before': reminder})
     return result

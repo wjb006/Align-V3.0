@@ -29,7 +29,9 @@ WITH required_tables(schema_name, table_name) AS (
       ('align_owner','transport_preferences'), ('align_owner','transport_journey_cache'),
       ('align_owner','user_favourites'), ('align_owner','align_contacts'),
       ('align_owner','work_rota_imports'), ('align_owner','work_rota_entries'),
-      ('align_owner','work_rota_approvals')
+      ('align_owner','work_rota_approvals'),
+      ('align_owner','saved_places'), ('align_owner','planner_labels'),
+      ('align_owner','section_defaults'), ('align_owner','organiser_event_details')
 )
 SELECT 'missing required table: ' || r.schema_name || '.' || r.table_name AS check_name,
        1 AS violations
@@ -83,7 +85,7 @@ WHERE NOT EXISTS (
 SELECT m.migration_id, COUNT(sm.migration_id)::bigint AS applied_count
 FROM (VALUES ('149_asset_studio'), ('149_transport'), ('150_calendar_links'),
              ('151_sections'), ('152_personal_item_calendars'),
-             ('153_hosted_travel_and_calendar_location'), ('154_user_favourites_contacts'), ('155_here_transit_usage'), ('156_shift_planner'), ('157_work_rota_import')) AS m(migration_id)
+             ('153_hosted_travel_and_calendar_location'), ('154_user_favourites_contacts'), ('155_here_transit_usage'), ('156_shift_planner'), ('157_work_rota_import'), ('158_section_guides')) AS m(migration_id)
 LEFT JOIN align_owner.schema_migrations sm ON sm.migration_id=m.migration_id
 GROUP BY m.migration_id
 ORDER BY m.migration_id;
