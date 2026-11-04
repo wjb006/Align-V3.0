@@ -690,6 +690,29 @@ function renderUserBranch(branch) {
   return `<div class="section-head"><h2>${escapeHtml(branch.title)}</h2></div><article class="card info-card"><p class="helper">${escapeHtml(branch.description)}</p><p>${escapeHtml(branch.content || 'Your administrator has not added any information to this section yet.').replace(/\n/g, '<br>')}</p></article>`;
 }
 
+function userColourValue(value) {
+  const text = String(value || '').trim();
+  return /^#[0-9a-f]{6}$/i.test(text) ? text.toUpperCase() : '';
+}
+
+function renderUserColours() {
+  const sections = (state.boot.sections || []).filter(section => section && section.active !== 0 && section.active !== false);
+  const rows = sections.map(section => {
+    const colour = userColourValue(section.colour) || '#365CE6';
+    const calendar = section.calendar_name ? escapeHtml(section.calendar_name) : 'Saved in Align';
+    const count = Number(section.align_event_count || 0) + Number(section.imported_event_count || 0);
+    const usage = count > 0
+      ? `${count} ${count === 1 ? 'event uses' : 'events use'} this colour`
+      : 'Events added here use this colour';
+    const name = section.name || 'Calendar';
+    return `<label class="user-colour-row"><span><strong>${escapeHtml(section.icon || '•')} ${escapeHtml(name)}</strong><small>${calendar}. ${usage}.</small></span><input type="color" name="colour-${section.id}" value="${colour}" data-section-colour="${section.id}" aria-label="Colour for ${escapeHtml(name)}"></label>`;
+  }).join('');
+  const editor = sections.length
+    ? `<form class="settings-form" data-form="user-colours">${rows}<div class="button-row"><button class="primary-button">Save colours</button></div></form>`
+    : `<p class="helper">No personal calendars yet. Add a section such as Appointments, then choose its colour here.</p><div class="button-row"><button type="button" class="primary-button" data-action="new-section">Add a calendar</button></div>`;
+  return `<section class="card settings-form"><h2>Colours</h2><p class="helper">Choose a colour for each personal calendar. Events on that calendar use the colour you pick.</p>${editor}</section>`;
+}
+
 function renderPersonalAppearance() {
   const permissions = state.boot.builder?.appearance_permissions || {};
   const current = state.boot.builder?.appearance || {};
@@ -1155,6 +1178,33 @@ document.addEventListener('submit', async event => {
         return;
       }
       if (form.dataset.form === 'user-settings') { if (form.notifications) values.notifications = form.notifications.checked; await api('/api/user-settings', { method: 'PUT', body: values }); await refresh(); toast('Settings saved.'); }
+      if (form.dataset.form === 'user-colours') {
+        const sections = state.boot.sections || [];
+        let saved = 0;
+        for (const section of sections) {
+          const input = form.querySelector(`[data-section-colour="${section.id}"]`);
+          if (!input) continue;
+          const colour = userColourValue(input.value);
+          if (!colour) throw new Error(`Choose a colour for ${section.name || 'this calendar'}.`);
+          if (colour === (userColourValue(section.colour) || '#365CE6')) continue;
+          await api(`/api/sections/${section.id}`, { method: 'PUT', body: {
+            name: section.name,
+            description: section.description || '',
+            icon: section.icon || '•',
+            colour,
+            sort_order: Number(section.sort_order ?? 100),
+            parent_branch_id: section.parent_branch_id ? Number(section.parent_branch_id) : null,
+            calendar_id: section.calendar_id || '',
+            import_enabled: section.import_enabled !== 0 && section.import_enabled !== false && section.import_enabled !== '0',
+            export_enabled: section.export_enabled !== 0 && section.export_enabled !== false && section.export_enabled !== '0',
+            active: true,
+          }});
+          saved += 1;
+        }
+        await refresh();
+        toast(saved ? 'Colours saved.' : 'Those colours are already saved.');
+        return;
+      }
     if (form.dataset.form === 'alert-rule') {
       const id = form.dataset.id;
       const body = {title: values.title, minutes_before: Number(values.minutes_before), active: !!form.elements.active.checked};
