@@ -38,17 +38,20 @@ class _ServerFolder:
         return False
 
 
-def make_align_db(path: Path, events: int = 0, user_name: str = "") -> None:
+def make_align_db(path: Path, events: int = 0, user_name: str = "", shift_rows: int = 0) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(path)
     connection.execute("CREATE TABLE settings(setting_key TEXT PRIMARY KEY, setting_value TEXT)")
     connection.execute("CREATE TABLE organiser_sections(id INTEGER PRIMARY KEY, name TEXT)")
     connection.execute("CREATE TABLE organiser_events(id INTEGER PRIMARY KEY, title TEXT)")
     connection.execute("CREATE TABLE builder_records(id INTEGER PRIMARY KEY)")
+    connection.execute("CREATE TABLE shifts(id INTEGER PRIMARY KEY, work_date TEXT)")
     if user_name:
         connection.execute("INSERT INTO settings(setting_key, setting_value) VALUES('user_name', ?)", (user_name,))
     for index in range(events):
         connection.execute("INSERT INTO organiser_events(title) VALUES(?)", (f"Event {index}",))
+    for index in range(shift_rows):
+        connection.execute("INSERT INTO shifts(work_date) VALUES(?)", (f"2026-11-{index + 1:02d}",))
     connection.commit()
     connection.close()
 
@@ -72,6 +75,24 @@ class DesktopPersistenceTests(unittest.TestCase):
             self.assertEqual(current.read_bytes(), before)
             self.assertTrue(legacy.is_file())
             self.assertEqual(content_score(current), 3)
+
+    def test_shift_only_legacy_database_is_not_overlooked(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            base = Path(folder)
+            current = base / "data" / "align.sqlite3"
+            legacy = base / "install" / "align.sqlite3"
+            # The current DB has a little settings data; the older install
+            # contains the user's actual rota shifts but no organiser events.
+            make_align_db(current, user_name="Will")
+            make_align_db(legacy, shift_rows=4)
+            plan = inspect_database(current.parent, [legacy])
+            self.assertEqual(plan["action"], "copy")
+            self.assertEqual(plan["source"], legacy)
+            result = adopt_database(current.parent, [legacy])
+            self.assertEqual(result["action"], "copied")
+            self.assertEqual(content_score(current), 4)
+            self.assertTrue(legacy.is_file())
 
     def test_legacy_database_is_copied_once_and_left_in_place(self):
         import tempfile
