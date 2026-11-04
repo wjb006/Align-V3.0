@@ -43,5 +43,13 @@ function harness(town, getCurrentPosition) {
  assert.equal(home.requests[0].path,'/api/personal/weather');
  assert.equal(home.context.renders,1,'Home must repaint when the weather request completes');
  assert.match(home.run('homeWeatherChip()'),/°/,'Home must show the returned temperature');
- console.log('PASS: Home dashboard loads weather; stalled permission falls back; no-town error; late callback ignored; successful location clears timer');
+ const homeError=harness('Birkenhead',success=>success({coords:{latitude:53.39,longitude:-3.01}}));
+ homeError.context.state.tab='home';
+ homeError.context.api=async()=>{throw new Error('Weather service unavailable');};
+ homeError.run('homeWeatherChip()');
+ await new Promise(resolve=>setImmediate(resolve));
+ const failedChip=homeError.run('homeWeatherChip()');
+ assert.match(failedChip,/Weather unavailable/,'Home must explain when weather cannot be loaded');
+ assert.match(failedChip,/data-personal="weather"/,'Home must provide a working retry action');
+ console.log('PASS: Home weather loads, shows failures with retry, and retains location timeout/fallback handling');
 })().catch(e=>{console.error(e);process.exitCode=1;});
