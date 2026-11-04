@@ -30,9 +30,14 @@ function homeWeatherChip(){
  syncWeatherContext();
  if(baseWeatherSettings().enabled!==false&&!weatherLoading&&(!personalWeather||Date.now()-weatherCheckedAt>=weatherRefreshMs()))void loadPersonalWeather();
  const current=personalWeather?.current;
- if(!current)return weatherLoading?'<p class="home-weather-chip">Weather…</p>':'';
+ if(!current){
+  if(weatherLoading)return '<p class="home-weather-chip" role="status">Weather…</p>';
+  if(weatherError)return `<div class="home-weather-unavailable"><p class="home-weather-chip" role="status">Weather unavailable</p><button type="button" class="text-button" data-personal="weather" aria-label="Retry weather">Retry</button></div>`;
+  return '';
+ }
  const label=({0:'Clear',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',45:'Fog',51:'Drizzle',61:'Light rain',63:'Rain',65:'Heavy rain',71:'Snow',80:'Showers',95:'Thunderstorm'}[Number(current.weather_code)])||'Weather';
- return `<p class="home-weather-chip">${escapeHtml(label)} ${escapeHtml(current.temperature_2m??'—')}°</p>`;
+ const status=weatherError?' · saved forecast':'';
+ return `<p class="home-weather-chip" role="status">${escapeHtml(label)} ${escapeHtml(current.temperature_2m??'—')}°${status}</p>`;
 }
 let weatherView='three', weatherDay='';
 
