@@ -36,8 +36,8 @@ if (!app.includes('function installPanel()') || !app.includes('data-action="prom
 if (!app.includes('form.checkValidity()') || !app.includes('function showFormError(') || !app.includes("addEventListener('invalid'")) throw new Error('Inline form validation is missing');
 if (!travel.includes('f.checkValidity()') || !travel.includes("message.classList.add('form-error')") || !travel.includes('id="travel-message"')) throw new Error('Travel form feedback is missing');
 
-if (!index.includes('156-v63') || !app.includes('`${BUILD_VERSION}-v63`') || !worker.includes('`${BUILD}-v63`')) throw new Error('Current app and offline cache asset versions do not match the shipped files');
-if (!index.includes('/visual-theme.css?v=156-v63') || !worker.includes('/visual-theme.css?v=${ASSET_VERSION}')) throw new Error('Navy visual theme is not loaded');
+if (!index.includes('156-v64') || !app.includes('`${BUILD_VERSION}-v64`') || !worker.includes('`${BUILD}-v64`')) throw new Error('Current app and offline cache asset versions do not match the shipped files');
+if (!index.includes('/visual-theme.css?v=156-v64') || !worker.includes('/visual-theme.css?v=${ASSET_VERSION}')) throw new Error('Navy visual theme is not loaded');
 if (!worker.includes('align-v13-shell-${ASSET_VERSION}')) throw new Error('Service worker shell cache name changed');
 
 console.log('UI polish checks passed');

@@ -1,5 +1,5 @@
 const BUILD = 156;
-const ASSET_VERSION = `${BUILD}-v63`;
+const ASSET_VERSION = `${BUILD}-v64`;
 
 const SHELL_CACHE = `align-v13-shell-${ASSET_VERSION}`;
 const API_CACHE = `align-v13-api-${ASSET_VERSION}`;
@@ -26,6 +26,7 @@ const SHELL_ASSETS = [
   `/work-rota.js?v=${ASSET_VERSION}`,
   `/travel-assets.js?v=${ASSET_VERSION}`,
   `/app.js?v=${ASSET_VERSION}`,
+  `/section-guide.js?v=${ASSET_VERSION}`,
   `/build152.js?v=${ASSET_VERSION}`,
   `/post-event-travel.js?v=${ASSET_VERSION}`,
 

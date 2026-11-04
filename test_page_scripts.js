@@ -300,6 +300,35 @@ runPage(planner, `
     throw new Error('A missing renderWorkSetup still blanks the planner');
   }
   if (!safe.includes('still loading')) throw new Error('A missing renderWorkSetup did not show the safe screen');
+  state.boot.icloud_event_calendars = [{id:'cal-home', name:'Home'}];
+  state.boot.icloud_public = {connected:false, calendars:[]};
+  state.boot.sections = [];
+  openSectionGuide();
+  const setup = document.querySelector('#app').innerHTML;
+  if (!setup.includes('New section') || !setup.includes('Name and colour') || !setup.includes('Appointments')) missing.push('section guide did not open');
+  guideScreen.draft.name = 'Appointments';
+  guideScreen.step = 2;
+  render();
+  const calendarStep = document.querySelector('#app').innerHTML;
+  if (!calendarStep.includes('Which calendar') || !calendarStep.includes('Keep this in Align only')) missing.push('calendar step missing');
+  guideScreen.step = 3;
+  render();
+  const placesStep = document.querySelector('#app').innerHTML;
+  if (!placesStep.includes('Named place') || !placesStep.includes('Location only')) missing.push('places step missing');
+  guideScreen.step = 4;
+  render();
+  const alertsStep = document.querySelector('#app').innerHTML;
+  if (!alertsStep.includes('Leave-by travel alert') || !alertsStep.includes('Reminder before the event')) missing.push('alerts step missing');
+  state.sectionId = 4;
+  state.sectionData = {id:4, name:'Appointments', icon:'📅', colour:'#0878F9', calendar_id:'cal-home', events:[], places:[{id:1,name:'GP',location:'1 High Street'}], labels:[{id:1,name:'Health'}], guide:{place_id:1,travel_minutes:45,travel_mode:'bus',travel_info:'Bus from home',leave_alert_minutes:60,reminder_minutes:30}};
+  openEventGuide();
+  const eventStep = document.querySelector('#app').innerHTML;
+  if (!eventStep.includes('+ Event') || !eventStep.includes('Appointment') || !eventStep.includes('Add to Appointments')) missing.push('event guide did not open');
+  guideScreen.step = 2;
+  render();
+  const details = document.querySelector('#app').innerHTML;
+  if (!details.includes('1 High Street') || !details.includes('Leave-by travel alert') || !details.includes('value="45"')) missing.push('event details were not filled from the section');
+  if (missing.length) throw new Error(missing.join('; '));
 `);
 
 const studioPage = pageSandbox();

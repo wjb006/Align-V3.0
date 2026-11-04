@@ -59,7 +59,8 @@ def organiser_section(connection: sqlite3.Connection, section_id: int) -> dict:
     ))
     from post_event_travel import decorate
     section["events"] = decorate(connection, sorted(align_events + imported, key=lambda item: (item["start_at"], item.get("title", ""))))
-    return section
+    import section_guide
+    return section_guide.attach(connection, section)
 
 
 def section_values(payload: dict, calendar_resolver=None, connection: sqlite3.Connection | None = None) -> tuple:
@@ -174,6 +175,10 @@ def handle(handler, app, method, connection, payload=None, row=None) -> bool:
     import post_event_travel
 
     path = urlparse(handler.path).path
+    import section_guide
+    if method == "GET" and path == "/api/section-guide":
+        handler.send_json(200, section_guide.catalog(connection))
+        return True
     if method == "GET" and path == "/api/sections":
         handler.send_json(200, organiser_sections(connection))
         return True
@@ -194,6 +199,7 @@ def handle(handler, app, method, connection, payload=None, row=None) -> bool:
                (name,description,icon,colour,active,sort_order,parent_branch_id)
                VALUES(?,?,?,?,?,?,?)""", values[:7])
         save_calendar_link(connection, cursor.lastrowid, values)
+        section_guide.save_section(connection, cursor.lastrowid, payload)
         handler.send_json(201, {"id": cursor.lastrowid})
         if manager and manager.enabled:
             manager.wake.set()
@@ -204,6 +210,7 @@ def handle(handler, app, method, connection, payload=None, row=None) -> bool:
         section_id = event_section_for_calendar(connection, requested_calendar, int(event_match.group(1))) if requested_calendar else int(event_match.group(1))
         if not connection.execute("SELECT 1 FROM organiser_sections WHERE id=? AND active=1", (section_id,)).fetchone():
             raise ValueError("Section not found.")
+        payload = section_guide.prepare_event(payload)
         values = organiser_event_values(payload)
         request_id = str(payload.get("request_id", "")).strip()[:120] or None
         if request_id:
@@ -217,6 +224,7 @@ def handle(handler, app, method, connection, payload=None, row=None) -> bool:
         )
         if "show_post_travel" in payload:
             post_event_travel.handle(connection, dict(kind="event", id=cursor.lastrowid, enabled=payload["show_post_travel"], mode=payload.get("post_travel_mode", "transit")))
+        section_guide.save_event(connection, cursor.lastrowid, section_id, payload)
         handler.send_json(201, {"id": cursor.lastrowid, "section_id": section_id})
         _wake(handler, app, row)
         return True
@@ -245,6 +253,7 @@ def handle(handler, app, method, connection, payload=None, row=None) -> bool:
             """UPDATE organiser_sections SET name=?,description=?,icon=?,colour=?,active=?,sort_order=?,parent_branch_id=?
                WHERE id=?""", (*values[:7], section_id))
         save_calendar_link(connection, section_id, values)
+        section_guide.save_section(connection, section_id, payload)
         handler.send_json(200, {"id": section_id})
         _wake(handler, app, row)
         return True
@@ -253,6 +262,7 @@ def handle(handler, app, method, connection, payload=None, row=None) -> bool:
         event_id = int(event_put.group(1))
         if not connection.execute("SELECT 1 FROM organiser_events WHERE id=?", (event_id,)).fetchone():
             raise ValueError("Event not found.")
+        payload = section_guide.prepare_event(payload)
         requested_calendar = str(payload.get('calendar_id', '')).strip()
         current_section = connection.execute('SELECT section_id FROM organiser_events WHERE id=?', (event_id,)).fetchone()['section_id']
         section_id = event_section_for_calendar(connection, requested_calendar, current_section) if requested_calendar else current_section
@@ -263,6 +273,7 @@ def handle(handler, app, method, connection, payload=None, row=None) -> bool:
         connection.execute('UPDATE organiser_events SET section_id=? WHERE id=?', (section_id, event_id))
         if "show_post_travel" in payload:
             post_event_travel.handle(connection, dict(kind="event", id=event_id, enabled=payload["show_post_travel"], mode=payload.get("post_travel_mode", "transit")))
+        section_guide.save_event(connection, event_id, section_id, payload)
         handler.send_json(200, {"id": event_id, "section_id": section_id})
         _wake(handler, app, row)
         return True

@@ -18,7 +18,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 156;
-const ASSET_VERSION = `${BUILD_VERSION}-v63`;
+const ASSET_VERSION = `${BUILD_VERSION}-v64`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -260,6 +260,8 @@ function render() {
     settings: renderUserSettings,
     'work-setup': () => callOptional('renderWorkSetup'),
     'work-rota': () => callOptional('renderWorkRota'),
+    'section-guide': () => callOptional('renderSectionGuide'),
+    'event-guide': () => callOptional('renderEventGuide'),
     'builder-records': () => callOptional('builderRecordsPage'),
     'builder-profile': () => callOptional('builderStartup', true),
   };
@@ -327,7 +329,7 @@ function coreNavDestination(tab = state.tab) {
   if (tab === 'inbox') return 'inbox';
   if (['planner','calendar'].includes(tab)) return 'planner';
   if (tab === 'add') return 'sections';
-  if (['sections','section'].includes(tab)) return 'sections';
+  if (['sections','section','section-guide','event-guide'].includes(tab)) return 'sections';
   return 'more';
 }
 
@@ -367,7 +369,7 @@ function renderInbox() {
 function renderSectionsIndex() {
   const sections = state.sectionDefinitions || [];
   const visible = sections.filter(section => !section.optional || section.enabled);
-  return `<section class="page"><div class="add-head"><p class="eyebrow">Your data, organised your way</p><h1>Sections</h1><p class="subtle">Sections set up in Align Management Studio appear here. Your records stay private to your account.</p></div><div class="quick-grid">${visible.map(section => `<button class="quick-action organiser-section-tile" data-section-key="${escapeHtml(section.key)}" style="border-left:4px solid ${escapeHtml(section.colour)}"><b>${escapeHtml(section.icon)}</b>${escapeHtml(section.name)}<small>${escapeHtml(section.description || 'Open your saved records')}</small></button>`).join('')}${!visible.length?'<div class="card empty">No sections have been added yet.</div>':''}</div><section class="section work-calendar-setup"><div class="card"><p class="eyebrow">Work planner</p><h2>Set up Work Calendar</h2><p class="subtle">Add your workplaces, addresses, shift areas, working times and pay details. These settings power your Work Calendar and shift planner.</p><div class="button-row"><button class="primary-button" data-action="work-setup">Set up Work Calendar</button><button class="secondary-button" data-action="work-rota">Upload my rota</button></div></div></section></section>`;
+  return `<section class="page"><div class="add-head"><p class="eyebrow">Your data, organised your way</p><h1>Sections</h1><p class="subtle">Sections set up in Align Management Studio appear here. Your records stay private to your account.</p></div><div class="quick-grid">${visible.map(section => `<button class="quick-action organiser-section-tile" data-section-key="${escapeHtml(section.key)}" style="border-left:4px solid ${escapeHtml(section.colour)}"><b>${escapeHtml(section.icon)}</b>${escapeHtml(section.name)}<small>${escapeHtml(section.description || 'Open your saved records')}</small></button>`).join('')}${!visible.length?'<div class="card empty">No sections have been added yet.</div>':''}</div>${callOptional('plannerSectionsBlock') || ''}<section class="section work-calendar-setup"><div class="card"><p class="eyebrow">Work planner</p><h2>Set up Work Calendar</h2><p class="subtle">Add your workplaces, addresses, shift areas, working times and pay details. These settings power your Work Calendar and shift planner.</p><div class="button-row"><button class="primary-button" data-action="work-setup">Set up Work Calendar</button><button class="secondary-button" data-action="work-rota">Upload my rota</button></div></div></section></section>`;
   const showWorkSetup = !work || !work.enabled;
   return `<section class="page"><div class="add-head"><p class="eyebrow">Your data, organised your way</p><h1>Sections</h1><p class="subtle">Sections set up in Align Management Studio appear here. Your records stay private to your account.</p></div><div class="quick-grid">${visible.map(section => `<button class="quick-action organiser-section-tile" data-section-key="${escapeHtml(section.key)}" style="border-left:4px solid ${escapeHtml(section.colour)}"><b>${escapeHtml(section.icon)}</b>${escapeHtml(section.name)}<small>${escapeHtml(section.description || 'Open your saved records')}</small></button>`).join('')}${!visible.length?'<div class="card empty">No sections have been added yet.</div>':''}</div>${showWorkSetup ? `<section class="section"><div class="card work-optional-card"><h2>Work (optional)</h2><p class="subtle">Set up your Work Calendar with saved work locations, areas and shift times. You can add or change these details later.</p><button class="primary-button" data-action="work-opt-in">Set up Work Calendar</button></div></section>` : ''}</section>`;
 }
@@ -574,7 +576,7 @@ function renderSection() {
       <p class="eyebrow">${escapeHtml(section.calendar_name ? `iCloud · ${section.calendar_name}` : 'Align section')}</p>
       <h1>${escapeHtml(section.icon)} ${escapeHtml(section.name)}</h1>
       <p class="subtle">${escapeHtml(section.description || 'Keep this part of your life together in one place.')}</p>
-      <div class="button-row"><button class="primary-button" data-action="new-section-event">＋ Add event</button><button class="secondary-button" data-action="edit-section" data-id="${section.id}">Edit section</button></div>
+      <div class="button-row"><button class="primary-button" data-action="new-section-event">＋ Event</button><button class="secondary-button" data-action="edit-section" data-id="${section.id}">Edit section</button></div>
     </div>
     <section class="section"><div class="section-head"><h2>Events</h2></div>
       <div class="master-list">${upcoming.map((event, index) => {
@@ -874,18 +876,20 @@ document.addEventListener('click', async event => {
   if (action === 'retry-offline-setup') { closeModal(); await completeOfflineSetup({ showResult: true }); return; }
   if (action === 'beta-feedback') { alignFeedbackModal(); return; }
   if (action === 'beta-logout') { try { await rawApi('/api/beta/logout',{method:'POST',body:{}}); if(typeof AlignOffline!=='undefined' && AlignOffline.reset) await AlignOffline.reset(); if(navigator.serviceWorker?.controller) navigator.serviceWorker.controller.postMessage({type:'ALIGN_CLEAR_PRIVATE'}); } finally { location.href='/login'; } return; }
-  if (action === 'new-section') { sectionModal(); return; }
+  if (action === 'new-section') { if (typeof openSectionGuide === 'function') openSectionGuide(); else sectionModal(); return; }
   if (action === 'open-section') { try { await openSection(Number(element.dataset.id)); } catch (error) { toast(error.message); } return; }
   if (action === 'section-home') { state.tab = 'sections'; state.sectionData = null; state.sectionId = null; render(); return; }
-  if (action === 'edit-section') { sectionModal(Number(element.dataset.id)); return; }
-  if (action === 'new-section-event') { personalAvailability(state.sectionId); return; }
+  if (action === 'edit-section') { if (typeof openSectionGuide === 'function') openSectionGuide(Number(element.dataset.id)); else sectionModal(Number(element.dataset.id)); return; }
+  if (action === 'new-section-event') { if (typeof openEventGuide === 'function') openEventGuide(); else personalAvailability(state.sectionId); return; }
+  if (action === 'edit-section-event') { if (typeof openEventGuide === 'function') openEventGuide(state.sectionId, Number(element.dataset.id)); else sectionEventModal(Number(element.dataset.id)); return; }
   if (action === 'open-section-event') {
     const sectionId = Number(element.dataset.sectionId), eventId = Number(element.dataset.eventId);
     try {
       if (!sectionId || !eventId) throw new Error('This event is missing its Align record reference.');
       if (Number(state.sectionId) !== sectionId || !state.sectionData?.events?.some(item => item.source_kind === 'align' && Number(item.id) === eventId)) await openSection(sectionId);
       if (!state.sectionData?.events?.some(item => item.source_kind === 'align' && Number(item.id) === eventId)) throw new Error('The event could not be found in its section.');
-      sectionEventModal(eventId);
+      if (typeof openEventGuide === 'function') openEventGuide(sectionId, eventId);
+      else sectionEventModal(eventId);
     } catch (error) { toast(error.message); }
     return;
   }

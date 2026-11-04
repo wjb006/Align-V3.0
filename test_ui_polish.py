@@ -66,10 +66,10 @@ class UiPolishTests(unittest.TestCase):
         self.assertIn('id="travel-message"', self.travel)
 
     def test_offline_cache_version_matches_the_shell(self):
-        self.assertIn("156-v63", self.index)
-        self.assertIn("`${BUILD_VERSION}-v63`", self.app)
-        self.assertIn("`${BUILD}-v63`", self.worker)
-        self.assertIn("/visual-theme.css?v=156-v63", self.index)
+        self.assertIn("156-v64", self.index)
+        self.assertIn("`${BUILD_VERSION}-v64`", self.app)
+        self.assertIn("`${BUILD}-v64`", self.worker)
+        self.assertIn("/visual-theme.css?v=156-v64", self.index)
         self.assertIn("align-v13-shell-${ASSET_VERSION}", self.worker)
         self.assertNotIn("156-v21", self.index)
 
