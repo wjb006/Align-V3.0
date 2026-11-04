@@ -2,6 +2,7 @@
 import io
 import json
 import os
+import re
 import sqlite3
 import struct
 import time
@@ -154,7 +155,10 @@ class RotaImportTests(unittest.TestCase):
         script = Path('static/work-rota.js').read_text(encoding='utf-8')
         self.assertIn('Image reading is not switched on', script)
         self.assertIn('Upload my rota', Path('static/app.js').read_text(encoding='utf-8'))
-        self.assertIn('/work-rota.js?v=156-v62', Path('static/index.html').read_text(encoding='utf-8'))
+        index = Path('static/index.html').read_text(encoding='utf-8')
+        version = re.search(r'/app\.js\?v=([^"\']+)', index)
+        self.assertIsNotNone(version)
+        self.assertIn(f'/work-rota.js?v={version.group(1)}', index)
         self.assertIn('/work-rota.js?v=${ASSET_VERSION}', Path('static/service-worker.js').read_text(encoding='utf-8'))
 
     def test_work_opt_in_and_bad_signatures(self):
