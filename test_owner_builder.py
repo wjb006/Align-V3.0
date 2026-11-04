@@ -96,6 +96,9 @@ class BuilderTests(unittest.TestCase):
         self.assertEqual(self.request('POST','/api/builder/restore',{'index':'x'},self.owner_token)[0],400)
 
     def test_pc_management_studio_is_automatically_local_owner(self):
+        with patch.dict('os.environ', {'ALIGN_STUDIO_LOCAL': '1'}):
+            # The local PC trust flag must never replace hosted Owner sign-in.
+            self.assertEqual(self.request('GET', '/api/builder/config')[0], 403)
         original_mode, original_password = app.BETA_MODE, app.ADMIN_PASSWORD
         app.BETA_MODE = False
         app.ADMIN_PASSWORD = 'pc-admin-password'
