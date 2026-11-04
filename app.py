@@ -964,12 +964,17 @@ class AlignHandler(SimpleHTTPRequestHandler):
         """Trust the installed desktop Studio as Owner only on its loopback origin."""
         if BETA_MODE or os.environ.get("ALIGN_STUDIO_LOCAL") != "1":
             return False
+        def loopback_name(value: str) -> bool:
+            if value.casefold() == "localhost":
+                return True
+            return ipaddress.ip_address(value).is_loopback
+
         try:
             if not ipaddress.ip_address(self.client_address[0]).is_loopback:
                 return False
             host_header = self.headers.get("Host", "")
             host = urlparse("//" + host_header)
-            if not host.hostname or not ipaddress.ip_address(host.hostname).is_loopback:
+            if not host.hostname or not loopback_name(host.hostname):
                 return False
             origin = self.headers.get("Origin", "").strip()
             if origin:
