@@ -37,6 +37,7 @@
 - [ ] Audit journey provider configuration, address resolution, OTP/HERE selection, cached journeys and leave-time display with focused integration tests.
 - [ ] Audit Management Studio live iframe sizing, preview reload, Builder/Design/Owner tabs, form/database builder and Flowchart Builder at desktop and phone widths.
 - [x] Improve desktop database selection so content scoring counts all user-data tables (including shifts/rota), not only organiser events/sections and builder records; add a rota-only legacy-database regression case.
+- [x] Update the no-console VBS launcher to enable Transport only when an OTP URL is configured or the local OTP listener is already reachable; it does not start OTP itself. The dedicated Merseyside launcher remains responsible for starting the service.
 - [ ] Verify launcher modes and database selection, including preservation of existing local data and hosted account authentication.
 - [ ] Reconcile release packaging and deployment configuration; deploy only after CI, backup, migration and live health gates pass.
 
