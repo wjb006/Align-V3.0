@@ -95,6 +95,28 @@ class BuilderTests(unittest.TestCase):
         self.assertEqual(self.request('POST','/api/builder/restore',{'index':99},self.owner_token)[0],404)
         self.assertEqual(self.request('POST','/api/builder/restore',{'index':'x'},self.owner_token)[0],400)
 
+    def test_pc_management_studio_is_automatically_local_owner(self):
+        original_mode, original_password = app.BETA_MODE, app.ADMIN_PASSWORD
+        app.BETA_MODE = False
+        app.ADMIN_PASSWORD = 'pc-admin-password'
+        try:
+            with patch.dict('os.environ', {'ALIGN_STUDIO_LOCAL': '1'}):
+                status, session = self.request('GET', '/api/admin/status')
+                self.assertEqual(status, 200, session)
+                self.assertTrue(session['authenticated'])
+                self.assertEqual(session['role'], 'Owner')
+                self.assertTrue(session['local_studio'])
+                self.assertEqual(self.request('GET', '/api/builder/config')[0], 200)
+                status, page = self.request('GET', '/management-studio')
+                self.assertEqual(status, 200)
+                self.assertIn('Management Studio', page)
+                self.assertEqual(self.request('GET', '/api/builder/config', host='studio.attacker.example')[0], 403)
+
+            with patch.dict('os.environ', {'ALIGN_STUDIO_LOCAL': '0'}):
+                self.assertEqual(self.request('GET', '/api/builder/config')[0], 403)
+        finally:
+            app.BETA_MODE, app.ADMIN_PASSWORD = original_mode, original_password
+
     def test_owner_only_config_and_page(self):
         for token in (None, self.users[0][1]):
             for method, path in [('GET','/api/builder/config'),('PUT','/api/builder/config'),('POST','/api/builder/publish'),('GET','/owner-builder.html'),('GET','/management-studio.html')]:
