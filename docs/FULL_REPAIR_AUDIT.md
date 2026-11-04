@@ -28,6 +28,7 @@
 ## Repair order
 
 - [x] Refresh the stale shared stylesheet cache reference in the canonical Management Studio page.
+- [~] Restore Home dashboard weather loading and add a regression test; execute the test and verify browser behaviour before marking complete.
 - [ ] Re-run the full Python suite, JavaScript/navigation checks, Playwright desktop/mobile browser matrix, desktop package build, and PowerShell parser checks on the current source.
 - [ ] Exercise the complete Work opt-in → rota upload → review/correction → approval → planner/Today visibility → undo flow against an isolated database.
 - [ ] Verify migration 157/158 on disposable SQLite and PostgreSQL fixtures; separately inspect the actual hosted schema before any production migration.
