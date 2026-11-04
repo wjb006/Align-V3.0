@@ -11,7 +11,7 @@ launchScript = appDir & "\launch.py"
 port = "8010"
 browserUrl = "http://127.0.0.1:" & port & "/"
 
-shell.Environment("Process")("ALIGN_BETA_MODE") = "1"
+shell.Environment("Process")("ALIGN_BETA_MODE") = "0"
 shell.Environment("Process")("ALIGN_PORT") = port
 
 shell.CurrentDirectory = appDir

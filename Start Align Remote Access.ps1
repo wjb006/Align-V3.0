@@ -48,11 +48,11 @@ try {
 
 $stateDir = Join-Path $PSScriptRoot '.align_beta'
 New-Item -ItemType Directory -Force -Path $stateDir | Out-Null
-$serverOut = Join-Path $stateDir 'beta-server-out.log'
-$serverErr = Join-Path $stateDir 'beta-server-err.log'
+$serverOut = Join-Path $stateDir 'align-server-out.log'
+$serverErr = Join-Path $stateDir 'align-server-err.log'
 $tunnelOut = Join-Path $stateDir 'cloudflared-out.log'
 $tunnelErr = Join-Path $stateDir 'cloudflared-err.log'
-$currentUrl = Join-Path $stateDir 'CURRENT BETA URL.txt'
+$currentUrl = Join-Path $stateDir 'CURRENT ALIGN URL.txt'
 Remove-Item $serverOut,$serverErr,$tunnelOut,$tunnelErr,$currentUrl -Force -ErrorAction SilentlyContinue
 
 $server = $null
