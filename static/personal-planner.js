@@ -18,7 +18,17 @@ function travelNotesField(notes=''){
 }
 /* Personal daily summary, quick capture and appointment planning. */
 let personalWeather=null;
+function syncWeatherContext(){
+ const context=JSON.stringify([state.boot.beta?.email||'',personalPrefs().weather_town||'']);
+ if(context!==weatherContext){
+  weatherContext=context;personalWeather=null;weatherCheckedAt=0;weatherError='';weatherView='three';weatherDay='';
+  window.clearTimeout(weatherRefreshTimer);
+ }
+ return context;
+}
 function homeWeatherChip(){
+ syncWeatherContext();
+ if(baseWeatherSettings().enabled!==false&&!weatherLoading&&(!personalWeather||Date.now()-weatherCheckedAt>=weatherRefreshMs()))void loadPersonalWeather();
  const current=personalWeather?.current;
  if(!current)return weatherLoading?'<p class="home-weather-chip">Weather…</p>':'';
  const label=({0:'Clear',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',45:'Fog',51:'Drizzle',61:'Light rain',63:'Rain',65:'Heavy rain',71:'Snow',80:'Showers',95:'Thunderstorm'}[Number(current.weather_code)])||'Weather';
@@ -88,8 +98,7 @@ function personalToday({includeQuickAdd=true}={}){
  const showWeather=homeSectionContent('today','show_weather',true);
  const showSchedule=homeSectionContent('today','show_schedule',true);
  const showQuickAdd=homeSectionContent('today','show_quick_add',true);
- const context=JSON.stringify([state.boot.beta?.email||'',p.weather_town||'']);
- if(context!==weatherContext){weatherContext=context;personalWeather=null;weatherCheckedAt=0;weatherError='';weatherView='three';weatherDay='';window.clearTimeout(weatherRefreshTimer);}
+ syncWeatherContext();
  if(showWeather&&baseWeatherSettings().enabled!==false&&!weatherLoading&&Date.now()-weatherCheckedAt>=weatherRefreshMs())void loadPersonalWeather();
  const items=data.items.filter(i=>!i.done&&i.kind==='reminder'&&i.due_at.slice(0,10)<=data.today&&(p.include_overdue||i.due_at.slice(0,10)===data.today));
  const todayEvents=(data.events||[]).filter(event=>todayEventStillRelevant(event,data.today));
