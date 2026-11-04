@@ -60,19 +60,21 @@ def is_align_database(path: Path) -> bool:
 
 
 def content_score(path: Path) -> int:
-    """How much planner content a database already holds. -1 means unreadable."""
+    """Count meaningful saved Align content. -1 means unreadable."""
     if not path.is_file():
         return -1
+    default_settings = {
+        "user_name": "", "user_address": "", "user_phone": "",
+        "user_home_location": "", "travel_bus": "true", "travel_rail": "true",
+        "travel_walk": "true", "default_calendar": "Align",
+        "notifications": "1", "onboarding_completed": "0",
+    }
     try:
         with _readonly(path) as connection:
             names = _tables(connection)
             if not (names & set(_ALIGN_TABLES)):
                 return 0
 
-            # Score every user-data table, not just the original organiser
-            # tables. Work/rota, calendar, finance and newer planner records
-            # must count too; otherwise a populated legacy database can lose
-            # to a mostly-empty target simply because its tables are newer.
             score = 0
             for name in names:
                 if name.startswith("sqlite_") or name in {
@@ -80,13 +82,99 @@ def content_score(path: Path) -> int:
                 }:
                     continue
                 quoted = '"' + name.replace('"', '""') + '"'
+
+                # Fresh V3 databases seed these rows for app startup. They
+                # are infrastructure/defaults, not evidence of user content.
+                if name == "settings":
+                    for key, value in connection.execute(
+                        "SELECT setting_key, setting_value FROM settings"
+                    ):
+                        value = str(value or "")
+                        if key in default_settings and value == default_settings[key]:
+                            continue
+                        if value.strip():
+                            score += 1
+                    continue
+
+                if name == "asset_categories":
+                    columns = {row[1] for row in connection.execute(
+                        'PRAGMA table_info("asset_categories")'
+                    )}
+                    if "built_in" in columns:
+                        score += int(connection.execute(
+                            "SELECT COUNT(*) FROM asset_categories WHERE built_in=0"
+                        ).fetchone()[0])
+                    else:
+                        score += int(connection.execute(
+                            f"SELECT COUNT(*) FROM {quoted}"
+                        ).fetchone()[0])
+                    continue
+
+                if name == "transport_preferences":
+                    columns = {row[1] for row in connection.execute(
+                        'PRAGMA table_info("transport_preferences")'
+                    )}
+                    selected = [key for key in (
+                        "arrival_buffer", "modes", "home_lat", "home_lon"
+                    ) if key in columns]
+                    if selected:
+                        row = connection.execute(
+                            "SELECT " + ", ".join('"' + key + '"' for key in selected)
+                            + " FROM transport_preferences WHERE id=1"
+                        ).fetchone()
+                        defaults = {
+                            "arrival_buffer": 10, "modes": '["bus","rail","walk"]',
+                            "home_lat": None, "home_lon": None,
+                        }
+                        if row and any(value != defaults[key] for key, value in zip(selected, row)):
+                            score += 1
+                    continue
+
+                if name == "icloud_config":
+                    columns = [row[1] for row in connection.execute(
+                        'PRAGMA table_info("icloud_config")'
+                    )]
+                    row = connection.execute(
+                        "SELECT * FROM icloud_config WHERE id=1"
+                    ).fetchone()
+                    if row and any(
+                        value not in (None, "", "[]")
+                        for key, value in zip(columns, row)
+                        if key not in {"id", "instance_id"}
+                    ):
+                        score += 1
+                    continue
+
+                if name == "calendar_sync_state":
+                    columns = {row[1] for row in connection.execute(
+                        'PRAGMA table_info("calendar_sync_state")'
+                    )}
+                    if "revision" in columns:
+                        row = connection.execute(
+                            "SELECT revision FROM calendar_sync_state WHERE id=1"
+                        ).fetchone()
+                        if row and int(row[0] or 0) > 0:
+                            score += 1
+                    continue
+
+                if name == "builder_config":
+                    columns = {row[1] for row in connection.execute(
+                        'PRAGMA table_info("builder_config")'
+                    )}
+                    if {"revision", "published_revision"} <= columns:
+                        row = connection.execute(
+                            "SELECT revision,published_revision FROM builder_config WHERE id=1"
+                        ).fetchone()
+                        if row and max(int(row[0] or 0), int(row[1] or 0)) > 1:
+                            score += 1
+                    continue
+
                 score += int(connection.execute(
                     f"SELECT COUNT(*) FROM {quoted}"
                 ).fetchone()[0])
             return score
     except sqlite3.Error:
         return -1
-
 
 def inspect_database(data_dir: Path, legacy_paths: list[Path]) -> dict:
     """Describe the safe database choice. This does not write anything."""
