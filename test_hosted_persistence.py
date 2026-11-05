@@ -198,6 +198,10 @@ class PostgresIntegrationTests(unittest.TestCase):
         if parsed.hostname not in ('localhost', '127.0.0.1') or parsed.path != '/align_persistence_test':
             raise RuntimeError('Integration fixture requires a local align_persistence_test database')
         with pg.psycopg.connect(cls.dsn) as c:
+            # This database is the dedicated local fixture. Recreate its two
+            # schemas so a second run does not stop on "schema already exists".
+            c.execute('DROP SCHEMA IF EXISTS align_auth CASCADE')
+            c.execute('DROP SCHEMA IF EXISTS align_owner CASCADE')
             c.execute((Path(__file__).parent / 'tests' / 'hosted_schema_fixture.sql').read_text())
 
     def setUp(self):
@@ -222,9 +226,12 @@ class PostgresIntegrationTests(unittest.TestCase):
                     continue
                 if statement.startswith('CREATE TABLE align_auth.') or statement.startswith('ALTER TABLE align_auth.'):
                     continue
+                indexed = statement.startswith('CREATE INDEX') or statement.startswith('CREATE UNIQUE INDEX')
                 if (statement.startswith('CREATE TABLE align_owner.')
+                        or statement.startswith('CREATE TABLE IF NOT EXISTS align_owner.')
                         or statement.startswith('ALTER TABLE align_owner.')
-                        or statement.startswith('INSERT INTO align_owner.')):
+                        or statement.startswith('INSERT INTO align_owner.')
+                        or (indexed and 'align_owner.' in statement)):
                     raw.execute(statement.replace('align_owner.', schema + '.'))
         try:
             with patch.dict(os.environ, {'ALIGN_DATABASE_BACKEND': 'postgres'}), patch(
