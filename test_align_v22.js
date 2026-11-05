@@ -52,14 +52,24 @@ assert.equal(context.eventIsUnderway({ start_at: pastStart, end_at: soonEnd }), 
 assert.match(context.eventTravelMarkup({ start_at: futureStart, end_at: futureEnd, notes: 'walk' }), /Journey/);
 assert.equal(context.eventTravelMarkup({ start_at: pastStart, end_at: soonEnd, notes: 'walk' }), '');
 
-// Wall-clock London times without a Z suffix must still detect "under way".
-const londonNow = new Date().toLocaleString('en-GB', { timeZone: 'Europe/London', hourCycle: 'h23' });
-const [day, month, year] = londonNow.split(',')[0].split('/').map(Number);
-const [hour, minute] = londonNow.split(', ')[1].split(':').map(Number);
-const pad = n => String(n).padStart(2, '0');
-const wall = `${year}-${pad(month)}-${pad(day)}T${pad(hour)}:${pad(minute)}`;
-const wallEndHour = (hour + 1) % 24;
-const wallEnd = `${year}-${pad(month)}-${pad(day)}T${pad(wallEndHour)}:${pad(minute)}`;
+// Wall-clock London times without a Z suffix must still detect "under way",
+// including when the one-hour window crosses midnight.
+const londonParts = date => {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).formatToParts(date);
+  return Object.fromEntries(parts.map(part => [part.type, part.value]));
+};
+const startParts = londonParts(new Date());
+const endParts = londonParts(new Date(Date.now() + 60 * 60 * 1000));
+const wall = `${startParts.year}-${startParts.month}-${startParts.day}T${startParts.hour}:${startParts.minute}`;
+const wallEnd = `${endParts.year}-${endParts.month}-${endParts.day}T${endParts.hour}:${endParts.minute}`;
 assert.equal(context.eventIsUnderway({ start_at: wall, end_at: wallEnd, notes: 'walk' }), true);
 assert.equal(context.eventTravelMarkup({ start_at: wall, end_at: wallEnd, notes: 'walk' }), '');
 
