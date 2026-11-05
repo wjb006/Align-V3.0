@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const source = fs.readFileSync('static/personal-planner.js', 'utf8').split('const travelLabels=')[0];
 function harness(town, getCurrentPosition) {
  const timers=new Map(), requests=[]; let id=0;
- const context={renders:0,state:{tab:'today',boot:{beta:{email:'test@example.com'},personal:{preferences:{weather_town:town}}}},navigator:{geolocation:{getCurrentPosition}},personalPrefs(){return context.state.boot.personal.preferences;},render(){context.renders++;},
+ const context={renders:0,state:{tab:'today',boot:{beta:{email:'test@example.com'},personal:{preferences:{weather_town:town}}}},navigator:{geolocation:{getCurrentPosition}},personalPrefs(){return context.state.boot.personal.preferences;},escapeHtml(value){return String(value ?? '');},render(){context.renders++;},
   api:async(path,options)=>{requests.push({path,options});return {place:town,current:{weather_code:0,temperature_2m:14}};},
   setTimeout:(fn,ms)=>{timers.set(++id,{fn,ms});return id;},clearTimeout:id=>timers.delete(id)};
  context.window={isSecureContext:true,setTimeout:context.setTimeout,clearTimeout:context.clearTimeout};

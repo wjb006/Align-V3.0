@@ -49,6 +49,8 @@ class Build149TransportTests(unittest.TestCase):
 
         connection = sqlite3.connect(":memory:")
         connection.row_factory = sqlite3.Row
+        connection.execute("CREATE TABLE organiser_events (id INTEGER PRIMARY KEY, title TEXT, start_at TEXT, location TEXT, all_day INTEGER)")
+        connection.execute("CREATE TABLE calendar_events (id INTEGER PRIMARY KEY, event_uid TEXT, title TEXT, start_at TEXT, location TEXT, all_day INTEGER)")
         connection.execute("CREATE TABLE shifts (id INTEGER PRIMARY KEY, work_date TEXT, start_time TEXT, location_name TEXT, shift_type_name TEXT)")
         day = (datetime.now(ZoneInfo("Europe/London")) + timedelta(days=1)).date().isoformat()
         connection.execute("INSERT INTO shifts VALUES (1,?,?,?,?)", (day, "09:00", "Arrowe Park", "Clinic"))
