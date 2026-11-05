@@ -9,6 +9,7 @@ import post_event_travel
 
 import json
 import hashlib
+import ipaddress
 import mimetypes
 import logging
 import os
@@ -959,14 +960,44 @@ class AlignHandler(SimpleHTTPRequestHandler):
             raise ValueError("Request is too large.")
         return json.loads(self.rfile.read(length) or b"{}")
 
+    def is_local_studio_request(self) -> bool:
+        """Trust the installed desktop Studio as Owner only on its loopback origin."""
+        if BETA_MODE or os.environ.get("ALIGN_STUDIO_LOCAL") != "1":
+            return False
+        def loopback_name(value: str) -> bool:
+            if value.casefold() == "localhost":
+                return True
+            return ipaddress.ip_address(value).is_loopback
+
+        try:
+            if not ipaddress.ip_address(self.client_address[0]).is_loopback:
+                return False
+            host_header = self.headers.get("Host", "")
+            host = urlparse("//" + host_header)
+            if not host.hostname or not loopback_name(host.hostname):
+                return False
+            origin = self.headers.get("Origin", "").strip()
+            if origin:
+                parsed_origin = urlparse(origin)
+                scheme = "https" if isinstance(self.connection, ssl.SSLSocket) else "http"
+                if parsed_origin.scheme != scheme or not parsed_origin.hostname:
+                    return False
+                if parsed_origin.hostname.casefold() != host.hostname.casefold():
+                    return False
+                if parsed_origin.port != host.port:
+                    return False
+            return True
+        except (ValueError, TypeError):
+            return False
+
     def is_admin(self) -> bool:
-        """Owner account is Admin in beta; local builds keep the existing token model."""
+        """Owner account is Admin in beta; the installed PC Studio is local Owner."""
         if BETA_MODE:
-            # Owner-only administration is gated by the authenticated Owner session.
-            # Terms acceptance is enforced by the normal account flow; do not let a
-            # stale terms-version comparison silently strip Owner controls after login.
+            # Hosted Owner rights always require the authenticated Owner account.
             row = self.beta_user()
             return bool(row and row['is_owner'] and row['active'] and row['account_status'] == 'active')
+        if self.is_local_studio_request():
+            return True
         if not ADMIN_PASSWORD: return True
         return self.headers.get("X-Align-Admin", "") in ADMIN_SESSIONS
 

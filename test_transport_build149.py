@@ -36,8 +36,30 @@ class Build149TransportTests(unittest.TestCase):
         connection.execute("INSERT INTO calendar_events VALUES (2,'uid-2','Meeting',?,'Liverpool',0)", (future,))
         result = transport_places.items(connection)
         self.assertEqual({item["title"] for item in result["items"]}, {"Dentist", "Meeting"})
-        with self.assertRaisesRegex(ValueError, "Align event"):
+        self.assertFalse(any(item["key"].startswith("shift:") for item in result["items"]))
+        with self.assertRaisesRegex(ValueError, "Shift planner is not available"):
             transport_service.event(connection, "shift:1")
+        connection.close()
+
+    def test_shift_items_are_listed_and_resolved_for_travel(self):
+        import transport_places
+        import transport_service
+        from datetime import timedelta
+        from zoneinfo import ZoneInfo
+
+        connection = sqlite3.connect(":memory:")
+        connection.row_factory = sqlite3.Row
+        connection.execute("CREATE TABLE shifts (id INTEGER PRIMARY KEY, work_date TEXT, start_time TEXT, location_name TEXT, shift_type_name TEXT)")
+        day = (datetime.now(ZoneInfo("Europe/London")) + timedelta(days=1)).date().isoformat()
+        connection.execute("INSERT INTO shifts VALUES (1,?,?,?,?)", (day, "09:00", "Arrowe Park", "Clinic"))
+        result = transport_places.items(connection)
+        shift = next(item for item in result["items"] if item["key"] == "shift:1")
+        self.assertEqual(shift["destination"], "Arrowe Park")
+        self.assertEqual(shift["title"], "Arrowe Park – Clinic")
+        when, destination = transport_service.event(connection, "shift:1")
+        expected = datetime.fromisoformat(f"{day}T09:00").replace(tzinfo=ZoneInfo("Europe/London")).astimezone(timezone.utc)
+        self.assertEqual(when, expected)
+        self.assertEqual(destination, "Arrowe Park")
         connection.close()
 
     def test_legacy_transport_cache_is_preserved(self):
