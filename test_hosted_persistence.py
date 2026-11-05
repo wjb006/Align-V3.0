@@ -223,6 +223,7 @@ class PostgresIntegrationTests(unittest.TestCase):
                 if statement.startswith('CREATE TABLE align_auth.') or statement.startswith('ALTER TABLE align_auth.'):
                     continue
                 if (statement.startswith('CREATE TABLE align_owner.')
+                        or statement.startswith('CREATE TABLE IF NOT EXISTS align_owner.')
                         or statement.startswith('ALTER TABLE align_owner.')
                         or statement.startswith('INSERT INTO align_owner.')):
                     raw.execute(statement.replace('align_owner.', schema + '.'))
