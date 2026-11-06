@@ -201,7 +201,7 @@ document.addEventListener('submit', async event => {
       });
       workRota.editing = null;
       const entries = workRota.current.entries.map(item => item.id === saved.entry.id ? saved.entry : item);
-      workRota.current = {...workRota.current, entries};
+      workRota.current = {...workRota.current, entries, locations: saved.locations || workRota.current.locations, shift_types: saved.shift_types || workRota.current.shift_types};
     }
   } catch (error) {
     workRota.error = error.message;
