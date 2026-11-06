@@ -1,0 +1,71 @@
+name: Align V3.0 Build 158 Windows test package
+
+on:
+  push:
+    branches: [test/align-v3-build-158]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-test-package:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out Build 158
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+
+      - name: Install Tesseract OCR
+        shell: pwsh
+        run: |
+          choco install tesseract --yes --no-progress
+          $TesseractHome = 'C:\Program Files\Tesseract-OCR'
+          $TesseractExe = Join-Path $TesseractHome 'tesseract.exe'
+          $EnglishData = Join-Path $TesseractHome 'tessdata\eng.traineddata'
+          if (-not (Test-Path $TesseractExe)) { throw "Tesseract was not installed at $TesseractHome." }
+          if (-not (Test-Path $EnglishData)) { throw "Tesseract English data was not installed." }
+          & $TesseractExe --list-langs
+          if ($LASTEXITCODE -ne 0) { throw "Tesseract could not load its language data." }
+
+      - name: Run regressions and build the isolated Windows package
+        shell: pwsh
+        run: |
+          $TesseractHome = 'C:\Program Files\Tesseract-OCR'
+          & .\scripts\Build-Align-V3-Test.ps1 -RepositoryRoot $env:GITHUB_WORKSPACE -TesseractHome $TesseractHome
+          if ($LASTEXITCODE -ne 0) { throw "Build 158 Windows packaging failed." }
+
+      - name: Locate the completed Windows package
+        id: package
+        shell: pwsh
+        run: |
+          $Package = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Align-Builds') -Filter 'Align-V3.0-Test-Windows.zip' -File -Recurse |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+          if (-not $Package) { throw "The Build 158 ZIP was not produced." }
+          "package_path=$($Package.FullName)" >> $env:GITHUB_OUTPUT
+
+      - name: Upload Build 158 Windows ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: Align-V3.0-Build-158-Windows-Test
+          path: ${{ steps.package.outputs.package_path }}
+          if-no-files-found: error
+          retention-days: 30
