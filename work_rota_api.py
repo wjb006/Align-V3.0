@@ -9,6 +9,7 @@ import logging
 import re
 
 import rota_file_processor as files
+import rota_ocr_provider
 import work_rota_import
 import work_rota_storage as storage
 
