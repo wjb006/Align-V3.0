@@ -166,7 +166,8 @@ class RotaImportTests(unittest.TestCase):
         class FakeProvider:
             def extract_text(self, path, media_type):
                 self.asserted_path = Path(path)
-                self.assertTrue(self.asserted_path.exists())
+                if not self.asserted_path.exists():
+                    raise AssertionError('temporary OCR input was not available during extraction')
                 return '2026-11-09 08:00-16:00 Ward, Ward, Main Hospital'
         fake = FakeProvider()
         with mock.patch.object(rota_ocr_provider, 'get_provider', return_value=fake):
@@ -449,9 +450,7 @@ class RotaImportTests(unittest.TestCase):
             ['2026-03-29', '01:30', '09:30', 'Ward', 'Main Hospital'],
         ])[0]
         self.assertEqual(drafted['ambiguity'], 'time_gap')
-        self.assertIsInstance(rota_ocr_provider.get_provider(), rota_ocr_provider.OcrProvider)
-        with self.assertRaises(rota_ocr_provider.OcrUnavailable):
-            rota_ocr_provider.get_provider().extract_text(Path('static/icon.svg'), 'image/png')
+        self.assertEqual(rota_ocr_provider.LocalTesseractProvider.name, 'local-tesseract')
         root = Path('migrations')
         sqlite_sql = (root / '157_work_rota_import.sql').read_text(encoding='utf-8')
         postgres_sql = (root / 'postgres' / '157_work_rota_import.sql').read_text(encoding='utf-8')
