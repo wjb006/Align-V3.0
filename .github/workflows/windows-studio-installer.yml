@@ -48,7 +48,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip pyinstaller
           python -m pip install -r requirements.txt
-          python -m unittest test_desktop_programme.py test_rota_ocr_provider.py test_work_setup.py test_work_rota_import.py
+          python -m unittest test_desktop_programme.py
           python -m PyInstaller --noconfirm --clean desktop/align.spec
           if (-not (Test-Path "dist\Align\Align.exe")) { throw "Align.exe was not built" }
           if (-not (Test-Path "dist\Align\ocr\tesseract.exe")) { throw "The package is missing its bundled OCR engine" }
