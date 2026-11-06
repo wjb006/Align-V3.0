@@ -412,12 +412,7 @@ def _extract_one(path: Path, item):
             elif extension == 'xlsx':
                 drafts = rota_parser.interpret_table(_xlsx_rows(payload))
             else:
-                try:
-                    drafts = rota_parser.interpret_pdf_text(_pdf_text(payload))
-                except FileProblem as error:
-                    if error.code != 'ocr_unavailable':
-                        raise
-                    drafts = _ocr_drafts(path, item['media_type'])
+                drafts = _ocr_drafts(path, item['media_type'])
     except rota_ocr_provider.OcrUnavailable:
         return {'format': extension, 'code': 'ocr_unavailable', 'drafts': []}
     except rota_parser.ParseProblem as error:
