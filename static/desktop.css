@@ -1,3 +1,5 @@
+
+.desktop-header{display:flex;align-items:center;gap:18px;justify-content:flex-start}.desktop-heading{flex:1}.desktop-signout{border:1px solid #d5dee8;background:#fff;color:#263b53;border-radius:10px;padding:10px 14px;font:inherit;font-weight:700;cursor:pointer}.desktop-signout:hover{background:#f3f6f9}@media(max-width:600px){.desktop-header{align-items:flex-start;flex-wrap:wrap}.desktop-signout{margin-left:90px}}
 .desktop-body{margin:0;min-height:100vh;background:var(--canvas,#f4f6fb);color:var(--ink,#14203c)}
 .desktop-header,.desktop-body main,.desktop-body footer{width:min(1080px,calc(100% - 32px));margin:0 auto}
 .desktop-header{display:flex;gap:14px;align-items:center;padding:32px 0 8px}
