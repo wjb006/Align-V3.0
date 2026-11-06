@@ -6,6 +6,18 @@ Set-Location $Root
 $Python = $null
 try { & py -3.12 --version *> $null; if ($LASTEXITCODE -eq 0) { $Python = "py -3.12" } } catch {}
 if (-not $Python) { $Python = "python" }
+$TesseractCandidates = @(
+    $env:TESSERACT_INSTALL_DIR,
+    (Join-Path $env:ProgramFiles "Tesseract-OCR"),
+    (Join-Path ${env:ProgramFiles(x86)} "Tesseract-OCR")
+) | Where-Object { $_ -and (Test-Path (Join-Path $_ "tesseract.exe")) }
+if (-not $TesseractCandidates) {
+    throw "Tesseract OCR is required for the photo/scanned-PDF test build. Install Tesseract OCR or set TESSERACT_INSTALL_DIR."
+}
+$env:TESSERACT_INSTALL_DIR = (Resolve-Path $TesseractCandidates[0]).Path
+if (-not (Test-Path (Join-Path $env:TESSERACT_INSTALL_DIR "tessdata\eng.traineddata"))) {
+    throw "Tesseract English language data was not found in $env:TESSERACT_INSTALL_DIR\tessdata."
+}
 Write-Host "Installing the build tools..."
 Invoke-Expression "$Python -m pip install --upgrade pip pyinstaller"
 if ($LASTEXITCODE -ne 0) { throw "Could not install PyInstaller." }
