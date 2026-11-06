@@ -154,7 +154,12 @@ def handle_patch(handler, app, connection, path, payload) -> bool:
     def send():
         _require_work(connection, app)
         row = storage.update_entry(connection, match.group(1), match.group(2), payload or {})
-        handler.send_json(200, {'entry': storage.public_entry(row)})
+        current = _import_payload(connection, storage.get_import(connection, match.group(1)))
+        handler.send_json(200, {
+            'entry': storage.public_entry(row),
+            'locations': current['locations'],
+            'shift_types': current['shift_types'],
+        })
 
     return _guard(handler, app, connection, send)
 
