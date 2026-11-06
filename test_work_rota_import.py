@@ -179,6 +179,48 @@ class RotaImportTests(unittest.TestCase):
         self.assertFalse(fake.asserted_path.exists())
         self.assertFalse(any(rota_file_processor.temp_root().glob('rota-*')))
 
+    def test_review_can_learn_new_workplace_and_shift_area(self):
+        uploaded = self.csv(
+            'date,start,end,department,location\\n'
+            '2026-11-10,08:00,16:00,Clinic,New Hospital\\n'
+        )
+        entry = uploaded['entries'][0]
+        self.assertFalse(entry['approvable'])
+        saved = self.json_request(
+            'PATCH',
+            f"/api/work/rota/imports/{uploaded['import']['id']}/entries/{entry['id']}",
+            {
+                'revision': entry['revision'],
+                'create_location': True,
+                'new_location_name': 'New Hospital',
+                'new_location_address': '2 New Street',
+                'create_shift_type': True,
+                'new_shift_type_name': 'Clinic',
+            },
+        )
+        self.assertTrue(saved['entry']['approvable'])
+        self.assertEqual(saved['entry']['location_text'], 'New Hospital')
+        with app.db_connection() as connection:
+            location = connection.execute("SELECT id,address FROM locations WHERE name='New Hospital'").fetchone()
+            area = connection.execute("SELECT id FROM shift_types WHERE name='Clinic'").fetchone()
+            self.assertIsNotNone(location)
+            self.assertEqual(location['address'], '2 New Street')
+            self.assertIsNotNone(area)
+            self.assertTrue(connection.execute(
+                'SELECT 1 FROM location_shift_types WHERE location_id=? AND shift_type_id=?',
+                (location['id'], area['id']),
+            ).fetchone())
+        result = self.json_request(
+            'POST',
+            f"/api/work/rota/imports/{uploaded['import']['id']}/approve",
+            {'idempotency_key': 'learn-workplace-01', 'entries': [{'id': entry['id'], 'revision': saved['entry']['revision']}]},
+        )
+        self.assertEqual(len(result['created']), 1)
+        with app.db_connection() as connection:
+            self.assertEqual(connection.execute(
+                "SELECT COUNT(*) FROM shifts WHERE work_date='2026-11-10'"
+            ).fetchone()[0], 1)
+
     def test_work_opt_in_and_bad_signatures(self):
         with app.db_connection() as connection:
             connection.execute("DELETE FROM settings WHERE setting_key='section_opt_in_work'")
