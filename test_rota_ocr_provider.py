@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 import rota_ocr_provider
 
@@ -53,6 +53,22 @@ class LocalOcrProviderTests(unittest.TestCase):
                 result = provider.extract_pdf_text(pdf_path)
         self.assertIn("2026-11-09", result)
         ocr.assert_not_called()
+
+    @unittest.skipUnless(rota_ocr_provider.is_available(), "Local Tesseract is not installed")
+    def test_installed_tesseract_reads_a_clear_rota_photo(self):
+        with tempfile.TemporaryDirectory() as folder:
+            image_path = Path(folder) / "rota-photo.png"
+            image = Image.new("RGB", (2200, 420), "white")
+            draw = ImageDraw.Draw(image)
+            font_path = Path(r"C:\\Windows\\Fonts\\arial.ttf")
+            if not font_path.is_file():
+                self.skipTest("Windows Arial font is not available")
+            font = ImageFont.truetype(str(font_path), 110)
+            draw.text((60, 120), "2026-11-09 08:00-16:00 Ward", fill="black", font=font)
+            image.save(image_path)
+            text = rota_ocr_provider.get_provider().extract_text(image_path, "image/png")
+        self.assertIn("2026", text)
+        self.assertIn("08:00", text)
 
     def test_missing_tesseract_is_reported_as_unavailable(self):
         with self.assertRaises(rota_ocr_provider.OcrUnavailable):
