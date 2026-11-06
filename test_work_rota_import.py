@@ -478,6 +478,11 @@ class RotaImportTests(unittest.TestCase):
         self.assertEqual(rota_parser.parse_date('25/03/2026')[0], '2026-03-25')
         self.assertTrue(rota_parser.parse_date('03/04/2026')[1])
         self.assertEqual(rota_parser.parse_date('03/25/2026')[0], '2026-03-25')
+        self.assertEqual(rota_parser.parse_date('9 Nov 2026')[0], '2026-11-09')
+        ocr_row = rota_parser.interpret_pdf_text('Mon 9 Nov 2026 08:00 16:00 Ward at Main Hospital')[0]
+        self.assertEqual(ocr_row['work_date'], '2026-11-09')
+        self.assertEqual(ocr_row['start_time'], '08:00')
+        self.assertEqual(ocr_row['end_time'], '16:00')
         self.assertEqual(
             rota_parser.excel_date((date(2026, 11, 3) - date(1899, 12, 30)).days),
             '2026-11-03',
