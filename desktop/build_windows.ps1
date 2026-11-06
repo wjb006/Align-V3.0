@@ -42,6 +42,9 @@ try {
 }
 $Built = Join-Path $Root "dist\Align\Align.exe"
 if (-not (Test-Path $Built)) { throw "Expected $Built" }
+$BundledTesseract = Join-Path $Root "dist\Align\ocr\tesseract.exe"
+if (-not (Test-Path $BundledTesseract)) { throw "The Windows package is missing its bundled Tesseract OCR engine." }
+if (-not (Test-Path (Join-Path $Root "dist\Align\ocr\tessdata\eng.traineddata"))) { throw "The Windows package is missing the English OCR model." }
 Copy-Item (Join-Path $Root "static\icons\align.ico") (Join-Path $Root "dist\Align\align.ico") -Force
 Write-Host "Built $Built"
 Write-Host "Installer input is dist\Align plus installer\windows\Install-Align-Studio.ps1"
