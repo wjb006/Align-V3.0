@@ -35,6 +35,7 @@ jobs:
         shell: pwsh
         run: |
           choco install tesseract --version=5.5.3.20260724 -y --no-progress
+          $env:PATH = "$env:ProgramFiles\\Tesseract-OCR;$env:PATH"
       - name: Test the desktop programme and build the Windows package
         shell: pwsh
         run: |
