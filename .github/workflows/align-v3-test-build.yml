@@ -65,9 +65,9 @@ jobs:
         shell: pwsh
         run: |
           powershell -NoProfile -ExecutionPolicy Bypass -File desktop/build_test_windows.ps1
-          if (-not (Test-Path "dist\Align\Align.exe")) { throw "Align.exe was not built." }
-          if (-not (Test-Path "dist\Align\ocr\tesseract.exe")) { throw "The test application is missing its bundled OCR engine." }
-          if (-not (Test-Path "dist\Align\ocr\tessdata\eng.traineddata")) { throw "The test application is missing the English OCR model." }
+          if (-not (Test-Path "dist\Align V3.0 Test\Align V3.0 Test.exe")) { throw "Align V3.0 Test.exe was not built." }
+          if (-not (Test-Path "dist\Align V3.0 Test\ocr\tesseract.exe")) { throw "The test application is missing its bundled OCR engine." }
+          if (-not (Test-Path "dist\Align V3.0 Test\ocr\tessdata\eng.traineddata")) { throw "The test application is missing the English OCR model." }
 
       - name: Assemble clearly labelled test package
         shell: pwsh
