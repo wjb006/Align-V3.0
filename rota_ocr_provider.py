@@ -129,6 +129,7 @@ class LocalTesseractProvider:
         except ImportError as error:
             raise OcrUnavailable("Local PDF page rendering is not installed.") from error
         pieces = []
+        document = None
         try:
             document = fitz.open(str(path))
             if document.page_count < 1 or document.page_count > MAX_PAGES:
@@ -146,12 +147,14 @@ class LocalTesseractProvider:
                         pieces.append(self._ocr_image(image))
                 if sum(len(piece) for piece in pieces) > MAX_TEXT_CHARS:
                     raise OcrError("This PDF contains too much text to process.")
-            document.close()
         except OcrError:
             raise
         except Exception as error:
             raise OcrError("This PDF could not be rendered for local OCR.") from error
-        return "\n".join(piece for piece in pieces if piece.strip())[:MAX_TEXT_CHARS]
+        finally:
+            if document is not None:
+                document.close()
+        return "\\n".join(piece for piece in pieces if piece.strip())[:MAX_TEXT_CHARS]
 
 
 _PROVIDER = None
