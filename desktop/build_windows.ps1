@@ -14,7 +14,7 @@ $TesseractCandidates = @(
 if (-not $TesseractCandidates) {
     throw "Tesseract OCR is required for the photo/scanned-PDF test build. Install Tesseract OCR or set TESSERACT_INSTALL_DIR."
 }
-$env:TESSERACT_INSTALL_DIR = (Resolve-Path $TesseractCandidates[0]).Path
+$env:TESSERACT_INSTALL_DIR = (Resolve-Path ($TesseractCandidates | Select-Object -First 1)).Path
 if (-not (Test-Path (Join-Path $env:TESSERACT_INSTALL_DIR "tessdata\eng.traineddata"))) {
     throw "Tesseract English language data was not found in $env:TESSERACT_INSTALL_DIR\tessdata."
 }
