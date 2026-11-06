@@ -88,5 +88,5 @@ coll = COLLECT(
     a.datas,
     strip=False,
     upx=False,
-    name="Align",
+    name=APP_NAME,
 )
