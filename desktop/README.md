@@ -102,3 +102,18 @@ node test_desktop_shell.js
 The installed desktop programme requires a local Owner sign-in. On first launch, create the local Owner account with an email address, display name, and password of at least 12 characters. Later launches restore the session automatically when **Keep me signed in** is selected (30 days). If it is not selected, the browser session ends when its profile closes and the server-side session expires after 12 hours. Use **Sign out** on the desktop home screen to revoke the current session.
 
 Local authentication is separate from hosted beta accounts and from the planner database. The account and hashed session records are stored in `desktop-auth.sqlite3` in the desktop data folder (normally `%LOCALAPPDATA%\\Align`). Passwords are salted PBKDF2-HMAC-SHA256 hashes; the browser receives only an HttpOnly, SameSite=Strict session cookie. Sign-in does not migrate, overwrite, or delete `align.sqlite3`.
+
+## Rota photo and scanned-PDF reading
+
+Align's rota reader uses **local Tesseract OCR**. Photo pixels and scanned PDF pages are processed on the computer running Align; the OCR code does not send rota files to a third-party OCR or AI service. CSV, XLSX and text-based PDFs continue to use their existing direct readers.
+
+For a Windows source run:
+
+1. Install the Tesseract OCR Windows runtime (English language data must be included).
+2. Open PowerShell and confirm `tesseract --version` works.
+3. If Tesseract is not on PATH, set `ALIGN_TESSERACT_CMD` to the full path of `tesseract.exe`, for example `C:\\Program Files\\Tesseract-OCR\\tesseract.exe`.
+4. Reopen Align. Work > Upload my rota checks the installed runtime and shows which formats are available.
+
+The Python dependencies for image decoding and scanned-PDF rendering are installed with `requirements.txt`. HEIC reading is reported separately and is enabled only when the HEIC decoder is present. The current Windows package build does not bundle the Tesseract executable or its language data, so photo OCR is unavailable on a clean Windows machine until that runtime is installed. The test package must not be described as photo-OCR-ready unless its capability check reports photo and scanned-PDF support.
+
+OCR is best-effort: glare, skew, low resolution, handwriting and dense multi-person tables can reduce accuracy. Every extracted row remains in the review screen; nothing enters the planner until it is explicitly approved. Shared rotas are rejected, and the source upload is deleted after processing.
