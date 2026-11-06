@@ -40,6 +40,7 @@
     try {
       const response = await fetch('/api/local-auth/logout', { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: '{}' });
       if (!response.ok) throw new Error('Align could not end this sign-in. Please try again.');
+      if (navigator.serviceWorker?.controller) navigator.serviceWorker.controller.postMessage({ type: 'ALIGN_CLEAR_DESKTOP_SESSION' });
       location.replace('/desktop-login.html');
     } catch (error) {
       signout.disabled = false;
