@@ -168,7 +168,7 @@ try {
     Write-Host "Test data: $env:LOCALAPPDATA\Align-Test" -ForegroundColor Green
     Write-Host "Test address: http://127.0.0.1:8011/desktop" -ForegroundColor Green
     Write-Host "Normal Align data was not opened or changed." -ForegroundColor Green
-    Start-Process explorer.exe -ArgumentList ("/select," + $ZipFile)
+    if ($env:GITHUB_ACTIONS -ne "true") { Start-Process explorer.exe -ArgumentList ("/select," + $ZipFile) }
 } finally {
     Pop-Location
     Write-Host "Isolated build source retained at: $BuildRoot" -ForegroundColor DarkGray
