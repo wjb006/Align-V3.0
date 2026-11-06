@@ -105,6 +105,10 @@ class LocalTesseractProvider:
         self._pytesseract.pytesseract.tesseract_cmd = self._command
         self._config = "--oem 1 --psm 6"
         if self._tessdata:
+            # Set the variable Tesseract itself asks for as well as the CLI
+            # override. This handles Windows builds that ignore or mis-parse
+            # --tessdata-dir when the installation path contains spaces.
+            os.environ["TESSDATA_PREFIX"] = str(self._tessdata)
             self._config += f' --tessdata-dir "{self._tessdata}"'
 
     def _ocr_image(self, image) -> str:
