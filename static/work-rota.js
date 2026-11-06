@@ -2,7 +2,7 @@
 let workRota = {capabilities: null, current: null, error: '', stage: '', busy: false, editing: null};
 
 const rotaMessages = {
-  ocr_unavailable: 'Photos and scanned PDFs were not read. Image reading is not switched on.',
+  ocr_unavailable: 'Local photo/scanned-PDF reading is unavailable. Install the Align OCR runtime and try again.',
   multiple_people: 'This file looks like a shared rota. Remove other people and upload only your rows.',
   unrecognized_table: 'No shift rows were found. Empty cells are not treated as days off.',
   date: 'This date could be read in more than one way. Enter it as YYYY-MM-DD.',
@@ -13,8 +13,10 @@ const rotaMessages = {
 function rotaCapabilityNote() {
   const caps = workRota.capabilities || {};
   const sheets = [caps.csv && 'CSV', caps.xlsx && 'Excel', caps.pdf_text && 'text PDFs'].filter(Boolean).join(', ');
-  if (caps.image_ocr) return `${sheets || 'Supported files'} and photos can be read on this device.`;
-  return `${sheets || 'Spreadsheets and text PDFs'} can be read on this device. Photos (JPEG, PNG and HEIC) and scanned PDFs are checked, then left unread, because image reading is not switched on.`;
+  const photo = caps.image_ocr ? (caps.heic_ocr ? 'JPG, PNG and HEIC photos' : 'JPG and PNG photos') : 'photos (local OCR runtime not detected)';
+  const scanned = caps.scanned_pdf_ocr ? 'scanned PDFs' : 'scanned PDFs (local PDF OCR runtime not detected)';
+  const local = caps.image_ocr ? ' OCR runs locally; rota files are not sent to an external OCR service.' : ' Install the local Align OCR runtime to enable photo and scanned-PDF reading.';
+  return `${sheets || 'Supported files'} and ${photo}; ${scanned}.${local}`;
 }
 
 async function openWorkRota() {
