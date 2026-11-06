@@ -195,6 +195,40 @@ class RotaImportTests(unittest.TestCase):
         self.assertEqual(result[0]['code'], '')
         self.assertEqual(result[0]['drafts'][0]['work_date'], '2026-11-13')
 
+    def test_real_local_tesseract_reads_photo_and_scanned_pdf(self):
+        provider = rota_ocr_provider.get_provider()
+        if not provider.available():
+            self.skipTest('Local Tesseract OCR runtime is not installed.')
+        from PIL import Image, ImageDraw, ImageFont
+        image = Image.new('RGB', (1800, 300), 'white')
+        draw = ImageDraw.Draw(image)
+        try:
+            font = ImageFont.truetype('C:/Windows/Fonts/arial.ttf', 64)
+        except OSError:
+            font = ImageFont.load_default()
+        draw.text((40, 90), '2026-11-12 08:30 - 16:30 Ward at Arrowe Park', fill='black', font=font)
+        buffer = io.BytesIO()
+        image.save(buffer, format='PNG')
+        photo = rota_file_processor.extract_files([{
+            'extension': 'png', 'data': buffer.getvalue(), 'media_type': 'image/png'
+        }])
+        self.assertEqual(photo[0]['code'], '')
+        self.assertTrue(photo[0]['drafts'])
+        self.assertEqual(photo[0]['drafts'][0]['work_date'], '2026-11-12')
+
+        import fitz
+        document = fitz.open()
+        page = document.new_page(width=900, height=150)
+        page.insert_image(page.rect, stream=buffer.getvalue())
+        pdf_bytes = document.tobytes()
+        document.close()
+        scanned_pdf = rota_file_processor.extract_files([{
+            'extension': 'pdf', 'data': pdf_bytes, 'media_type': 'application/pdf'
+        }])
+        self.assertEqual(scanned_pdf[0]['code'], '')
+        self.assertTrue(scanned_pdf[0]['drafts'])
+        self.assertEqual(scanned_pdf[0]['drafts'][0]['work_date'], '2026-11-12')
+
     def test_work_opt_in_and_bad_signatures(self):
         with app.db_connection() as connection:
             connection.execute("DELETE FROM settings WHERE setting_key='section_opt_in_work'")
