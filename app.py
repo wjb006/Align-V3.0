@@ -72,9 +72,12 @@ ROOT = source_root()
 STATIC = ROOT / "static"
 DATA_DIR = Path(os.environ.get("ALIGN_DATA_DIR") or ROOT).expanduser()
 DATABASE = DATA_DIR / "align.sqlite3"
-BUILD_VERSION = 156
+BUILD_VERSION = 157
 APP_VERSION = "3.0"
 BETA_MODE = os.environ.get("ALIGN_BETA_MODE", "0") == "1" or "--beta" in sys.argv
+# The desktop launcher marks its private loopback server. Hosted/beta sessions
+# continue to use their existing account and cookie flow.
+LOCAL_DESKTOP_MODE = not BETA_MODE and os.environ.get("ALIGN_LOCAL_LOGIN_ENABLED") == "1"
 REQUEST_CONTEXT = threading.local()
 ICLOUD_MANAGER = None
 ICLOUD_MANAGER_LOCK = threading.Lock()
@@ -838,6 +841,7 @@ class AlignHandler(SimpleHTTPRequestHandler):
             "/forgot", "/forgot.html", "/reset", "/reset.html",
             "/terms", "/terms.html", "/welcome", "/welcome.html",
             "/account", "/account.html",
+            "/desktop-login.html", "/desktop-login.css", "/desktop-login.js",
         }
         if not path.startswith("/api/") and (path in {
             "/", "/index.html", "/admin", "/admin.html",
@@ -880,7 +884,7 @@ class AlignHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         # GET responses may be stored by Align's private service-worker cache for offline use.
         # Mutating/API login responses remain non-storable.
-        self.send_header("Cache-Control", ("no-store" if self.path.startswith("/api/health") or (BETA_MODE and ("/api/beta/" in self.path or "/api/icloud/" in self.path)) else ("private, no-cache" if self.command == "GET" else "no-store")))
+        self.send_header("Cache-Control", ("no-store" if self.path.startswith(("/api/health", "/api/local-auth/")) or (BETA_MODE and ("/api/beta/" in self.path or "/api/icloud/" in self.path)) else ("private, no-cache" if self.command == "GET" else "no-store")))
         self.end_headers()
         self.wfile.write(body)
 
@@ -959,6 +963,131 @@ class AlignHandler(SimpleHTTPRequestHandler):
         if length > 1_000_000:
             raise ValueError("Request is too large.")
         return json.loads(self.rfile.read(length) or b"{}")
+
+    def local_auth_store(self):
+        from desktop.auth import DesktopAuthStore
+        return DesktopAuthStore()
+
+    def local_auth_token(self) -> str:
+        for part in (self.headers.get("Cookie", "") or "").split(";"):
+            name, sep, value = part.strip().partition("=")
+            if sep and name == "align_desktop_session":
+                return value.strip()
+        return ""
+
+    def local_auth_user(self):
+        if not LOCAL_DESKTOP_MODE:
+            return None
+        return self.local_auth_store().get_session(self.local_auth_token())
+
+    def send_local_auth_json(self, status: int, payload: dict, cookie: str | None = None) -> None:
+        body = json.dumps(payload).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Pragma", "no-cache")
+        if cookie is not None:
+            self.send_header("Set-Cookie", cookie)
+        self.end_headers()
+        self.wfile.write(body)
+
+    def local_auth_cookie(self, token: str = "", max_age: int | None = 0) -> str:
+        secure = "; Secure" if isinstance(self.connection, ssl.SSLSocket) else ""
+        age = "" if max_age is None else f"; Max-Age={max(0, int(max_age))}"
+        return f"align_desktop_session={token}; Path=/{age}; HttpOnly; SameSite=Strict{secure}"
+
+    def local_auth_same_origin(self) -> bool:
+        if self.headers.get("Sec-Fetch-Site", "").casefold() == "same-origin":
+            return True
+        origin = (self.headers.get("Origin") or "").strip()
+        host = (self.headers.get("Host") or "").strip()
+        if not origin or not host:
+            return False
+        parsed = urlparse(origin)
+        return parsed.scheme in {"http", "https"} and parsed.netloc.casefold() == host.casefold()
+
+    def handle_local_auth(self, method: str) -> bool:
+        if not LOCAL_DESKTOP_MODE:
+            return False
+        path = urlparse(self.path).path
+        if method == "GET" and path == "/api/local-auth/status":
+            store = self.local_auth_store()
+            user = self.local_auth_user()
+            self.send_local_auth_json(200, {
+                "setup_required": not store.has_account(),
+                "authenticated": bool(user),
+                "user": ({"email": user["email"], "display_name": user["display_name"], "role": user["role"]} if user else None),
+            })
+            return True
+        if method != "POST" or path not in {
+            "/api/local-auth/setup", "/api/local-auth/login", "/api/local-auth/logout"
+        }:
+            return False
+        if not self.local_auth_same_origin():
+            self.send_local_auth_json(403, {"error": "This sign-in request must come from Align on this computer."})
+            return True
+        try:
+            payload = self.read_json()
+        except (ValueError, json.JSONDecodeError) as error:
+            self.send_local_auth_json(400, {"error": str(error) or "Invalid request."})
+            return True
+        store = self.local_auth_store()
+        if path == "/api/local-auth/logout":
+            store.revoke(self.local_auth_token())
+            self.send_local_auth_json(200, {"ok": True}, self.local_auth_cookie())
+            return True
+        remember = payload.get("remember", True) is not False
+        try:
+            if path == "/api/local-auth/setup":
+                token, user, expires_at = store.setup(
+                    payload.get("email", ""), payload.get("display_name", ""),
+                    payload.get("password", ""), remember,
+                )
+            else:
+                result = store.authenticate(payload.get("email", ""), payload.get("password", ""), remember)
+                if result is None:
+                    self.send_local_auth_json(401, {"error": "Email or password is incorrect."})
+                    return True
+                token, user, expires_at = result
+        except Exception as error:
+            from desktop.auth import DesktopAuthError
+            if isinstance(error, DesktopAuthError):
+                self.send_local_auth_json(400 if path.endswith("/setup") else 409, {"error": str(error)})
+                return True
+            raise
+        max_age = max(0, expires_at - int(time.time())) if remember else None
+        self.send_local_auth_json(200, {"ok": True, "user": user}, self.local_auth_cookie(token, max_age))
+        return True
+
+    def require_local_desktop_auth(self) -> bool:
+        if not LOCAL_DESKTOP_MODE:
+            return True
+        path = urlparse(self.path).path
+        public_paths = {
+            "/api/health", "/api/local-auth/status", "/desktop-login.html",
+            "/desktop-login.css", "/desktop-login.js", "/icon.svg",
+        }
+        if path in public_paths:
+            if path == "/desktop-login.html" and self.local_auth_user():
+                self.send_response(302)
+                self.send_header("Location", "/desktop")
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                return False
+            return True
+        if self.local_auth_user():
+            return True
+        if path.startswith("/api/"):
+            self.send_json(401, {"error": "Sign in to Align on this computer.", "code": "desktop_login_required"})
+        elif self.command in {"GET", "HEAD"}:
+            self.send_response(302)
+            self.send_header("Location", "/desktop-login.html")
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+        else:
+            self.send_json(401, {"error": "Sign in to Align on this computer.", "code": "desktop_login_required"})
+        return False
 
     def is_local_studio_request(self) -> bool:
         """Trust the installed desktop Studio as Owner only on its loopback origin."""
@@ -1227,6 +1356,10 @@ class AlignHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         self.rewrite_public_path()
+        if self.handle_local_auth("GET"):
+            return
+        if not self.require_local_desktop_auth():
+            return
         if urlparse(self.path).path.startswith("/api/desktop/update"):
             from desktop.update_http import handle_update
             handle_update(self)
@@ -1283,6 +1416,10 @@ class AlignHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         self.rewrite_public_path()
+        if self.handle_local_auth("POST"):
+            return
+        if not self.require_local_desktop_auth():
+            return
         if urlparse(self.path).path.startswith("/api/desktop/update"):
             from desktop.update_http import handle_update
             handle_update(self)
@@ -1336,6 +1473,8 @@ class AlignHandler(SimpleHTTPRequestHandler):
         self.send_json(404, {"error": "Not found"})
 
     def do_PUT(self):
+        if not self.require_local_desktop_auth():
+            return
         if reject_retired_schedule_endpoint(self): return
         if build152.handle(self, sys.modules[__name__], 'PUT'): return
         if personal_planner.handle(self, sys.modules[__name__], 'PUT'): return
@@ -1367,6 +1506,8 @@ class AlignHandler(SimpleHTTPRequestHandler):
         self.send_json(404, {"error": "Not found"})
 
     def do_DELETE(self):
+        if not self.require_local_desktop_auth():
+            return
         if reject_retired_schedule_endpoint(self): return
         if personal_planner.handle(self, sys.modules[__name__], 'DELETE'): return
         if owner_builder.handle(self, sys.modules[__name__], 'DELETE'): return
@@ -1392,6 +1533,8 @@ class AlignHandler(SimpleHTTPRequestHandler):
         self.send_json(404, {"error": "Not found"})
 
     def do_PATCH(self):
+        if not self.require_local_desktop_auth():
+            return
         if reject_retired_schedule_endpoint(self): return
         path = urlparse(self.path).path
         try:

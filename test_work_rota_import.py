@@ -7,6 +7,7 @@ import sqlite3
 import struct
 import time
 import unittest
+from unittest import mock
 import zipfile
 import zlib
 from datetime import date, timedelta
@@ -150,16 +151,75 @@ class RotaImportTests(unittest.TestCase):
     def test_capabilities_are_honest_about_ocr(self):
         payload = self.json_request('GET', '/api/work/rota/capabilities')
         self.assertTrue(payload['csv'] and payload['xlsx'] and payload['pdf_text'])
-        self.assertFalse(payload['image_ocr'])
-        self.assertFalse(payload['scanned_pdf_ocr'])
+        self.assertEqual(payload['image_ocr'], rota_ocr_provider.is_available())
+        self.assertEqual(payload['scanned_pdf_ocr'], rota_ocr_provider.is_available())
         script = Path('static/work-rota.js').read_text(encoding='utf-8')
-        self.assertIn('Image reading is not switched on', script)
+        self.assertIn('local OCR runtime', script)
         self.assertIn('Upload my rota', Path('static/app.js').read_text(encoding='utf-8'))
         index = Path('static/index.html').read_text(encoding='utf-8')
         version = re.search(r'/app\.js\?v=([^"\']+)', index)
         self.assertIsNotNone(version)
         self.assertIn(f'/work-rota.js?v={version.group(1)}', index)
         self.assertIn('/work-rota.js?v=${ASSET_VERSION}', Path('static/service-worker.js').read_text(encoding='utf-8'))
+
+    def test_photo_ocr_creates_review_rows_without_retaining_source(self):
+        class FakeProvider:
+            def extract_text(self, path, media_type):
+                self.asserted_path = Path(path)
+                if not self.asserted_path.exists():
+                    raise AssertionError('temporary OCR input was not available during extraction')
+                return '2026-11-09 08:00-16:00 Ward, Ward, Main Hospital'
+        fake = FakeProvider()
+        with mock.patch.object(rota_ocr_provider, 'get_provider', return_value=fake):
+            uploaded = self.upload('my-rota.png', png(400, 200), 'image/png')
+        self.assertEqual(uploaded['import']['status'], 'review')
+        self.assertEqual(uploaded['entries'][0]['work_date'], '2026-11-09')
+        self.assertEqual(uploaded['entries'][0]['start_time'], '08:00')
+        self.assertEqual(uploaded['entries'][0]['end_time'], '16:00')
+        self.assertFalse(fake.asserted_path.exists())
+        self.assertFalse(any(rota_file_processor.temp_root().glob('rota-*')))
+
+    def test_review_can_learn_new_workplace_and_shift_area(self):
+        uploaded = self.csv(
+            'date,start,end,department,location\n'
+            '2026-11-10,08:00,16:00,Clinic,New Hospital\n'
+        )
+        entry = uploaded['entries'][0]
+        self.assertFalse(entry['approvable'])
+        saved = self.json_request(
+            'PATCH',
+            f"/api/work/rota/imports/{uploaded['import']['id']}/entries/{entry['id']}",
+            {
+                'revision': entry['revision'],
+                'create_location': True,
+                'new_location_name': 'New Hospital',
+                'new_location_address': '2 New Street',
+                'create_shift_type': True,
+                'new_shift_type_name': 'Clinic',
+            },
+        )
+        self.assertTrue(saved['entry']['approvable'])
+        self.assertEqual(saved['entry']['location_text'], 'New Hospital')
+        with app.db_connection() as connection:
+            location = connection.execute("SELECT id,address FROM locations WHERE name='New Hospital'").fetchone()
+            area = connection.execute("SELECT id FROM shift_types WHERE name='Clinic'").fetchone()
+            self.assertIsNotNone(location)
+            self.assertEqual(location['address'], '2 New Street')
+            self.assertIsNotNone(area)
+            self.assertTrue(connection.execute(
+                'SELECT 1 FROM location_shift_types WHERE location_id=? AND shift_type_id=?',
+                (location['id'], area['id']),
+            ).fetchone())
+        result = self.json_request(
+            'POST',
+            f"/api/work/rota/imports/{uploaded['import']['id']}/approve",
+            {'idempotency_key': 'learn-workplace-01', 'entries': [{'id': entry['id'], 'revision': saved['entry']['revision']}]},
+        )
+        self.assertEqual(len(result['created']), 1)
+        with app.db_connection() as connection:
+            self.assertEqual(connection.execute(
+                "SELECT COUNT(*) FROM shifts WHERE work_date='2026-11-10'"
+            ).fetchone()[0], 1)
 
     def test_work_opt_in_and_bad_signatures(self):
         with app.db_connection() as connection:
@@ -403,10 +463,14 @@ class RotaImportTests(unittest.TestCase):
         xlsx = self.upload('rota.xlsx', sheet, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         self.assertEqual(xlsx['entries'][0]['work_date'], '2026-03-25')
         self.assertTrue(xlsx['entries'][0]['approvable'])
-        photo = self.upload('rota.heic', heic(), 'image/heic')
+        class BrokenProvider:
+            def extract_text(self, path, media_type):
+                raise rota_ocr_provider.OcrError('invalid test image')
+        with mock.patch.object(rota_ocr_provider, 'get_provider', return_value=BrokenProvider()):
+            photo = self.upload('rota.heic', heic(), 'image/heic')
         self.assertEqual(photo['import']['status'], 'failed')
-        self.assertEqual(photo['import']['error_code'], 'ocr_unavailable')
-        self.assertFalse(photo['capabilities']['image_ocr'])
+        self.assertEqual(photo['import']['error_code'], 'ocr_failed')
+        self.assertEqual(photo['capabilities']['image_ocr'], rota_ocr_provider.is_available())
         self.assertEqual(rota_file_processor.cleanup_abandoned(max_age=-1) >= 0, True)
         self.assertFalse(any(rota_file_processor.temp_root().glob('rota-*')))
 
@@ -414,6 +478,14 @@ class RotaImportTests(unittest.TestCase):
         self.assertEqual(rota_parser.parse_date('25/03/2026')[0], '2026-03-25')
         self.assertTrue(rota_parser.parse_date('03/04/2026')[1])
         self.assertEqual(rota_parser.parse_date('03/25/2026')[0], '2026-03-25')
+        self.assertEqual(rota_parser.parse_date('9 Nov 2026')[0], '2026-11-09')
+        ocr_row = rota_parser.interpret_pdf_text('Mon 9 Nov 2026 08:00 16:00 Ward at Main Hospital')[0]
+        self.assertEqual(ocr_row['work_date'], '2026-11-09')
+        self.assertEqual(ocr_row['start_time'], '08:00')
+        self.assertEqual(ocr_row['end_time'], '16:00')
+        with self.assertRaises(rota_parser.ParseProblem) as shared:
+            rota_parser.interpret_pdf_text('Name Date Start End\nAlex Smith 2026-11-09 08:00-16:00\nJordan Lee 2026-11-09 08:00-16:00')
+        self.assertEqual(shared.exception.code, 'multiple_people')
         self.assertEqual(
             rota_parser.excel_date((date(2026, 11, 3) - date(1899, 12, 30)).days),
             '2026-11-03',
@@ -428,9 +500,7 @@ class RotaImportTests(unittest.TestCase):
             ['2026-03-29', '01:30', '09:30', 'Ward', 'Main Hospital'],
         ])[0]
         self.assertEqual(drafted['ambiguity'], 'time_gap')
-        self.assertIsInstance(rota_ocr_provider.get_provider(), rota_ocr_provider.OcrProvider)
-        with self.assertRaises(rota_ocr_provider.OcrUnavailable):
-            rota_ocr_provider.get_provider().extract_text(Path('static/icon.svg'), 'image/png')
+        self.assertEqual(rota_ocr_provider.LocalTesseractProvider.name, 'local-tesseract')
         root = Path('migrations')
         sqlite_sql = (root / '157_work_rota_import.sql').read_text(encoding='utf-8')
         postgres_sql = (root / 'postgres' / '157_work_rota_import.sql').read_text(encoding='utf-8')

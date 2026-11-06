@@ -4,6 +4,7 @@
 Build from the repository root:
     py -3.12 -m PyInstaller --noconfirm --clean desktop/align.spec
 """
+import os
 import sys
 from pathlib import Path
 
@@ -11,6 +12,10 @@ from PyInstaller.utils.hooks import collect_submodules
 
 ROOT = Path(SPECPATH).resolve().parent
 sys.path.insert(0, str(ROOT))
+TEST_BUILD = os.environ.get("ALIGN_TEST_BUILD") == "1"
+APP_NAME = "Align V3.0 Test" if TEST_BUILD else "Align"
+ENTRY_SCRIPT = "test_launch.py" if TEST_BUILD else "__main__.py"
+RUNTIME_HOOK = "pyi_rth_test_appcode.py" if TEST_BUILD else "pyi_rth_appcode.py"
 
 datas = [
     (str(ROOT / "static"), "static"),
@@ -21,6 +26,19 @@ datas = [
     (str(ROOT / "transport_sources.json"), "."),
     (str(ROOT / "transport_schema.sql"), "."),
 ]
+
+# Bundle the local Tesseract executable, its Windows DLLs and English model
+# into the onedir application. No OCR service or network request is used.
+tesseract_dir = Path(os.environ.get("TESSERACT_INSTALL_DIR", "")).expanduser()
+if not (tesseract_dir / "tesseract.exe").is_file() or not (tesseract_dir / "tessdata" / "eng.traineddata").is_file():
+    raise SystemExit("Tesseract OCR and the English language model are required for this Windows build.")
+if tesseract_dir.is_dir():
+    for candidate in tesseract_dir.rglob("*"):
+        if not candidate.is_file():
+            continue
+        relative = candidate.relative_to(tesseract_dir)
+        if candidate.name.lower() == "tesseract.exe" or candidate.suffix.lower() == ".dll" or relative.as_posix().lower() == "tessdata/eng.traineddata":
+            datas.append((str(candidate), str(Path("ocr") / relative.parent)))
 
 hidden = [
     "app",
@@ -37,16 +55,19 @@ hidden = [
     "studio_deploy",
 ]
 hidden += collect_submodules("desktop")
+hidden += collect_submodules("pytesseract")
+hidden += collect_submodules("fitz")
+hidden += collect_submodules("pillow_heif")
 
 a = Analysis(
-    [str(ROOT / "desktop" / "__main__.py")],
+    [str(ROOT / "desktop" / ENTRY_SCRIPT)],
     pathex=[str(ROOT)],
     binaries=[],
     datas=datas,
     hiddenimports=hidden,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[str(ROOT / "desktop" / "pyi_rth_appcode.py")],
+    runtime_hooks=[str(ROOT / "desktop" / RUNTIME_HOOK)],
     excludes=["pytest", "tkinter"],
     noarchive=False,
 )
@@ -56,7 +77,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="Align",
+    name=APP_NAME,
     icon=str(ROOT / "static" / "icons" / "align.ico"),
     debug=False,
     bootloader_ignore_signals=False,
@@ -70,5 +91,5 @@ coll = COLLECT(
     a.datas,
     strip=False,
     upx=False,
-    name="Align",
+    name=APP_NAME,
 )

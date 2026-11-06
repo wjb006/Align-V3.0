@@ -1,0 +1,3 @@
+# Render native-runtime packages for local, on-instance OCR.
+tesseract-ocr
+tesseract-ocr-eng

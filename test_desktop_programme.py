@@ -304,9 +304,22 @@ class DesktopLaunchTests(unittest.TestCase):
                 handle = start_server(Path(folder), port, wait_seconds=40)
             box.handle = handle
             base = f"http://127.0.0.1:{handle.port}"
+            setup_request = urllib.request.Request(
+                base + "/api/local-auth/setup",
+                data=json.dumps({
+                    "email": "desktop-owner@example.com", "display_name": "Desktop Owner",
+                    "password": "a-long-local-password-123", "remember": True,
+                }).encode(),
+                method="POST",
+                headers={"Content-Type": "application/json", "Origin": base},
+            )
+            with urllib.request.urlopen(setup_request, timeout=10) as response:
+                session_cookie = response.headers.get("Set-Cookie", "").split(";", 1)[0]
+            self.assertTrue(session_cookie.startswith("align_desktop_session="))
 
             def get(path):
-                with urllib.request.urlopen(base + path, timeout=10) as response:
+                request = urllib.request.Request(base + path, headers={"Cookie": session_cookie})
+                with urllib.request.urlopen(request, timeout=10) as response:
                     return response.status, dict(response.headers), response.read()
 
             status, headers, home = get("/desktop")
@@ -433,6 +446,17 @@ class FreshAlertRouteTests(unittest.TestCase):
                 handle = start_server(Path(folder), port, wait_seconds=40)
             box.handle = handle
             base = f"http://127.0.0.1:{handle.port}"
+            setup_request = urllib.request.Request(
+                base + "/api/local-auth/setup",
+                data=json.dumps({
+                    "email": "desktop-owner@example.com", "display_name": "Desktop Owner",
+                    "password": "a-long-local-password-123", "remember": True,
+                }).encode(),
+                method="POST",
+                headers={"Content-Type": "application/json", "Origin": base},
+            )
+            with urllib.request.urlopen(setup_request, timeout=10) as response:
+                session_cookie = response.headers.get("Set-Cookie", "").split(";", 1)[0]
 
             def call(method, path, payload=None):
                 data = None if payload is None else json.dumps(payload).encode()
@@ -440,7 +464,7 @@ class FreshAlertRouteTests(unittest.TestCase):
                     base + path,
                     data=data,
                     method=method,
-                    headers={"Content-Type": "application/json"},
+                    headers={"Content-Type": "application/json", "Cookie": session_cookie},
                 )
                 try:
                     with urllib.request.urlopen(request, timeout=10) as response:

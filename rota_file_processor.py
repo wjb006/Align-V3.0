@@ -1,7 +1,7 @@
 """Allowlisted rota intake, signature checks and temporary-file cleanup.
 
 Original bytes stay in a private temp directory only while a file is read,
-then they are deleted. Image and scanned-PDF OCR is not claimed as working.
+then they are deleted. Photos and scanned PDF pages are processed with the local OCR provider.
 """
 from __future__ import annotations
 
@@ -352,7 +352,7 @@ def _pdf_text(payload: bytes) -> str:
             pieces.append(_pdf_unescape(literal[1:-1]))
     extracted = '\n'.join(piece for piece in pieces if piece.strip())
     if len(re.findall(r'[A-Za-z0-9]', extracted)) < 8:
-        raise FileProblem('This PDF has no readable text. Scanned PDFs need image reading, which is not switched on.', 'ocr_unavailable')
+        raise FileProblem('This PDF has no extractable text and the local OCR runtime is unavailable.', 'ocr_unavailable')
     return extracted[:LIMITS['max_pdf_text']]
 
 
@@ -398,20 +398,53 @@ def _extract_one(path: Path, item):
     extension = item['extension']
     if extension in {'jpg', 'jpeg', 'png', 'heic', 'heif'}:
         try:
-            rota_ocr_provider.get_provider().extract_text(path, item['media_type'])
+            text = rota_ocr_provider.get_provider().extract_text(path, item['media_type'])
+            if not text.strip():
+                return {'format': extension, 'code': 'ocr_no_text', 'drafts': []}
+            drafts = rota_parser.interpret_pdf_text(text)
         except rota_ocr_provider.OcrUnavailable:
             return {'format': extension, 'code': 'ocr_unavailable', 'drafts': []}
-        return {'format': extension, 'code': 'ocr_unavailable', 'drafts': []}
-    payload = path.read_bytes()
-    try:
-        if extension == 'csv':
-            drafts = rota_parser.interpret_table(_csv_rows(payload))
-        elif extension == 'xlsx':
-            drafts = rota_parser.interpret_table(_xlsx_rows(payload))
-        else:
-            drafts = rota_parser.interpret_pdf_text(_pdf_text(payload))
-    except rota_parser.ParseProblem as error:
-        return {'format': extension, 'code': error.code, 'message': str(error), 'drafts': []}
+        except rota_ocr_provider.OcrError:
+            return {'format': extension, 'code': 'ocr_failed', 'drafts': []}
+        except rota_parser.ParseProblem as error:
+            return {'format': extension, 'code': error.code, 'message': str(error), 'drafts': []}
+    else:
+        payload = path.read_bytes()
+        try:
+            if extension == 'csv':
+                drafts = rota_parser.interpret_table(_csv_rows(payload))
+            elif extension == 'xlsx':
+                drafts = rota_parser.interpret_table(_xlsx_rows(payload))
+            else:
+                # PyMuPDF extracts native text page-by-page and locally OCRs only
+                # scanned pages, so mixed text/scanned PDFs are supported too.
+                if rota_ocr_provider.is_available():
+                    text = rota_ocr_provider.get_provider().extract_pdf_text(path)
+                else:
+                    text = _pdf_text(payload)
+                if not text.strip():
+                    return {'format': extension, 'code': 'ocr_no_text', 'drafts': []}
+                drafts = rota_parser.interpret_pdf_text(text)
+        except FileProblem as error:
+            if extension == 'pdf' and error.code == 'ocr_unavailable':
+                return {'format': extension, 'code': 'ocr_unavailable', 'drafts': []}
+            raise
+        except rota_ocr_provider.OcrUnavailable:
+            try:
+                drafts = rota_parser.interpret_pdf_text(_pdf_text(payload))
+            except FileProblem as error:
+                if error.code == 'ocr_unavailable':
+                    return {'format': extension, 'code': 'ocr_unavailable', 'drafts': []}
+                raise
+        except rota_ocr_provider.OcrError:
+            # If PDF rendering fails, retain the legacy native-text extractor
+            # as a safe fallback; scanned pages still report an OCR failure.
+            try:
+                drafts = rota_parser.interpret_pdf_text(_pdf_text(payload))
+            except (FileProblem, rota_parser.ParseProblem):
+                return {'format': extension, 'code': 'ocr_failed', 'drafts': []}
+        except rota_parser.ParseProblem as error:
+            return {'format': extension, 'code': error.code, 'message': str(error), 'drafts': []}
     if len(drafts) > LIMITS['max_rows']:
         raise FileProblem('This file has too many rows.', 'spreadsheet_too_large')
     return {'format': extension, 'code': '', 'drafts': drafts}

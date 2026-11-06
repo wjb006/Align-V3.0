@@ -21,12 +21,16 @@ PREVIOUS_NAME = "app-code.previous"
 ATTEMPT_NAME = "app-code.attempt"
 SCHEMA = 1
 REPO = "wjb006/Align-V3.0"
-BRANCH = "codex/align-v3-rebuild"
+BRANCH = os.environ.get("ALIGN_UPDATE_BRANCH", "codex/align-v3-rebuild").strip() or "codex/align-v3-rebuild"
 REQUIRED_FILES = (
     "app.py",
     "align_paths.py",
     "static/desktop.html",
     "static/index.html",
+    "desktop/auth.py",
+    "static/desktop-login.html",
+    "static/desktop-login.css",
+    "static/desktop-login.js",
 )
 PROGRAMME_ROOT_ENV = "ALIGN_PROGRAMME_ROOT"
 APP_CODE_ENV = "ALIGN_APP_CODE"
@@ -85,7 +89,7 @@ def tree_problems(root: Path) -> str:
     for relative in REQUIRED_FILES:
         if not _file_inside(root, relative):
             return "The update is missing part of the Align programme."
-    for relative in ("app.py", "align_paths.py"):
+    for relative in ("app.py", "align_paths.py", "desktop/auth.py"):
         path = root.joinpath(*relative.split("/"))
         try:
             compile(path.read_text(encoding="utf-8"), relative, "exec")

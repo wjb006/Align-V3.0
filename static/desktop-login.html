@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#17243a">
+<title>Align V3.0 — Sign in</title>
+<link rel="stylesheet" href="/desktop-login.css">
+</head>
+<body>
+<main class="login-shell">
+  <section class="login-brand" aria-label="Align">
+    <div class="brand-mark">A</div>
+    <p class="eyebrow">ALIGN V3.0 · THIS COMPUTER</p>
+    <h1>Everything,<br>in alignment.</h1>
+    <p class="brand-copy">Your space. Your plans. Your life.</p>
+    <p class="privacy-note">Your local account protects the Align data saved on this computer.</p>
+  </section>
+  <section class="login-panel">
+    <p class="eyebrow" id="form-kicker">YOUR WORKSPACE</p>
+    <h2 id="form-title">Welcome back</h2>
+    <p class="intro" id="form-intro">Sign in to continue to your Align workspace.</p>
+    <form id="desktop-login-form" novalidate>
+      <div class="field" id="name-field" hidden>
+        <label for="display-name">Your name</label>
+        <input id="display-name" name="display_name" autocomplete="name" maxlength="80">
+      </div>
+      <div class="field">
+        <label for="email">Email address</label>
+        <input id="email" name="email" type="email" autocomplete="username" maxlength="254" required>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" minlength="12" required>
+        <small id="password-hint" hidden>Use at least 12 characters.</small>
+      </div>
+      <label class="remember-row"><input id="remember" type="checkbox" checked> <span>Keep me signed in</span></label>
+      <p id="login-message" class="message" role="alert" aria-live="polite"></p>
+      <button class="primary-button" id="submit-button" type="submit">Sign in</button>
+    </form>
+    <p class="security-note">Protected by a local account. Passwords are stored as salted hashes; the sign-in session uses a secure, HttpOnly cookie.</p>
+    <p class="footer-note">Align runs on this computer. Your planner data is not uploaded by this sign-in.</p>
+  </section>
+</main>
+<script src="/desktop-login.js"></script>
+</body>
+</html>
