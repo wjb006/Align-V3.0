@@ -20,7 +20,7 @@ CAPABILITIES = {
     'xlsx': True,
     'pdf_text': True,
     'image_ocr': False,
-    'scanned_pdf_ocr': False,
+    'scanned_pdf_ocr': False,\n    'heic_ocr': False,
     'accepted_extensions': ['csv', 'xlsx', 'pdf', 'jpg', 'jpeg', 'png', 'heic', 'heif'],
 }
 
@@ -221,7 +221,24 @@ def _require_work(connection, app, check_schema=True):
 
 def _capabilities():
     available = rota_ocr_provider.is_available()
-    return {**CAPABILITIES, 'image_ocr': available, 'scanned_pdf_ocr': available}
+    pdf_available = available
+    heic_available = available
+    if pdf_available:
+        try:
+            import fitz  # noqa: F401
+        except Exception:
+            pdf_available = False
+    if heic_available:
+        try:
+            import pillow_heif  # noqa: F401
+        except Exception:
+            heic_available = False
+    return {
+        **CAPABILITIES,
+        'image_ocr': available,
+        'scanned_pdf_ocr': pdf_available,
+        'heic_ocr': heic_available,
+    }
 
 
 def _import_payload(connection, record):
