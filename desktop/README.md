@@ -123,7 +123,7 @@ Build the test executable from the repository root with:
 powershell -NoProfile -ExecutionPolicy Bypass -File desktop\build_test_windows.ps1
 ```
 
-The test entry point is compiled as `Align V3.0 Test.exe`. It hard-wires an isolated data directory at `%LOCALAPPDATA%\Align-Test`, disables legacy database adoption, uses port `8011`, and checks updates only from `test/align-v3-readiness`. It does not open or migrate `%LOCALAPPDATA%\Align\align.sqlite3`.
+The test entry point is compiled as `Align V3.0 Test.exe`. It hard-wires an isolated data directory at `%LOCALAPPDATA%\Align-Test`, disables legacy database adoption, uses port `8011`, and checks updates only from `test/align-v3-ready-20261106`. It does not open or migrate `%LOCALAPPDATA%\Align\align.sqlite3`.
 
 The test installer is `installer\windows\Install-Align-Test.ps1`. It installs beside the normal programme at `%LOCALAPPDATA%\Programs\Align V3.0 Test` and creates a separate desktop shortcut. The normal Align installation, its shortcut, its port and its data directory are left alone.
 
