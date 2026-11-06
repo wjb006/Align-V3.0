@@ -12,7 +12,7 @@ if os.name == "nt":
     # Run beside the normal desktop app without competing for its port.
     os.environ["ALIGN_PORT"] = "8011"
     # Keep test-build updates on the test branch, never on the normal dev branch.
-    os.environ["ALIGN_UPDATE_BRANCH"] = "test/align-v3-readiness"
+    os.environ["ALIGN_UPDATE_BRANCH"] = "test/align-v3-ready-20261106"
     os.environ["ALIGN_TEST_BUILD"] = "1"
     os.environ["ALIGN_STUDIO_LOCAL"] = "1"
     os.environ["ALIGN_BETA_MODE"] = "0"
