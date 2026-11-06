@@ -13,7 +13,7 @@ The test executable is deliberately built with a separate entry point:
 - Programme: `%LOCALAPPDATA%\Programs\Align V3.0 Test`
 - Test database and local Owner sign-in: `%LOCALAPPDATA%\Align-Test`
 - Test web address: `http://127.0.0.1:8011/desktop`
-- Update branch: `test/align-v3-readiness`
+- Update branch: `test/align-v3-ready-20261106`
 
 It does **not** adopt, copy, migrate, open or overwrite the normal Align database at `%LOCALAPPDATA%\Align\align.sqlite3`. It also uses a different port, so the normal Align desktop app can remain installed and running.
 
