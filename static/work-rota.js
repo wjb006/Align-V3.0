@@ -2,7 +2,9 @@
 let workRota = {capabilities: null, current: null, error: '', stage: '', busy: false, editing: null};
 
 const rotaMessages = {
-  ocr_unavailable: 'Photos and scanned PDFs were not read. Image reading is not switched on.',
+  ocr_unavailable: 'Local OCR is not available on this installation. The original upload has been discarded.',
+  ocr_no_text: 'No readable rota text was found. Try a clearer, well-lit photo or a higher-quality scan.',
+  ocr_failed: 'The local OCR engine could not process this file. Try another image or a text-based rota.',
   multiple_people: 'This file looks like a shared rota. Remove other people and upload only your rows.',
   unrecognized_table: 'No shift rows were found. Empty cells are not treated as days off.',
   date: 'This date could be read in more than one way. Enter it as YYYY-MM-DD.',
@@ -13,8 +15,8 @@ const rotaMessages = {
 function rotaCapabilityNote() {
   const caps = workRota.capabilities || {};
   const sheets = [caps.csv && 'CSV', caps.xlsx && 'Excel', caps.pdf_text && 'text PDFs'].filter(Boolean).join(', ');
-  if (caps.image_ocr) return `${sheets || 'Supported files'} and photos can be read on this device.`;
-  return `${sheets || 'Spreadsheets and text PDFs'} can be read on this device. Photos (JPEG, PNG and HEIC) and scanned PDFs are checked, then left unread, because image reading is not switched on.`;
+  if (caps.image_ocr && caps.scanned_pdf_ocr) return `${sheets || 'Spreadsheets and PDFs'}, photos and scanned PDFs are read privately using local OCR. Files are not sent to an external OCR service.`;
+  return `${sheets || 'Spreadsheets and text PDFs'} can be read here. Photo and scanned-PDF reading needs the local OCR runtime, which is not currently available on this installation.`;
 }
 
 async function openWorkRota() {
