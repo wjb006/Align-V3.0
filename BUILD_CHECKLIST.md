@@ -18,7 +18,7 @@
 ## Current handoff: resume here
 
 ### 6 November 2026 — isolated test branch
-- Current test branch: `test/align-v3-readiness`, tracked by test PR #98. It carries forward the persistent local Owner sign-in work from PR #97, local Tesseract OCR for rota photos and scanned PDFs, Work review-catalogue learning, and the isolated Windows test-build workflow.
+- Current test branch: `test/align-v3-ready-20261106`, tracked by test PR #100. It carries forward the persistent local Owner sign-in work from PR #97, local Tesseract OCR for rota photos and scanned PDFs, Work review-catalogue learning, and the isolated Windows test-build workflow.
 - The test branch is separate from `codex/align-v3-rebuild`. It has not been merged or deployed. Existing Render services, IONOS DNS, Neon databases, credentials, OTP data and user databases have not been changed.
 - Work entry is rota-first and low-question: upload a rota, review/correct rows, then explicitly approve them. New workplaces and shift areas can be saved from the review screen. The full manual Work Settings editor remains available as an optional path through the active planner API, including contracted hours, pay, leave, locations, areas, times and weekday patterns.
 - OCR uses Tesseract locally with PyMuPDF for scanned PDF rendering and pillow-heif for HEIC. The Windows test package must include the OCR executable, its DLLs and the English model. Original uploads remain temporary and are deleted after processing.
