@@ -31,5 +31,16 @@ try {
 $Built = Join-Path $Root "dist\Align\Align.exe"
 if (-not (Test-Path $Built)) { throw "Expected $Built" }
 Copy-Item (Join-Path $Root "static\icons\align.ico") (Join-Path $Root "dist\Align\align.ico") -Force
+$TesseractHome = $env:ALIGN_TESSERACT_HOME
+if (-not $TesseractHome) { $TesseractHome = Join-Path $env:ProgramFiles "Tesseract-OCR" }
+$TesseractExe = Join-Path $TesseractHome "tesseract.exe"
+if (Test-Path $TesseractExe) {
+    $TesseractDestination = Join-Path $Root "dist\Align\tesseract"
+    New-Item -ItemType Directory -Force -Path $TesseractDestination | Out-Null
+    Copy-Item (Join-Path $TesseractHome "*") $TesseractDestination -Recurse -Force
+    Write-Host "Bundled local OCR runtime from $TesseractHome"
+} else {
+    Write-Warning "Tesseract was not found. This build will report photo/scanned-PDF OCR as unavailable."
+}
 Write-Host "Built $Built"
 Write-Host "Installer input is dist\Align plus installer\windows\Install-Align-Studio.ps1"
