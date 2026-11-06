@@ -31,12 +31,36 @@ class LocalOcrProviderTests(unittest.TestCase):
             pdf_path = Path(folder) / "scanned.pdf"
             document = fitz.open()
             document.new_page(width=595, height=842)
+            document.new_page(width=595, height=842)
             document.save(pdf_path)
             document.close()
             provider = self.provider()
-            with mock.patch.object(provider._pytesseract, "image_to_string", return_value="2026-11-09 08:00-16:00 Ward") as ocr:
+            with mock.patch.object(
+                provider._pytesseract,
+                "image_to_string",
+                side_effect=["2026-11-09 08:00-16:00 Ward", "2026-11-10 09:00-17:00 Clinic"],
+            ) as ocr:
                 result = provider.extract_pdf_text(pdf_path)
         self.assertIn("2026-11-09", result)
+        self.assertIn("2026-11-10", result)
+        self.assertEqual(ocr.call_count, 2)
+
+    def test_mixed_pdf_page_with_an_image_is_ocrd_even_when_text_exists(self):
+        import fitz
+        with tempfile.TemporaryDirectory() as folder:
+            pdf_path = Path(folder) / "mixed.pdf"
+            image_path = Path(folder) / "rota.png"
+            Image.new("RGB", (500, 300), "white").save(image_path)
+            document = fitz.open()
+            page = document.new_page(width=595, height=842)
+            page.insert_text((72, 72), "Weekly rota")
+            page.insert_image(fitz.Rect(50, 120, 550, 420), filename=str(image_path))
+            document.save(pdf_path)
+            document.close()
+            provider = self.provider()
+            with mock.patch.object(provider._pytesseract, "image_to_string", return_value="2026-11-11 08:00-16:00 Ward") as ocr:
+                result = provider.extract_pdf_text(pdf_path)
+        self.assertIn("2026-11-11", result)
         ocr.assert_called_once()
 
     def test_native_pdf_text_is_kept_without_running_ocr(self):
