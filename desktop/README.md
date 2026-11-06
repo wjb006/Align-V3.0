@@ -96,3 +96,9 @@ node --check static/desktop.js
 node --check static/management-studio-calendar.js
 node test_desktop_shell.js
 ```
+
+## Local sign-in
+
+The installed desktop programme requires a local Owner sign-in. On first launch, create the local Owner account with an email address, display name, and password of at least 12 characters. Later launches restore the session automatically when **Keep me signed in** is selected (30 days). If it is not selected, the browser session ends when its profile closes and the server-side session expires after 12 hours. Use **Sign out** on the desktop home screen to revoke the current session.
+
+Local authentication is separate from hosted beta accounts and from the planner database. The account and hashed session records are stored in `desktop-auth.sqlite3` in the desktop data folder (normally `%LOCALAPPDATA%\\Align`). Passwords are salted PBKDF2-HMAC-SHA256 hashes; the browser receives only an HttpOnly, SameSite=Strict session cookie. Sign-in does not migrate, overwrite, or delete `align.sqlite3`.
