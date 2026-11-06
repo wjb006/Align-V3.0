@@ -20,7 +20,7 @@ jobs:
       - name: Install local Tesseract OCR
         shell: pwsh
         run: |
-          choco install tesseract --yes --no-progress
+          choco install tesseract --version=5.5.3.20260724 --yes --no-progress
           $candidates = @(
             "$env:ProgramFiles\Tesseract-OCR",
             "${env:ProgramFiles(x86)}\Tesseract-OCR"
