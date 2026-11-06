@@ -1,13 +1,16 @@
 """Work Settings persistence and planner-data preservation regressions."""
+import unittest
+
 import app
 import planner_api
 import work_setup
 from test_support import IsolatedAppServer
 
 
-class WorkSetupPersistenceTests(IsolatedAppServer):
+class WorkSetupPersistenceTests(IsolatedAppServer, unittest.TestCase):
     def _initial_payload(self):
-        setup = work_setup.load_setup(app.db_connection())
+        with app.db_connection() as connection:
+            setup = work_setup.load_setup(connection)
         return {
             "revision": setup["revision"],
             "contracted_hours": 37.5,
@@ -51,8 +54,12 @@ class WorkSetupPersistenceTests(IsolatedAppServer):
         self.assertEqual({item["name"] for item in saved["locations"]}, {"Arrowe Park", "Clatterbridge"})
         self.assertEqual({item["name"] for item in saved["areas"]}, {"Wards", "Clinic"})
         self.assertEqual(len(saved["assignments"]), 3)
+        ward = next(item for item in saved["areas"] if item["name"] == "Wards")
+        arrowe = next(item for item in saved["locations"] if item["name"] == "Arrowe Park")
+        assignment = next(item for item in saved["assignments"]
+                          if item["area_key"] == ward["key"] and item["location_key"] == arrowe["key"])
         self.assertEqual(
-            next(item for item in saved["assignments"] if item["area_key"] == "a1")["days"],
+            assignment["days"],
             ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
         )
 
