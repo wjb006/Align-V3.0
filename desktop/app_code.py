@@ -89,7 +89,7 @@ def tree_problems(root: Path) -> str:
     for relative in REQUIRED_FILES:
         if not _file_inside(root, relative):
             return "The update is missing part of the Align programme."
-    for relative in ("app.py", "align_paths.py"):
+    for relative in ("app.py", "align_paths.py", "desktop/auth.py"):
         path = root.joinpath(*relative.split("/"))
         try:
             compile(path.read_text(encoding="utf-8"), relative, "exec")
