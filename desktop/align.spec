@@ -29,6 +29,8 @@ datas = [
 # Bundle the local Tesseract executable, its Windows DLLs and English model
 # into the onedir application. No OCR service or network request is used.
 tesseract_dir = Path(os.environ.get("TESSERACT_INSTALL_DIR", "")).expanduser()
+if not (tesseract_dir / "tesseract.exe").is_file() or not (tesseract_dir / "tessdata" / "eng.traineddata").is_file():
+    raise SystemExit("Tesseract OCR and the English language model are required for this Windows build.")
 if tesseract_dir.is_dir():
     for candidate in tesseract_dir.rglob("*"):
         if not candidate.is_file():
