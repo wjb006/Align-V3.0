@@ -46,7 +46,7 @@ class LocalTesseractProvider:
             from PIL import Image
             pytesseract.pytesseract.tesseract_cmd = self.command
             pytesseract.get_tesseract_version()
-            return Image is not None
+            return Image is not None and "eng" in pytesseract.get_languages(config="")
         except Exception:
             return False
 
@@ -72,13 +72,13 @@ class LocalTesseractProvider:
         }
 
     def extract_text(self, path, media_type: str) -> str:
+        if media_type == "application/pdf":
+            return self._pdf_text(Path(path))
         if not self.available():
             raise OcrUnavailable(
                 "Local photo reading needs Tesseract OCR. Install the Align OCR runtime "
                 "or set ALIGN_TESSERACT_CMD to its executable."
             )
-        if media_type == "application/pdf":
-            return self._pdf_text(Path(path))
         return self._image_text(Path(path), media_type)
 
     def _image_text(self, path: Path, media_type: str, timeout: int = 30) -> str:
@@ -116,8 +116,7 @@ class LocalTesseractProvider:
             from PIL import Image
             import pytesseract
         except Exception as error:
-            raise OcrUnavailable("Scanned PDF reading needs the local PDF and OCR runtime.") from error
-        pytesseract.pytesseract.tesseract_cmd = self.command
+            raise OcrUnavailable("PDF reading needs the local PDF runtime.") from error
         pieces = []
         deadline = time.monotonic() + 120
         try:
@@ -129,6 +128,11 @@ class LocalTesseractProvider:
                     if text:
                         pieces.append(text)
                         continue
+                    if not self.available():
+                        raise OcrUnavailable(
+                            "This scanned PDF needs local Tesseract OCR. Install the Align OCR runtime."
+                        )
+                    pytesseract.pytesseract.tesseract_cmd = self.command
                     remaining = deadline - time.monotonic()
                     if remaining <= 0:
                         raise OcrUnavailable("This PDF took too long to read. Try fewer pages.")
