@@ -28,6 +28,29 @@ class OcrError(RuntimeError):
     """A local OCR operation failed safely."""
 
 
+def _windows_short_path(path: Path) -> str:
+    """Return a Windows 8.3 path where available, avoiding CLI quote bugs."""
+    value = str(path)
+    if os.name != "nt" or " " not in value:
+        return value
+    try:
+        import ctypes
+        get_short_path = ctypes.windll.kernel32.GetShortPathNameW
+        get_short_path.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint]
+        get_short_path.restype = ctypes.c_uint
+        required = get_short_path(value, None, 0)
+        if not required:
+            return value
+        buffer = ctypes.create_unicode_buffer(required + 1)
+        written = get_short_path(value, buffer, len(buffer))
+        short_value = buffer.value if written else ""
+        if short_value and " " not in short_value:
+            return short_value
+    except Exception:
+        pass
+    return value
+
+
 def _bundled_ocr_dir() -> Path | None:
     candidates = []
     frozen_root = getattr(sys, "_MEIPASS", None)
@@ -54,6 +77,9 @@ class LocalTesseractProvider:
 
         bundled = _bundled_ocr_dir()
         configured = command or os.environ.get("TESSERACT_CMD")
+        install_dir = os.environ.get("TESSERACT_INSTALL_DIR", "").strip()
+        if not configured and install_dir:
+            configured = str(Path(install_dir) / "tesseract.exe")
         if not configured and bundled:
             configured = str(bundled / "tesseract.exe")
         if not configured:
@@ -78,13 +104,37 @@ class LocalTesseractProvider:
             tessdata = bundled / "tessdata"
             if (tessdata / "eng.traineddata").is_file():
                 self._tessdata = tessdata
-        configured_data = os.environ.get("TESSDATA_PREFIX")
-        if configured_data and (Path(configured_data) / "eng.traineddata").is_file():
-            self._tessdata = Path(configured_data)
+        # Prefer an explicit local tessdata directory. TESSDATA_PREFIX has
+        # inconsistent semantics across Windows Tesseract distributions (some
+        # builds append /tessdata), so do not depend on it when we know the
+        # installation or bundled directory.
+        if install_dir:
+            installed_data = Path(install_dir) / "tessdata"
+            if (installed_data / "eng.traineddata").is_file():
+                self._tessdata = installed_data
+        configured_data = os.environ.get("TESSDATA_DIR")
+        if configured_data:
+            data_path = Path(configured_data.strip().strip('"'))
+            if (data_path / "eng.traineddata").is_file():
+                self._tessdata = data_path
+        if self._tessdata is None:
+            configured_prefix = os.environ.get("TESSDATA_PREFIX", "").strip().strip('"')
+            if configured_prefix:
+                prefix_path = Path(configured_prefix)
+                for candidate in (prefix_path, prefix_path / "tessdata"):
+                    if (candidate / "eng.traineddata").is_file():
+                        self._tessdata = candidate
+                        break
         self._pytesseract.pytesseract.tesseract_cmd = self._command
         self._config = "--oem 1 --psm 6"
         if self._tessdata:
-            self._config += f' --tessdata-dir "{self._tessdata}"'
+            # Some Windows Tesseract builds mishandle quoted --tessdata-dir
+            # arguments when the install path contains spaces. Use an 8.3
+            # path for both the environment and CLI argument where available.
+            tessdata_argument = _windows_short_path(self._tessdata)
+            os.environ["TESSDATA_PREFIX"] = tessdata_argument
+            if " " not in tessdata_argument:
+                self._config += f" --tessdata-dir {tessdata_argument}"
 
     def _ocr_image(self, image) -> str:
         try:
@@ -139,9 +189,9 @@ class LocalTesseractProvider:
                 native = str(page.get_text("text") or "").strip()
                 has_image_content = bool(page.get_images(full=True))
                 native_has_shift = (
-                    bool(re.search(r"\\d{1,2}[:.]\\d{2}", native))
+                    bool(re.search(r"\d{1,2}[:.]\d{2}", native))
                     and bool(__import__("re").search(
-                        r"\\d{4}-\\d{2}-\\d{2}|\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4}|\\d{1,2}\\s+[A-Za-z]{3,9}\\s+\\d{4}",
+                        r"\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}",
                         native,
                         re.IGNORECASE,
                     ))

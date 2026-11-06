@@ -122,7 +122,7 @@ class RotaImportTests(unittest.TestCase):
             )
             connection.commit()
 
-    def request_files(self, parts, method='POST', path='/api/work/rota/imports'):
+    def request_files(self, parts, method='POST', path='/api/work/rota/imports', attempts=1):
         boundary = 'AlignRotaBoundary'
         chunks = []
         for filename, payload, content_type in parts:
@@ -133,12 +133,22 @@ class RotaImportTests(unittest.TestCase):
             ).encode()
             chunks.append(header + payload + b'\r\n')
         body = b''.join(chunks) + f'--{boundary}--\r\n'.encode()
-        client = HTTPConnection('127.0.0.1', self.server.server_port, timeout=20)
-        client.request(method, path, body=body, headers={'Content-Type': f'multipart/form-data; boundary={boundary}'})
-        response = client.getresponse()
-        result = (response.status, response.read())
-        client.close()
-        return result
+        last_error = None
+        for attempt in range(max(1, int(attempts))):
+            client = HTTPConnection('127.0.0.1', self.server.server_port, timeout=60)
+            try:
+                client.request(method, path, body=body, headers={'Content-Type': f'multipart/form-data; boundary={boundary}'})
+                response = client.getresponse()
+                result = (response.status, response.read())
+                client.close()
+                return result
+            except (ConnectionAbortedError, ConnectionResetError, TimeoutError, OSError) as error:
+                last_error = error
+                client.close()
+                if attempt + 1 >= attempts:
+                    raise
+                time.sleep(0.25 * (attempt + 1))
+        raise last_error
 
     def upload(self, filename, payload, content_type='text/csv', expected=201):
         status, body = self.request_files([(filename, payload, content_type)])
@@ -214,6 +224,7 @@ class RotaImportTests(unittest.TestCase):
             'POST',
             f"/api/work/rota/imports/{uploaded['import']['id']}/approve",
             {'idempotency_key': 'learn-workplace-01', 'entries': [{'id': entry['id'], 'revision': saved['entry']['revision']}]},
+            expected=200,
         )
         self.assertEqual(len(result['created']), 1)
         with app.db_connection() as connection:
@@ -255,7 +266,10 @@ class RotaImportTests(unittest.TestCase):
         original = dict(rota_file_processor.LIMITS)
         try:
             rota_file_processor.LIMITS['max_total_bytes'] = 40
-            status, body = self.request_files([('rota.csv', b'a' * 80, 'text/csv')])
+            # Windows security/network filters can transiently abort a tiny local
+            # HTTP response. This request is rejected before any import is saved,
+            # so retrying the transport failure cannot create duplicate data.
+            status, body = self.request_files([('rota.csv', b'a' * 80, 'text/csv')], attempts=3)
             self.assertEqual(status, 413, body)
             rota_file_processor.LIMITS['max_total_bytes'] = original['max_total_bytes']
             rota_file_processor.LIMITS['max_files'] = 1

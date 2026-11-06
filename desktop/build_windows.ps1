@@ -41,11 +41,31 @@ try {
     [System.IO.File]::WriteAllText($InfoPath, $InfoOriginal)
 }
 $AppName = if ($env:ALIGN_TEST_BUILD -eq "1") { "Align V3.0 Test" } else { "Align" }
-$Built = Join-Path $Root "dist\$AppName\$AppName.exe"
+$AppRoot = Join-Path $Root "dist\$AppName"
+$Built = Join-Path $AppRoot "$AppName.exe"
 if (-not (Test-Path $Built)) { throw "Expected $Built" }
-$BundledTesseract = Join-Path $Root "dist\$AppName\ocr\tesseract.exe"
+
+# Explicitly stage Tesseract after PyInstaller. Treating the native OCR
+# executable as PyInstaller data is not consistent across Windows builds;
+# copying it here guarantees the onedir package contains the complete runtime.
+$OcrRoot = Join-Path $AppRoot "ocr"
+$OcrTessdata = Join-Path $OcrRoot "tessdata"
+New-Item -ItemType Directory -Force -Path $OcrRoot, $OcrTessdata | Out-Null
+$TesseractSource = $env:TESSERACT_INSTALL_DIR
+$TesseractExe = Join-Path $TesseractSource "tesseract.exe"
+if (-not (Test-Path $TesseractExe)) { throw "Tesseract executable disappeared from $TesseractSource." }
+Copy-Item $TesseractExe $OcrRoot -Force
+Get-ChildItem -Path $TesseractSource -Filter "*.dll" -File -Recurse | ForEach-Object {
+    $RelativeDirectory = $_.DirectoryName.Substring($TesseractSource.Length).TrimStart("\", "/")
+    $DestinationDirectory = if ($RelativeDirectory) { Join-Path $OcrRoot $RelativeDirectory } else { $OcrRoot }
+    New-Item -ItemType Directory -Force -Path $DestinationDirectory | Out-Null
+    Copy-Item $_.FullName $DestinationDirectory -Force
+}
+Copy-Item (Join-Path $TesseractSource "tessdata\eng.traineddata") $OcrTessdata -Force
+
+$BundledTesseract = Join-Path $OcrRoot "tesseract.exe"
 if (-not (Test-Path $BundledTesseract)) { throw "The Windows package is missing its bundled Tesseract OCR engine." }
-if (-not (Test-Path (Join-Path $Root "dist\$AppName\ocr\tessdata\eng.traineddata"))) { throw "The Windows package is missing the English OCR model." }
-Copy-Item (Join-Path $Root "static\icons\align.ico") (Join-Path $Root "dist\$AppName\align.ico") -Force
+if (-not (Test-Path (Join-Path $OcrTessdata "eng.traineddata"))) { throw "The Windows package is missing the English OCR model." }
+Copy-Item (Join-Path $Root "static\icons\align.ico") (Join-Path $AppRoot "align.ico") -Force
 Write-Host "Built $Built"
 Write-Host "Installer input is dist\$AppName"
