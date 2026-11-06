@@ -42,6 +42,8 @@ if (-not $TesseractHome) { throw "Tesseract OCR is missing. Install it, then rer
 if (-not (Test-Path (Join-Path $TesseractHome "tesseract.exe"))) { throw "tesseract.exe was not found in $TesseractHome" }
 if (-not (Test-Path (Join-Path $TesseractHome "tessdata\eng.traineddata"))) { throw "Tesseract English language data is missing from $TesseractHome" }
 $env:TESSERACT_INSTALL_DIR = (Resolve-Path $TesseractHome).Path
+$env:TESSERACT_CMD = Join-Path $env:TESSERACT_INSTALL_DIR "tesseract.exe"
+$env:TESSDATA_PREFIX = Join-Path $env:TESSERACT_INSTALL_DIR "tessdata"
 Write-Host "Tesseract: $env:TESSERACT_INSTALL_DIR" -ForegroundColor Green
 
 New-Item -ItemType Directory -Force -Path $BuildParent | Out-Null
