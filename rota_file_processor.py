@@ -1,7 +1,7 @@
 """Allowlisted rota intake, signature checks and temporary-file cleanup.
 
 Original bytes stay in a private temp directory only while a file is read,
-then they are deleted. Image and scanned-PDF OCR is not claimed as working.
+then they are deleted. Photos and scanned PDF pages are processed with the local OCR provider.
 """
 from __future__ import annotations
 
@@ -352,7 +352,7 @@ def _pdf_text(payload: bytes) -> str:
             pieces.append(_pdf_unescape(literal[1:-1]))
     extracted = '\n'.join(piece for piece in pieces if piece.strip())
     if len(re.findall(r'[A-Za-z0-9]', extracted)) < 8:
-        raise FileProblem('This PDF has no readable text. Scanned PDFs need image reading, which is not switched on.', 'ocr_unavailable')
+        raise FileProblem('This PDF has no extractable text and the local OCR runtime is unavailable.', 'ocr_unavailable')
     return extracted[:LIMITS['max_pdf_text']]
 
 
