@@ -233,6 +233,6 @@ Release gates:
 - PDFs: PyMuPDF reads text page-by-page and OCRs scanned pages, including mixed text/scanned documents.
 - Parser: natural dates such as `9 Nov 2026` and shift times separated by spaces are accepted; ambiguous numeric dates remain unresolved for user correction.
 - Catalogue learning: during review, the user can explicitly save an unmatched workplace and shift area. These become reusable choices for later imports; no separate setup questionnaire is required.
-- Work entry: rota upload is the primary action. Manual Work records use the existing account-private Builder API; the retired `/api/work-setup` endpoint is not used.
+- Work entry: rota upload is the primary action. The full manual Work Settings editor remains optional and uses the active planner API; it supports contracted hours, pay, leave, locations, areas, times and weekday patterns. The account-private Work records form remains available separately.
 - Windows package: a separate workflow builds a clearly labelled test ZIP and checks that the OCR executable and English model are present.
 - Remaining acceptance: run the workflow, inspect the artifact, test representative NHS rota photos/scanned PDFs, confirm OCR quality and review corrections, and test SQLite/PostgreSQL migration parity. No live deployment is part of this branch.
