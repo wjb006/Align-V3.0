@@ -437,7 +437,12 @@ def _extract_one(path: Path, item):
                     return {'format': extension, 'code': 'ocr_unavailable', 'drafts': []}
                 raise
         except rota_ocr_provider.OcrError:
-            return {'format': extension, 'code': 'ocr_failed', 'drafts': []}
+            # If PDF rendering fails, retain the legacy native-text extractor
+            # as a safe fallback; scanned pages still report an OCR failure.
+            try:
+                drafts = rota_parser.interpret_pdf_text(_pdf_text(payload))
+            except (FileProblem, rota_parser.ParseProblem):
+                return {'format': extension, 'code': 'ocr_failed', 'drafts': []}
         except rota_parser.ParseProblem as error:
             return {'format': extension, 'code': error.code, 'message': str(error), 'drafts': []}
     if len(drafts) > LIMITS['max_rows']:
