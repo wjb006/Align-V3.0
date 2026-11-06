@@ -27,6 +27,10 @@ REQUIRED_FILES = (
     "align_paths.py",
     "static/desktop.html",
     "static/index.html",
+    "desktop/auth.py",
+    "static/desktop-login.html",
+    "static/desktop-login.css",
+    "static/desktop-login.js",
 )
 PROGRAMME_ROOT_ENV = "ALIGN_PROGRAMME_ROOT"
 APP_CODE_ENV = "ALIGN_APP_CODE"
