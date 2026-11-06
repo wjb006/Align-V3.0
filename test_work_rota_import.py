@@ -483,6 +483,9 @@ class RotaImportTests(unittest.TestCase):
         self.assertEqual(ocr_row['work_date'], '2026-11-09')
         self.assertEqual(ocr_row['start_time'], '08:00')
         self.assertEqual(ocr_row['end_time'], '16:00')
+        with self.assertRaises(rota_parser.ParseProblem) as shared:
+            rota_parser.interpret_pdf_text('Name Date Start End\\nAlex Smith 2026-11-09 08:00-16:00\\nJordan Lee 2026-11-09 08:00-16:00')
+        self.assertEqual(shared.exception.code, 'multiple_people')
         self.assertEqual(
             rota_parser.excel_date((date(2026, 11, 3) - date(1899, 12, 30)).days),
             '2026-11-03',
