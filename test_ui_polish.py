@@ -29,6 +29,8 @@ class UiPolishTests(unittest.TestCase):
         cls.server = (ROOT / "app.py").read_text(encoding="utf-8")
         cls.section_guide = (ROOT / "static/section-guide.js").read_text(encoding="utf-8")
         cls.migration = (ROOT / "migrations/158_section_guides.sql").read_text(encoding="utf-8")
+        cls.owner_admin = (ROOT / "static/beta-admin.js").read_text(encoding="utf-8")
+        cls.studio = (ROOT / "static/management-studio.html").read_text(encoding="utf-8")
 
     def token(self, name):
         match = re.search(rf"--{name}:\s*(#[0-9a-fA-F]{{6}})", self.css)
@@ -82,6 +84,12 @@ class UiPolishTests(unittest.TestCase):
         self.assertIn("const BUILD = 158;", self.worker)
         self.assertIn("158-v72", self.index)
         self.assertIn("/section-guide.js?v=158-v72", self.index)
+
+    def test_local_owner_screen_explains_hosted_only_features(self):
+        self.assertIn("/beta-admin.js?v=158-v72", self.studio)
+        self.assertIn("Not available in this local test installation.", self.owner_admin)
+        self.assertIn("does not indicate a fault with Build 158 or your Microsoft account.", self.owner_admin)
+        self.assertIn("https://getalign.co.uk/studio", self.owner_admin)
 
     def test_section_guides_are_included_in_build_158(self):
         self.assertIn("function openSectionGuide(", self.section_guide)
