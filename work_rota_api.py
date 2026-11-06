@@ -18,13 +18,21 @@ CAPABILITIES = {
     'csv': True,
     'xlsx': True,
     'pdf_text': True,
-    'image_ocr': False,
-    'scanned_pdf_ocr': False,
     'accepted_extensions': ['csv', 'xlsx', 'pdf', 'jpg', 'jpeg', 'png', 'heic', 'heif'],
 }
 
+
+def current_capabilities():
+    """Report OCR only when its local runtime is actually usable."""
+    result = dict(CAPABILITIES)
+    try:
+        result.update(files.rota_ocr_provider.capabilities())
+    except Exception:
+        result.update({'image_ocr': False, 'scanned_pdf_ocr': False, 'heic_ocr': False, 'provider': 'unavailable'})
+    return result
+
 _MESSAGES = {
-    'ocr_unavailable': 'Photos and scanned PDFs are not read yet. Image reading is not switched on.',
+    'ocr_unavailable': 'Local photo/scanned-PDF reading is unavailable. Install the Align OCR runtime and try again.',
     'multiple_people': 'This file looks like a shared rota. Remove other people and upload only your rows.',
     'unrecognized_table': 'No shift rows were found. Empty cells are not treated as days off.',
     'unsupported_file': 'Choose a CSV, Excel, PDF or photo file.',
@@ -108,7 +116,7 @@ def handle_multipart(handler, app, path) -> bool:
 
 def handle_get(handler, app, connection, path) -> bool:
     if path == '/api/work/rota/capabilities':
-        return _guard(handler, app, connection, lambda: (_require_work(connection, app, check_schema=False), handler.send_json(200, CAPABILITIES)))
+        return _guard(handler, app, connection, lambda: (_require_work(connection, app, check_schema=False), handler.send_json(200, current_capabilities())))
     match = _IMPORT.fullmatch(path)
     if not match:
         return False
