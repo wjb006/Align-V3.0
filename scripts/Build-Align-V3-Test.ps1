@@ -94,174 +94,9 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Align regression tests failed. The Windows package was not created." }
 
     Write-Host "Verifying Build 158 release markers..." -ForegroundColor Cyan
-    $ClientBuild = Select-String -Path "static\app.js" -Pattern '^const BUILD_VERSION = (\d+);
-    & node --check static/work-rota.js
-    if ($LASTEXITCODE -ne 0) { throw "Work rota JavaScript syntax check failed." }
-    & node --check static/desktop.js
-    if ($LASTEXITCODE -ne 0) { throw "Desktop JavaScript syntax check failed." }
-
-    Write-Host "Testing the Go launcher..." -ForegroundColor Cyan
-    Push-Location (Join-Path $BuildRoot "studio-launcher")
-    try {
-        & go test ./...
-        if ($LASTEXITCODE -ne 0) { throw "Go launcher tests failed." }
-    } finally { Pop-Location }
-
-    Write-Host "Building the isolated Windows test application..." -ForegroundColor Cyan
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $BuildRoot "desktop\build_test_windows.ps1")
-    if ($LASTEXITCODE -ne 0) { throw "Windows executable build failed." }
-
-    $AppRoot = Join-Path $BuildRoot "dist\Align V3.0 Test"
-    $MustExist = @(
-        (Join-Path $AppRoot "Align V3.0 Test.exe"),
-        (Join-Path $AppRoot "ocr\tesseract.exe"),
-        (Join-Path $AppRoot "ocr\tessdata\eng.traineddata"),
-        (Join-Path $BuildRoot "installer\windows\Install-Align-Test.ps1"),
-        (Join-Path $BuildRoot "installer\windows\README-Test.md")
-    )
-    foreach ($RequiredFile in $MustExist) {
-        if (-not (Test-Path $RequiredFile)) { throw "Required build file is missing: $RequiredFile" }
-    }
-
-    Write-Host "Assembling the Windows test ZIP..." -ForegroundColor Cyan
-    $PackageRoot = Join-Path $BuildRoot "dist\Align-V3.0-Test"
-    $PackageApp = Join-Path $PackageRoot "Align V3.0 Test"
-    New-Item -ItemType Directory -Force -Path $PackageApp | Out-Null
-    Copy-Item (Join-Path $AppRoot "*") $PackageApp -Recurse -Force
-    Copy-Item (Join-Path $BuildRoot "installer\windows\Install-Align-Test.ps1") $PackageRoot
-    Copy-Item (Join-Path $BuildRoot "installer\windows\README-Test.md") (Join-Path $PackageRoot "README.md")
-    Copy-Item (Join-Path $BuildRoot "desktop\README.md") (Join-Path $PackageRoot "BUILD.md")
-    $Commit = (& git -C $BuildRoot rev-parse --short HEAD).Trim()
-    @("ALIGN V3.0 TEST BUILD", "Build: 158", "Branch: $Branch", "Commit: $Commit", "NOT A PRODUCTION RELEASE") | Set-Content (Join-Path $PackageRoot "TEST-BUILD.txt") -Encoding UTF8
-    $ZipFile = Join-Path $BuildRoot "dist\Align-V3.0-Test-Windows.zip"
-    Compress-Archive -Path (Join-Path $PackageRoot "*") -DestinationPath $ZipFile -CompressionLevel Optimal -Force
-    if (-not (Test-Path $ZipFile)) { throw "The ZIP package was not created." }
-
-    Write-Host ""
-    Write-Host "BUILD COMPLETE" -ForegroundColor Green
-    Write-Host "Package: $ZipFile" -ForegroundColor Green
-    Write-Host "Installer in ZIP: Install-Align-Test.ps1" -ForegroundColor Green
-    Write-Host "Test data: $env:LOCALAPPDATA\Align-Test" -ForegroundColor Green
-    Write-Host "Test address: http://127.0.0.1:8011/desktop" -ForegroundColor Green
-    Write-Host "Normal Align data was not opened or changed." -ForegroundColor Green
-    Start-Process explorer.exe -ArgumentList ("/select," + $ZipFile)
-} finally {
-    Pop-Location
-    Write-Host "Isolated build source retained at: $BuildRoot" -ForegroundColor DarkGray
-}
-
-    $ServerBuild = Select-String -Path "app.py" -Pattern '^BUILD_VERSION = (\d+)
-    & node --check static/work-rota.js
-    if ($LASTEXITCODE -ne 0) { throw "Work rota JavaScript syntax check failed." }
-    & node --check static/desktop.js
-    if ($LASTEXITCODE -ne 0) { throw "Desktop JavaScript syntax check failed." }
-
-    Write-Host "Testing the Go launcher..." -ForegroundColor Cyan
-    Push-Location (Join-Path $BuildRoot "studio-launcher")
-    try {
-        & go test ./...
-        if ($LASTEXITCODE -ne 0) { throw "Go launcher tests failed." }
-    } finally { Pop-Location }
-
-    Write-Host "Building the isolated Windows test application..." -ForegroundColor Cyan
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $BuildRoot "desktop\build_test_windows.ps1")
-    if ($LASTEXITCODE -ne 0) { throw "Windows executable build failed." }
-
-    $AppRoot = Join-Path $BuildRoot "dist\Align V3.0 Test"
-    $MustExist = @(
-        (Join-Path $AppRoot "Align V3.0 Test.exe"),
-        (Join-Path $AppRoot "ocr\tesseract.exe"),
-        (Join-Path $AppRoot "ocr\tessdata\eng.traineddata"),
-        (Join-Path $BuildRoot "installer\windows\Install-Align-Test.ps1"),
-        (Join-Path $BuildRoot "installer\windows\README-Test.md")
-    )
-    foreach ($RequiredFile in $MustExist) {
-        if (-not (Test-Path $RequiredFile)) { throw "Required build file is missing: $RequiredFile" }
-    }
-
-    Write-Host "Assembling the Windows test ZIP..." -ForegroundColor Cyan
-    $PackageRoot = Join-Path $BuildRoot "dist\Align-V3.0-Test"
-    $PackageApp = Join-Path $PackageRoot "Align V3.0 Test"
-    New-Item -ItemType Directory -Force -Path $PackageApp | Out-Null
-    Copy-Item (Join-Path $AppRoot "*") $PackageApp -Recurse -Force
-    Copy-Item (Join-Path $BuildRoot "installer\windows\Install-Align-Test.ps1") $PackageRoot
-    Copy-Item (Join-Path $BuildRoot "installer\windows\README-Test.md") (Join-Path $PackageRoot "README.md")
-    Copy-Item (Join-Path $BuildRoot "desktop\README.md") (Join-Path $PackageRoot "BUILD.md")
-    $Commit = (& git -C $BuildRoot rev-parse --short HEAD).Trim()
-    @("ALIGN V3.0 TEST BUILD", "Build: 158", "Branch: $Branch", "Commit: $Commit", "NOT A PRODUCTION RELEASE") | Set-Content (Join-Path $PackageRoot "TEST-BUILD.txt") -Encoding UTF8
-    $ZipFile = Join-Path $BuildRoot "dist\Align-V3.0-Test-Windows.zip"
-    Compress-Archive -Path (Join-Path $PackageRoot "*") -DestinationPath $ZipFile -CompressionLevel Optimal -Force
-    if (-not (Test-Path $ZipFile)) { throw "The ZIP package was not created." }
-
-    Write-Host ""
-    Write-Host "BUILD COMPLETE" -ForegroundColor Green
-    Write-Host "Package: $ZipFile" -ForegroundColor Green
-    Write-Host "Installer in ZIP: Install-Align-Test.ps1" -ForegroundColor Green
-    Write-Host "Test data: $env:LOCALAPPDATA\Align-Test" -ForegroundColor Green
-    Write-Host "Test address: http://127.0.0.1:8011/desktop" -ForegroundColor Green
-    Write-Host "Normal Align data was not opened or changed." -ForegroundColor Green
-    Start-Process explorer.exe -ArgumentList ("/select," + $ZipFile)
-} finally {
-    Pop-Location
-    Write-Host "Isolated build source retained at: $BuildRoot" -ForegroundColor DarkGray
-}
-
-    $WorkerBuild = Select-String -Path "static\service-worker.js" -Pattern '^const BUILD = (\d+);
-    & node --check static/work-rota.js
-    if ($LASTEXITCODE -ne 0) { throw "Work rota JavaScript syntax check failed." }
-    & node --check static/desktop.js
-    if ($LASTEXITCODE -ne 0) { throw "Desktop JavaScript syntax check failed." }
-
-    Write-Host "Testing the Go launcher..." -ForegroundColor Cyan
-    Push-Location (Join-Path $BuildRoot "studio-launcher")
-    try {
-        & go test ./...
-        if ($LASTEXITCODE -ne 0) { throw "Go launcher tests failed." }
-    } finally { Pop-Location }
-
-    Write-Host "Building the isolated Windows test application..." -ForegroundColor Cyan
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $BuildRoot "desktop\build_test_windows.ps1")
-    if ($LASTEXITCODE -ne 0) { throw "Windows executable build failed." }
-
-    $AppRoot = Join-Path $BuildRoot "dist\Align V3.0 Test"
-    $MustExist = @(
-        (Join-Path $AppRoot "Align V3.0 Test.exe"),
-        (Join-Path $AppRoot "ocr\tesseract.exe"),
-        (Join-Path $AppRoot "ocr\tessdata\eng.traineddata"),
-        (Join-Path $BuildRoot "installer\windows\Install-Align-Test.ps1"),
-        (Join-Path $BuildRoot "installer\windows\README-Test.md")
-    )
-    foreach ($RequiredFile in $MustExist) {
-        if (-not (Test-Path $RequiredFile)) { throw "Required build file is missing: $RequiredFile" }
-    }
-
-    Write-Host "Assembling the Windows test ZIP..." -ForegroundColor Cyan
-    $PackageRoot = Join-Path $BuildRoot "dist\Align-V3.0-Test"
-    $PackageApp = Join-Path $PackageRoot "Align V3.0 Test"
-    New-Item -ItemType Directory -Force -Path $PackageApp | Out-Null
-    Copy-Item (Join-Path $AppRoot "*") $PackageApp -Recurse -Force
-    Copy-Item (Join-Path $BuildRoot "installer\windows\Install-Align-Test.ps1") $PackageRoot
-    Copy-Item (Join-Path $BuildRoot "installer\windows\README-Test.md") (Join-Path $PackageRoot "README.md")
-    Copy-Item (Join-Path $BuildRoot "desktop\README.md") (Join-Path $PackageRoot "BUILD.md")
-    $Commit = (& git -C $BuildRoot rev-parse --short HEAD).Trim()
-    @("ALIGN V3.0 TEST BUILD", "Build: 158", "Branch: $Branch", "Commit: $Commit", "NOT A PRODUCTION RELEASE") | Set-Content (Join-Path $PackageRoot "TEST-BUILD.txt") -Encoding UTF8
-    $ZipFile = Join-Path $BuildRoot "dist\Align-V3.0-Test-Windows.zip"
-    Compress-Archive -Path (Join-Path $PackageRoot "*") -DestinationPath $ZipFile -CompressionLevel Optimal -Force
-    if (-not (Test-Path $ZipFile)) { throw "The ZIP package was not created." }
-
-    Write-Host ""
-    Write-Host "BUILD COMPLETE" -ForegroundColor Green
-    Write-Host "Package: $ZipFile" -ForegroundColor Green
-    Write-Host "Installer in ZIP: Install-Align-Test.ps1" -ForegroundColor Green
-    Write-Host "Test data: $env:LOCALAPPDATA\Align-Test" -ForegroundColor Green
-    Write-Host "Test address: http://127.0.0.1:8011/desktop" -ForegroundColor Green
-    Write-Host "Normal Align data was not opened or changed." -ForegroundColor Green
-    Start-Process explorer.exe -ArgumentList ("/select," + $ZipFile)
-} finally {
-    Pop-Location
-    Write-Host "Isolated build source retained at: $BuildRoot" -ForegroundColor DarkGray
-}
-
+    $ClientBuild = Select-String -Path "static\app.js" -Pattern '^const BUILD_VERSION = ([0-9]+);$'
+    $ServerBuild = Select-String -Path "app.py" -Pattern '^BUILD_VERSION = ([0-9]+)$'
+    $WorkerBuild = Select-String -Path "static\service-worker.js" -Pattern '^const BUILD = ([0-9]+);$'
     if (-not $ClientBuild -or $ClientBuild.Matches[0].Groups[1].Value -ne "158") { throw "Client application is not Build 158." }
     if (-not $ServerBuild -or $ServerBuild.Matches[0].Groups[1].Value -ne "158") { throw "Server application is not Build 158." }
     if (-not $WorkerBuild -or $WorkerBuild.Matches[0].Groups[1].Value -ne "158") { throw "Offline worker is not Build 158." }
@@ -274,6 +109,12 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Work rota JavaScript syntax check failed." }
     & node --check static/desktop.js
     if ($LASTEXITCODE -ne 0) { throw "Desktop JavaScript syntax check failed." }
+    & node --check static/app.js
+    if ($LASTEXITCODE -ne 0) { throw "Build 158 app JavaScript syntax check failed." }
+    & node --check static/section-guide.js
+    if ($LASTEXITCODE -ne 0) { throw "Section guide JavaScript syntax check failed." }
+    & node --check static/service-worker.js
+    if ($LASTEXITCODE -ne 0) { throw "Build 158 service worker syntax check failed." }
 
     Write-Host "Testing the Go launcher..." -ForegroundColor Cyan
     Push-Location (Join-Path $BuildRoot "studio-launcher")
@@ -291,12 +132,19 @@ try {
         (Join-Path $AppRoot "Align V3.0 Test.exe"),
         (Join-Path $AppRoot "ocr\tesseract.exe"),
         (Join-Path $AppRoot "ocr\tessdata\eng.traineddata"),
+        (Join-Path $AppRoot "_internal\static\app.js"),
+        (Join-Path $AppRoot "_internal\static\section-guide.js"),
+        (Join-Path $AppRoot "_internal\migrations\158_section_guides.sql"),
         (Join-Path $BuildRoot "installer\windows\Install-Align-Test.ps1"),
         (Join-Path $BuildRoot "installer\windows\README-Test.md")
     )
     foreach ($RequiredFile in $MustExist) {
         if (-not (Test-Path $RequiredFile)) { throw "Required build file is missing: $RequiredFile" }
     }
+    $PackagedAppJs = Get-Content -Raw (Join-Path $AppRoot "_internal\static\app.js")
+    $PackagedIndex = Get-Content -Raw (Join-Path $AppRoot "_internal\static\index.html")
+    if ($PackagedAppJs -notmatch 'const BUILD_VERSION = 158;') { throw "Packaged frontend is not Build 158." }
+    if ($PackagedIndex -notmatch '158-v72') { throw "Packaged HTML shell is not using the Build 158 asset cache." }
 
     Write-Host "Assembling the Windows test ZIP..." -ForegroundColor Cyan
     $PackageRoot = Join-Path $BuildRoot "dist\Align-V3.0-Test"
@@ -306,6 +154,7 @@ try {
     Copy-Item (Join-Path $BuildRoot "installer\windows\Install-Align-Test.ps1") $PackageRoot
     Copy-Item (Join-Path $BuildRoot "installer\windows\README-Test.md") (Join-Path $PackageRoot "README.md")
     Copy-Item (Join-Path $BuildRoot "desktop\README.md") (Join-Path $PackageRoot "BUILD.md")
+    Copy-Item (Join-Path $BuildRoot "BUILD-158.md") (Join-Path $PackageRoot "BUILD-158.md")
     $Commit = (& git -C $BuildRoot rev-parse --short HEAD).Trim()
     @("ALIGN V3.0 TEST BUILD", "Build: 158", "Branch: $Branch", "Commit: $Commit", "NOT A PRODUCTION RELEASE") | Set-Content (Join-Path $PackageRoot "TEST-BUILD.txt") -Encoding UTF8
     $ZipFile = Join-Path $BuildRoot "dist\Align-V3.0-Test-Windows.zip"
