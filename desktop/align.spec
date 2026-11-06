@@ -49,6 +49,9 @@ hidden = [
     "studio_deploy",
 ]
 hidden += collect_submodules("desktop")
+hidden += collect_submodules("pytesseract")
+hidden += collect_submodules("fitz")
+hidden += collect_submodules("pillow_heif")
 
 a = Analysis(
     [str(ROOT / "desktop" / "__main__.py")],
