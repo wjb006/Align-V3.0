@@ -32,7 +32,7 @@ def current_capabilities():
     return result
 
 _MESSAGES = {
-    'ocr_unavailable': 'Local photo/scanned-PDF reading is unavailable. Install the Align OCR runtime and try again.',
+    'ocr_unavailable': 'Local photo/scanned-PDF reading is unavailable. Install the Tesseract OCR runtime and English language data, then try again.',
     'multiple_people': 'This file looks like a shared rota. Remove other people and upload only your rows.',
     'unrecognized_table': 'No shift rows were found. Empty cells are not treated as days off.',
     'unsupported_file': 'Choose a CSV, Excel, PDF or photo file.',
