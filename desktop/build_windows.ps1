@@ -12,7 +12,7 @@ $TesseractCandidates = @(
     (Join-Path ${env:ProgramFiles(x86)} "Tesseract-OCR")
 ) | Where-Object { $_ -and (Test-Path (Join-Path $_ "tesseract.exe")) }
 if (-not $TesseractCandidates) {
-    throw "Tesseract OCR is required for the photo/scanned-PDF test build. Install Tesseract OCR or set TESSERACT_INSTALL_DIR."
+    throw "Tesseract OCR is required for the photo/scanned-PDF Windows build. Install Tesseract OCR or set TESSERACT_INSTALL_DIR."
 }
 $env:TESSERACT_INSTALL_DIR = (Resolve-Path ($TesseractCandidates | Select-Object -First 1)).Path
 if (-not (Test-Path (Join-Path $env:TESSERACT_INSTALL_DIR "tessdata\eng.traineddata"))) {
