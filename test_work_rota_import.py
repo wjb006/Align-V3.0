@@ -181,8 +181,8 @@ class RotaImportTests(unittest.TestCase):
 
     def test_review_can_learn_new_workplace_and_shift_area(self):
         uploaded = self.csv(
-            'date,start,end,department,location\\n'
-            '2026-11-10,08:00,16:00,Clinic,New Hospital\\n'
+            'date,start,end,department,location\n'
+            '2026-11-10,08:00,16:00,Clinic,New Hospital\n'
         )
         entry = uploaded['entries'][0]
         self.assertFalse(entry['approvable'])
