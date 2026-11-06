@@ -219,6 +219,49 @@ def update_entry(connection, import_id: str, entry_id: str, patch: dict):
         scored = rota_parser.apply_correction(current, patch)
     except rota_parser.ParseProblem as error:
         raise StorageError(str(error), error.code) from error
+    # A user can save a previously unseen workplace or shift area while
+    # reviewing their rota. This avoids a separate setup wizard and teaches
+    # the private catalogue only from an explicit review action.
+    if patch.get('create_location'):
+        name = rota_parser.clean_text(patch.get('new_location_name') or scored.get('location_text'), 80)
+        if not name:
+            raise StorageError('Enter a workplace name before saving it.', 'invalid_location')
+        address = rota_parser.clean_text(patch.get('new_location_address') or '', 1000)
+        existing = connection.execute('SELECT id,active FROM locations WHERE lower(name)=lower(?) LIMIT 1', (name,)).fetchone()
+        if existing:
+            location_id = int(existing['id'])
+            if not existing['active']:
+                connection.execute('UPDATE locations SET active=1 WHERE id=?', (location_id,))
+        else:
+            cursor = connection.execute(
+                'INSERT INTO locations(name,address,colour) VALUES(?,?,?)',
+                (name, address, '#365CE6'),
+            )
+            location_id = int(cursor.lastrowid)
+        scored['location_id'] = location_id
+        scored['location_text'] = name
+    if patch.get('create_shift_type'):
+        name = rota_parser.clean_text(patch.get('new_shift_type_name') or scored.get('department') or scored.get('shift_label'), 80)
+        if not name:
+            raise StorageError('Enter a shift area before saving it.', 'invalid_shift_type')
+        existing = connection.execute('SELECT id,active FROM shift_types WHERE lower(name)=lower(?) LIMIT 1', (name,)).fetchone()
+        if existing:
+            shift_type_id = int(existing['id'])
+            if not existing['active']:
+                connection.execute('UPDATE shift_types SET active=1 WHERE id=?', (shift_type_id,))
+        else:
+            cursor = connection.execute(
+                'INSERT INTO shift_types(name,colour) VALUES(?,?)',
+                (name, '#3B82F6'),
+            )
+            shift_type_id = int(cursor.lastrowid)
+        scored['shift_type_id'] = shift_type_id
+        scored['department'] = name
+    if scored.get('location_id') and scored.get('shift_type_id'):
+        connection.execute(
+            'INSERT INTO location_shift_types(location_id,shift_type_id) VALUES(?,?) ON CONFLICT(location_id,shift_type_id) DO NOTHING',
+            (int(scored['location_id']), int(scored['shift_type_id'])),
+        )
     _validate_links(connection, scored)
     duplicate = _duplicate_shift(connection, scored)
     scored['duplicate_shift_id'] = duplicate

@@ -27,6 +27,18 @@ jobs:
           go test ./...
           go build -trimpath -ldflags="-s -w" -o "..\dist\Align-Management-Studio.exe" .
           Pop-Location
+      - name: Install local Tesseract OCR
+        shell: pwsh
+        run: |
+          choco install tesseract --yes --no-progress
+          $candidates = @(
+            "$env:ProgramFiles\Tesseract-OCR",
+            "${env:ProgramFiles(x86)}\Tesseract-OCR"
+          ) | Where-Object { Test-Path (Join-Path $_ "tesseract.exe") }
+          $root = $candidates | Select-Object -First 1
+          if (-not $root) { throw "Tesseract OCR was not installed." }
+          if (-not (Test-Path (Join-Path $root "tessdata\eng.traineddata"))) { throw "English OCR model is missing." }
+          "TESSERACT_INSTALL_DIR=$root" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -39,6 +51,8 @@ jobs:
           python -m unittest test_desktop_programme.py
           python -m PyInstaller --noconfirm --clean desktop/align.spec
           if (-not (Test-Path "dist\Align\Align.exe")) { throw "Align.exe was not built" }
+          if (-not (Test-Path "dist\Align\ocr\tesseract.exe")) { throw "The package is missing its bundled OCR engine" }
+          if (-not (Test-Path "dist\Align\ocr\tessdata\eng.traineddata")) { throw "The package is missing the English OCR model" }
           Copy-Item "static/icons/align.ico" "dist/Align/align.ico" -Force
       - name: Assemble installer package
         shell: pwsh

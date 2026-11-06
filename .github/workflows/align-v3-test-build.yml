@@ -1,0 +1,91 @@
+name: Align V3.0 test build
+
+on:
+  push:
+    branches: [test/align-v3-ready-20261106]
+  pull_request:
+    branches: [codex/align-v3-rebuild]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-test-build:
+    runs-on: windows-latest
+    steps:
+      - name: Check out test branch
+        uses: actions/checkout@v4
+
+      - name: Install local Tesseract OCR
+        shell: pwsh
+        run: |
+          choco install tesseract --version=5.5.3.20260724 --yes --no-progress
+          $candidates = @(
+            "$env:ProgramFiles\Tesseract-OCR",
+            "${env:ProgramFiles(x86)}\Tesseract-OCR"
+          ) | Where-Object { Test-Path (Join-Path $_ "tesseract.exe") }
+          $root = $candidates | Select-Object -First 1
+          if (-not $root) { throw "Tesseract OCR was not installed." }
+          if (-not (Test-Path (Join-Path $root "tessdata\eng.traineddata"))) { throw "English OCR model is missing." }
+          "TESSERACT_INSTALL_DIR=$root" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          & (Join-Path $root "tesseract.exe") --list-langs
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: studio-launcher/go.mod
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip pyinstaller
+          python -m pip install -r requirements.txt
+
+      - name: Run Align, Work rota, OCR and authentication tests
+        shell: pwsh
+        run: |
+          python -m unittest test_test_build_isolation.py test_rota_ocr_provider.py test_work_setup.py test_work_rota_import.py test_desktop_auth.py test_desktop_auth_http.py test_desktop_programme.py test_desktop_update.py test_owner_builder.py test_admin_owner_status.py test_studio150.py test_asset_studio_migration.py test_studio_update.py test_studio_deploy.py test_studio_render_deploy.py test_personal_planner.py test_post_event_travel.py test_personal_otp.py test_transport_build149.py test_here_transit.py test_here_quota.py test_hosted_travel.py test_hosted_persistence.py test_month_calendar.py test_event_calendar_feed.py test_week_reminders151.py test_builder_finance.py test_builder_formatting.py test_local_backup.py test_ui_polish.py test_calendar_appearance.py test_phone_push.py test_credential_recovery.py
+
+      - name: Check frontend and launcher
+        shell: pwsh
+        run: |
+          node --check static/work-rota.js
+          node --check static/desktop.js
+          Push-Location studio-launcher
+          go test ./...
+          Pop-Location
+
+      - name: Build the Windows test application
+        shell: pwsh
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File desktop/build_test_windows.ps1
+          if (-not (Test-Path "dist\Align V3.0 Test\Align V3.0 Test.exe")) { throw "Align V3.0 Test.exe was not built." }
+          if (-not (Test-Path "dist\Align V3.0 Test\ocr\tesseract.exe")) { throw "The test application is missing its bundled OCR engine." }
+          if (-not (Test-Path "dist\Align V3.0 Test\ocr\tessdata\eng.traineddata")) { throw "The test application is missing the English OCR model." }
+
+      - name: Assemble clearly labelled test package
+        shell: pwsh
+        run: |
+          $root = Join-Path $PWD "dist/Align-V3.0-Test"
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          $testApp = Join-Path $root "Align V3.0 Test"
+          New-Item -ItemType Directory -Force -Path $testApp | Out-Null
+          Copy-Item "dist/Align V3.0 Test/*" $testApp -Recurse -Force
+          Copy-Item "installer/windows/Install-Align-Test.ps1" $root
+          Copy-Item "installer/windows/README-Test.md" (Join-Path $root "README.md")
+          Copy-Item "desktop/README.md" (Join-Path $root "BUILD.md")
+          "Align V3.0 TEST BUILD - branch test/align-v3-ready-20261106 - not a production release" | Set-Content (Join-Path $root "TEST-BUILD.txt")
+          Compress-Archive -Path $root -DestinationPath "$PWD/dist/Align-V3.0-Test-Windows.zip" -Force
+
+      - name: Upload Windows test package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Align-V3.0-Test-Windows
+          path: dist/Align-V3.0-Test-Windows.zip
+          retention-days: 30

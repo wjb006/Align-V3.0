@@ -9,6 +9,7 @@ import logging
 import re
 
 import rota_file_processor as files
+import rota_ocr_provider
 import work_rota_import
 import work_rota_storage as storage
 
@@ -20,11 +21,14 @@ CAPABILITIES = {
     'pdf_text': True,
     'image_ocr': False,
     'scanned_pdf_ocr': False,
+    'heic_ocr': False,
     'accepted_extensions': ['csv', 'xlsx', 'pdf', 'jpg', 'jpeg', 'png', 'heic', 'heif'],
 }
 
 _MESSAGES = {
-    'ocr_unavailable': 'Photos and scanned PDFs are not read yet. Image reading is not switched on.',
+    'ocr_unavailable': 'Local OCR is unavailable. Install Tesseract OCR with its English language data to read photos and scanned PDFs.',
+    'ocr_no_text': 'No readable rota text was found in this file. Try a clearer, well-lit photo or a higher-quality scan.',
+    'ocr_failed': 'The local OCR engine could not process this file. Try a clearer image or a text-based rota.',
     'multiple_people': 'This file looks like a shared rota. Remove other people and upload only your rows.',
     'unrecognized_table': 'No shift rows were found. Empty cells are not treated as days off.',
     'unsupported_file': 'Choose a CSV, Excel, PDF or photo file.',
@@ -108,7 +112,7 @@ def handle_multipart(handler, app, path) -> bool:
 
 def handle_get(handler, app, connection, path) -> bool:
     if path == '/api/work/rota/capabilities':
-        return _guard(handler, app, connection, lambda: (_require_work(connection, app, check_schema=False), handler.send_json(200, CAPABILITIES)))
+        return _guard(handler, app, connection, lambda: (_require_work(connection, app, check_schema=False), handler.send_json(200, _capabilities())))
     match = _IMPORT.fullmatch(path)
     if not match:
         return False
@@ -151,7 +155,12 @@ def handle_patch(handler, app, connection, path, payload) -> bool:
     def send():
         _require_work(connection, app)
         row = storage.update_entry(connection, match.group(1), match.group(2), payload or {})
-        handler.send_json(200, {'entry': storage.public_entry(row)})
+        current = _import_payload(connection, storage.get_import(connection, match.group(1)))
+        handler.send_json(200, {
+            'entry': storage.public_entry(row),
+            'locations': current['locations'],
+            'shift_types': current['shift_types'],
+        })
 
     return _guard(handler, app, connection, send)
 
@@ -211,6 +220,28 @@ def _require_work(connection, app, check_schema=True):
         storage.require_schema(connection)
 
 
+def _capabilities():
+    available = rota_ocr_provider.is_available()
+    pdf_available = available
+    heic_available = available
+    if pdf_available:
+        try:
+            import fitz  # noqa: F401
+        except Exception:
+            pdf_available = False
+    if heic_available:
+        try:
+            import pillow_heif  # noqa: F401
+        except Exception:
+            heic_available = False
+    return {
+        **CAPABILITIES,
+        'image_ocr': available,
+        'scanned_pdf_ocr': pdf_available,
+        'heic_ocr': heic_available,
+    }
+
+
 def _import_payload(connection, record):
     entries = [storage.public_entry(row) for row in storage.list_entries(connection, record['id'])]
     choices = storage.catalog(connection)
@@ -230,7 +261,7 @@ def _import_payload(connection, record):
         'entries': entries,
         'locations': [{'id': row['id'], 'name': row['name']} for row in choices['locations']],
         'shift_types': [{'id': row['id'], 'name': row['name']} for row in choices['shift_types']],
-        'capabilities': CAPABILITIES,
+        'capabilities': _capabilities(),
     }
 
 

@@ -21,7 +21,7 @@ PREVIOUS_NAME = "app-code.previous"
 ATTEMPT_NAME = "app-code.attempt"
 SCHEMA = 1
 REPO = "wjb006/Align-V3.0"
-BRANCH = "codex/align-v3-rebuild"
+BRANCH = os.environ.get("ALIGN_UPDATE_BRANCH", "codex/align-v3-rebuild").strip() or "codex/align-v3-rebuild"
 REQUIRED_FILES = (
     "app.py",
     "align_paths.py",

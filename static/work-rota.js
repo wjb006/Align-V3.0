@@ -2,7 +2,9 @@
 let workRota = {capabilities: null, current: null, error: '', stage: '', busy: false, editing: null};
 
 const rotaMessages = {
-  ocr_unavailable: 'Photos and scanned PDFs were not read. Image reading is not switched on.',
+  ocr_unavailable: 'Local OCR is not available on this installation. The original upload has been discarded.',
+  ocr_no_text: 'No readable rota text was found. Try a clearer, well-lit photo or a higher-quality scan.',
+  ocr_failed: 'The local OCR engine could not process this file. Try another image or a text-based rota.',
   multiple_people: 'This file looks like a shared rota. Remove other people and upload only your rows.',
   unrecognized_table: 'No shift rows were found. Empty cells are not treated as days off.',
   date: 'This date could be read in more than one way. Enter it as YYYY-MM-DD.',
@@ -13,8 +15,11 @@ const rotaMessages = {
 function rotaCapabilityNote() {
   const caps = workRota.capabilities || {};
   const sheets = [caps.csv && 'CSV', caps.xlsx && 'Excel', caps.pdf_text && 'text PDFs'].filter(Boolean).join(', ');
-  if (caps.image_ocr) return `${sheets || 'Supported files'} and photos can be read on this device.`;
-  return `${sheets || 'Spreadsheets and text PDFs'} can be read on this device. Photos (JPEG, PNG and HEIC) and scanned PDFs are checked, then left unread, because image reading is not switched on.`;
+  if (caps.image_ocr && caps.scanned_pdf_ocr) {
+    const photos = caps.heic_ocr ? 'JPG, PNG and HEIC photos' : 'JPG and PNG photos';
+    return `${sheets || 'Spreadsheets and PDFs'}, ${photos} and scanned PDFs are read privately using local OCR. Files are not sent to an external OCR service.`;
+  }
+  return `${sheets || 'Spreadsheets and text PDFs'} can be read here. Photo and scanned-PDF reading needs the local OCR runtime, which is not currently available on this installation.`;
 }
 
 async function openWorkRota() {
@@ -100,6 +105,9 @@ function renderRotaEditor(entry) {
   const current = workRota.current || {};
   const locationOptions = (current.locations || []).map(item => `<option value="${item.id}" ${Number(item.id) === Number(entry.location_id) ? 'selected' : ''}>${escapeHtml(item.name)}</option>`).join('');
   const typeOptions = (current.shift_types || []).map(item => `<option value="${item.id}" ${Number(item.id) === Number(entry.shift_type_id) ? 'selected' : ''}>${escapeHtml(item.name)}</option>`).join('');
+  const newLocation = !entry.location_id && Boolean(entry.location_text);
+  const newAreaName = entry.department || entry.shift_label || '';
+  const newArea = !entry.shift_type_id && Boolean(newAreaName);
   const kinds = ['shift', 'day_off', 'leave', 'sickness', 'unknown'].map(kind => `<option value="${kind}" ${entry.entry_kind === kind ? 'selected' : ''}>${kind.replace('_', ' ')}</option>`).join('');
   return `<form class="settings-form" data-rota-form="edit" data-id="${escapeHtml(entry.id)}" data-revision="${entry.revision}">
     <div class="form-grid two">
@@ -109,8 +117,15 @@ function renderRotaEditor(entry) {
       <label class="field">End<input name="end_time" type="time" value="${escapeHtml(entry.end_time || '')}"></label>
       <label class="field">Label<input name="shift_label" value="${escapeHtml(entry.shift_label || '')}" maxlength="80"></label>
       <label class="field">Department<input name="department" value="${escapeHtml(entry.department || '')}" maxlength="80"></label>
-      <label class="field">Location<select name="location_id"><option value="">Not matched</option>${locationOptions}</select></label>
-      <label class="field">Shift area<select name="shift_type_id"><option value="">Not matched</option>${typeOptions}</select></label>
+      <label class="field">Workplace<select name="location_id"><option value="">Not matched</option>${locationOptions}<option value="new" ${newLocation ? 'selected' : ''}>Save as a new workplace…</option></select></label>
+      <div class="form-grid" data-rota-new-location-fields ${newLocation ? '' : 'hidden'}>
+        <label class="field">New workplace name<input name="new_location_name" maxlength="80" value="${escapeHtml(entry.location_text || '')}" placeholder="e.g. Arrowe Park"></label>
+        <label class="field">Address (optional)<input name="new_location_address" maxlength="1000" value=""></label>
+      </div>
+      <label class="field">Shift area<select name="shift_type_id"><option value="">Not matched</option>${typeOptions}<option value="new" ${newArea ? 'selected' : ''}>Save as a new shift area…</option></select></label>
+      <div class="form-grid" data-rota-new-area-fields ${newArea ? '' : 'hidden'}>
+        <label class="field">New shift area name<input name="new_shift_type_name" maxlength="80" value="${escapeHtml(newAreaName)}" placeholder="e.g. Wards or Clinic"></label>
+      </div>
     </div>
     <label class="setup-check"><input name="confirm_ambiguity" type="checkbox"> Use this clock time even if it occurs twice when the clocks change</label>
     <div class="button-row"><button class="primary-button" type="submit">Save correction</button><button class="text-button" type="button" data-rota-action="cancel-edit">Cancel</button></div>
@@ -143,6 +158,19 @@ async function refreshRota(importId) {
   workRota.current = await api(`/api/work/rota/imports/${importId}`);
 }
 
+document.addEventListener('change', event => {
+  const form = event.target.closest('form[data-rota-form="edit"]');
+  if (!form) return;
+  if (event.target.name === 'location_id') {
+    const fields = form.querySelector('[data-rota-new-location-fields]');
+    if (fields) fields.hidden = event.target.value !== 'new';
+  }
+  if (event.target.name === 'shift_type_id') {
+    const fields = form.querySelector('[data-rota-new-area-fields]');
+    if (fields) fields.hidden = event.target.value !== 'new';
+  }
+});
+
 document.addEventListener('submit', async event => {
   const form = event.target;
   if (!form.dataset.rotaForm) return;
@@ -163,15 +191,20 @@ document.addEventListener('submit', async event => {
           shift_label: values.shift_label,
           department: values.department,
           entry_kind: values.entry_kind,
-          location_id: values.location_id ? Number(values.location_id) : null,
-          shift_type_id: values.shift_type_id ? Number(values.shift_type_id) : null,
+          location_id: values.location_id && values.location_id !== 'new' ? Number(values.location_id) : null,
+          shift_type_id: values.shift_type_id && values.shift_type_id !== 'new' ? Number(values.shift_type_id) : null,
+          create_location: values.location_id === 'new',
+          new_location_name: values.new_location_name || entry?.location_text || '',
+          new_location_address: values.new_location_address || '',
+          create_shift_type: values.shift_type_id === 'new',
+          new_shift_type_name: values.new_shift_type_name || entry?.department || entry?.shift_label || '',
           confirm_ambiguity: Boolean(form.elements.confirm_ambiguity.checked),
           review_status: entry?.review_status === 'rejected' ? 'pending' : 'pending',
         },
       });
       workRota.editing = null;
       const entries = workRota.current.entries.map(item => item.id === saved.entry.id ? saved.entry : item);
-      workRota.current = {...workRota.current, entries};
+      workRota.current = {...workRota.current, entries, locations: saved.locations || workRota.current.locations, shift_types: saved.shift_types || workRota.current.shift_types};
     }
   } catch (error) {
     workRota.error = error.message;

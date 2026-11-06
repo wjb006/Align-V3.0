@@ -72,7 +72,7 @@ ROOT = source_root()
 STATIC = ROOT / "static"
 DATA_DIR = Path(os.environ.get("ALIGN_DATA_DIR") or ROOT).expanduser()
 DATABASE = DATA_DIR / "align.sqlite3"
-BUILD_VERSION = 156
+BUILD_VERSION = 157
 APP_VERSION = "3.0"
 BETA_MODE = os.environ.get("ALIGN_BETA_MODE", "0") == "1" or "--beta" in sys.argv
 # The desktop launcher marks its private loopback server. Hosted/beta sessions
