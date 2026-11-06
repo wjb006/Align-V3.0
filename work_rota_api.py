@@ -20,7 +20,8 @@ CAPABILITIES = {
     'xlsx': True,
     'pdf_text': True,
     'image_ocr': False,
-    'scanned_pdf_ocr': False,\n    'heic_ocr': False,
+    'scanned_pdf_ocr': False,
+    'heic_ocr': False,
     'accepted_extensions': ['csv', 'xlsx', 'pdf', 'jpg', 'jpeg', 'png', 'heic', 'heif'],
 }
 
