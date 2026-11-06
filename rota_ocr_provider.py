@@ -26,7 +26,7 @@ class LocalTesseractProvider:
         configured = os.environ.get("ALIGN_TESSERACT_CMD", "").strip()
         candidate = configured or shutil.which("tesseract")
         if not candidate and os.name == "nt":
-            windows_default = Path(os.environ.get("ProgramFiles", r"C:\\Program Files")) / "Tesseract-OCR" / "tesseract.exe"
+            windows_default = Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Tesseract-OCR" / "tesseract.exe"
             if windows_default.is_file():
                 candidate = str(windows_default)
         if not candidate:
