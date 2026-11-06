@@ -15,7 +15,10 @@ const rotaMessages = {
 function rotaCapabilityNote() {
   const caps = workRota.capabilities || {};
   const sheets = [caps.csv && 'CSV', caps.xlsx && 'Excel', caps.pdf_text && 'text PDFs'].filter(Boolean).join(', ');
-  if (caps.image_ocr && caps.scanned_pdf_ocr) return `${sheets || 'Spreadsheets and PDFs'}, photos and scanned PDFs are read privately using local OCR. Files are not sent to an external OCR service.`;
+  if (caps.image_ocr && caps.scanned_pdf_ocr) {
+    const photos = caps.heic_ocr ? 'JPG, PNG and HEIC photos' : 'JPG and PNG photos';
+    return `${sheets || 'Spreadsheets and PDFs'}, ${photos} and scanned PDFs are read privately using local OCR. Files are not sent to an external OCR service.`;
+  }
   return `${sheets || 'Spreadsheets and text PDFs'} can be read here. Photo and scanned-PDF reading needs the local OCR runtime, which is not currently available on this installation.`;
 }
 
