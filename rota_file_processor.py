@@ -394,22 +394,32 @@ def extract_files(files):
                 pass
 
 
+def _ocr_drafts(path: Path, media_type: str):
+    text = rota_ocr_provider.get_provider().extract_text(path, media_type)
+    return rota_parser.interpret_pdf_text(text)
+
+
 def _extract_one(path: Path, item):
     extension = item['extension']
-    if extension in {'jpg', 'jpeg', 'png', 'heic', 'heif'}:
-        try:
-            rota_ocr_provider.get_provider().extract_text(path, item['media_type'])
-        except rota_ocr_provider.OcrUnavailable:
-            return {'format': extension, 'code': 'ocr_unavailable', 'drafts': []}
-        return {'format': extension, 'code': 'ocr_unavailable', 'drafts': []}
-    payload = path.read_bytes()
+    payload = None
     try:
-        if extension == 'csv':
-            drafts = rota_parser.interpret_table(_csv_rows(payload))
-        elif extension == 'xlsx':
-            drafts = rota_parser.interpret_table(_xlsx_rows(payload))
+        if extension in {'jpg', 'jpeg', 'png', 'heic', 'heif'}:
+            drafts = _ocr_drafts(path, item['media_type'])
         else:
-            drafts = rota_parser.interpret_pdf_text(_pdf_text(payload))
+            payload = path.read_bytes()
+            if extension == 'csv':
+                drafts = rota_parser.interpret_table(_csv_rows(payload))
+            elif extension == 'xlsx':
+                drafts = rota_parser.interpret_table(_xlsx_rows(payload))
+            else:
+                try:
+                    drafts = rota_parser.interpret_pdf_text(_pdf_text(payload))
+                except FileProblem as error:
+                    if error.code != 'ocr_unavailable':
+                        raise
+                    drafts = _ocr_drafts(path, item['media_type'])
+    except rota_ocr_provider.OcrUnavailable:
+        return {'format': extension, 'code': 'ocr_unavailable', 'drafts': []}
     except rota_parser.ParseProblem as error:
         return {'format': extension, 'code': error.code, 'message': str(error), 'drafts': []}
     if len(drafts) > LIMITS['max_rows']:
