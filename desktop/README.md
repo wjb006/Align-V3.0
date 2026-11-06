@@ -113,3 +113,18 @@ The Windows test package bundles Tesseract and its English language model in the
 The original upload is held only in the private temporary processing folder and deleted after extraction, including on failure. Align keeps the extracted fields needed for the review queue; it does not retain the original image/PDF or send it to an external OCR provider. A photo is not automatically added to the calendar: the extracted rows must be reviewed and explicitly approved first.
 
 This is a test build. It must not be treated as a production release until Windows package, OCR accuracy on representative rotas, SQLite/PostgreSQL migrations, planner/calendar, travel, Owner Studio and data-preservation checks have passed.
+
+
+## Isolated Align V3.0 test build
+
+Build the test executable from the repository root with:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File desktop\build_test_windows.ps1
+```
+
+The test entry point is compiled as `Align V3.0 Test.exe`. It hard-wires an isolated data directory at `%LOCALAPPDATA%\Align-Test`, disables legacy database adoption, uses port `8011`, and checks updates only from `test/align-v3-readiness`. It does not open or migrate `%LOCALAPPDATA%\Align\align.sqlite3`.
+
+The test installer is `installer\windows\Install-Align-Test.ps1`. It installs beside the normal programme at `%LOCALAPPDATA%\Programs\Align V3.0 Test` and creates a separate desktop shortcut. The normal Align installation, its shortcut, its port and its data directory are left alone.
+
+Both standard and test Windows packages require Tesseract OCR and bundle its executable, DLLs and English model. The test package is not a production release and should be tested with its own local Owner account and test data only.
