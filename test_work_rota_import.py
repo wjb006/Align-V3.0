@@ -162,7 +162,7 @@ class RotaImportTests(unittest.TestCase):
         self.assertIn('local OCR runtime not detected', script)
         self.assertIn('Upload my rota', Path('static/app.js').read_text(encoding='utf-8'))
         index = Path('static/index.html').read_text(encoding='utf-8')
-        version = re.search(r'/app\\.js\\?v=([^"\\']+)', index)
+        version = re.search('/app[.]js[?]v=([^"]+)', index)
         self.assertIsNotNone(version)
         self.assertIn(f'/work-rota.js?v={version.group(1)}', index)
         self.assertIn('/work-rota.js?v=${ASSET_VERSION}', Path('static/service-worker.js').read_text(encoding='utf-8'))
