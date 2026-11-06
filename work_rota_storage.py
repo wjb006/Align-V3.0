@@ -259,7 +259,7 @@ def update_entry(connection, import_id: str, entry_id: str, patch: dict):
         scored['department'] = name
     if scored.get('location_id') and scored.get('shift_type_id'):
         connection.execute(
-            'INSERT OR IGNORE INTO location_shift_types(location_id,shift_type_id) VALUES(?,?)',
+            'INSERT INTO location_shift_types(location_id,shift_type_id) VALUES(?,?) ON CONFLICT(location_id,shift_type_id) DO NOTHING',
             (int(scored['location_id']), int(scored['shift_type_id'])),
         )
     _validate_links(connection, scored)
