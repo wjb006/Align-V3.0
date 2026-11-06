@@ -4,10 +4,7 @@ import unittest
 from test_support import IsolatedAppServer
 
 
-class WorkSetupApiTests(unittest.TestCase):
-    setUp = IsolatedAppServer.setUp
-    tearDown = IsolatedAppServer.tearDown
-    json_request = IsolatedAppServer.json_request
+class WorkSetupApiTests(IsolatedAppServer, unittest.TestCase):
 
     def test_manual_work_settings_save_and_reload(self):
         original = self.json_request("GET", "/api/work-setup")
