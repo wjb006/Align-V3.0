@@ -51,6 +51,8 @@ jobs:
           python -m unittest test_desktop_programme.py test_rota_ocr_provider.py test_work_setup.py test_work_rota_import.py
           python -m PyInstaller --noconfirm --clean desktop/align.spec
           if (-not (Test-Path "dist\Align\Align.exe")) { throw "Align.exe was not built" }
+          if (-not (Test-Path "dist\Align\ocr\tesseract.exe")) { throw "The package is missing its bundled OCR engine" }
+          if (-not (Test-Path "dist\Align\ocr\tessdata\eng.traineddata")) { throw "The package is missing the English OCR model" }
           Copy-Item "static/icons/align.ico" "dist/Align/align.ico" -Force
       - name: Assemble installer package
         shell: pwsh
