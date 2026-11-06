@@ -1,7 +1,7 @@
 # Align V3 Work Rota Import — Implementation Specification
 
 Status: implemented on the isolated test branch; automated and real-device verification pending
-Target branch: test/align-v3-readiness
+Target branch: test/align-v3-ready-20261106
 Base: codex/align-v3-rebuild
 
 The test implementation includes local Tesseract OCR for JPEG/PNG/HEIC photos and scanned PDF pages. PyMuPDF extracts native PDF text and renders only scanned pages for local OCR. OCR does not send rota files or text to an external provider. The Windows test package bundles the Tesseract executable, required DLLs and English model. The test branch is not merged or deployed.
