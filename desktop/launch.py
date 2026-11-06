@@ -57,6 +57,12 @@ def _serve(data_dir: Path) -> int:
     os.environ["ALIGN_DATA_DIR"] = str(data_dir)
     os.environ["ALIGN_STUDIO_LOCAL"] = "1"
     os.environ["ALIGN_BETA_MODE"] = "0"
+    from desktop.app_code import prepare_runtime, watch_override_health
+    from desktop.update import maybe_check_on_launch
+
+    prepare_runtime(commit=True)
+    watch_override_health(data_dir)
+    maybe_check_on_launch(data_dir)
     import app
     app.main()
     return 0

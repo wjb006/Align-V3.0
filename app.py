@@ -1227,6 +1227,10 @@ class AlignHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         self.rewrite_public_path()
+        if urlparse(self.path).path.startswith("/api/desktop/update"):
+            from desktop.update_http import handle_update
+            handle_update(self)
+            return
         if urlparse(self.path).path == "/api/desktop/status":
             from desktop.status import handle_status
             handle_status(self)
@@ -1279,6 +1283,10 @@ class AlignHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         self.rewrite_public_path()
+        if urlparse(self.path).path.startswith("/api/desktop/update"):
+            from desktop.update_http import handle_update
+            handle_update(self)
+            return
         if reject_retired_schedule_endpoint(self): return
         if build152.handle(self, sys.modules[__name__], 'POST'): return
         if phone_push.handle(self, sys.modules[__name__], 'POST'): return

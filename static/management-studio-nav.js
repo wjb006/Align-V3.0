@@ -322,6 +322,24 @@
       status.dataset.state = 'saved';
       status.textContent = payload.summary || 'Already up to date.';
       window.AlignStudioNotice?.(status.textContent, 'saved');
+      if (payload.restart_required || payload.restarting) {
+        const waitForRestart = async () => {
+          for (let attempt = 0; attempt < 30; attempt += 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            try {
+              const health = await fetch('/api/health', { cache: 'no-store' });
+              if (health.ok) {
+                location.reload();
+                return;
+              }
+            } catch (reloadError) {
+              /* The programme is restarting. */
+            }
+          }
+        };
+        void waitForRestart();
+        return;
+      }
       if (payload.changed) setTimeout(() => location.reload(), 900);
     } catch (error) {
       status.dataset.state = 'error';

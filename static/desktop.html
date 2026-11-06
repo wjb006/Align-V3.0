@@ -8,7 +8,7 @@
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/icons/align-180.png">
 <link rel="stylesheet" href="/styles.css?v=156-v57">
-<link rel="stylesheet" href="/desktop.css?v=156-v1">
+<link rel="stylesheet" href="/desktop.css?v=156-v2">
 <link rel="stylesheet" href="/visual-theme.css?v=156-v57">
 </head>
 <body class="desktop-body">
@@ -35,12 +35,19 @@
     <span>This computer</span>
     <strong id="desktop-status-title">Checking Align…</strong>
     <p id="desktop-status-copy">Looking at the local server. The public website is not checked from here.</p>
-    <button type="button" id="desktop-retry">Check again</button>
+    <p id="desktop-update-copy" role="status">Update status will appear here.</p>
+    <div class="desktop-update-row">
+      <button type="button" id="desktop-retry">Check again</button>
+      <button type="button" data-update="check">Check for updates</button>
+      <button type="button" data-update="apply" hidden>Download and restart</button>
+    </div>
+    <label class="desktop-check"><input type="checkbox" data-update="launch"> Check when Align opens</label>
   </section>
 </main>
 <footer>
   <p>The hosted site at getalign.co.uk stays online when this PC is off. Reinstalling this programme does not replace planner data already saved on this computer.</p>
 </footer>
-<script src="/desktop.js?v=156-v1"></script>
+<script src="/desktop.js?v=156-v2"></script>
+<script src="/desktop-update.js?v=156-v2"></script>
 </body>
 </html>

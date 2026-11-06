@@ -1214,7 +1214,11 @@ def handle(handler, app, method):
             return True
         try:
             import studio_update
-            handler.send_json(200, studio_update.update_from_github(app.initialise_database))
+            result = studio_update.update_from_github(app.initialise_database)
+            handler.send_json(200, result)
+            if result.get("restart_required"):
+                from desktop.update import schedule_restart
+                schedule_restart(handler.server)
         except (OSError, RuntimeError, subprocess.SubprocessError, subprocess.TimeoutExpired) as exc:
             handler.send_json(400, {'error': str(exc)})
         return True

@@ -46,7 +46,7 @@ a = Analysis(
     hiddenimports=hidden,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=[str(ROOT / "desktop" / "pyi_rth_appcode.py")],
     excludes=["pytest", "tkinter"],
     noarchive=False,
 )

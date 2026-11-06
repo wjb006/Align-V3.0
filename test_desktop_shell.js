@@ -54,5 +54,19 @@ if (!installer.includes('align.ico') || !installer.includes('IconLocation')) {
   throw new Error('The Windows shortcut must use align.ico');
 }
 if (!home.includes('/icons/align-source.png')) throw new Error('Desktop home must show the Align icon');
+if (!home.includes('Check for updates') || !home.includes('Check when Align opens')) {
+  throw new Error('Desktop home must offer an update check');
+}
+const updateScript = fs.readFileSync('static/desktop-update.js', 'utf8');
+const planner = fs.readFileSync('static/app.js', 'utf8');
+if (!updateScript.includes('/api/desktop/update') || !updateScript.includes('data-update')) {
+  throw new Error('The update screen must use the desktop update route');
+}
+if (!planner.includes('Programme updates') || !planner.includes('Check for updates')) {
+  throw new Error('Settings must offer a programme update check');
+}
+if (updateScript.includes('git pull') || home.includes('git pull')) {
+  throw new Error('The desktop update screen must not offer git');
+}
 
 console.log('Desktop shell checks passed');

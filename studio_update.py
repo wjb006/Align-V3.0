@@ -43,12 +43,15 @@ def upstream_branch() -> tuple[str, str]:
 
 
 def update_from_github(initialise) -> dict:
-    """Fast-forward this folder to the upstream branch it is checked out from."""
+    """Update this programme.
+
+    A source checkout fast-forwards its configured branch. An installed
+    programme uses the desktop updater: it downloads the latest commit over
+    HTTPS and stages that code beside the saved planner. It does not use git.
+    """
     if getattr(sys, "frozen", False):
-        raise RuntimeError(
-            "This installed Align programme is updated by installing a new Windows package. "
-            "Your saved planner data is kept."
-        )
+        from desktop.update import apply_installed_update
+        return apply_installed_update()
     before = current_commit()
     remote, branch = upstream_branch()
     result = _git("pull", "--ff-only", remote, branch)
