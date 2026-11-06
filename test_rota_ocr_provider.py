@@ -60,7 +60,7 @@ class LocalOcrProviderTests(unittest.TestCase):
             image_path = Path(folder) / "rota-photo.png"
             image = Image.new("RGB", (2200, 420), "white")
             draw = ImageDraw.Draw(image)
-            font_path = Path(r"C:\\Windows\\Fonts\\arial.ttf")
+            font_path = Path("C:/Windows/Fonts/arial.ttf")
             if not font_path.is_file():
                 self.skipTest("Windows Arial font is not available")
             font = ImageFont.truetype(str(font_path), 110)
