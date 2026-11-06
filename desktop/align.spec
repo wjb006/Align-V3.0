@@ -12,6 +12,9 @@ from PyInstaller.utils.hooks import collect_submodules
 
 ROOT = Path(SPECPATH).resolve().parent
 sys.path.insert(0, str(ROOT))
+TEST_BUILD = os.environ.get("ALIGN_TEST_BUILD") == "1"
+APP_NAME = "Align V3.0 Test" if TEST_BUILD else "Align"
+ENTRY_SCRIPT = "test_launch.py" if TEST_BUILD else "__main__.py"
 
 datas = [
     (str(ROOT / "static"), "static"),
@@ -54,7 +57,7 @@ hidden += collect_submodules("fitz")
 hidden += collect_submodules("pillow_heif")
 
 a = Analysis(
-    [str(ROOT / "desktop" / "__main__.py")],
+    [str(ROOT / "desktop" / ENTRY_SCRIPT)],
     pathex=[str(ROOT)],
     binaries=[],
     datas=datas,
@@ -71,7 +74,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="Align",
+    name=APP_NAME,
     icon=str(ROOT / "static" / "icons" / "align.ico"),
     debug=False,
     bootloader_ignore_signals=False,
