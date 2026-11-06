@@ -1,0 +1,4 @@
+# On-device OCR for private rota photographs and scanned PDFs.
+pytesseract>=0.3.13,<1
+PyMuPDF>=1.24,<2
+pillow-heif>=1.1,<2

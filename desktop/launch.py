@@ -56,6 +56,7 @@ def _write_state(data_dir: Path, port: int, database_action: str) -> None:
 def _serve(data_dir: Path) -> int:
     os.environ["ALIGN_DATA_DIR"] = str(data_dir)
     os.environ["ALIGN_STUDIO_LOCAL"] = "1"
+    os.environ["ALIGN_LOCAL_LOGIN_ENABLED"] = "1"
     os.environ["ALIGN_BETA_MODE"] = "0"
     from desktop.app_code import prepare_runtime, watch_override_health
     from desktop.update import maybe_check_on_launch

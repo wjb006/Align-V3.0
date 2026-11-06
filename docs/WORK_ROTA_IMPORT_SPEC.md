@@ -1,8 +1,10 @@
 # Align V3 Work Rota Import — Implementation Specification
 
-Status: approved product direction; implementation planning
-Target branch: codex/work-rota-import
+Status: implemented on the isolated test branch; automated and real-device verification pending
+Target branch: test/align-v3-ready-20261106
 Base: codex/align-v3-rebuild
+
+The test implementation includes local Tesseract OCR for JPEG/PNG/HEIC photos and scanned PDF pages. PyMuPDF extracts native PDF text and renders only scanned pages for local OCR. OCR does not send rota files or text to an external provider. The Windows test package bundles the Tesseract executable, required DLLs and English model. The test branch is not merged or deployed.
 Scope: private, user-approved rota import into the existing Align Work and calendar experience.
 
 ## 1. Product decisions
@@ -139,7 +141,7 @@ Do not expose temporary file paths or OCR provider payloads to the browser. Retu
 - Delete source files and derived artifacts after processing, including on exceptions and cancellation.
 - Add a periodic cleanup for abandoned temporary files/imports after crashes.
 - Do not log rota contents, employee names, addresses, OCR text, raw filenames or file bytes.
-- Do not send documents to an external OCR/AI provider until its data handling, retention, region, cost and user disclosure have been reviewed.
+- Do not send documents to an external OCR/AI provider. The test implementation uses local Tesseract only.
 - Keep only the minimum extracted shift fields required for the user's own schedule.
 - Provide an explicit delete action for pending imports and imported shifts.
 
@@ -210,7 +212,7 @@ Release gates:
 2. Add schema migration(s) and storage adapter tests.
 3. Add authenticated import-session and entry APIs without OCR provider coupling.
 4. Build upload and review UI using Align's existing components/styles.
-5. Add native PDF/spreadsheet extraction and an OCR provider adapter.
+5. Add native PDF/spreadsheet extraction and local Tesseract OCR for images and scanned PDF pages.
 6. Add parser, matching, confidence and correction logic.
 7. Add approval into the existing shifts table, alert generation, supported travel trigger and undo.
 8. Run full local and hosted-schema tests; review diff before deployment.
@@ -223,3 +225,14 @@ Release gates:
 - Payroll, timesheets or overtime calculations.
 - Sharing or collaborative rota management.
 - Learning from user corrections across accounts without an explicit, privacy-reviewed opt-in.
+
+
+## 14. Test-branch implementation notes
+
+- Photos: JPEG, PNG, HEIC/HEIF are decoded locally; Tesseract text is passed to the existing review parser.
+- PDFs: PyMuPDF reads text page-by-page and OCRs scanned pages, including mixed text/scanned documents.
+- Parser: natural dates such as `9 Nov 2026` and shift times separated by spaces are accepted; ambiguous numeric dates remain unresolved for user correction.
+- Catalogue learning: during review, the user can explicitly save an unmatched workplace and shift area. These become reusable choices for later imports; no separate setup questionnaire is required.
+- Work entry: rota upload is the primary action. The full manual Work Settings editor remains optional and uses the active planner API; it supports contracted hours, pay, leave, locations, areas, times and weekday patterns. The account-private Work records form remains available separately.
+- Windows package: a separate workflow builds a clearly labelled test ZIP and checks that the OCR executable and English model are present.
+- Remaining acceptance: run the workflow, inspect the artifact, test representative NHS rota photos/scanned PDFs, confirm OCR quality and review corrections, and test SQLite/PostgreSQL migration parity. No live deployment is part of this branch.

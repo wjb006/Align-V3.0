@@ -1,5 +1,5 @@
-const BUILD = 156;
-const ASSET_VERSION = `${BUILD}-v69`;
+const BUILD = 157;
+const ASSET_VERSION = `${BUILD}-v71`;
 
 const SHELL_CACHE = `align-v13-shell-${ASSET_VERSION}`;
 const API_CACHE = `align-v13-api-${ASSET_VERSION}`;
@@ -214,6 +214,10 @@ self.addEventListener('message', event => {
   }
   if (event.data?.type === 'ALIGN_CLEAR_PRIVATE') {
     event.waitUntil(caches.delete(API_CACHE));
+    return;
+  }
+  if (event.data?.type === 'ALIGN_CLEAR_DESKTOP_SESSION') {
+    event.waitUntil(Promise.all([caches.delete(API_CACHE), caches.delete(SHELL_CACHE)]));
     return;
   }
   if (event.data?.type !== 'ALIGN_DIAGNOSTICS') return;

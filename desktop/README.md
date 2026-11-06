@@ -96,3 +96,35 @@ node --check static/desktop.js
 node --check static/management-studio-calendar.js
 node test_desktop_shell.js
 ```
+
+## Local sign-in
+
+The installed desktop programme requires a local Owner sign-in. On first launch, create the local Owner account with an email address, display name, and password of at least 12 characters. Later launches restore the session automatically when **Keep me signed in** is selected (30 days). If it is not selected, the browser session ends when its profile closes and the server-side session expires after 12 hours. Use **Sign out** on the desktop home screen to revoke the current session.
+
+Local authentication is separate from hosted beta accounts and from the planner database. The account and hashed session records are stored in `desktop-auth.sqlite3` in the desktop data folder (normally `%LOCALAPPDATA%\\Align`). Passwords are salted PBKDF2-HMAC-SHA256 hashes; the browser receives only an HttpOnly, SameSite=Strict session cookie. Sign-in does not migrate, overwrite, or delete `align.sqlite3`.
+
+
+## Rota photo and scanned-PDF reading
+
+The test build uses Tesseract OCR on the same computer/server that processes the upload. JPEG, PNG and HEIC photos are decoded locally; scanned PDF pages are rendered locally with PyMuPDF and passed to Tesseract. Text-based PDF pages continue to use native text extraction. Mixed PDFs can contain both native and scanned pages.
+
+The Windows test package bundles Tesseract and its English language model in the application folder. Source builds require Tesseract OCR to be installed and discoverable on PATH or configured with `TESSERACT_CMD`. Render's native test service installs Tesseract from `apt.txt`.
+
+The original upload is held only in the private temporary processing folder and deleted after extraction, including on failure. Align keeps the extracted fields needed for the review queue; it does not retain the original image/PDF or send it to an external OCR provider. A photo is not automatically added to the calendar: the extracted rows must be reviewed and explicitly approved first.
+
+This is a test build. It must not be treated as a production release until Windows package, OCR accuracy on representative rotas, SQLite/PostgreSQL migrations, planner/calendar, travel, Owner Studio and data-preservation checks have passed.
+
+
+## Isolated Align V3.0 test build
+
+Build the test executable from the repository root with:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File desktop\build_test_windows.ps1
+```
+
+The test entry point is compiled as `Align V3.0 Test.exe`. It hard-wires an isolated data directory at `%LOCALAPPDATA%\Align-Test`, disables legacy database adoption, uses port `8011`, and checks updates only from `test/align-v3-ready-20261106`. It does not open or migrate `%LOCALAPPDATA%\Align\align.sqlite3`.
+
+The test installer is `installer\windows\Install-Align-Test.ps1`. It installs beside the normal programme at `%LOCALAPPDATA%\Programs\Align V3.0 Test` and creates a separate desktop shortcut. The normal Align installation, its shortcut, its port and its data directory are left alone.
+
+Both standard and test Windows packages require Tesseract OCR and bundle its executable, DLLs and English model. The test package is not a production release and should be tested with its own local Owner account and test data only.
