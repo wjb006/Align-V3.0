@@ -250,15 +250,18 @@ class DesktopLaunchTests(unittest.TestCase):
         previous = getattr(sys, "frozen", None)
         sys.frozen = True
         try:
-            with patch.object(studio_update, "_git", side_effect=lambda *args: called.append(args)):
-                with self.assertRaisesRegex(RuntimeError, "Windows package"):
-                    studio_update.update_from_github(lambda: called.append("database"))
+            with patch("desktop.update.apply_installed_update", return_value={"ok": True, "changed": True, "restart_required": True, "summary": "Restarting."}) as apply:
+                with patch.object(studio_update, "_git", side_effect=lambda *args: called.append(args)):
+                    result = studio_update.update_from_github(lambda: called.append("database"))
         finally:
             if previous is None:
                 del sys.frozen
             else:
                 sys.frozen = previous
         self.assertEqual(called, [])
+        apply.assert_called_once_with()
+        self.assertTrue(result["restart_required"])
+        self.assertNotIn("database", result["summary"])
 
     def test_other_programme_on_the_port_is_reported(self):
         class Handler(BaseHTTPRequestHandler):
@@ -309,6 +312,7 @@ class DesktopLaunchTests(unittest.TestCase):
             status, headers, home = get("/desktop")
             self.assertEqual(status, 200)
             self.assertIn(b"Planner and Management Studio", home)
+            self.assertIn(b"Check for updates", home)
             self.assertIn(b'href="/"', home)
             self.assertIn(b'href="/management-studio"', home)
             self.assertEqual(headers["X-Frame-Options"], "DENY")
@@ -333,6 +337,14 @@ class DesktopLaunchTests(unittest.TestCase):
             self.assertNotIn("sqlite", json.dumps(desktop_status).lower())
             joined = json.dumps(desktop_status)
             self.assertNotIn(folder, joined)
+
+            status, _, update_body = get("/api/desktop/update")
+            update = json.loads(update_body)
+            self.assertEqual(status, 200)
+            self.assertFalse(update["check_on_launch"])
+            self.assertFalse(update["token_saved"])
+            self.assertNotIn("token", update)
+            self.assertNotIn(folder, json.dumps(update))
 
             status, _, boot = get("/api/bootstrap")
             self.assertEqual(status, 200)

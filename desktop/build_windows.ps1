@@ -11,8 +11,23 @@ Invoke-Expression "$Python -m pip install --upgrade pip pyinstaller"
 if ($LASTEXITCODE -ne 0) { throw "Could not install PyInstaller." }
 Invoke-Expression "$Python -m pip install -r requirements.txt"
 if ($LASTEXITCODE -ne 0) { throw "Could not install Align's Python dependencies." }
-Invoke-Expression "$Python -m PyInstaller --noconfirm --clean desktop/align.spec"
-if ($LASTEXITCODE -ne 0) { throw "PyInstaller did not produce Align." }
+$InfoPath = Join-Path $Root "desktop\build_info.py"
+$InfoOriginal = [System.IO.File]::ReadAllText($InfoPath)
+$Commit = ""
+try { $Commit = (& git -C $Root rev-parse HEAD).Trim() } catch { $Commit = "" }
+if ($Commit -match '^[0-9a-f]{40}$') {
+    $Stamped = @"
+"""Commit recorded by the Windows build. Empty in a source checkout."""
+COMMIT = "$Commit"
+"@
+    [System.IO.File]::WriteAllText($InfoPath, $Stamped.Replace("`r`n", "`n") + "`n")
+}
+try {
+    Invoke-Expression "$Python -m PyInstaller --noconfirm --clean desktop/align.spec"
+    if ($LASTEXITCODE -ne 0) { throw "PyInstaller did not produce Align." }
+} finally {
+    [System.IO.File]::WriteAllText($InfoPath, $InfoOriginal)
+}
 $Built = Join-Path $Root "dist\Align\Align.exe"
 if (-not (Test-Path $Built)) { throw "Expected $Built" }
 Copy-Item (Join-Path $Root "static\icons\align.ico") (Join-Path $Root "dist\Align\align.ico") -Force

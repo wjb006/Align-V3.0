@@ -18,7 +18,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 156;
-const ASSET_VERSION = `${BUILD_VERSION}-v68`;
+const ASSET_VERSION = `${BUILD_VERSION}-v69`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -273,6 +273,7 @@ function render() {
   const cloudNotice = state.boot.icloud_public?.reconnect_required ? `<div class="card" role="status"><strong>iCloud needs reconnecting</strong><p>${escapeHtml(state.boot.icloud_public.message)}</p><button class="small-button" data-nav="settings">Open settings</button></div>` : '';
   app.innerHTML = cloudNotice + content;
   app.focus({ preventScroll: true });
+  window.AlignProgrammeUpdate?.refresh();
 }
 
 function renderPlannerCalendar() {
@@ -640,6 +641,11 @@ function renderOnboarding() {
   </section>`;
 }
 
+function renderProgrammeUpdate() {
+  if (state.boot.beta) return '';
+  return `<section class="section" id="programme-update"><div class="card settings-form"><h2>Programme updates</h2><p class="helper">Compare this programme with the latest commit on the Align desktop branch. Planner data on this computer is not replaced.</p><p class="helper" role="status" data-update="status">Checking this programme…</p><div class="button-row"><button type="button" class="secondary-button" data-update="check">Check for updates</button><button type="button" class="primary-button" data-update="apply" hidden>Download and restart</button></div><label class="field"><input type="checkbox" data-update="launch"> Check when Align opens</label><label class="field">GitHub token<input type="password" data-update="token" autocomplete="off" spellcheck="false" placeholder="Leave blank to keep the saved token"><small class="helper">On Windows this is saved in Credential Manager, or protected with DPAPI if that cannot be written. It is not stored in the planner database.</small></label><div class="button-row"><button type="button" class="secondary-button" data-update="save">Save update settings</button></div></div></section>`;
+}
+
 function renderLocalDataSettings() {
   if (state.boot.beta) return '';
   if (!isAdmin) {
@@ -671,6 +677,7 @@ function renderUserSettings() {
     <div class="settings-branch-list">${branches.map(branch => `<button class="card settings-branch ${branch.branch_key === state.settingsBranch ? 'selected' : ''}" data-action="settings-branch" data-branch="${escapeHtml(branch.branch_key)}"><span class="branch-icon">${escapeHtml(branch.icon)}</span><span><strong>${escapeHtml(branch.title)}</strong><small>${escapeHtml(branch.description)}</small></span><b>›</b></button>`).join('') || '<div class="card empty">No Settings branches are currently enabled.</div>'}</div>
     ${selected ? `<section class="section">${renderUserBranch(selected)}</section>` : ''}
     ${!isAdmin ? `<section class="section"><div class="card settings-form offline-tools-card"><div><p class="eyebrow">Offline support</p><h2>Offline diagnostics</h2></div><p class="helper">Check whether the app shell, phone database and saved planner responses are ready for use without the PC connection.</p><div class="button-row"><button type="button" class="secondary-button" data-action="offline-diagnostics">Open diagnostics</button><button type="button" class="primary-button" data-action="retry-offline-setup">Retry setup</button></div></div></section>` : ''}
+    ${renderProgrammeUpdate()}
     ${renderLocalDataSettings()}
     ${state.boot.beta ? `<section class="section"><div class="card settings-form"><p class="eyebrow">Account</p><h2>${escapeHtml(state.boot.beta.email)}</h2><p class="helper">Your planner and calendar data are stored in your own hosted account database. Database downloads and restores are disabled in hosted mode; this account’s data is not exposed to other persons.</p><div class="button-row"><button type="button" class="secondary-button" data-action="beta-feedback">Send feedback</button><button type="button" class="text-button" data-action="beta-logout">Sign out</button></div></div></section>` : ''}
   </section>`;

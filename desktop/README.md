@@ -72,6 +72,14 @@ A package that contains the application source but not `Align.exe` still needs P
 
 Uninstall by deleting the programme folder. Leave `%LOCALAPPDATA%\Align` in place if you want to keep the planner. Deleting that folder deletes the local database.
 
+## Updates
+
+Check for updates on the desktop home screen or in Settings. Align compares the running commit with the latest commit on `codex/align-v3-rebuild` and, when you ask, downloads that commit as a zip over HTTPS. It does not use git and it does not replace the programme file.
+
+Downloaded code is staged in `%LOCALAPPDATA%\Align\app-code`. The next launch uses that folder when it contains the Align pages, server modules, and migrations and names the commit it came from. Otherwise the programme uses the code bundled in `Align.exe`. A download that does not then become healthy is set aside on the following launch, and the bundled code is used. Planner data is not part of the download.
+
+A GitHub token is optional. On Windows it is stored in Credential Manager, or as a DPAPI blob if Credential Manager cannot store it. It is not written into the planner database. Check when Align opens is off until you turn it on, and that check does not download code.
+
 ## What the first launch does with an older database
 
 If `%LOCALAPPDATA%\Align\align.sqlite3` already has planner content, it is opened and left as it is.
