@@ -214,6 +214,7 @@ class RotaImportTests(unittest.TestCase):
             'POST',
             f"/api/work/rota/imports/{uploaded['import']['id']}/approve",
             {'idempotency_key': 'learn-workplace-01', 'entries': [{'id': entry['id'], 'revision': saved['entry']['revision']}]},
+            expected=200,
         )
         self.assertEqual(len(result['created']), 1)
         with app.db_connection() as connection:
