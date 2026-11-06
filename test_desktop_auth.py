@@ -24,6 +24,9 @@ class DesktopAuthTests(unittest.TestCase):
         self.assertEqual(user, {"email": "will@example.com", "display_name": "Will", "role": "Owner"})
         self.assertEqual(expires, 1_000 + REMEMBER_SECONDS)
         self.assertEqual(self.store.get_session(token, now=1_001)["role"], "Owner")
+        stored = self.database.read_bytes()
+        self.assertNotIn(b"a-long-local-password-123", stored)
+        self.assertNotIn(token.encode("ascii"), stored)
         restarted = DesktopAuthStore(self.database)
         self.assertEqual(restarted.get_session(token, now=1_002)["email"], "will@example.com")
 
