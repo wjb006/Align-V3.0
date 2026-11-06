@@ -35,6 +35,9 @@ hidden = [
     "postgres_support",
     "studio_update",
     "studio_deploy",
+    "pytesseract",
+    "fitz",
+    "pillow_heif",
 ]
 hidden += collect_submodules("desktop")
 
