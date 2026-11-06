@@ -44,11 +44,17 @@ if (-not (Test-Path (Join-Path $TesseractHome "tessdata\eng.traineddata"))) { th
 $env:TESSERACT_INSTALL_DIR = (Resolve-Path $TesseractHome).Path
 $env:TESSERACT_CMD = Join-Path $env:TESSERACT_INSTALL_DIR "tesseract.exe"
 $env:TESSDATA_DIR = Join-Path $env:TESSERACT_INSTALL_DIR "tessdata"
-# Avoid inherited TESSDATA_PREFIX values: Windows builds differ on whether
-# they append a tessdata subfolder. The Python adapter passes --tessdata-dir.
-Remove-Item Env:TESSDATA_PREFIX -ErrorAction SilentlyContinue
+# Point Tesseract directly at the verified English language-data directory.
+$env:TESSDATA_PREFIX = $env:TESSDATA_DIR
 Write-Host "Tesseract: $env:TESSERACT_INSTALL_DIR" -ForegroundColor Green
 Write-Host "Language data: $env:TESSDATA_DIR" -ForegroundColor DarkGray
+Write-Host "Verifying Tesseract can load English..." -ForegroundColor Cyan
+$LanguageOutput = & $env:TESSERACT_CMD --list-langs 2>&1
+$LanguageExitCode = $LASTEXITCODE
+$LanguageOutput | ForEach-Object { Write-Host $_ }
+if ($LanguageExitCode -ne 0 -or (($LanguageOutput -join "`n") -notmatch "(?m)^eng\s*$")) {
+    throw "Tesseract could not load eng.traineddata from $env:TESSDATA_DIR. Check the Tesseract installation before building."
+}
 
 New-Item -ItemType Directory -Force -Path $BuildParent | Out-Null
 if (Test-Path $BuildRoot) { throw "Build folder already exists: $BuildRoot" }
