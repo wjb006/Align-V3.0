@@ -81,9 +81,27 @@ class LocalTesseractProvider:
             tessdata = bundled / "tessdata"
             if (tessdata / "eng.traineddata").is_file():
                 self._tessdata = tessdata
-        configured_data = os.environ.get("TESSDATA_PREFIX")
-        if configured_data and (Path(configured_data) / "eng.traineddata").is_file():
-            self._tessdata = Path(configured_data)
+        # Prefer an explicit local tessdata directory. TESSDATA_PREFIX has
+        # inconsistent semantics across Windows Tesseract distributions (some
+        # builds append /tessdata), so do not depend on it when we know the
+        # installation or bundled directory.
+        if install_dir:
+            installed_data = Path(install_dir) / "tessdata"
+            if (installed_data / "eng.traineddata").is_file():
+                self._tessdata = installed_data
+        configured_data = os.environ.get("TESSDATA_DIR")
+        if configured_data:
+            data_path = Path(configured_data.strip().strip('"'))
+            if (data_path / "eng.traineddata").is_file():
+                self._tessdata = data_path
+        if self._tessdata is None:
+            configured_prefix = os.environ.get("TESSDATA_PREFIX", "").strip().strip('"')
+            if configured_prefix:
+                prefix_path = Path(configured_prefix)
+                for candidate in (prefix_path, prefix_path / "tessdata"):
+                    if (candidate / "eng.traineddata").is_file():
+                        self._tessdata = candidate
+                        break
         self._pytesseract.pytesseract.tesseract_cmd = self._command
         self._config = "--oem 1 --psm 6"
         if self._tessdata:
