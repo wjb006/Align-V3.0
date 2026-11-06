@@ -4,6 +4,7 @@
 Build from the repository root:
     py -3.12 -m PyInstaller --noconfirm --clean desktop/align.spec
 """
+import os
 import sys
 from pathlib import Path
 
@@ -21,6 +22,17 @@ datas = [
     (str(ROOT / "transport_sources.json"), "."),
     (str(ROOT / "transport_schema.sql"), "."),
 ]
+
+# Bundle the local Tesseract executable, its Windows DLLs and English model
+# into the onedir application. No OCR service or network request is used.
+tesseract_dir = Path(os.environ.get("TESSERACT_INSTALL_DIR", "")).expanduser()
+if tesseract_dir.is_dir():
+    for candidate in tesseract_dir.rglob("*"):
+        if not candidate.is_file():
+            continue
+        relative = candidate.relative_to(tesseract_dir)
+        if candidate.name.lower() == "tesseract.exe" or candidate.suffix.lower() == ".dll" or relative.as_posix().lower() == "tessdata/eng.traineddata":
+            datas.append((str(candidate), str(Path("ocr") / relative.parent)))
 
 hidden = [
     "app",
