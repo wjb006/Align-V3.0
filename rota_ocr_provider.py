@@ -6,6 +6,7 @@ installed/bundled Tesseract executable and local English language data.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import sys
 from io import BytesIO
@@ -138,11 +139,11 @@ class LocalTesseractProvider:
                 native = str(page.get_text("text") or "").strip()
                 has_image_content = bool(page.get_images(full=True))
                 native_has_shift = (
-                    bool(__import__("re").search(r"\\d{1,2}[:.]\\d{2}", native))
+                    bool(re.search(r"\\d{1,2}[:.]\\d{2}", native))
                     and bool(__import__("re").search(
                         r"\\d{4}-\\d{2}-\\d{2}|\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4}|\\d{1,2}\\s+[A-Za-z]{3,9}\\s+\\d{4}",
                         native,
-                        __import__("re").IGNORECASE,
+                        re.IGNORECASE,
                     ))
                 )
                 if len("".join(ch for ch in native if ch.isalnum())) >= 20 and native_has_shift and not has_image_content:
