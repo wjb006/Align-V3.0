@@ -15,7 +15,7 @@ Write-Host "This build uses separate test files and data. Your normal Align data
 $Repo = (& git -C $RepositoryRoot rev-parse --show-toplevel 2>$null)
 if ($LASTEXITCODE -ne 0 -or -not $Repo) { throw "Align Git repository not found. Pass -RepositoryRoot with your local repository path." }
 $Repo = $Repo.Trim()
-$Branch = "test/align-v3-ready-20261106"
+$Branch = "test/align-v3-build-158"
 $BuildParent = Join-Path $env:LOCALAPPDATA "Align-Builds"
 $BuildRoot = Join-Path $BuildParent ("Align-V3-Test-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
 
@@ -131,7 +131,7 @@ try {
     Copy-Item (Join-Path $BuildRoot "installer\windows\README-Test.md") (Join-Path $PackageRoot "README.md")
     Copy-Item (Join-Path $BuildRoot "desktop\README.md") (Join-Path $PackageRoot "BUILD.md")
     $Commit = (& git -C $BuildRoot rev-parse --short HEAD).Trim()
-    @("ALIGN V3.0 TEST BUILD", "Branch: $Branch", "Commit: $Commit", "NOT A PRODUCTION RELEASE") | Set-Content (Join-Path $PackageRoot "TEST-BUILD.txt") -Encoding UTF8
+    @("ALIGN V3.0 TEST BUILD", "Build: 158", "Branch: $Branch", "Commit: $Commit", "NOT A PRODUCTION RELEASE") | Set-Content (Join-Path $PackageRoot "TEST-BUILD.txt") -Encoding UTF8
     $ZipFile = Join-Path $BuildRoot "dist\Align-V3.0-Test-Windows.zip"
     Compress-Archive -Path (Join-Path $PackageRoot "*") -DestinationPath $ZipFile -CompressionLevel Optimal -Force
     if (-not (Test-Path $ZipFile)) { throw "The ZIP package was not created." }
