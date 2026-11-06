@@ -25,7 +25,7 @@ CAPABILITIES = {
 }
 
 _MESSAGES = {
-    'ocr_unavailable': 'Local OCR is unavailable. Install the Align OCR runtime to read photos and scanned PDFs.',
+    'ocr_unavailable': 'Local OCR is unavailable. Install Tesseract OCR with its English language data to read photos and scanned PDFs.',
     'ocr_no_text': 'No readable rota text was found in this file. Try a clearer, well-lit photo or a higher-quality scan.',
     'ocr_failed': 'The local OCR engine could not process this file. Try a clearer image or a text-based rota.',
     'multiple_people': 'This file looks like a shared rota. Remove other people and upload only your rows.',
