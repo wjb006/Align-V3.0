@@ -26,6 +26,9 @@ class UiPolishTests(unittest.TestCase):
         cls.index = (ROOT / "static/index.html").read_text(encoding="utf-8")
         cls.worker = (ROOT / "static/service-worker.js").read_text(encoding="utf-8")
         cls.travel = (ROOT / "static/travel-assets.js").read_text(encoding="utf-8")
+        cls.server = (ROOT / "app.py").read_text(encoding="utf-8")
+        cls.section_guide = (ROOT / "static/section-guide.js").read_text(encoding="utf-8")
+        cls.migration = (ROOT / "migrations/158_section_guides.sql").read_text(encoding="utf-8")
 
     def token(self, name):
         match = re.search(rf"--{name}:\s*(#[0-9a-fA-F]{{6}})", self.css)
@@ -66,12 +69,27 @@ class UiPolishTests(unittest.TestCase):
         self.assertIn('id="travel-message"', self.travel)
 
     def test_offline_cache_version_matches_the_shell(self):
-        self.assertIn("157-v71", self.index)
-        self.assertIn("`${BUILD_VERSION}-v71`", self.app)
-        self.assertIn("`${BUILD}-v71`", self.worker)
-        self.assertIn("/visual-theme.css?v=157-v71", self.index)
+        self.assertIn("158-v72", self.index)
+        self.assertIn("`${BUILD_VERSION}-v72`", self.app)
+        self.assertIn("`${BUILD}-v72`", self.worker)
+        self.assertIn("/visual-theme.css?v=158-v72", self.index)
         self.assertIn("align-v13-shell-${ASSET_VERSION}", self.worker)
         self.assertNotIn("157-v21", self.index)
+
+    def test_build_158_server_and_client_versions_match(self):
+        self.assertIn("const BUILD_VERSION = 158;", self.app)
+        self.assertIn("BUILD_VERSION = 158", self.server)
+        self.assertIn("const BUILD = 158;", self.worker)
+        self.assertIn("158-v72", self.index)
+        self.assertIn("/section-guide.js?v=158-v72", self.index)
+
+    def test_section_guides_are_included_in_build_158(self):
+        self.assertIn("function openSectionGuide(", self.section_guide)
+        self.assertIn("function openEventGuide(", self.section_guide)
+        self.assertIn("CREATE TABLE IF NOT EXISTS saved_places", self.migration)
+        self.assertIn("CREATE TABLE IF NOT EXISTS planner_labels", self.migration)
+        self.assertIn("CREATE TABLE IF NOT EXISTS section_defaults", self.migration)
+        self.assertIn("CREATE TABLE IF NOT EXISTS organiser_event_details", self.migration)
 
 
 if __name__ == "__main__":
