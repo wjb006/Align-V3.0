@@ -154,7 +154,7 @@ class LocalTesseractProvider:
         finally:
             if document is not None:
                 document.close()
-        return "\\n".join(piece for piece in pieces if piece.strip())[:MAX_TEXT_CHARS]
+        return "\n".join(piece for piece in pieces if piece.strip())[:MAX_TEXT_CHARS]
 
 
 _PROVIDER = None
