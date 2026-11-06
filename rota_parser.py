@@ -237,7 +237,7 @@ def interpret_pdf_text(text: str):
         raise ParseProblem('This PDF has no readable text. Scanned PDFs need image reading, which is not switched on.', 'ocr_unavailable')
     pattern = re.compile(
         r'(?P<date>\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4})'
-        r'(?:\s+(?P<start>\d{1,2}[:.]\d{2})\s*[-–to]{1,3}\s*(?P<end>\d{1,2}[:.]\d{2}))?'
+        r'(?:\\s+(?P<start>\\d{1,2}[:.]\\d{2})\\s*(?:[-–]|to)?\\s+(?P<end>\\d{1,2}[:.]\\d{2}))?'
         r'(?:\s+(?P<rest>.+))?$'
     )
     drafts = []
