@@ -9,6 +9,7 @@ import time
 import unittest
 import zipfile
 import zlib
+from unittest.mock import patch
 from datetime import date, timedelta
 from http.client import HTTPConnection
 from pathlib import Path
@@ -147,19 +148,52 @@ class RotaImportTests(unittest.TestCase):
     def csv(self, text):
         return self.upload('rota.csv', text.encode())
 
-    def test_capabilities_are_honest_about_ocr(self):
-        payload = self.json_request('GET', '/api/work/rota/capabilities')
+    def test_capabilities_report_local_ocr_runtime(self):
+        with patch.object(rota_ocr_provider, 'capabilities', return_value={
+            'image_ocr': True, 'scanned_pdf_ocr': True, 'heic_ocr': True,
+            'provider': 'local-tesseract',
+        }):
+            payload = self.json_request('GET', '/api/work/rota/capabilities')
         self.assertTrue(payload['csv'] and payload['xlsx'] and payload['pdf_text'])
-        self.assertFalse(payload['image_ocr'])
-        self.assertFalse(payload['scanned_pdf_ocr'])
+        self.assertTrue(payload['image_ocr'] and payload['scanned_pdf_ocr'] and payload['heic_ocr'])
+        self.assertEqual(payload['provider'], 'local-tesseract')
         script = Path('static/work-rota.js').read_text(encoding='utf-8')
-        self.assertIn('Image reading is not switched on', script)
+        self.assertIn('OCR runs locally', script)
+        self.assertIn('local OCR runtime not detected', script)
         self.assertIn('Upload my rota', Path('static/app.js').read_text(encoding='utf-8'))
         index = Path('static/index.html').read_text(encoding='utf-8')
-        version = re.search(r'/app\.js\?v=([^"\']+)', index)
+        version = re.search(r'/app\\.js\\?v=([^"\\']+)', index)
         self.assertIsNotNone(version)
         self.assertIn(f'/work-rota.js?v={version.group(1)}', index)
         self.assertIn('/work-rota.js?v=${ASSET_VERSION}', Path('static/service-worker.js').read_text(encoding='utf-8'))
+
+    def test_photo_ocr_flows_into_rota_parser(self):
+        from PIL import Image
+        buffer = io.BytesIO()
+        Image.new('RGB', (640, 240), 'white').save(buffer, format='PNG')
+        provider = type('Provider', (), {
+            'extract_text': lambda self, path, media_type: '2026-11-12 08:30-16:30 Ward at Main Hospital'
+        })()
+        with patch.object(rota_ocr_provider, 'get_provider', return_value=provider):
+            result = rota_file_processor.extract_files([{
+                'extension': 'png', 'data': buffer.getvalue(), 'media_type': 'image/png'
+            }])
+        self.assertEqual(result[0]['code'], '')
+        self.assertEqual(len(result[0]['drafts']), 1)
+        self.assertEqual(result[0]['drafts'][0]['work_date'], '2026-11-12')
+        self.assertEqual(result[0]['drafts'][0]['start_time'], '08:30')
+
+    def test_scanned_pdf_ocr_falls_back_to_local_provider(self):
+        payload = simple_pdf('')
+        provider = type('Provider', (), {
+            'extract_text': lambda self, path, media_type: '2026-11-13 09:00-17:00 Clinic at Main Hospital'
+        })()
+        with patch.object(rota_ocr_provider, 'get_provider', return_value=provider):
+            result = rota_file_processor.extract_files([{
+                'extension': 'pdf', 'data': payload, 'media_type': 'application/pdf'
+            }])
+        self.assertEqual(result[0]['code'], '')
+        self.assertEqual(result[0]['drafts'][0]['work_date'], '2026-11-13')
 
     def test_work_opt_in_and_bad_signatures(self):
         with app.db_connection() as connection:
