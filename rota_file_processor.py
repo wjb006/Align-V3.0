@@ -1,7 +1,7 @@
 """Allowlisted rota intake, signature checks and temporary-file cleanup.
 
 Original bytes stay in a private temp directory only while a file is read,
-then they are deleted. Image and scanned-PDF OCR is not claimed as working.
+then they are deleted. Images and scanned PDFs use the optional local Tesseract runtime.
 """
 from __future__ import annotations
 
