@@ -54,6 +54,10 @@ def project_zip(commit: str = COMMIT_B, *, slip: bool = False, link: bool = Fals
                 "align_paths.py": "ROOT = '.'\n",
                 "static/desktop.html": "<!doctype html><title>Align</title>\n",
                 "static/index.html": "<!doctype html><title>Planner</title>\n",
+                "desktop/auth.py": "AUTH = True\n",
+                "static/desktop-login.html": "<!doctype html><title>Login</title>\n",
+                "static/desktop-login.css": "body {}\n",
+                "static/desktop-login.js": "window.login = true;\n",
                 "migrations/001_test.sql": "SELECT 1;\n",
                 "nested/planner.sqlite3": "not-the-planner",
             }
@@ -69,6 +73,11 @@ def write_tree(root: Path, commit: str, *, awaiting: bool) -> None:
     (root / "static").mkdir(exist_ok=True)
     (root / "static" / "desktop.html").write_text("<!doctype html><title>Align</title>\n", encoding="utf-8")
     (root / "static" / "index.html").write_text("<!doctype html><title>Planner</title>\n", encoding="utf-8")
+    (root / "desktop").mkdir(exist_ok=True)
+    (root / "desktop" / "auth.py").write_text("AUTH = True\n", encoding="utf-8")
+    (root / "static" / "desktop-login.html").write_text("<!doctype html><title>Login</title>\n", encoding="utf-8")
+    (root / "static" / "desktop-login.css").write_text("body {}\n", encoding="utf-8")
+    (root / "static" / "desktop-login.js").write_text("window.login = true;\n", encoding="utf-8")
     (root / "migrations").mkdir(exist_ok=True)
     (root / "migrations" / "001_test.sql").write_text("SELECT 1;\n", encoding="utf-8")
     write_manifest(root, commit, awaiting_health=awaiting)
@@ -247,7 +256,12 @@ class DesktopUpdateTests(unittest.TestCase):
         real = self.data / "real-app.py"
         real.write_text("BUILD = 1\n", encoding="utf-8")
         (current / "app.py").unlink()
-        (current / "app.py").symlink_to(real)
+        try:
+            (current / "app.py").symlink_to(real)
+        except OSError as error:
+            if getattr(error, "winerror", None) == 1314:
+                self.skipTest("Windows symlink privilege is not enabled; archive-link rejection is covered separately.")
+            raise
         self.assertIsNone(consider_override(self.data))
         os.environ["ALIGN_APP_CODE"] = str(current)
         self.assertNotEqual(source_root(), current.resolve())
