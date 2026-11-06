@@ -2,6 +2,7 @@
   const title = document.getElementById('desktop-status-title');
   const copy = document.getElementById('desktop-status-copy');
   const retry = document.getElementById('desktop-retry');
+  const signout = document.getElementById('desktop-signout');
 
   async function readJson(url) {
     const response = await fetch(url, { cache: 'no-store', credentials: 'same-origin' });
@@ -34,5 +35,16 @@
   }
 
   retry.addEventListener('click', () => { void refresh(); });
+  signout?.addEventListener('click', async () => {
+    signout.disabled = true;
+    try {
+      const response = await fetch('/api/local-auth/logout', { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      if (!response.ok) throw new Error('Align could not end this sign-in. Please try again.');
+      location.replace('/desktop-login.html');
+    } catch (error) {
+      signout.disabled = false;
+      window.alert(error.message || 'Align could not sign out.');
+    }
+  });
   void refresh();
 })();
