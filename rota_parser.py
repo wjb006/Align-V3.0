@@ -240,26 +240,36 @@ def interpret_pdf_text(text: str):
     lines = [line for line in lines if line]
     if not lines:
         raise ParseProblem('This PDF has no readable text. Scanned PDFs need local image reading.', 'ocr_unavailable')
+
     # OCR must not silently import several colleagues' rows into one account.
     # A tabular name/employee header is treated conservatively and requires
     # the user to crop or export only their own rows before uploading.
     if any(
-        re.search(r'\\b(?:name|employee|staff)\\b', line, re.IGNORECASE)
-        and re.search(r'\\b(?:date|day|shift|start|time)\\b', line, re.IGNORECASE)
+        re.search(r'\b(?:name|employee|staff)\b', line, re.IGNORECASE)
+        and re.search(r'\b(?:date|day|shift|start|time)\b', line, re.IGNORECASE)
         for line in lines
     ):
         raise ParseProblem(
             'This looks like a shared rota. Crop or export only your own rows before uploading.',
             'multiple_people',
         )
-    named_rows = {
-        clean_text(match.group(1), 80).casefold()
-        for line in lines
-        if (match := re.match(r'^(?:name|employee|staff)\\s*[:=-]\\s*(.+)        r'(?:(?:Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?)\\s+)?'
-        r'(?P<date>\\d{4}-\\d{2}-\\d{2}|\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4}|'
-        r'\\d{1,2}\\s+[A-Za-z]{3,9}\\s+\\d{4}|[A-Za-z]{3,9}\\s+\\d{1,2},?\\s+\\d{4})'
-        r'(?:\\s+(?P<start>\\d{1,2}[:.]\\d{2})(?:\\s*[-–]\\s*|\\s+to\\s+|\\s+)(?P<end>\\d{1,2}[:.]\\d{2}))?'
-        r'(?:\\s+(?P<rest>.+))?$',
+    named_rows = set()
+    for line in lines:
+        named = re.match(r'^(?:name|employee|staff)\s*[:=-]\s*(.+)$', line, re.IGNORECASE)
+        if named:
+            named_rows.add(clean_text(named.group(1), 80).casefold())
+    if len(named_rows) > 1:
+        raise ParseProblem(
+            'This file contains more than one person. Upload only your own rota rows.',
+            'multiple_people',
+        )
+
+    pattern = re.compile(
+        r'(?:(?:Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?)\s+)?'
+        r'(?P<date>\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|'
+        r'\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}|[A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4})'
+        r'(?:\s+(?P<start>\d{1,2}[:.]\d{2})(?:\s*[-–]\s*|\s+to\s+|\s+)(?P<end>\d{1,2}[:.]\d{2}))?'
+        r'(?:\s+(?P<rest>.+))?$',
         re.IGNORECASE,
     )
     drafts = []
