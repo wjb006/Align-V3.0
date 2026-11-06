@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT))
 TEST_BUILD = os.environ.get("ALIGN_TEST_BUILD") == "1"
 APP_NAME = "Align V3.0 Test" if TEST_BUILD else "Align"
 ENTRY_SCRIPT = "test_launch.py" if TEST_BUILD else "__main__.py"
+RUNTIME_HOOK = "pyi_rth_test_appcode.py" if TEST_BUILD else "pyi_rth_appcode.py"
 
 datas = [
     (str(ROOT / "static"), "static"),
@@ -66,7 +67,7 @@ a = Analysis(
     hiddenimports=hidden,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[str(ROOT / "desktop" / "pyi_rth_appcode.py")],
+    runtime_hooks=[str(ROOT / "desktop" / RUNTIME_HOOK)],
     excludes=["pytest", "tkinter"],
     noarchive=False,
 )
