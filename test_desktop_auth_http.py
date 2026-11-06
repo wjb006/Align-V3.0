@@ -83,6 +83,22 @@ finally:
             )
         self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
 
+    def test_hosted_beta_auth_is_not_replaced_by_local_desktop_gate(self):
+        with tempfile.TemporaryDirectory() as folder:
+            env = os.environ.copy()
+            env.update({
+                "ALIGN_STUDIO_LOCAL": "1",
+                "ALIGN_LOCAL_LOGIN_ENABLED": "1",
+                "ALIGN_BETA_MODE": "1",
+                "ALIGN_DATA_DIR": folder,
+                "PYTHONPATH": str(ROOT),
+            })
+            completed = subprocess.run(
+                [sys.executable, "-c", "import app; assert app.BETA_MODE and not app.LOCAL_DESKTOP_MODE"],
+                cwd=ROOT, env=env, text=True, capture_output=True, timeout=45,
+            )
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
