@@ -239,13 +239,16 @@ def interpret_pdf_text(text: str):
     lines = [clean_text(line, 240) for line in str(text or '').splitlines()]
     lines = [line for line in lines if line]
     if not lines:
-        raise ParseProblem('This PDF has no readable text. Scanned PDFs need image reading, which is not switched on.', 'ocr_unavailable')
+        raise ParseProblem('This PDF has no readable text. Scanned PDFs need local image reading.', 'ocr_unavailable')
     pattern = re.compile(
         r'(?:(?:Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?)\\s+)?'
         r'(?P<date>\\d{4}-\\d{2}-\\d{2}|\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4}|'
         r'\\d{1,2}\\s+[A-Za-z]{3,9}\\s+\\d{4}|[A-Za-z]{3,9}\\s+\\d{1,2},?\\s+\\d{4})'
         r'(?:\\s+(?P<start>\\d{1,2}[:.]\\d{2})(?:\\s*[-–]\\s*|\\s+to\\s+|\\s+)(?P<end>\\d{1,2}[:.]\\d{2}))?'
-        r'(?:\\s+(?P<rest>.+))?    drafts = []
+        r'(?:\\s+(?P<rest>.+))?$',
+        re.IGNORECASE,
+    )
+    drafts = []
     for line in lines:
         match = pattern.search(line)
         if not match:
@@ -268,9 +271,8 @@ def interpret_pdf_text(text: str):
             'location': location,
         }))
     if not drafts:
-        raise ParseProblem('No dated shifts were found in this PDF.', 'unrecognized_table')
+        raise ParseProblem('No dated shifts were found in this PDF or photo.', 'unrecognized_table')
     return drafts
-
 
 def _draft_from_fields(item):
     work_date, date_ambiguous, source_date = parse_date(item.get('date', ''))
