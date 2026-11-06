@@ -1,7 +1,7 @@
 # Align V3.0 build checklist
 **Live project handoff document**
 
-- **Last updated:** 28 October 2026
+- **Last updated:** 6 November 2026
 - **Workspace:** `C:\Users\wjboy\OneDrive\Documents\ChatGPT\Align V3.0`
 - **Original source (read-only):** `C:\Align\Align_App`
 - **Working branch:** `codex/align-v3-rebuild`
@@ -16,6 +16,16 @@
 - Preserve `C:\Align\Align_App` as read-only. Preserve user data and unrelated working-tree changes.
 - GitHub remote is `origin` → private `wjb006/Align-V3.0`; a dedicated Neon project now exists, but its schema and connection are not yet installed in Render.
 ## Current handoff: resume here
+
+### 6 November 2026 — isolated test branch
+- Current test branch: `test/align-v3-readiness`, based on `feature/local-desktop-login` / draft PR #97. It contains the persistent local Owner sign-in changes plus local Tesseract OCR for rota photos and scanned PDFs, Work review-catalogue learning, and a dedicated Windows test-build workflow.
+- The test branch is separate from `codex/align-v3-rebuild`. It has not been merged or deployed. Existing Render services, IONOS DNS, Neon databases, credentials, OTP data and user databases have not been changed.
+- Work entry is rota-first and low-question: upload a rota, review/correct rows, then explicitly approve them. New workplaces and shift areas can be saved from the review screen; the retired `/api/work-setup` screen has been redirected to the current account-private Builder Work records API.
+- OCR uses Tesseract locally with PyMuPDF for scanned PDF rendering and pillow-heif for HEIC. The Windows test package must include the OCR executable, its DLLs and the English model. Original uploads remain temporary and are deleted after processing.
+- The 3 November 2026 approved Work Rota specification and 4 November restore request supersede earlier October notes that proposed retiring the shift planner. Keep Build 156 planner/calendar integration for this Work rota test; do not retire it again without an explicit user decision.
+- Automated Windows test-build workflow: `.github/workflows/align-v3-test-build.yml`. It must run successfully and upload `Align-V3.0-Test-Windows` before a test ZIP can be claimed as ready. Real rota-photo accuracy, actual Windows/WebView2 installation, and hosted PostgreSQL/R2 persistence remain separate acceptance checks.
+- Persistent Management Studio image storage code is present, but R2 bucket provisioning and Render secret configuration remain outstanding. Do not enable hosted uploads or deploy from this test branch.
+
 - [~] Main rebuild source is pushed on `codex/align-v3-rebuild`. Latest verified historical CI baseline `594cd085` passed browser regressions, hosted persistence/PostgreSQL integration, and navigation checks. Current HEAD `132e46d19c0fc52abc098ab4cc13af0eca588c0b` has no GitHub status checks or workflow runs; local verification is recorded below. S3-compatible Studio image-storage code is present, but durable cloud bucket provisioning and live upload verification remain external release gates.
 - [x] Current work includes the Studio's phone-preview section-to-database input-matrix flow: create a section or open its editor; new sections start with required Name, optional Date, and review-before-save; the editor describes naming, matrix setup, and form review.
 - [x] Local full Python suite on the current source: **245 passed, 5 skipped, 67 subtests passed**. The skips include hosted PostgreSQL integration, which needs its isolated test database environment.
