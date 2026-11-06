@@ -36,7 +36,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip pyinstaller
           python -m pip install -r requirements.txt
-          python -m unittest test_desktop_programme.py
+          python -m unittest test_desktop_programme.py test_desktop_auth.py test_desktop_auth_http.py test_work_rota_import.py
+          node --check static/work-rota.js
+          node --check static/work-setup.js
+          node --check static/desktop-login.js
           python -m PyInstaller --noconfirm --clean desktop/align.spec
           if (-not (Test-Path "dist\Align\Align.exe")) { throw "Align.exe was not built" }
           Copy-Item "static/icons/align.ico" "dist/Align/align.ico" -Force
