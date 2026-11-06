@@ -398,20 +398,48 @@ def _extract_one(path: Path, item):
     extension = item['extension']
     if extension in {'jpg', 'jpeg', 'png', 'heic', 'heif'}:
         try:
-            rota_ocr_provider.get_provider().extract_text(path, item['media_type'])
+            text = rota_ocr_provider.get_provider().extract_text(path, item['media_type'])
+            if not text.strip():
+                return {'format': extension, 'code': 'ocr_no_text', 'drafts': []}
+            drafts = rota_parser.interpret_pdf_text(text)
         except rota_ocr_provider.OcrUnavailable:
             return {'format': extension, 'code': 'ocr_unavailable', 'drafts': []}
-        return {'format': extension, 'code': 'ocr_unavailable', 'drafts': []}
-    payload = path.read_bytes()
-    try:
-        if extension == 'csv':
-            drafts = rota_parser.interpret_table(_csv_rows(payload))
-        elif extension == 'xlsx':
-            drafts = rota_parser.interpret_table(_xlsx_rows(payload))
-        else:
-            drafts = rota_parser.interpret_pdf_text(_pdf_text(payload))
-    except rota_parser.ParseProblem as error:
-        return {'format': extension, 'code': error.code, 'message': str(error), 'drafts': []}
+        except rota_ocr_provider.OcrError:
+            return {'format': extension, 'code': 'ocr_failed', 'drafts': []}
+        except rota_parser.ParseProblem as error:
+            return {'format': extension, 'code': error.code, 'message': str(error), 'drafts': []}
+    else:
+        payload = path.read_bytes()
+        try:
+            if extension == 'csv':
+                drafts = rota_parser.interpret_table(_csv_rows(payload))
+            elif extension == 'xlsx':
+                drafts = rota_parser.interpret_table(_xlsx_rows(payload))
+            else:
+                # PyMuPDF extracts native text page-by-page and locally OCRs only
+                # scanned pages, so mixed text/scanned PDFs are supported too.
+                if rota_ocr_provider.is_available():
+                    text = rota_ocr_provider.get_provider().extract_pdf_text(path)
+                else:
+                    text = _pdf_text(payload)
+                if not text.strip():
+                    return {'format': extension, 'code': 'ocr_no_text', 'drafts': []}
+                drafts = rota_parser.interpret_pdf_text(text)
+        except FileProblem as error:
+            if extension == 'pdf' and error.code == 'ocr_unavailable':
+                return {'format': extension, 'code': 'ocr_unavailable', 'drafts': []}
+            raise
+        except rota_ocr_provider.OcrUnavailable:
+            try:
+                drafts = rota_parser.interpret_pdf_text(_pdf_text(payload))
+            except FileProblem as error:
+                if error.code == 'ocr_unavailable':
+                    return {'format': extension, 'code': 'ocr_unavailable', 'drafts': []}
+                raise
+        except rota_ocr_provider.OcrError:
+            return {'format': extension, 'code': 'ocr_failed', 'drafts': []}
+        except rota_parser.ParseProblem as error:
+            return {'format': extension, 'code': error.code, 'message': str(error), 'drafts': []}
     if len(drafts) > LIMITS['max_rows']:
         raise FileProblem('This file has too many rows.', 'spreadsheet_too_large')
     return {'format': extension, 'code': '', 'drafts': drafts}
