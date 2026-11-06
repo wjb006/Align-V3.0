@@ -216,6 +216,10 @@ self.addEventListener('message', event => {
     event.waitUntil(caches.delete(API_CACHE));
     return;
   }
+  if (event.data?.type === 'ALIGN_CLEAR_DESKTOP_SESSION') {
+    event.waitUntil(Promise.all([caches.delete(API_CACHE), caches.delete(SHELL_CACHE)]));
+    return;
+  }
   if (event.data?.type !== 'ALIGN_DIAGNOSTICS') return;
   event.waitUntil((async () => {
     const result = await diagnostics().catch(error => ({
