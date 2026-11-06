@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import sys
 import time
 from pathlib import Path
 
@@ -25,6 +26,12 @@ class LocalTesseractProvider:
     def _find_tesseract():
         configured = os.environ.get("ALIGN_TESSERACT_CMD", "").strip()
         candidate = configured or shutil.which("tesseract")
+        if not candidate and getattr(sys, "frozen", False):
+            bundled_root = Path(sys.executable).resolve().parent / "tesseract"
+            bundled_exe = bundled_root / "tesseract.exe"
+            if bundled_exe.is_file():
+                os.environ.setdefault("TESSDATA_PREFIX", str(bundled_root))
+                candidate = str(bundled_exe)
         if not candidate and os.name == "nt":
             windows_default = Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Tesseract-OCR" / "tesseract.exe"
             if windows_default.is_file():
