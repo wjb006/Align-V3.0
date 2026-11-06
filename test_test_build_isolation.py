@@ -8,7 +8,7 @@ class TestBuildIsolationTests(unittest.TestCase):
         hook = Path("desktop/pyi_rth_test_appcode.py").read_text(encoding="utf-8")
         self.assertIn('"Align-Test"', hook)
         self.assertIn('"8011"', hook)
-        self.assertIn('"test/align-v3-readiness"', hook)
+        self.assertIn('"test/align-v3-ready-20261106"', hook)
         self.assertIn('os.environ["ALIGN_LEGACY_DATABASES"] = ""', hook)
         self.assertIn('os.environ["ALIGN_DATA_DIR"]', hook)
 
