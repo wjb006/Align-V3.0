@@ -28,6 +28,29 @@ class OcrError(RuntimeError):
     """A local OCR operation failed safely."""
 
 
+def _windows_short_path(path: Path) -> str:
+    """Return a Windows 8.3 path where available, avoiding CLI quote bugs."""
+    value = str(path)
+    if os.name != "nt" or " " not in value:
+        return value
+    try:
+        import ctypes
+        get_short_path = ctypes.windll.kernel32.GetShortPathNameW
+        get_short_path.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint]
+        get_short_path.restype = ctypes.c_uint
+        required = get_short_path(value, None, 0)
+        if not required:
+            return value
+        buffer = ctypes.create_unicode_buffer(required + 1)
+        written = get_short_path(value, buffer, len(buffer))
+        short_value = buffer.value if written else ""
+        if short_value and " " not in short_value:
+            return short_value
+    except Exception:
+        pass
+    return value
+
+
 def _bundled_ocr_dir() -> Path | None:
     candidates = []
     frozen_root = getattr(sys, "_MEIPASS", None)
@@ -105,11 +128,13 @@ class LocalTesseractProvider:
         self._pytesseract.pytesseract.tesseract_cmd = self._command
         self._config = "--oem 1 --psm 6"
         if self._tessdata:
-            # Set the variable Tesseract itself asks for as well as the CLI
-            # override. This handles Windows builds that ignore or mis-parse
-            # --tessdata-dir when the installation path contains spaces.
-            os.environ["TESSDATA_PREFIX"] = str(self._tessdata)
-            self._config += f' --tessdata-dir "{self._tessdata}"'
+            # Some Windows Tesseract builds mishandle quoted --tessdata-dir
+            # arguments when the install path contains spaces. Use an 8.3
+            # path for both the environment and CLI argument where available.
+            tessdata_argument = _windows_short_path(self._tessdata)
+            os.environ["TESSDATA_PREFIX"] = tessdata_argument
+            if " " not in tessdata_argument:
+                self._config += f" --tessdata-dir {tessdata_argument}"
 
     def _ocr_image(self, image) -> str:
         try:
