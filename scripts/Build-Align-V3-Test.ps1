@@ -111,6 +111,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Desktop JavaScript syntax check failed." }
     & node --check static/app.js
     if ($LASTEXITCODE -ne 0) { throw "Build 158 app JavaScript syntax check failed." }
+    & node --check static/beta-admin.js
+    if ($LASTEXITCODE -ne 0) { throw "Owner administration JavaScript syntax check failed." }
     & node --check static/section-guide.js
     if ($LASTEXITCODE -ne 0) { throw "Section guide JavaScript syntax check failed." }
     & node --check static/service-worker.js
@@ -133,6 +135,7 @@ try {
         (Join-Path $AppRoot "ocr\tesseract.exe"),
         (Join-Path $AppRoot "ocr\tessdata\eng.traineddata"),
         (Join-Path $AppRoot "_internal\static\app.js"),
+        (Join-Path $AppRoot "_internal\static\beta-admin.js"),
         (Join-Path $AppRoot "_internal\static\section-guide.js"),
         (Join-Path $AppRoot "_internal\migrations\158_section_guides.sql"),
         (Join-Path $BuildRoot "installer\windows\Install-Align-Test.ps1"),
@@ -143,8 +146,12 @@ try {
     }
     $PackagedAppJs = Get-Content -Raw (Join-Path $AppRoot "_internal\static\app.js")
     $PackagedIndex = Get-Content -Raw (Join-Path $AppRoot "_internal\static\index.html")
+    $PackagedStudio = Get-Content -Raw (Join-Path $AppRoot "_internal\static\management-studio.html")
+    $PackagedOwnerAdmin = Get-Content -Raw (Join-Path $AppRoot "_internal\static\beta-admin.js")
     if ($PackagedAppJs -notmatch 'const BUILD_VERSION = 158;') { throw "Packaged frontend is not Build 158." }
     if ($PackagedIndex -notmatch '158-v72') { throw "Packaged HTML shell is not using the Build 158 asset cache." }
+    if ($PackagedStudio -notmatch 'beta-admin.js\?v=158-v72') { throw "Packaged Management Studio is not using the refreshed Owner admin script." }
+    if ($PackagedOwnerAdmin -notmatch 'Not available in this local test installation') { throw "Packaged Owner admin screen is missing the local hosted-feature explanation." }
 
     Write-Host "Assembling the Windows test ZIP..." -ForegroundColor Cyan
     $PackageRoot = Join-Path $BuildRoot "dist\Align-V3.0-Test"
