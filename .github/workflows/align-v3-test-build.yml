@@ -1,0 +1,90 @@
+name: Align V3.0 test build
+
+on:
+  push:
+    branches: [test/align-v3-readiness]
+  pull_request:
+    branches: [codex/align-v3-rebuild]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-test-build:
+    runs-on: windows-latest
+    steps:
+      - name: Check out test branch
+        uses: actions/checkout@v4
+
+      - name: Install local Tesseract OCR
+        shell: pwsh
+        run: |
+          choco install tesseract --yes --no-progress
+          $candidates = @(
+            "$env:ProgramFiles\Tesseract-OCR",
+            "${env:ProgramFiles(x86)}\Tesseract-OCR"
+          ) | Where-Object { Test-Path (Join-Path $_ "tesseract.exe") }
+          $root = $candidates | Select-Object -First 1
+          if (-not $root) { throw "Tesseract OCR was not installed." }
+          if (-not (Test-Path (Join-Path $root "tessdata\eng.traineddata"))) { throw "English OCR model is missing." }
+          "TESSERACT_INSTALL_DIR=$root" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          & (Join-Path $root "tesseract.exe") --list-langs
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: studio-launcher/go.mod
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip pyinstaller
+          python -m pip install -r requirements.txt
+
+      - name: Run Align, Work rota, OCR and authentication tests
+        shell: pwsh
+        run: |
+          python -m unittest test_rota_ocr_provider.py test_work_rota_import.py test_desktop_auth.py test_desktop_auth_http.py test_desktop_programme.py
+
+      - name: Check frontend and launcher
+        shell: pwsh
+        run: |
+          node --check static/work-rota.js
+          node --check static/desktop.js
+          Push-Location studio-launcher
+          go test ./...
+          Pop-Location
+
+      - name: Build the Windows test application
+        shell: pwsh
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File desktop/build_windows.ps1
+          if (-not (Test-Path "dist\Align\Align.exe")) { throw "Align.exe was not built." }
+          if (-not (Test-Path "dist\Align\ocr\tesseract.exe")) { throw "The test application is missing its bundled OCR engine." }
+          if (-not (Test-Path "dist\Align\ocr\tessdata\eng.traineddata")) { throw "The test application is missing the English OCR model." }
+
+      - name: Assemble clearly labelled test package
+        shell: pwsh
+        run: |
+          $root = Join-Path $PWD "dist/Align-V3.0-Test"
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          Copy-Item "dist/Align" $root -Recurse
+          Copy-Item "installer/windows/Install-Align-Studio.ps1" $root
+          Copy-Item "installer/windows/Launch-Align-Studio.ps1" $root
+          Copy-Item "installer/windows/README.md" $root
+          Copy-Item "desktop/README.md" (Join-Path $root "BUILD.md")
+          "Align V3.0 TEST BUILD - branch test/align-v3-readiness - not a production release" | Set-Content (Join-Path $root "TEST-BUILD.txt")
+          Compress-Archive -Path $root -DestinationPath "$PWD/dist/Align-V3.0-Test-Windows.zip" -Force
+
+      - name: Upload Windows test package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Align-V3.0-Test-Windows
+          path: dist/Align-V3.0-Test-Windows.zip
+          retention-days: 30
