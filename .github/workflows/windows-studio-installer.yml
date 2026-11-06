@@ -31,6 +31,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install the pinned local OCR engine
+        shell: pwsh
+        run: |
+          choco install tesseract --version=5.5.3.20260724 -y --no-progress
       - name: Test the desktop programme and build the Windows package
         shell: pwsh
         run: |
@@ -43,6 +47,10 @@ jobs:
           python -m PyInstaller --noconfirm --clean desktop/align.spec
           if (-not (Test-Path "dist\Align\Align.exe")) { throw "Align.exe was not built" }
           Copy-Item "static/icons/align.ico" "dist/Align/align.ico" -Force
+          $tesseract = Join-Path $env:ProgramFiles "Tesseract-OCR"
+          if (-not (Test-Path (Join-Path $tesseract "tesseract.exe"))) { throw "Pinned Tesseract OCR runtime was not installed" }
+          New-Item -ItemType Directory -Force -Path "dist/Align/tesseract" | Out-Null
+          Copy-Item (Join-Path $tesseract "*") "dist/Align/tesseract" -Recurse -Force
       - name: Assemble installer package
         shell: pwsh
         run: |
