@@ -54,6 +54,9 @@ class LocalTesseractProvider:
 
         bundled = _bundled_ocr_dir()
         configured = command or os.environ.get("TESSERACT_CMD")
+        install_dir = os.environ.get("TESSERACT_INSTALL_DIR", "").strip()
+        if not configured and install_dir:
+            configured = str(Path(install_dir) / "tesseract.exe")
         if not configured and bundled:
             configured = str(bundled / "tesseract.exe")
         if not configured:
@@ -139,9 +142,9 @@ class LocalTesseractProvider:
                 native = str(page.get_text("text") or "").strip()
                 has_image_content = bool(page.get_images(full=True))
                 native_has_shift = (
-                    bool(re.search(r"\\d{1,2}[:.]\\d{2}", native))
+                    bool(re.search(r"\d{1,2}[:.]\d{2}", native))
                     and bool(__import__("re").search(
-                        r"\\d{4}-\\d{2}-\\d{2}|\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4}|\\d{1,2}\\s+[A-Za-z]{3,9}\\s+\\d{4}",
+                        r"\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}",
                         native,
                         re.IGNORECASE,
                     ))
