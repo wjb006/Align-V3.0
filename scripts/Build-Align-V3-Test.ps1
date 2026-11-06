@@ -58,7 +58,7 @@ Push-Location $BuildRoot
 try {
     Write-Host ""
     Write-Host "Installing Python build tools and Align dependencies..." -ForegroundColor Cyan
-    & py -3.12 -m pip install --upgrade pip pyinstaller
+    & py -3.12 -m pip install --upgrade pip pyinstaller pytest
     if ($LASTEXITCODE -ne 0) { throw "Could not install PyInstaller." }
     & py -3.12 -m pip install -r requirements.txt
     if ($LASTEXITCODE -ne 0) { throw "Could not install Align dependencies." }
