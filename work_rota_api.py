@@ -24,7 +24,9 @@ CAPABILITIES = {
 }
 
 _MESSAGES = {
-    'ocr_unavailable': 'Photos and scanned PDFs are not read yet. Image reading is not switched on.',
+    'ocr_unavailable': 'Local OCR is unavailable. Install the Align OCR runtime to read photos and scanned PDFs.',
+    'ocr_no_text': 'No readable rota text was found in this file. Try a clearer, well-lit photo or a higher-quality scan.',
+    'ocr_failed': 'The local OCR engine could not process this file. Try a clearer image or a text-based rota.',
     'multiple_people': 'This file looks like a shared rota. Remove other people and upload only your rows.',
     'unrecognized_table': 'No shift rows were found. Empty cells are not treated as days off.',
     'unsupported_file': 'Choose a CSV, Excel, PDF or photo file.',
@@ -108,7 +110,7 @@ def handle_multipart(handler, app, path) -> bool:
 
 def handle_get(handler, app, connection, path) -> bool:
     if path == '/api/work/rota/capabilities':
-        return _guard(handler, app, connection, lambda: (_require_work(connection, app, check_schema=False), handler.send_json(200, CAPABILITIES)))
+        return _guard(handler, app, connection, lambda: (_require_work(connection, app, check_schema=False), handler.send_json(200, _capabilities())))
     match = _IMPORT.fullmatch(path)
     if not match:
         return False
@@ -211,6 +213,11 @@ def _require_work(connection, app, check_schema=True):
         storage.require_schema(connection)
 
 
+def _capabilities():
+    available = rota_ocr_provider.is_available()
+    return {**CAPABILITIES, 'image_ocr': available, 'scanned_pdf_ocr': available}
+
+
 def _import_payload(connection, record):
     entries = [storage.public_entry(row) for row in storage.list_entries(connection, record['id'])]
     choices = storage.catalog(connection)
@@ -230,7 +237,7 @@ def _import_payload(connection, record):
         'entries': entries,
         'locations': [{'id': row['id'], 'name': row['name']} for row in choices['locations']],
         'shift_types': [{'id': row['id'], 'name': row['name']} for row in choices['shift_types']],
-        'capabilities': CAPABILITIES,
+        'capabilities': _capabilities(),
     }
 
 
