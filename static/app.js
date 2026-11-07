@@ -442,8 +442,7 @@ function renderHome() {
       <div class="today-reference-date"><span class="today-reference-calendar" aria-hidden="true">▦</span><h1>${escapeHtml(fullDateLabel(dashboard.today))}</h1></div>
       <div class="today-reference-total"><strong>${todayItems.length} Events</strong><span>•</span><strong>${totalLabel} Total</strong></div>
     </header>
-    ${inbound ? `<div class="today-inbound-travel" aria-label="Travel to first event"><strong>Travel to first event</strong>${inbound}</div>` : ''}
-    <div class="today-event-timeline">${todayItems.length ? renderTodayTimeline(todayItems) : '<div class="card empty">Nothing scheduled for today. Add a shift or appointment to see it here.</div>'}</div>
+    <div class="today-event-timeline">${todayItems.length ? renderTodayTimeline(todayItems, inbound) : '<div class="card empty">Nothing scheduled for today. Add a shift or appointment to see it here.</div>'}</div>
     ${state.boot.personal && homeSection('today') && homeSectionContent('today','show_quick_add',true) && typeof personalQuickAdd === 'function' ? `<div class="dashboard-bottom-tools">${personalQuickAdd()}</div>` : ''}
   </section>`;
 }
@@ -582,35 +581,61 @@ function todayDurationHours(event) {
   const start = new Date(event.start_at), end = new Date(event.end_at);
   return Number.isFinite(start.getTime()) && Number.isFinite(end.getTime()) ? Math.max(0,(end-start)/3600000) : 0;
 }
-function renderTodayTimeline(events) {
+function todayEventDurationLabel(event) {
+  const minutes = Math.max(0, Math.round(todayDurationHours(event) * 60));
+  return minutes >= 60 ? `${Math.floor(minutes / 60)}h${minutes % 60 ? ` ${minutes % 60}m` : ''}` : `${minutes}m`;
+}
+function renderTodayAppointment(event) {
+  const colour = safeColour(event.section_colour || event.shift_type_colour || event.colour, '#a76aff');
+  const time = `${String(event.start_at || '').slice(11,16)}–${String(event.end_at || '').slice(11,16)}`;
+  const location = event.location || event.address || '';
+  const notes = String(event.notes || '').replace(/\\[Align travel\\][\\s\\S]*?\\[\\/Align travel\\]/g, '').trim();
+  const row = renderUpcomingEvent({...event, _suppressTravel:true}, 0, {showDate:false, condensed:false, showLocation:false});
+  return `<article class="today-appointment-card" style="--appointment-colour:${escapeHtml(colour)}">
+    <div class="today-appointment-heading"><span class="today-appointment-icon" aria-hidden="true">✚</span><div><strong>${escapeHtml(event.title || 'Appointment')}</strong>${location ? `<small>${appleDestinationLink(location)}</small>` : ''}</div><time>${escapeHtml(time)}</time></div>
+    ${notes ? `<p class="today-appointment-notes">${escapeHtml(notes)}</p>` : ''}
+    <div class="today-appointment-footer"><span>${escapeHtml(todayEventDurationLabel(event))}</span></div>
+    ${row}
+  </article>`;
+}
+function renderTodayTimeline(events, inbound = '') {
   const ordered = [...events].sort((a,b)=>String(a.start_at||'').localeCompare(String(b.start_at||'')));
   const output = [];
+  let inboundPlaced = false;
+  const inboundMarkup = inbound ? `<div class="today-inbound-travel" aria-label="Travel to first event"><strong>Travel to ${ordered[0]?.origin === 'Shift' ? 'workplace' : 'first event'}</strong>${inbound}</div>` : '';
   for (let i=0;i<ordered.length;) {
-    const first=ordered[i], key=eventLocationKey(first), group=[first];
+    const first=ordered[i];
+    if (first.origin !== 'Shift') {
+      if (!inboundPlaced && inboundMarkup) { output.push(inboundMarkup); inboundPlaced = true; }
+      output.push(renderTodayAppointment(first));
+      const connector=todayTravelConnector(first); if(connector) output.push(connector);
+      i++;
+      continue;
+    }
+    const key=eventLocationKey(first), group=[first];
     let j=i+1;
-    while(j<ordered.length && key && eventLocationKey(ordered[j])===key){group.push(ordered[j]);j++;}
+    while(j<ordered.length && ordered[j].origin==='Shift' && key && eventLocationKey(ordered[j])===key){group.push(ordered[j]);j++;}
     const last=group[group.length-1];
     const title=first.location_name||eventPlaceName(first);
     const address=first.location||first.address||'';
-    const colour=first.location_colour||first.colour||first.section_colour||'#365CE6';
+    const colour=safeColour(first.location_colour||first.colour||first.section_colour,'#078ef0');
     const startTime=String(first.start_at||'').slice(11,16), endTime=String(last.end_at||'').slice(11,16);
-    const hours=group.reduce((sum,item)=>sum+todayDurationHours(item),0);
+    const total=group.reduce((sum,item)=>sum+todayDurationHours(item),0);
     const areas=group.map(item=>{
-      const area=item.origin==='Shift'?(item.shift_type_name||item.category_name||'Work'):(item.category_name||item.calendar_name||item.title||'Event');
-      const areaColour=item.shift_type_colour||item.section_colour||item.colour||'#16A99B';
-      if(item.origin==='Shift'){
-        const areaStart=String(item.start_at||'').slice(11,16),areaEnd=String(item.end_at||'').slice(11,16);
-        const areaHours=todayDurationHours(item);
-        const shiftActions='<div class="today-shift-actions"><button type="button" class="secondary-button" data-shift-action="edit" data-id="'+Number(item.id)+'" data-work-date="'+escapeHtml(item.work_date||String(item.start_at||'').slice(0,10))+'">Edit shift</button><button type="button" class="secondary-button" data-shift-action="travel" data-id="'+Number(item.id)+'">Travel after shift</button><button type="button" class="secondary-button" data-shift-action="delete" data-id="'+Number(item.id)+'">Delete</button></div>';
-        return '<div class="today-location-area today-shift-area" style="--area-colour:'+escapeHtml(areaColour)+'"><div class="today-area-name">'+escapeHtml(area)+'</div><div class="today-area-time">'+escapeHtml(areaStart)+'–'+escapeHtml(areaEnd)+'</div><strong class="today-area-duration">'+escapeHtml(Number.isInteger(areaHours)?areaHours+'h':areaHours.toFixed(1)+'h')+'</strong>'+shiftActions+'</div>';
-      }
-      const row=renderUpcomingEvent({...item,_suppressTravel:true},0,{showDate:false,condensed:false});
-      return '<div class="today-location-area today-appointment-area" style="--area-colour:'+escapeHtml(areaColour)+'">'+row+'</div>';
+      const area=item.shift_type_name||item.category_name||'Work';
+      const areaColour=safeColour(item.shift_type_colour||item.section_colour||item.colour,'#16d5d0');
+      const areaStart=String(item.start_at||'').slice(11,16),areaEnd=String(item.end_at||'').slice(11,16);
+      const areaHours=todayDurationHours(item);
+      const shiftActions='<div class="today-shift-actions"><button type="button" class="secondary-button" data-shift-action="edit" data-id="'+Number(item.id)+'" data-work-date="'+escapeHtml(item.work_date||String(item.start_at||'').slice(0,10))+'">Edit shift</button><button type="button" class="secondary-button" data-shift-action="travel" data-id="'+Number(item.id)+'">Travel after shift</button><button type="button" class="secondary-button" data-shift-action="delete" data-id="'+Number(item.id)+'">Delete</button></div>';
+      return '<div class="today-location-area today-shift-area" style="--area-colour:'+escapeHtml(areaColour)+'"><div class="today-area-name">'+escapeHtml(area)+'</div><div class="today-area-time">'+escapeHtml(areaStart)+'–'+escapeHtml(areaEnd)+'</div><strong class="today-area-duration">'+escapeHtml(Number.isInteger(areaHours)?areaHours+'h':areaHours.toFixed(1)+'h')+'</strong>'+shiftActions+'</div>';
     }).join('');
-    output.push('<section class="today-location-block" style="--location-colour:'+escapeHtml(colour)+'"><header class="today-location-header"><div><strong>'+escapeHtml(title)+'</strong>'+(address?'<small>'+appleDestinationLink(address)+'</small>':'')+'<small>'+hours.toFixed(Number.isInteger(hours)?0:1)+' hours total · '+group.length+' item'+(group.length===1?'':'s')+'</small></div><strong class="today-location-span">'+escapeHtml(startTime)+'–'+escapeHtml(endTime)+'</strong></header><div class="today-location-areas">'+areas+'</div></section>');
+    const inboundInside = !inboundPlaced && inboundMarkup ? inboundMarkup : '';
+    if (inboundInside) inboundPlaced = true;
+    output.push('<section class="today-location-block" style="--location-colour:'+escapeHtml(colour)+'"><header class="today-location-header"><div><strong>'+escapeHtml(title)+'</strong>'+(address?'<small>'+appleDestinationLink(address)+'</small>':'')+'<small>'+total.toFixed(Number.isInteger(total)?0:1)+' hours total · '+group.length+' shift'+(group.length===1?'':'s')+'</small></div><strong class="today-location-span">'+escapeHtml(startTime)+'–'+escapeHtml(endTime)+'</strong></header>'+inboundInside+'<div class="today-location-areas">'+areas+'</div></section>');
     const connector=todayTravelConnector(last);if(connector)output.push(connector);
     i=j;
   }
+  if (!inboundPlaced && inboundMarkup) output.unshift(inboundMarkup);
   return output.join('');
 }
 function renderUpcomingGrouped(dashboard) {
