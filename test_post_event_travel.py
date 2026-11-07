@@ -1,4 +1,6 @@
 import tempfile
+import hashlib
+import json
 import sqlite3
 import unittest
 from datetime import datetime, timedelta
@@ -99,6 +101,26 @@ class EventChangesTests(unittest.TestCase):
         self.assertEqual(app.organiser_section(self.c,section)['events'][0]['location'],'Test L1 1JD')
         app.ensure_import_categories(self.c)
         self.assertEqual(self.c.execute("SELECT COUNT(*) FROM organiser_sections WHERE calendar_name='My calendar'").fetchone()[0],1)
+
+    def test_completed_event_retains_previously_planned_return_journey(self):
+        now=datetime.now(post.ZONE)
+        start=(now-timedelta(hours=3)).isoformat(timespec='minutes')
+        end=(now-timedelta(hours=2)).isoformat(timespec='minutes')
+        ident=self.event(start,end,location='Arrowe Park Road, Wirral',title='Completed shift')
+        _,route=post.target(self.c,'event',ident)
+        route['mode']='bus'
+        journey={'leave_at':route['departure'],'arrival_at':(now-timedelta(hours=1,minutes=30)).isoformat(timespec='minutes'),'notes':'Previously planned bus journey'}
+        fingerprint=hashlib.sha256(json.dumps(route,sort_keys=True).encode()).hexdigest()
+        saved={'enabled':True,'mode':'bus','journey':journey,'fingerprint':fingerprint}
+        key=f'post_event_travel:event:{ident}'
+        self.c.execute('INSERT INTO settings(setting_key,setting_value) VALUES(?,?)',(key,json.dumps(saved)))
+        with patch.object(post,'plan',side_effect=AssertionError('Completed journeys must not be replanned')):
+            result=post.handle(self.c,{'kind':'event','id':ident,'enabled':True,'mode':'bus','plan':True})
+        self.assertTrue(result['historical'])
+        self.assertEqual(result['journey'],journey)
+        decorated=post.decorate(self.c,[{'id':ident,'start_at':start,'end_at':end,'location':'Arrowe Park Road, Wirral'}],kind='event')
+        self.assertTrue(decorated[0]['post_travel']['historical'])
+        self.assertEqual(decorated[0]['post_travel']['journey'],journey)
 
     def test_next_location_within_hour_else_home_and_invalidation(self):
         ident=self.event('2030-10-01T09:00','2030-10-01T10:00')
