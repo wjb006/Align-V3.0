@@ -566,7 +566,7 @@ function renderTodayTimeline(events) {
         return '<div class="today-location-area" style="--area-colour:'+escapeHtml(areaColour)+'"><div class="today-area-name">'+escapeHtml(area)+'</div><div class="today-area-time">'+escapeHtml(areaStart)+'–'+escapeHtml(areaEnd)+'</div><strong class="today-area-duration">'+escapeHtml(Number.isInteger(areaHours)?areaHours+'h':areaHours.toFixed(1)+'h')+'</strong></div>';
       }).join('');
       const title=first.location_name||eventPlaceName(first);
-      output.push('<section class="today-location-block" style="--location-colour:'+escapeHtml(colour)+'"><header class="today-location-header"><div><strong>'+escapeHtml(title)+'</strong>'+(address?'<small>'+appleDestinationLink(address)+'</small>':'')+'<small>'+hours.toFixed(Number.isInteger(hours)?0:1)+' hours total · '+group.length+' shifts</small></div><strong class="today-location-span">'+escapeHtml(start)+'–'+escapeHtml(finish)+'</strong></header>'+todayTravelConnector(first)+'<div class="today-location-areas">'+areas+'</div></section>');
+      output.push('<section class="today-location-block" style="--location-colour:'+escapeHtml(colour)+'"><header class="today-location-header"><div><strong>'+escapeHtml(title)+'</strong>'+(address?'<small>'+appleDestinationLink(address)+'</small>':'')+'<small>'+hours.toFixed(Number.isInteger(hours)?0:1)+' hours total · '+group.length+' shifts</small></div><strong class="today-location-span">'+escapeHtml(start)+'–'+escapeHtml(finish)+'</strong></header>'+todayTravelConnector(last)+'<div class="today-location-areas">'+areas+'</div></section>');
       i=j; continue;
     }
     const key=eventLocationKey(item), previous=ordered[i-1], sameAsPrevious=!!key&&!!previous&&eventLocationKey(previous)===key;
