@@ -77,7 +77,7 @@ function journeyEventSummary(notes = '') {
  add('Arrive',arrival);
  if(!items.length)return '';
  const legs=steps.length?journeyBreakdown(steps):'<p class="helper">Detailed walking and service steps are not available for this journey.</p>';
- return '<details class="compact-event-details journey-event-details"><summary>'+items.join('')+'</summary>'+legs+'</details>';
+ return '<div class="compact-event-details journey-event-details"><div class="journey-itinerary-strip">'+items.join('<span class="shift-travel-arrow">›</span>')+'</div>'+legs+'</div>';
 }
 
 function journeyBreakdown(steps = []) {
