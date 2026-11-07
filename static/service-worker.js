@@ -1,5 +1,5 @@
 const BUILD = 158;
-const ASSET_VERSION = `${BUILD}-v76`;
+const ASSET_VERSION = `${BUILD}-v78`;
 
 const SHELL_CACHE = `align-v13-shell-${ASSET_VERSION}`;
 const API_CACHE = `align-v13-api-${ASSET_VERSION}`;

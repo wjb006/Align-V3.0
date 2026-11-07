@@ -228,7 +228,7 @@ def _month(connection, raw_month, app):
     end = date(start.year + (start.month==12), start.month%12+1, 1)-timedelta(days=1)
     data = _week(connection,start.isoformat())
     event_data = app.month_data(connection, month)
-    shifts = _rows(connection,"""SELECT s.*,l.colour AS location_colour,st.colour AS shift_type_colour
+    shifts = _rows(connection,"""SELECT s.*,l.address AS location,l.colour AS location_colour,st.colour AS shift_type_colour
         FROM shifts s LEFT JOIN locations l ON l.id=s.location_id LEFT JOIN shift_types st ON st.id=s.shift_type_id
         WHERE s.work_date BETWEEN ? AND ? ORDER BY s.work_date,s.start_time""",(start.isoformat(),end.isoformat()))
     from post_event_travel import decorate as decorate_post_travel

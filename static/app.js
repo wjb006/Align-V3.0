@@ -512,14 +512,15 @@ function renderUpcomingEvent(event, index = 0, options = {}) {
   return renderEventRow(event, { index, ...options });
 }
 function eventLocationKey(event) {
+  const address = String(event.location || event.address || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  if (address) return `address:${address}`;
   if (event.location_id) return `id:${event.location_id}`;
   if (event.location_name) return `name:${String(event.location_name).trim().toLowerCase()}`;
   if (event.kind === 'Work' || event.origin === 'Work') {
     const place = String(event.title || '').split(' · ')[0].trim().toLowerCase();
     if (place) return `name:${place}`;
   }
-  const place = String(event.location || '').trim().toLowerCase();
-  return place ? `name:${place}` : '';
+  return event.id ? `unlocated:${event.origin || event.kind || 'event'}:${event.id}` : '';
 }
 function eventPlaceName(event) {
   return event.location_name || String(event.title || '').split(' · ')[0] || event.location || 'Event';
@@ -548,33 +549,29 @@ function renderTodayTimeline(events) {
   const ordered = [...events].sort((a,b)=>String(a.start_at||'').localeCompare(String(b.start_at||'')));
   const output = [];
   for (let i=0;i<ordered.length;) {
-    const item = ordered[i];
-    if (item.origin === 'Shift') {
-      const key = eventLocationKey(item), group=[item];
-      let j=i+1;
-      while (j<ordered.length && ordered[j].origin==='Shift' && key && eventLocationKey(ordered[j])===key) { group.push(ordered[j]); j++; }
-      const first=group[0], last=group[group.length-1];
-      const start=String(first.start_at||'').slice(11,16), finish=String(last.end_at||'').slice(11,16);
-      const hours=group.reduce((sum,shift)=>sum+todayDurationHours(shift),0);
-      const colour=first.location_colour||first.colour||first.section_colour||'#365CE6';
-      const address=first.location||first.address||'';
-      const areas=group.map(shift=>{
-        const area=shift.shift_type_name||shift.category_name||'Work';
-        const areaColour=shift.shift_type_colour||shift.section_colour||'#16A99B';
-        const areaStart=String(shift.start_at||'').slice(11,16), areaEnd=String(shift.end_at||'').slice(11,16);
-        const areaHours=todayDurationHours(shift);
-        return '<div class="today-location-area" style="--area-colour:'+escapeHtml(areaColour)+'"><div class="today-area-name">'+escapeHtml(area)+'</div><div class="today-area-time">'+escapeHtml(areaStart)+'–'+escapeHtml(areaEnd)+'</div><strong class="today-area-duration">'+escapeHtml(Number.isInteger(areaHours)?areaHours+'h':areaHours.toFixed(1)+'h')+'</strong></div>';
-      }).join('');
-      const title=first.location_name||eventPlaceName(first);
-      output.push('<section class="today-location-block" style="--location-colour:'+escapeHtml(colour)+'"><header class="today-location-header"><div><strong>'+escapeHtml(title)+'</strong>'+(address?'<small>'+appleDestinationLink(address)+'</small>':'')+'<small>'+hours.toFixed(Number.isInteger(hours)?0:1)+' hours total · '+group.length+' shifts</small></div><strong class="today-location-span">'+escapeHtml(start)+'–'+escapeHtml(finish)+'</strong></header><div class="today-location-areas">'+areas+'</div></section>');
-      const connector=todayTravelConnector(last); if(connector)output.push(connector);
-      i=j; continue;
-    }
-    const key=eventLocationKey(item), previous=ordered[i-1], sameAsPrevious=!!key&&!!previous&&eventLocationKey(previous)===key;
-    const row=renderUpcomingEvent({...item,_suppressTravel:true},i,{showDate:false,condensed:false});
-    output.push('<section class="today-event-block" style="--location-colour:'+escapeHtml(item.section_colour||item.colour||'#8B6BE8')+'">'+row+'</section>');
-    if(!sameAsPrevious){const connector=todayTravelConnector(item);if(connector)output.push(connector);}
-    i++;
+    const first=ordered[i], key=eventLocationKey(first), group=[first];
+    let j=i+1;
+    while(j<ordered.length && key && eventLocationKey(ordered[j])===key){group.push(ordered[j]);j++;}
+    const last=group[group.length-1];
+    const title=first.location_name||eventPlaceName(first);
+    const address=first.location||first.address||'';
+    const colour=first.location_colour||first.colour||first.section_colour||'#365CE6';
+    const startTime=String(first.start_at||'').slice(11,16), endTime=String(last.end_at||'').slice(11,16);
+    const hours=group.reduce((sum,item)=>sum+todayDurationHours(item),0);
+    const areas=group.map(item=>{
+      const area=item.origin==='Shift'?(item.shift_type_name||item.category_name||'Work'):(item.category_name||item.calendar_name||item.title||'Event');
+      const areaColour=item.shift_type_colour||item.section_colour||item.colour||'#16A99B';
+      if(item.origin==='Shift'){
+        const areaStart=String(item.start_at||'').slice(11,16),areaEnd=String(item.end_at||'').slice(11,16);
+        const areaHours=todayDurationHours(item);
+        return '<div class="today-location-area" style="--area-colour:'+escapeHtml(areaColour)+'"><div class="today-area-name">'+escapeHtml(area)+'</div><div class="today-area-time">'+escapeHtml(areaStart)+'–'+escapeHtml(areaEnd)+'</div><strong class="today-area-duration">'+escapeHtml(Number.isInteger(areaHours)?areaHours+'h':areaHours.toFixed(1)+'h')+'</strong><button type="button" class="small-button event-travel-button" data-shift-action="travel" data-id="'+Number(item.id)+'">Travel after shift</button></div>';
+      }
+      const row=renderUpcomingEvent({...item,_suppressTravel:true},0,{showDate:false,condensed:false});
+      return '<div class="today-location-area" style="--area-colour:'+escapeHtml(areaColour)+'">'+row+'</div>';
+    }).join('');
+    output.push('<section class="today-location-block" style="--location-colour:'+escapeHtml(colour)+'"><header class="today-location-header"><div><strong>'+escapeHtml(title)+'</strong>'+(address?'<small>'+appleDestinationLink(address)+'</small>':'')+'<small>'+hours.toFixed(Number.isInteger(hours)?0:1)+' hours total · '+group.length+' item'+(group.length===1?'':'s')+'</small></div><strong class="today-location-span">'+escapeHtml(startTime)+'–'+escapeHtml(endTime)+'</strong></header><div class="today-location-areas">'+areas+'</div></section>');
+    const connector=todayTravelConnector(last);if(connector)output.push(connector);
+    i=j;
   }
   return output.join('');
 }
