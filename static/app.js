@@ -342,7 +342,7 @@ function renderBottomNavigation() {
   const hasCoreNavigation = configured.some(item => ['today','inbox','sections','more'].includes(item.destination));
   const items = hasCoreNavigation ? configured : CORE_NAVIGATION;
   const active = coreNavDestination();
-  root.innerHTML = items.filter(item => item.active).map(item => `<button data-nav="${escapeHtml(item.destination)}" class="nav-item ${active===item.destination?'active':''}"><span class="nav-icon">${escapeHtml(item.icon)}</span><span>${escapeHtml(item.title)}</span></button>`).join('');
+  root.innerHTML = items.filter(item => item.active).map(item => `<button type="button" data-nav="${escapeHtml(item.destination)}" aria-current="${active===item.destination?'page':'false'}" class="nav-item ${active===item.destination?'active':''}"><span class="nav-icon">${escapeHtml(item.icon)}</span><span>${escapeHtml(item.title)}</span></button>`).join('');
   root.style.gridTemplateColumns = `repeat(${Math.max(1,root.querySelectorAll('[data-nav]').length)}, 1fr)`;
 }
 
@@ -916,7 +916,19 @@ document.addEventListener('click', async event => {
   if (element.dataset.plannerMonth) { const base = /^\\d{4}-\\d{2}$/.test(state.plannerMonth || '') ? state.plannerMonth : (() => { const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); })(); const [y,m]=base.split('-').map(Number); const d=new Date(y,m-1+Number(element.dataset.plannerMonth),1); state.plannerMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); render(); return; }
   if (element.dataset.plannerDate) { state.plannerSelectedDate=element.dataset.plannerDate; const rows=[...document.querySelectorAll('.planner-event-row')]; rows.forEach(row=>row.hidden=!row.querySelector('time')?.textContent.startsWith(state.plannerSelectedDate)); document.querySelector('.planner-event-list')?.scrollIntoView({behavior:'smooth',block:'nearest'}); return; }
   if (element.dataset.sectionKey) { await builderOpenLayout(element.dataset.sectionKey); return; }
-  if (element.dataset.nav) { state.tab = element.dataset.nav; render(); return; }
+  if (element.dataset.nav) {
+    event.preventDefault();
+    const destination = element.dataset.nav;
+    if (destination === state.tab && destination === 'today') {
+      void refresh().then(() => { state.tab = 'today'; render(); window.scrollTo(0, 0); }).catch(error => toast(error.message));
+      return;
+    }
+    state.tab = destination;
+    if (destination === 'today') state.scheduleStart = isoToday();
+    render();
+    window.scrollTo(0, 0);
+    return;
+  }
   const action = element.dataset.action;
   if (action === 'prompt-install') { void promptAlignInstall(); return; }
   if (action === 'download-local-backup') {
