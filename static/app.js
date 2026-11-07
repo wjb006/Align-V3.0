@@ -10,6 +10,7 @@ const state = {
   dailyInboundJourneys: {},
   dailyInboundLoading: {},
   postTravelRequests: new Set(),
+  add: { context: null },
 };
 window.ALIGN_STATE = state;
 
