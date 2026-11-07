@@ -986,3 +986,28 @@ body[data-management-theme="light"] .guide-page { --guide-well: #f4f7fb; }
 .today-inbound-travel>strong{font-size:.9rem}
 .today-inbound-travel .compact-event-details{margin:0}
 @media(max-width:600px){.today-planner-actions{gap:8px}.today-planner-actions .secondary-button{min-height:50px;padding:8px 6px;font-size:.88rem}.today-shift-actions{gap:6px}.today-shift-actions .secondary-button{font-size:.76rem;min-height:46px}}
+
+
+/* Mobile planner cleanup: remove the redundant nested location/area boxes. */
+.planner-location-group{gap:9px;padding:9px}
+.planner-location-areas{gap:9px}
+.planner-location-group .location-group-area{padding:0;border:0;background:transparent}
+.planner-location-group .restored-shift-card{display:grid;gap:9px;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important}
+.planner-location-group .restored-shift-card:before{display:none}
+.planner-location-group .shift-area-panel{padding:12px 14px;border:1.5px solid var(--area-colour,#16A99B)!important;border-left:4px solid var(--area-colour,#16A99B)!important;border-radius:14px;background:color-mix(in srgb,var(--area-colour,#16A99B) 9%,#071b2d)}
+.planner-location-group .restored-shift-top h3{margin:0;font-size:1.02rem}
+.planner-location-group .restored-shift-time{margin:5px 0 0;font-size:.92rem}
+.planner-location-group .button-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}
+.planner-location-group .button-row .secondary-button{width:100%;min-width:0;min-height:44px;padding:8px 5px;border-radius:11px;font-size:.78rem;line-height:1.2;white-space:normal;overflow-wrap:anywhere}
+.planner-location-group .restored-event-card{padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important}
+.planner-location-group .restored-event-card .button-row{margin-top:8px}
+@media(max-width:600px){
+ .planner-location-group{gap:8px;margin:10px 0 14px;padding:8px}
+ .planner-location-header{gap:8px;padding:9px 10px}
+ .planner-location-header>div>strong{font-size:1rem}
+ .planner-location-header small{font-size:.76rem}
+ .planner-location-header>strong{font-size:.84rem}
+ .planner-location-group .shift-area-panel{padding:11px 12px}
+ .planner-location-group .button-row{gap:6px}
+ .planner-location-group .button-row .secondary-button{min-height:42px;padding:7px 4px;font-size:.74rem}
+}
