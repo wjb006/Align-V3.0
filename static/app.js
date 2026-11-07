@@ -18,7 +18,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 158;
-const ASSET_VERSION = `${BUILD_VERSION}-v75`;
+const ASSET_VERSION = `${BUILD_VERSION}-v80`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -342,7 +342,7 @@ function renderBottomNavigation() {
   const hasCoreNavigation = configured.some(item => ['today','inbox','sections','more'].includes(item.destination));
   const items = hasCoreNavigation ? configured : CORE_NAVIGATION;
   const active = coreNavDestination();
-  root.innerHTML = items.filter(item => item.active).map(item => `<button data-nav="${escapeHtml(item.destination)}" class="nav-item ${active===item.destination?'active':''}"><span class="nav-icon">${escapeHtml(item.icon)}</span><span>${escapeHtml(item.title)}</span></button>`).join('');
+  root.innerHTML = items.filter(item => item.active).map(item => `<button type="button" data-nav="${escapeHtml(item.destination)}" aria-current="${active===item.destination?'page':'false'}" class="nav-item ${active===item.destination?'active':''}"><span class="nav-icon">${escapeHtml(item.icon)}</span><span>${escapeHtml(item.title)}</span></button>`).join('');
   root.style.gridTemplateColumns = `repeat(${Math.max(1,root.querySelectorAll('[data-nav]').length)}, 1fr)`;
 }
 
@@ -576,7 +576,10 @@ function renderTodayTimeline(events) {
   return output.join('');
 }
 function renderUpcomingGrouped(dashboard) {
-  const events = (dashboard.upcoming_events || []).filter(upcomingNow);
+  const events = (dashboard.upcoming_events || []).filter(item => {
+    const isCurrentDay = ['today','home'].includes(state.tab) && String(item.start_at || '').slice(0, 10) === dashboard.today;
+    return isCurrentDay || upcomingNow(item);
+  });
   const items = events.slice(0, 50);
   if (!items.length) {
     return '<div class="card empty">No upcoming events yet. Add your first one above.</div>';
@@ -916,7 +919,19 @@ document.addEventListener('click', async event => {
   if (element.dataset.plannerMonth) { const base = /^\\d{4}-\\d{2}$/.test(state.plannerMonth || '') ? state.plannerMonth : (() => { const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); })(); const [y,m]=base.split('-').map(Number); const d=new Date(y,m-1+Number(element.dataset.plannerMonth),1); state.plannerMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); render(); return; }
   if (element.dataset.plannerDate) { state.plannerSelectedDate=element.dataset.plannerDate; const rows=[...document.querySelectorAll('.planner-event-row')]; rows.forEach(row=>row.hidden=!row.querySelector('time')?.textContent.startsWith(state.plannerSelectedDate)); document.querySelector('.planner-event-list')?.scrollIntoView({behavior:'smooth',block:'nearest'}); return; }
   if (element.dataset.sectionKey) { await builderOpenLayout(element.dataset.sectionKey); return; }
-  if (element.dataset.nav) { state.tab = element.dataset.nav; render(); return; }
+  if (element.dataset.nav) {
+    event.preventDefault();
+    const destination = element.dataset.nav;
+    if (destination === state.tab && destination === 'today') {
+      void refresh().then(() => { state.tab = 'today'; render(); window.scrollTo(0, 0); }).catch(error => toast(error.message));
+      return;
+    }
+    state.tab = destination;
+    if (destination === 'today') state.scheduleStart = isoToday();
+    render();
+    window.scrollTo(0, 0);
+    return;
+  }
   const action = element.dataset.action;
   if (action === 'prompt-install') { void promptAlignInstall(); return; }
   if (action === 'download-local-backup') {
