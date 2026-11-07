@@ -1170,3 +1170,20 @@ body[data-management-theme="light"] .guide-page { --guide-well: #f4f7fb; }
 
 .today-appointment-icon:after{display:none!important}.today-appointment-icon svg{width:48px;height:48px;color:#fff}
 @media(max-width:600px){.today-appointment-icon svg{width:38px;height:38px}}
+
+/* Automatic travel strips: the route and destination stay readable on phones. */
+.today-travel-connector .shift-travel-itinerary-wrap>strong{display:grid;gap:3px}
+.today-travel-connector .shift-travel-itinerary-wrap>strong small{font-size:.68rem;font-weight:500;color:#dcecff;line-height:1.25}
+.today-travel-connector .shift-travel-itinerary-wrap .journey-itinerary-strip{display:flex;align-items:center;gap:7px;min-width:0;overflow-x:auto;flex-wrap:nowrap}
+.today-travel-connector .journey-time-icon{display:flex;align-items:center;gap:5px;flex:0 0 auto;min-width:0;color:#fff}
+.today-travel-connector .journey-time-icon>span:last-child{display:grid;gap:1px}
+.today-travel-connector .journey-time-icon small{font-size:.72rem;color:#dcecff;white-space:nowrap}
+.today-travel-connector .journey-time-icon strong{font-size:.88rem;white-space:nowrap}
+.today-travel-connector .journey-time-icon svg{width:29px;height:29px}
+@media(max-width:600px){
+ .today-travel-connector .shift-travel-itinerary-wrap{grid-template-columns:1fr;gap:6px}
+ .today-travel-connector .journey-time-icon{gap:3px}
+ .today-travel-connector .journey-time-icon svg{width:24px;height:24px}
+ .today-travel-connector .journey-time-icon small{font-size:.64rem}
+ .today-travel-connector .journey-time-icon strong{font-size:.78rem}
+}
