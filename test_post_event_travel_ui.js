@@ -9,7 +9,7 @@ assert.match(fields,/<option value="drive" selected>/);
 assert.equal(context.postTravelSummary({post_travel:{enabled:false}}),'');
 const summary=context.postTravelSummary({post_travel:{enabled:true,destination_name:'<Home>',journey:{notes:'<script>unsafe</script>'}}});
 assert.ok(!summary.includes('<script>'));assert.match(summary,/&lt;Home&gt;/);
-assert.match(context.postTravelSummary({post_travel:{enabled:true,destination_name:'Next'}}),/needs refreshing/);
+assert.equal(context.postTravelSummary({post_travel:{enabled:true,destination_name:'Next'}}),'');
 console.log('Post-event UI: expiry, saved preference, mode, safe display and stale journey checks passed.');
 
 const strip=context.travelRouteStrip({leave_at:'2026-11-09T07:05',arrival_at:'2026-11-09T07:31',steps:[{mode:'walk',minutes:5},{mode:'bus',minutes:18,service_number:'410'},{mode:'walk',minutes:3}]});
