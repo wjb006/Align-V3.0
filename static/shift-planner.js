@@ -44,7 +44,7 @@
     }
   }
   async function loadInboundPlannerJourneys(data) {
-    const all=[...(data.shifts||[]).map(x=>({...x,_plannerKind:'shift'})),...(data.events||[]).map(x=>({...x,_plannerKind:'event'})),...(data.imported_events||[]).map(x=>({...x,_plannerKind:'imported'}))]
+    const all=[...(data.shifts||[]).map(x=>Object.assign(x,{_plannerKind:'shift'})),...(data.events||[]).map(x=>Object.assign(x,{_plannerKind:'event'})),...(data.imported_events||[]).map(x=>Object.assign(x,{_plannerKind:'imported'}))]
       .filter(x=>String(x.location||x.address||'').trim()&&plannerItemStart(x));
     const byDay=new Map();
     for(const item of all){const day=plannerItemStart(item).slice(0,10);const current=byDay.get(day);if(day&&(!current||plannerItemStart(item)<plannerItemStart(current)))byDay.set(day,item);}
