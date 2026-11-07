@@ -29,6 +29,8 @@ const version = appSource.match(/const ASSET_VERSION = `\$\{BUILD_VERSION\}-([^`
 if (!build || !version) throw new Error('Build and ASSET_VERSION templates are missing from app.js');
 const assetVersion = `${build[1]}-${version[1]}`;
 
+if (!planner.includes("addressFields('shift-location-address','address','','Address (optional)')")) throw new Error('Work location address autocomplete is missing');
+
 const plannerScripts = scriptSources(index);
 const studioScripts = scriptSources(studio);
 assertUnique('index.html', plannerScripts);
