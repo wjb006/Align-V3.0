@@ -423,20 +423,20 @@ function renderHomeShortcuts() {
 }
 function renderHome() {
   const { dashboard } = state.boot;
-  const sections = state.boot.builder ? state.boot.sections : rootSections();
-  return `<section class="page">
-    ${renderHomeGreeting(dashboard)}
-    ${renderHomeShortcuts()}
-    ${homeSection('stats') ? `<div class="hero-stat-row home-week-stats"><div class="hero-stat"><strong>${sections.length}</strong><span>your sections</span></div><div class="hero-stat"><strong>${dashboard.upcoming_events?.length || 0}</strong><span>upcoming events</span></div></div>` : ''}
-    <div class="dashboard-panels">
-      ${homeSection('today') ? `<div class="dashboard-today">${callOptional('personalToday', {includeQuickAdd:false}) || ''}</div>` : ''}
-      ${homeSection('upcoming') ? `<section class="section dashboard-upcoming" data-management-banner="upcoming">
-        <div class="section-head"><h2>${homeSectionTitle('upcoming','Upcoming Events')}</h2><div class="button-row"><button class="text-button" data-build153-manage-contacts>Saved contacts</button></div></div>
-        ${renderUpcomingGrouped(dashboard)}
-      </section>` : ''}
-    </div>
+  const todayItems = (dashboard.upcoming_events || []).filter(item =>
+    String(item.start_at || '').slice(0, 10) === dashboard.today || upcomingNow(item)
+  ).slice(0, 50);
+  const eventGroups = new Set(todayItems.map(item => eventLocationKey(item) || `event:${item.origin || ''}:${item.id || item.start_at}`));
+  const totalHours = todayItems.reduce((sum, item) => sum + todayDurationHours(item), 0);
+  const minutes = Math.round(totalHours * 60);
+  const totalLabel = `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`;
+  return `<section class="page today-reference-page">
+    <header class="today-reference-header">
+      <div class="today-reference-date"><span class="today-reference-calendar" aria-hidden="true">▦</span><h1>${escapeHtml(fullDateLabel(dashboard.today))}</h1></div>
+      <div class="today-reference-total"><strong>${eventGroups.size} Events</strong><span>•</span><strong>${totalLabel} Total</strong></div>
+    </header>
+    <div class="today-event-timeline">${todayItems.length ? renderTodayTimeline(todayItems) : '<div class="card empty">Nothing scheduled for today. Add a shift or appointment to see it here.</div>'}</div>
     ${state.boot.personal && homeSection('today') && homeSectionContent('today','show_quick_add',true) && typeof personalQuickAdd === 'function' ? `<div class="dashboard-bottom-tools">${personalQuickAdd()}</div>` : ''}
-    ${homeSection('calendar') ? `<section class="section home-calendar-section" data-management-banner="calendar"><div class="section-head"><h2>${homeSectionTitle('calendar','Calendar')}</h2><button type="button" class="text-button" data-nav="planner">Open calendar</button></div>${homeSectionContent('calendar','show_upcoming',true) ? renderUpcomingGrouped(dashboard) : '<p class="subtle">Your calendar is ready. Open it to view and manage your events.</p>'}</section>` : ''}
   </section>`;
 }
 
@@ -564,10 +564,10 @@ function renderTodayTimeline(events) {
       if(item.origin==='Shift'){
         const areaStart=String(item.start_at||'').slice(11,16),areaEnd=String(item.end_at||'').slice(11,16);
         const areaHours=todayDurationHours(item);
-        return '<div class="today-location-area" style="--area-colour:'+escapeHtml(areaColour)+'"><div class="today-area-name">'+escapeHtml(area)+'</div><div class="today-area-time">'+escapeHtml(areaStart)+'–'+escapeHtml(areaEnd)+'</div><strong class="today-area-duration">'+escapeHtml(Number.isInteger(areaHours)?areaHours+'h':areaHours.toFixed(1)+'h')+'</strong><button type="button" class="small-button event-travel-button" data-shift-action="travel" data-id="'+Number(item.id)+'">Travel after shift</button></div>';
+        return '<div class="today-location-area today-shift-area" style="--area-colour:'+escapeHtml(areaColour)+'"><div class="today-area-name">'+escapeHtml(area)+'</div><div class="today-area-time">'+escapeHtml(areaStart)+'–'+escapeHtml(areaEnd)+'</div><strong class="today-area-duration">'+escapeHtml(Number.isInteger(areaHours)?areaHours+'h':areaHours.toFixed(1)+'h')+'</strong></div>';
       }
       const row=renderUpcomingEvent({...item,_suppressTravel:true},0,{showDate:false,condensed:false});
-      return '<div class="today-location-area" style="--area-colour:'+escapeHtml(areaColour)+'">'+row+'</div>';
+      return '<div class="today-location-area today-appointment-area" style="--area-colour:'+escapeHtml(areaColour)+'">'+row+'</div>';
     }).join('');
     output.push('<section class="today-location-block" style="--location-colour:'+escapeHtml(colour)+'"><header class="today-location-header"><div><strong>'+escapeHtml(title)+'</strong>'+(address?'<small>'+appleDestinationLink(address)+'</small>':'')+'<small>'+hours.toFixed(Number.isInteger(hours)?0:1)+' hours total · '+group.length+' item'+(group.length===1?'':'s')+'</small></div><strong class="today-location-span">'+escapeHtml(startTime)+'–'+escapeHtml(endTime)+'</strong></header><div class="today-location-areas">'+areas+'</div></section>');
     const connector=todayTravelConnector(last);if(connector)output.push(connector);
