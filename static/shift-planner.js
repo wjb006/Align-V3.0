@@ -51,7 +51,7 @@
     const days=[...byDay.keys()].filter(day=>day>=getToday()).sort().slice(0,7);
     await Promise.all(days.map(async day=>{const item=byDay.get(day);try{
       const result=await api('/api/personal/journey',{method:'POST',body:{destination:String(item.location||item.address).trim(),arrival:plannerItemStart(item),mode:data.preferences?.default_travel||undefined}});
-      if(result?.notes)item.pre_travel={notes:result.notes,leave_at:result.leave_at,arrival_at:result.arrival_at,steps:result.steps||[],minutes:result.minutes};
+      if(result?.notes){const steps=result.steps||[];item.pre_travel={notes:'[Align travel]\n'+result.notes+'\n[/Align travel]'+(steps.length?'\n[Align travel steps]\n'+JSON.stringify(steps)+'\n[/Align travel steps]':''),leave_at:result.leave_at,arrival_at:result.arrival_at,steps,minutes:result.minutes};}
     }catch(error){item.pre_travel_error=error.message||'Inbound journey unavailable';}}));
   }
   function selectedShifts() {
