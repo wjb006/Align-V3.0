@@ -7,6 +7,9 @@ const state = {
   sectionId: null,
   sectionData: null,
   sectionDefinitions: [],
+  dailyInboundJourneys: {},
+  dailyInboundLoading: {},
+  postTravelRequests: new Set(),
 };
 window.ALIGN_STATE = state;
 
@@ -18,7 +21,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 158;
-const ASSET_VERSION = `${BUILD_VERSION}-v85`
+const ASSET_VERSION = `${BUILD_VERSION}-v86`
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -440,9 +443,11 @@ function renderHome() {
   const totalHours = todayItems.reduce((sum, item) => sum + todayDurationHours(item), 0);
   const minutes = Math.round(totalHours * 60);
   const totalLabel = `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
-  ensureTodayInboundTravel(todayItems[0]);
-  const inbound = state.todayInboundJourney?.key === todayInboundKey(todayItems[0]) && typeof journeyEventSummary === 'function'
-    ? journeyEventSummary(state.todayInboundJourney.notes) : '';
+  ensureDailyTravel(todayItems);
+  const firstTravelItem=todayItems.find(item=>(item.location||item.address)&&!item.all_day&&parseAlignDateTime(item.start_at)?.getTime()>Date.now());
+  const inboundJourney=state.dailyInboundJourneys[todayInboundKey(firstTravelItem)];
+  const inbound = inboundJourney && typeof travelRouteStrip === 'function'
+    ? travelRouteStrip(inboundJourney) : (inboundJourney && typeof journeyEventSummary === 'function' ? journeyEventSummary(inboundJourney.notes) : '');
   return `<section class="page today-reference-page">
     <header class="today-reference-header">
       <div class="today-reference-date"><span class="today-reference-calendar" aria-hidden="true">▦</span><h1>${escapeHtml(fullDateLabel(dashboard.today))}</h1></div>
@@ -457,12 +462,15 @@ function todayInboundKey(item) {
   return item && (item.location || item.address) && item.start_at
     ? `${item.origin || ''}:${item.id || item.start_at}:${item.start_at}` : '';
 }
+function eventTravelKind(item) {
+  return item?.origin === 'Shift' ? 'shift' : (item?.origin === 'Calendar' || item?.source_kind === 'icloud' ? 'calendar' : 'event');
+}
 async function ensureTodayInboundTravel(item) {
-  if (typeof eventIsUnderway === 'function' && eventIsUnderway(item)) return;
-  const key = todayInboundKey(item);
-  if (!key || state.todayInboundKey === key || state.todayInboundLoading) return;
-  state.todayInboundKey = key;
-  state.todayInboundLoading = true;
+  if (!item || (typeof eventIsUnderway === 'function' && eventIsUnderway(item))) return;
+  const key = todayInboundKey(item), day = String(item.start_at || '').slice(0,10);
+  const end=eventEndAt(item);
+  if (!key || (end&&end.getTime()<=Date.now()) || state.dailyInboundJourneys[key] || state.dailyInboundLoading[key]) return;
+  state.dailyInboundLoading[key] = true;
   try {
     const prefs = typeof personalPrefs === 'function' ? personalPrefs() : {};
     const result = await api('/api/personal/journey', { method: 'POST', body: {
@@ -472,20 +480,53 @@ async function ensureTodayInboundTravel(item) {
       departure_buffer: Number(prefs.departure_buffer ?? 5),
       arrival_buffer: Number(prefs.arrival_buffer ?? 10),
     }});
-    if (result?.notes && state.boot?.dashboard?.today === String(item.start_at).slice(0, 10)) {
+    if (result?.notes) {
       const steps = result.steps || [];
       const notes = '[Align travel]\\n' + result.notes + '\\n[/Align travel]' +
         (steps.length ? '\\n[Align travel steps]\\n' + JSON.stringify(steps) + '\\n[/Align travel steps]' : '');
-      state.todayInboundJourney = { key, notes };
-      if (['today','home'].includes(state.tab)) render();
+      state.dailyInboundJourneys[key] = { ...result, key, day, notes };
+      if (state.boot && ['today','home','planner','calendar'].includes(state.tab)) render();
     }
   } catch (_) {
     // An unavailable route must never prevent the day's schedule from rendering.
   } finally {
-    state.todayInboundLoading = false;
+    delete state.dailyInboundLoading[key];
   }
 }
-
+async function ensureDailyPostTravel(items) {
+  const ordered = [...(items || [])].sort((a,b)=>String(a.start_at||'').localeCompare(String(b.start_at||'')));
+  const visibleLegs = [];
+  for (let i=0;i<ordered.length;i++) {
+    const item=ordered[i], key=eventLocationKey(item), location=String(item.location||item.address||'').trim();
+    if (item.origin==='Shift' && key && ordered[i+1]?.origin==='Shift' && eventLocationKey(ordered[i+1])===key) continue;
+    if (!location || item.all_day || !item.end_at) continue;
+    const end=parseAlignDateTime(item.end_at);
+    if (!end || end.getTime()<=Date.now()) continue;
+    const kind=eventTravelKind(item), requestKey=`${kind}:${item.id}:${item.end_at}:${location}`;
+    if (item.post_travel?.journey || state.postTravelRequests.has(requestKey)) continue;
+    state.postTravelRequests.add(requestKey);
+    visibleLegs.push({item,kind});
+  }
+  for (const leg of visibleLegs) {
+    const {item,kind}=leg;
+    try {
+      const prefs=typeof personalPrefs==='function'?personalPrefs():{};
+      const result=await api('/api/personal/post-event-travel',{method:'POST',body:{
+        kind,id:Number(item.id),enabled:true,mode:item.post_travel?.mode||prefs.default_travel||'transit',plan:true
+      }});
+      item.post_travel={...(item.post_travel||{}),...result,enabled:true};
+      if (state.boot && ['today','home','planner','calendar'].includes(state.tab)) render();
+    } catch (error) {
+      item.post_travel={...(item.post_travel||{}),enabled:true,error:String(error?.message||error)};
+    }
+  }
+}
+function ensureDailyTravel(items) {
+  const ordered=[...(items||[])].sort((a,b)=>String(a.start_at||'').localeCompare(String(b.start_at||'')));
+  const first=ordered.find(item=>(item.location||item.address)&&!item.all_day&&parseAlignDateTime(item.start_at)?.getTime()>Date.now());
+  if(first) void ensureTodayInboundTravel(first);
+  void ensureDailyPostTravel(ordered);
+}
 function sectionEventDate(event) {
   const day = event.start_at.slice(0, 10);
   if (event.all_day) return `${prettyDate(day, { weekday: 'short', day: 'numeric', month: 'short' })} · all day`;
@@ -582,7 +623,7 @@ function renderGroupedEventRows(events, options = {}) {
 }
 function todayTravelConnector(event) {
   if (!event || typeof eventTravelMarkup !== 'function') return '';
-  const markup = eventTravelMarkup(event);
+  const markup = eventTravelMarkup(event,{includeInbound:false});
   return markup ? '<div class="today-travel-connector" aria-label="Travel after this event">'+markup+'</div>' : '';
 }
 function todayDurationHours(event) {
@@ -663,26 +704,29 @@ function renderUpcomingGrouped(dashboard) {
     return isCurrentDay || upcomingNow(item);
   });
   const items = events.slice(0, 50);
-  if (!items.length) {
-    return '<div class="card empty">No upcoming events yet. Add your first one above.</div>';
-  }
-  if (['today','home'].includes(state.tab)) return '<div class="today-event-timeline">'+renderTodayTimeline(items)+'</div>';
-  const groupByDay = homeSectionContent('upcoming', 'group_by_day', true);
-  if (!groupByDay) {
-    return `<div class="upcoming-day-list"><div class="upcoming-day-items">${renderGroupedEventRows(items, { showDate: true, condensed: true })}</div></div>`;
+  if (!items.length) return '<div class="card empty">No upcoming events yet. Add your first one above.</div>';
+  if (['today','home'].includes(state.tab)) {
+    ensureDailyTravel(items);
+    const first=items.find(item=>(item.location||item.address)&&!item.all_day&&parseAlignDateTime(item.start_at)?.getTime()>Date.now());
+    const inboundJourney=state.dailyInboundJourneys[todayInboundKey(first)];
+    const inbound=inboundJourney&&typeof travelRouteStrip==='function'?travelRouteStrip(inboundJourney):(inboundJourney&&typeof journeyEventSummary==='function'?journeyEventSummary(inboundJourney.notes):'');
+    return '<div class="today-event-timeline">'+renderTodayTimeline(items,inbound)+'</div>';
   }
   const groups = [];
   for (const event of items) {
     const last = groups[groups.length - 1];
-    const day = event.start_at.slice(0, 10);
+    const day = String(event.start_at || '').slice(0, 10);
     if (!last || last.day !== day) groups.push({ day, events: [event] });
     else last.events.push(event);
   }
   return `<div class="upcoming-day-list">${groups.map(group => {
-    return `<section class="upcoming-day"><h3 class="upcoming-day-heading">${escapeHtml(dayHeading(group.day))}</h3><div class="upcoming-day-items">${renderGroupedEventRows(group.events, { showDate: false, condensed: true })}</div></section>`;
+    ensureDailyTravel(group.events);
+    const first=group.events.find(item=>(item.location||item.address)&&!item.all_day&&parseAlignDateTime(item.start_at)?.getTime()>Date.now());
+    const inboundJourney=state.dailyInboundJourneys[todayInboundKey(first)];
+    const inbound=inboundJourney&&typeof travelRouteStrip==='function'?travelRouteStrip(inboundJourney):(inboundJourney&&typeof journeyEventSummary==='function'?journeyEventSummary(inboundJourney.notes):'');
+    return `<section class="upcoming-day"><h3 class="upcoming-day-heading">${escapeHtml(dayHeading(group.day))}</h3><div class="today-event-timeline">${renderTodayTimeline(group.events,inbound)}</div></section>`;
   }).join('')}</div>`;
 }
-
 function renderSection() {
   const section = state.sectionData;
   if (!section) return '<section class="page"><div class="card empty">Loading section…</div></section>';
