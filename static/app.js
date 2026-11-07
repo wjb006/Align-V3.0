@@ -477,7 +477,7 @@ function renderEventRow(event, {
   const attrs = isShift ? '' : (editable
       ? ` data-action="open-section-event" data-section-id="${event.section_id}" data-event-id="${event.id}" tabindex="0" role="button" aria-label="Open ${escapeHtml(event.title || 'event')}"`
       : eventViewAttributes(event));
-  const travel = typeof eventTravelMarkup === 'function' ? eventTravelMarkup(event) : '';
+  const travel = !event._suppressTravel && typeof eventTravelMarkup === 'function' ? eventTravelMarkup(event) : '';
   const contact = condensed ? '' : (window.ALIGN152?.eventContactMarkup(event.notes) || '');
   let timeLabel;
   if (event.all_day) timeLabel = 'All day';
@@ -525,28 +525,12 @@ function eventPlaceName(event) {
   return event.location_name || String(event.title || '').split(' · ')[0] || event.location || 'Event';
 }
 function renderGroupedEventRows(events, options = {}) {
-  if (eventChoice('location_banner', 'on') === 'off') {
-    return events.map((event, index) => renderUpcomingEvent(event, index, options)).join('');
-  }
-  const groups = [];
-  for (const event of events) {
-    const key = eventLocationKey(event);
-    const last = groups[groups.length - 1];
-    if (last && key && last.key === key) last.events.push(event);
-    else groups.push({ key, events: [event] });
-  }
-  return groups.map(group => {
-    const rows = group.events.map((event, index) => renderUpcomingEvent(event, index, options)).join('');
-    if (group.events.length < 2) return rows;
-    const first = group.events[0];
-    const last = group.events[group.events.length - 1];
-    const start = (first.start_at || '').slice(11, 16);
-    const end = (last.end_at || '').slice(11, 16);
-    const areas = [...new Set(group.events.map(event => event.category_name).filter(Boolean))];
-    const place = eventPlaceName(first);
-    const title = areas[0] || place;
-    const badge = typeof typeBadge === 'function' ? typeBadge(place, eventSectionColour(first)) : escapeHtml(place);
-    return `<section class="location-banner" style="--section-colour:${escapeHtml(eventSectionColour(first))}"><div class="location-banner-head"><div class="week-event-time">${escapeHtml(start)}–${escapeHtml(end)}</div><div><strong>${escapeHtml(title)}</strong>${badge}</div></div><div class="location-banner-items">${rows}</div></section>`;
+  let previousKey='';
+  return events.map((event,index)=>{
+    const key=eventLocationKey(event);
+    const item={...event,_suppressTravel:!!key&&key===previousKey};
+    previousKey=key;
+    return renderUpcomingEvent(item,index,options);
   }).join('');
 }
 function renderUpcomingGrouped(dashboard) {
@@ -557,7 +541,7 @@ function renderUpcomingGrouped(dashboard) {
   }
   const groupByDay = homeSectionContent('upcoming', 'group_by_day', true);
   if (!groupByDay) {
-    return `<div class="upcoming-day-list"><div class="upcoming-day-items">${items.map((event, index) => renderUpcomingEvent(event, index, { showDate: true })).join('')}</div></div>`;
+    return `<div class="upcoming-day-list"><div class="upcoming-day-items">${renderGroupedEventRows(items, { showDate: true })}</div></div>`;
   }
   const groups = [];
   for (const event of items) {
@@ -567,7 +551,7 @@ function renderUpcomingGrouped(dashboard) {
     else last.events.push(event);
   }
   return `<div class="upcoming-day-list">${groups.map(group => {
-    return `<section class="upcoming-day"><h3 class="upcoming-day-heading">${escapeHtml(dayHeading(group.day))}</h3><div class="upcoming-day-items">${group.events.map((event, index) => renderUpcomingEvent(event, index, { showDate: false })).join('')}</div></section>`;
+    return `<section class="upcoming-day"><h3 class="upcoming-day-heading">${escapeHtml(dayHeading(group.day))}</h3><div class="upcoming-day-items">${renderGroupedEventRows(group.events, { showDate: false })}</div></section>`;
   }).join('')}</div>`;
 }
 
