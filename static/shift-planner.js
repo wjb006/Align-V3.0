@@ -95,7 +95,7 @@
   }
   function shiftCard(s) {
     const travel=typeof eventTravelMarkup==='function'?eventTravelMarkup(s):'';
-    const notes=String(s.notes||'').replace(/\\[Align travel(?: steps)?\\][\\s\\S]*?(?:\\[\\/Align travel(?: steps)?\\]|$)/ig,'').replace(/\\[Align travel pending\\]/ig,'').trim();
+    const notes=String(s.notes||'').replace(/\[Align travel(?: steps)?\][\s\S]*?(?:\[\/Align travel(?: steps)?\]|$)/ig,'').replace(/\[Align travel pending\]/ig,'').trim();
     return '<article class="card restored-shift-card" style="--shift-colour:'+esc(s.colour||'#365CE6')+'">'+
       '<div class="restored-shift-top"><div><span class="restored-shift-date">'+esc(fmtDay(s.work_date))+'</span><h3>'+esc(s.location_name||'Shift')+'</h3><p>'+esc(s.shift_type_name||'Work')+(notes?' · '+esc(notes):'')+'</p></div>'+
       '<span class="restored-shift-hours">'+esc(fmtHours(s.hours))+'</span></div>'+
