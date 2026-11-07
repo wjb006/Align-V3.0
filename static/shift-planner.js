@@ -35,12 +35,24 @@
         ? '/api/week?start='+encodeURIComponent(state.plannerAnchor)
         : '/api/month?month='+encodeURIComponent(state.plannerAnchor.slice(0,7));
       state.shiftPlannerData=await api(path);
+      await loadInboundPlannerJourneys(state.shiftPlannerData);
     } catch(e) {
       state.shiftPlannerError=e.message||'Could not load your shift planner.';
     } finally {
       state.shiftPlannerLoading=false;
       paint();
     }
+  }
+  async function loadInboundPlannerJourneys(data) {
+    const all=[...(data.shifts||[]).map(x=>({...x,_plannerKind:'shift'})),...(data.events||[]).map(x=>({...x,_plannerKind:'event'})),...(data.imported_events||[]).map(x=>({...x,_plannerKind:'imported'}))]
+      .filter(x=>String(x.location||x.address||'').trim()&&plannerItemStart(x));
+    const byDay=new Map();
+    for(const item of all){const day=plannerItemStart(item).slice(0,10);const current=byDay.get(day);if(day&&(!current||plannerItemStart(item)<plannerItemStart(current)))byDay.set(day,item);}
+    const days=[...byDay.keys()].filter(day=>day>=getToday()).sort().slice(0,7);
+    await Promise.all(days.map(async day=>{const item=byDay.get(day);try{
+      const result=await api('/api/personal/journey',{method:'POST',body:{destination:String(item.location||item.address).trim(),arrival:plannerItemStart(item),mode:data.preferences?.default_travel||undefined}});
+      if(result?.notes)item.pre_travel={notes:result.notes,leave_at:result.leave_at,arrival_at:result.arrival_at,steps:result.steps||[],minutes:result.minutes};
+    }catch(error){item.pre_travel_error=error.message||'Inbound journey unavailable';}}));
   }
   function selectedShifts() {
     const data=state.shiftPlannerData||{};
@@ -230,7 +242,8 @@
         const candidate={...last,origin:last._plannerKind==='shift'?'Shift':last._plannerKind==='imported'?'Calendar':'Event'};
         travel=eventTravelMarkup(candidate)||'';
       }
-      chunks.push('<section class="planner-location-group" style="--location-colour:'+esc(colour)+'"><header class="planner-location-header"><div><strong>'+esc(title)+'</strong>'+(address?'<small>'+esc(address)+'</small>':'')+'<small>'+hours.toFixed(Number.isInteger(hours)?0:1)+' hours · '+group.length+' item'+(group.length===1?'':'s')+'</small></div><strong>'+esc(start)+'–'+esc(end)+'</strong></header><div class="planner-location-areas">'+areas+'</div></section>'+(travel?'<div class="planner-location-travel">'+travel+'</div>':''));
+      const inbound=first.pre_travel&&typeof journeyEventSummary==='function'?'<div class="planner-inbound-travel">'+journeyEventSummary(first.pre_travel.notes)+'</div>':'';
+      chunks.push('<section class="planner-location-group" style="--location-colour:'+esc(colour)+'"><header class="planner-location-header"><div><strong>'+esc(title)+'</strong>'+(address?'<small>'+esc(address)+'</small>':'')+'<small>'+hours.toFixed(Number.isInteger(hours)?0:1)+' hours · '+group.length+' item'+(group.length===1?'':'s')+'</small></div><strong>'+esc(start)+'–'+esc(end)+'</strong></header>'+inbound+'<div class="planner-location-areas">'+areas+'</div></section>'+(travel?'<div class="planner-location-travel">'+travel+'</div>':''));
       i=j;
     }
     return chunks.join('');
