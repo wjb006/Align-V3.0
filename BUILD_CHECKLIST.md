@@ -17,6 +17,15 @@
 - GitHub remote is `origin` → private `wjb006/Align-V3.0`; a dedicated Neon project now exists, but its schema and connection are not yet installed in Render.
 ## Current handoff: resume here
 
+## 7 November 2026 — Work and Calendar restoration branch
+- Feature branch: `feature/work-calendar-restoration`; draft PR #102 targets `codex/align-v3-rebuild`. No merge, deployment, Render, Neon, DNS, production database or user-data changes have been made.
+- Restored date-aware AM/PM pattern filtering in the shift form. One AM shift leaves PM patterns; one PM shift leaves AM patterns. The API enforces the same rule and continues to allow one shift in each period. Editing excludes the shift being edited from the period check.
+- The selected calendar date is carried into Add Shift. Daily/monthly summaries count shifts, organiser events, imported calendar events, visible Finance entries and annual leave together.
+- Work shifts remain first-class `shifts` records. Post-shift travel preferences now include shifts and select the next located calendar item within one hour, or home otherwise; shift cards render saved travel summaries.
+- Regression coverage added to `test_retired_shift_api.py`, `test_post_event_travel.py`, and `test_work_calendar_entry.js`. The isolated Windows builder now includes these tests and JavaScript syntax checks.
+- GitHub Actions was triggered by PR #102, but all jobs terminated before runner assignment/first step; step lists and downloadable logs are absent. No code-test pass is claimed. Re-run the test matrix when runners are available, then review real iPhone/Android and desktop behaviour before merging.
+
+
 ### 6 November 2026 — isolated test branch
 - Current test branch: `test/align-v3-ready-20261106`, tracked by test PR #100. It carries forward the persistent local Owner sign-in work from PR #97, local Tesseract OCR for rota photos and scanned PDFs, Work review-catalogue learning, and the isolated Windows test-build workflow.
 - The test branch is separate from `codex/align-v3-rebuild`. It has not been merged or deployed. Existing Render services, IONOS DNS, Neon databases, credentials, OTP data and user databases have not been changed.

@@ -46,6 +46,29 @@
     const data=state.shiftPlannerData||{};
     return (data.shifts||[]).slice().sort((a,b)=>(a.work_date+a.start_time).localeCompare(b.work_date+b.start_time));
   }
+  function shiftPeriod(time) { return String(time||'00:00') < '12:00' ? 'AM' : 'PM'; }
+  function shiftsForDate(day, excludeId) {
+    const rows=state.shiftPlannerDateShifts?.day===day
+      ? state.shiftPlannerDateShifts.shifts
+      : (state.shiftPlannerData?.shifts||[]);
+    return rows.filter(s=>s.work_date===day && (excludeId==null || String(s.id)!==String(excludeId)));
+  }
+  function availableTemplatesForDate(day, excludeId) {
+    const used=new Set(shiftsForDate(day,excludeId).map(s=>shiftPeriod(s.start_time)));
+    return (state.shiftPlannerData?.templates||[]).filter(t=>t.active!==0 && !used.has(shiftPeriod(t.start_time)));
+  }
+  function templateOptionsMarkup(day, editId, selectedId) {
+    const options=availableTemplatesForDate(day,editId);
+    return '<option value="">'+(options.length?'Choose pattern or enter details':'No AM/PM patterns remain for this day')+'</option>'+
+      options.map(t=>'<option value="'+esc(t.id)+'" '+(String(selectedId||'')===String(t.id)?'selected':'')+'>'+esc(t.location_name+' · '+t.label+' ('+t.start_time+'–'+t.end_time+')')+'</option>').join('');
+  }
+  function dayItems(data, day) {
+    const shifts=(data.shifts||[]).filter(s=>s.work_date===day);
+    const events=[...(data.events||[]),...(data.imported_events||[]),...visibleFinance(data)]
+      .filter(e=>String(e.start_at||'').slice(0,10)<=day && String(e.end_at||'').slice(0,10)>=day);
+    const leave=(data.annual_leave||[]).filter(l=>l.leave_date===day);
+    return {shifts,events,leave,total:shifts.length+events.length+leave.length};
+  }
   function restGapWarnings(shifts, minimumHours) {
     const minimum=Number(minimumHours||0);
     if(minimum<=0)return [];
@@ -71,11 +94,14 @@
     return {hours,contracted,overtime,pay:rate>0?hours*rate:0};
   }
   function shiftCard(s) {
+    const travel=typeof eventTravelMarkup==='function'?eventTravelMarkup(s):'';
+    const notes=String(s.notes||'').replace(/\[Align travel(?: steps)?\][\s\S]*?(?:\[\/Align travel(?: steps)?\]|$)/ig,'').replace(/\[Align travel pending\]/ig,'').trim();
     return '<article class="card restored-shift-card" style="--shift-colour:'+esc(s.colour||'#365CE6')+'">'+
-      '<div class="restored-shift-top"><div><span class="restored-shift-date">'+esc(fmtDay(s.work_date))+'</span><h3>'+esc(s.location_name||'Shift')+'</h3><p>'+esc(s.shift_type_name||'Work')+(s.notes? ' · '+esc(s.notes):'')+'</p></div>'+
+      '<div class="restored-shift-top"><div><span class="restored-shift-date">'+esc(fmtDay(s.work_date))+'</span><h3>'+esc(s.location_name||'Shift')+'</h3><p>'+esc(s.shift_type_name||'Work')+(notes?' · '+esc(notes):'')+'</p></div>'+
       '<span class="restored-shift-hours">'+esc(fmtHours(s.hours))+'</span></div>'+
       '<p class="restored-shift-time">'+esc(s.start_time)+'–'+esc(s.end_time)+(Number(s.break_minutes)?' · '+esc(s.break_minutes)+' min break':'')+'</p>'+
-      '<div class="button-row"><button class="secondary-button" data-shift-action="edit" data-id="'+esc(s.id)+'">Edit shift</button><button class="secondary-button" data-shift-action="delete" data-id="'+esc(s.id)+'">Delete</button></div></article>';
+      (travel?'<div class="shift-travel-summary">'+travel+'</div>':'')+
+      '<div class="button-row"><button class="secondary-button" data-shift-action="edit" data-id="'+esc(s.id)+'">Edit shift</button><button class="secondary-button" data-shift-action="travel" data-id="'+esc(s.id)+'">Travel after shift</button><button class="secondary-button" data-shift-action="delete" data-id="'+esc(s.id)+'">Delete</button></div></article>';
   }
   function visibleFinance(data) {
     return data.finance_calendar && data.finance_calendar.visible === false ? [] : (data.finance_events || []);
@@ -96,14 +122,21 @@
   }
   function formMarkup(edit={}) {
     const data=state.shiftPlannerData||{};
-    const templates=data.templates||[], locations=data.locations||[], types=data.shift_types||[];
-    const template=templates.find(t=>String(t.id)===String(edit.template_id||''))||null;
+    const locations=data.locations||[], types=data.shift_types||[];
+    const day=edit.work_date||state.shiftPlannerSelectedDay||state.plannerAnchor||getToday();
+    const templates=availableTemplatesForDate(day,edit.id);
+    const template=templates.find(t=>String(t.id)===String(edit.template_id||''))||
+      (edit.id?(data.templates||[]).find(t=>String(t.id)===String(edit.template_id||'')):null)||null;
     const chosenLocation=edit.location_id||template?.location_id||'';
     const chosenType=edit.shift_type_id||template?.shift_type_id||'';
+    const used=shiftsForDate(day,edit.id);
+    const usedPeriods=[...new Set(used.map(s=>shiftPeriod(s.start_time)))];
+    const periodNote=usedPeriods.length?usedPeriods.map(p=>p+' shift already planned').join(' · ')+'. Only the other period is available.':'Choose an AM or PM pattern. You can add the other period afterwards.';
     return '<section class="card restored-planner-form" id="shift-planner-form"><div class="section-head"><div><p class="eyebrow">'+(edit.id?'Edit shift':'Plan a shift')+'</p><h2>'+(edit.id?'Update shift':'Add shift')+'</h2></div><button class="secondary-button" data-shift-action="close-form">Close</button></div>'+
       '<form data-shift-form="shift" data-id="'+esc(edit.id||'')+'">'+
-      '<label class="field">Saved shift pattern<select name="template_id"><option value="">Choose pattern or enter details</option>'+templates.map(t=>'<option value="'+esc(t.id)+'" '+(String(edit.template_id||'')===String(t.id)?'selected':'')+'>'+esc(t.location_name+' · '+t.label+' ('+t.start_time+'–'+t.end_time+')')+'</option>').join('')+'</select></label>'+
-      '<div class="form-grid"><label class="field">Work date<input type="date" name="work_date" required value="'+esc(edit.work_date||state.plannerAnchor||getToday())+'"></label>'+
+      '<label class="field">Saved shift pattern<select name="template_id">'+templateOptionsMarkup(day,edit.id,template?.id)+'</select></label>'+
+      '<p class="helper" data-shift-period-note>'+esc(periodNote)+'</p>'+
+      '<div class="form-grid"><label class="field">Work date<input type="date" name="work_date" data-shift-work-date required value="'+esc(day)+'"></label>'+
       '<label class="field">Location<select name="location_id" required><option value="">Choose location</option>'+locations.map(l=>'<option value="'+esc(l.id)+'" '+(String(chosenLocation)===String(l.id)?'selected':'')+'>'+esc(l.name)+'</option>').join('')+'</select></label>'+
       '<label class="field">Shift type<select name="shift_type_id" required><option value="">Choose shift type</option>'+types.map(t=>'<option value="'+esc(t.id)+'" '+(String(chosenType)===String(t.id)?'selected':'')+'>'+esc(t.name)+'</option>').join('')+'</select></label>'+
       '<label class="field">Start time<input type="time" name="start_time" required value="'+esc(edit.start_time||template?.start_time||'09:00')+'"></label>'+
@@ -130,8 +163,9 @@
     let cells=Array.from({length:offset},()=>'<span class="restored-month-empty"></span>').join('');
     for(let i=1;i<=count;i++){
       const day=month+'-'+String(i).padStart(2,'0'), n=shifts.filter(s=>s.work_date===day).length, leave=leaves.some(l=>l.leave_date===day);
-      const eventCount=events.filter(e=>String(e.start_at||'').slice(0,10)<=day && String(e.end_at||'').slice(0,10)>=day).length;
-      cells+='<button class="restored-month-day '+(day===getToday()?'is-today ':'')+(n?'has-shifts ':'')+(leave?'has-leave ':'')+(eventCount?'has-events':'')+'" data-shift-date="'+day+'"><span>'+i+'</span>'+(n?'<small>'+n+' shift'+(n===1?'':'s')+'</small>':'')+(eventCount?'<small>'+eventCount+' event'+(eventCount===1?'':'s')+'</small>':'')+(leave?'<small>Leave</small>':'')+'</button>';
+      const eventCount=events.filter(e=>String(e.start_at||'')<day+'T23:59:59' && String(e.end_at||'')>day+'T00:00').length;
+      const total=n+eventCount+(leave?1:0);
+      cells+='<button class="restored-month-day '+(day===getToday()?'is-today ':'')+(n?'has-shifts ':'')+(leave?'has-leave ':'')+(eventCount?'has-events':'')+'" data-shift-date="'+day+'"><span>'+i+'</span>'+(total?'<small>'+total+' total item'+(total===1?'':'s')+'</small>':'')+(n?'<small>'+n+' shift'+(n===1?'':'s')+'</small>':'')+(leave?'<small>Leave</small>':'')+'</button>';
     }
     return '<div class="restored-month-grid">'+['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>'<span class="restored-month-heading">'+d+'</span>').join('')+cells+'</div>';
   }
@@ -145,10 +179,10 @@
     for(let i=1;i<=count;i++){
       const day=month+'-'+String(i).padStart(2,'0');
       const ds=shifts.filter(s=>s.work_date===day), ls=leaves.filter(l=>l.leave_date===day);
-      const es=events.filter(e=>e.origin!=='Finance'&&String(e.start_at||'').slice(0,10)<=day&&String(e.end_at||'').slice(0,10)>=day);
+      const es=events.filter(e=>e.origin!=='Finance'&&String(e.start_at||'')<day+'T23:59:59'&&String(e.end_at||'')>day+'T00:00');
       const fes=visibleFinance(data).filter(e=>String(e.start_at||'').slice(0,10)===day);
       if(!ds.length&&!ls.length&&!es.length&&!fes.length)continue;
-      rows.push('<section class="restored-planner-day"><h3>'+esc(fmtDay(day))+'</h3>'+ds.map(shiftCard).join('')+es.map(e=>eventCard(e,(e.origin==='Calendar')||(!e.section_name&&!!e.category_name))).join('')+fes.map(financeCard).join('')+ls.map(leaveCard).join('')+'</section>');
+      rows.push('<section class="restored-planner-day"><h3>'+esc(fmtDay(day))+' · '+(ds.length+es.length+fes.length+ls.length)+' total item'+(ds.length+es.length+fes.length+ls.length===1?'':'s')+'</h3>'+ds.map(shiftCard).join('')+es.map(e=>eventCard(e,(e.origin==='Calendar')||(!e.section_name&&!!e.category_name))).join('')+fes.map(financeCard).join('')+ls.map(leaveCard).join('')+'</section>');
     }
     return rows.length?'<div class="restored-week-list">'+rows.join('')+'</div>':'<p class="empty">Nothing planned this month.</p>';
   }
@@ -166,7 +200,8 @@
         const es=(d.events||[]).filter(e=>String(e.start_at||'')<day+'T23:59:59'&&String(e.end_at||'')>day+'T00:00');
         const ies=(d.imported_events||[]).filter(e=>String(e.start_at||'')<day+'T23:59:59'&&String(e.end_at||'')>day+'T00:00');
         const fes=visibleFinance(d).filter(e=>String(e.start_at||'').slice(0,10)===day);
-        return '<section class="restored-planner-day"><h3>'+esc(fmtDay(day))+'</h3>'+(ds.length?ds.map(shiftCard).join(''):'')+es.map(e=>eventCard(e,false)).join('')+ies.map(e=>eventCard(e,true)).join('')+fes.map(financeCard).join('')+ls.map(leaveCard).join('')+(!ds.length&&!ls.length&&!es.length&&!ies.length&&!fes.length?'<p class="restored-rest-day">Nothing planned</p>':'')+'</section>';
+        const total=ds.length+es.length+ies.length+fes.length+ls.length;
+        return '<section class="restored-planner-day"><h3>'+esc(fmtDay(day))+' · '+total+' total item'+(total===1?'':'s')+'</h3>'+(ds.length?ds.map(shiftCard).join(''):'')+es.map(e=>eventCard(e,false)).join('')+ies.map(e=>eventCard(e,true)).join('')+fes.map(financeCard).join('')+ls.map(leaveCard).join('')+(!total?'<p class="restored-rest-day">Nothing planned</p>':'')+'</section>';
       }).join('')
       : state.plannerMode==='list' ? renderMonthList(d)
       : calendarMarkup(d)+'<div class="restored-planner-list">'+shifts.map(shiftCard).join('')+[...(d.events||[]).map(e=>eventCard(e,false)),...(d.imported_events||[]).map(e=>eventCard(e,true)),...visibleFinance(d).map(financeCard)].join('')+leaves.map(leaveCard).join('')+(!shifts.length&&!leaves.length&&!(d.events||[]).length&&!(d.imported_events||[]).length&&!visibleFinance(d).length?'<p class="empty">No shifts, events or leave this month.</p>':'')+'</div>';
@@ -184,27 +219,58 @@
   }
   function paint() { const root=document.querySelector('#app'); if(root && ['planner','calendar'].includes(state.tab)) root.innerHTML=render(); }
   async function reload() {
-    state.shiftPlannerData=null; state.shiftPlannerError=''; await load();
+    state.shiftPlannerData=null; state.shiftPlannerDateShifts=null; state.shiftPlannerError=''; await load();
   }
   function formObject(form) { return Object.fromEntries(new FormData(form).entries()); }
   document.addEventListener('change', async event => {
-    if (!event.target.matches('[data-finance-calendar]')) return;
-    try {
-      await api('/api/finance/settings', {method:'PATCH', body:{calendar_visible: event.target.checked}});
-      await reload();
-    } catch (error) {
-      if (typeof toast === 'function') toast(error.message);
+    const target=event.target;
+    if(target.matches('[data-finance-calendar]')){
+      try {
+        await api('/api/finance/settings', {method:'PATCH', body:{calendar_visible: target.checked}});
+        await reload();
+      } catch (error) { if (typeof toast === 'function') toast(error.message); }
+      return;
+    }
+    const form=target.closest('[data-shift-form="shift"]');
+    if(!form)return;
+    if(target.matches('[data-shift-work-date]')){
+      const day=target.value;
+      if(!day)return;
+      try{
+        const result=await api('/api/shifts?start='+encodeURIComponent(day)+'&end='+encodeURIComponent(day));
+        state.shiftPlannerDateShifts={day,shifts:result.shifts||[]};
+        const selected=form.querySelector('[name="template_id"]')?.value||'';
+        const editId=form.dataset.id||null;
+        const choices=availableTemplatesForDate(day,editId);
+        const select=form.querySelector('[name="template_id"]');
+        if(select){
+          select.innerHTML=templateOptionsMarkup(day,editId,choices.some(t=>String(t.id)===String(selected))?selected:'');
+          if(!choices.some(t=>String(t.id)===String(selected))) select.value='';
+        }
+        const used=[...new Set(shiftsForDate(day,editId).map(s=>shiftPeriod(s.start_time)))];
+        const note=form.querySelector('[data-shift-period-note]');
+        if(note)note.textContent=used.length?used.map(p=>p+' shift already planned').join(' · ')+'. Only the other period is available.':'Choose an AM or PM pattern. You can add the other period afterwards.';
+      }catch(error){state.shiftPlannerError=error.message||'Could not check shifts for this date.';paint();}
+      return;
+    }
+    if(target.matches('[name="template_id"]')){
+      const selected=(state.shiftPlannerData?.templates||[]).find(t=>String(t.id)===String(target.value));
+      if(!selected)return;
+      const form=target.closest('form');
+      for(const [name,value] of Object.entries({location_id:selected.location_id,shift_type_id:selected.shift_type_id,start_time:selected.start_time,end_time:selected.end_time,break_minutes:selected.break_minutes||0})){
+        const field=form.querySelector('[name="'+name+'"]');if(field)field.value=value;
+      }
     }
   });
   document.addEventListener('click',async event=>{
     const button=event.target.closest('[data-shift-action],[data-shift-date]');
     if(!button)return;
-    if(button.dataset.shiftDate){state.plannerAnchor=monday(button.dataset.shiftDate);state.plannerMode='week';state.shiftPlannerModal='';await reload();return;}
+    if(button.dataset.shiftDate){state.shiftPlannerSelectedDay=button.dataset.shiftDate;state.plannerAnchor=monday(button.dataset.shiftDate);state.plannerMode='week';state.shiftPlannerModal='';await reload();return;}
     const action=button.dataset.shiftAction;
     if(!action)return;
     event.preventDefault();
     try {
-      if(action==='previous'||action==='next'){
+      if(action==='previous'||action==='next'){state.shiftPlannerSelectedDay=null;
         if(state.plannerMode!=='week'){
           const current=new Date(state.plannerAnchor.slice(0,7)+'-01T12:00:00');
           const next=new Date(current.getFullYear(),current.getMonth()+(action==='next'?1:-1),1);
@@ -214,7 +280,7 @@
         }
         await reload();return;
       }
-      if(action==='week'||action==='month'||action==='list'){state.plannerMode=action;state.plannerAnchor=action==='week'?monday(state.plannerAnchor):state.plannerAnchor.slice(0,7)+'-01';await reload();return;}
+      if(action==='week'||action==='month'||action==='list'){state.shiftPlannerSelectedDay=null;state.plannerMode=action;state.plannerAnchor=action==='week'?monday(state.plannerAnchor):state.plannerAnchor.slice(0,7)+'-01';await reload();return;}
       if(action==='today'){state.plannerAnchor=state.plannerMode==='week'?monday(getToday()):getToday().slice(0,7)+'-01';await reload();return;}
       if(action==='add'){state.shiftPlannerModal='add';state.shiftPlannerEdit=null;paint();return;}
       if(action==='work-settings'){if(typeof openWorkSetup==='function')await openWorkSetup();return;}
@@ -243,6 +309,14 @@
       if(action==='edit'){
         const s=selectedShifts().find(item=>String(item.id)===String(button.dataset.id));
         if(s){state.shiftPlannerEdit={...s};state.shiftPlannerModal='edit';paint();}
+        return;
+      }
+      if(action==='travel'){
+        const id=Number(button.dataset.id);
+        if(typeof modal==='function'&&typeof mountPostTravelEditor==='function'){
+          modal('Travel after shift','<div class="settings-form"><p>Choose how Align should plan the journey after this shift.</p></div>');
+          await mountPostTravelEditor('shift',id);
+        } else if(typeof toast==='function') toast('Travel settings are not available on this screen.');
         return;
       }
       if(action==='delete'){

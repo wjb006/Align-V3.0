@@ -83,7 +83,7 @@ try {
         "test_desktop_programme.py", "test_desktop_update.py", "test_owner_builder.py",
         "test_admin_owner_status.py", "test_studio150.py", "test_asset_studio_migration.py",
         "test_studio_update.py", "test_studio_deploy.py", "test_studio_render_deploy.py",
-        "test_personal_planner.py", "test_post_event_travel.py", "test_personal_otp.py",
+        "test_personal_planner.py", "test_post_event_travel.py", "test_retired_shift_api.py", "test_personal_otp.py",
         "test_transport_build149.py", "test_here_transit.py", "test_here_quota.py",
         "test_hosted_travel.py", "test_hosted_persistence.py", "test_month_calendar.py",
         "test_event_calendar_feed.py", "test_week_reminders151.py", "test_builder_finance.py",
@@ -107,6 +107,12 @@ try {
     Write-Host "Checking JavaScript..." -ForegroundColor Cyan
     & node --check static/work-rota.js
     if ($LASTEXITCODE -ne 0) { throw "Work rota JavaScript syntax check failed." }
+    & node --check static/shift-planner.js
+    if ($LASTEXITCODE -ne 0) { throw "Shift planner JavaScript syntax check failed." }
+    & node --check static/post-event-travel.js
+    if ($LASTEXITCODE -ne 0) { throw "Post-event travel JavaScript syntax check failed." }
+    & node test_work_calendar_entry.js
+    if ($LASTEXITCODE -ne 0) { throw "Work calendar UI regression tests failed." }
     & node --check static/desktop.js
     if ($LASTEXITCODE -ne 0) { throw "Desktop JavaScript syntax check failed." }
     & node --check static/app.js

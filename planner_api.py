@@ -80,6 +80,12 @@ def _check_shift(connection, day, start, end, exclude_id=None):
         other = dict(row)
         if exclude_id is not None and int(other["id"]) == int(exclude_id):
             continue
+        if other['work_date'] == day:
+            requested_period = 'AM' if start < '12:00' else 'PM'
+            existing_period = 'AM' if other['start_time'] < '12:00' else 'PM'
+            if requested_period == existing_period:
+                next_period = 'PM' if requested_period == 'AM' else 'AM'
+                raise ValueError(f"{day}: an {requested_period} shift is already planned. Choose a {next_period} shift instead.")
         if _overlap(day,start,end,other):
             raise ValueError(f"{day}: {start}–{end} overlaps {other['location_name']}.")
     a,b = _bounds(day,start,end)
@@ -192,6 +198,8 @@ def _week(connection, raw_date):
     end = start + timedelta(days=6)
     shifts = _rows(connection, """SELECT * FROM shifts WHERE work_date BETWEEN ? AND ?
         ORDER BY work_date,start_time,id""",(start.isoformat(),end.isoformat()))
+    from post_event_travel import decorate as decorate_post_travel
+    shifts = decorate_post_travel(connection, shifts, kind='shift')
     leave = _rows(connection,"SELECT * FROM annual_leave WHERE leave_date BETWEEN ? AND ? ORDER BY leave_date",(start.isoformat(),end.isoformat()))
     events = _rows(connection, """SELECT e.*,s.name AS section_name,s.colour AS section_colour FROM organiser_events e
         LEFT JOIN organiser_sections s ON s.id=e.section_id
@@ -220,6 +228,8 @@ def _month(connection, raw_month, app):
     data = _week(connection,start.isoformat())
     event_data = app.month_data(connection, month)
     shifts = _rows(connection,"SELECT * FROM shifts WHERE work_date BETWEEN ? AND ? ORDER BY work_date,start_time",(start.isoformat(),end.isoformat()))
+    from post_event_travel import decorate as decorate_post_travel
+    shifts = decorate_post_travel(connection, shifts, kind='shift')
     leave = _rows(connection,"SELECT * FROM annual_leave WHERE leave_date BETWEEN ? AND ? ORDER BY leave_date",(start.isoformat(),end.isoformat()))
     import finance_db
     finance = finance_db.planner_slice(connection, start, end)

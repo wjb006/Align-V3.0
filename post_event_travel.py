@@ -1,7 +1,7 @@
 """Private per-event onward travel preferences and current destination selection."""
 import hashlib
 import json
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 ZONE = ZoneInfo('Europe/London')
@@ -13,7 +13,7 @@ def instant(value):
 
 
 def events(c):
-    """Return only retained V3 organiser and imported-calendar events."""
+    """Return retained organiser, imported-calendar and first-class work shifts."""
     result = []
     for kind, table in (('event', 'organiser_events'), ('calendar', 'calendar_events')):
         result.extend(
@@ -22,6 +22,26 @@ def events(c):
                 f'SELECT id,title,start_at,end_at,all_day,location FROM {table}'
             )
         )
+    # Work shifts remain first-class rows. Include them in onward-travel
+    # destination selection without copying them into organiser_events.
+    import planner_api
+    if planner_api._has_table(c, 'shifts'):
+        for row in c.execute(
+            """SELECT s.id,s.work_date,s.start_time,s.end_time,s.location_name,
+                      s.shift_type_name,COALESCE(NULLIF(l.address,''),s.location_name) AS location
+               FROM shifts s LEFT JOIN locations l ON l.id=s.location_id"""
+        ):
+            item = dict(row)
+            start = datetime.combine(date.fromisoformat(item['work_date']), time.fromisoformat(item['start_time']))
+            end = datetime.combine(date.fromisoformat(item['work_date']), time.fromisoformat(item['end_time']))
+            if end <= start:
+                end += timedelta(days=1)
+            result.append({
+                'id': item['id'], 'title': f"{item['location_name']} – {item['shift_type_name']}",
+                'start_at': start.isoformat(timespec='minutes'), 'end_at': end.isoformat(timespec='minutes'),
+                'all_day': 0, 'location': item['location'] or item['location_name'] or '',
+                'kind': 'shift', 'origin': 'Shift',
+            })
     return result
 
 
@@ -43,7 +63,7 @@ def target(c, kind, ident, items=None, home=None):
 def handle(c, body):
     from personal_planner import preferences
     kind = body.get('kind')
-    if kind not in ('event','calendar'): raise ValueError('Choose a saved Align or imported calendar event.')
+    if kind not in ('event','calendar','shift'): raise ValueError('Choose a saved Align event, imported calendar event or work shift.')
     ident = int(body.get('id',0))
     event, route = target(c,kind,ident)
     key = f'post_event_travel:{kind}:{ident}'

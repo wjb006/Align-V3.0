@@ -1,7 +1,8 @@
 function postTravelSummary(item) {
   const info=item.post_travel;if(!info?.enabled)return '';
   const e=escapeHtml;
-  return `<details class="compact-event-details"><summary>After event: ${e(info.destination_name)}</summary>${info.journey?`<p style="white-space:pre-line">${e(info.journey.notes)}</p>`:'<p>Travel needs refreshing. Open this event to update it.</p>'}</details>`;
+  const heading=item?.work_date||item?.origin==='Shift'?'After shift:':'After event:';
+  return `<details class="compact-event-details"><summary>${heading} ${e(info.destination_name)}</summary>${info.journey?`<p style="white-space:pre-line">${e(info.journey.notes)}</p>`:'<p>Travel needs refreshing. Open this item to update it.</p>'}</details>`;
 }
 function postTravelFields(info={}) {
   return `<label class="setup-check"><input type="checkbox" name="show_post_travel" ${info.enabled?'checked':''}> Show post event travel information</label><p class="helper">Travel from this event to the next event with a location starting within one hour, or home otherwise.</p><label>Travel after event<select name="post_travel_mode">${[['transit','Bus and train'],['bus','Bus'],['train','Train'],['drive','Driving']].map(([v,l])=>`<option value="${v}" ${(info.mode||personalPrefs().default_travel||'transit')===v?'selected':''}>${l}</option>`).join('')}</select></label>`;
