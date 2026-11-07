@@ -18,7 +18,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 158;
-const ASSET_VERSION = `${BUILD_VERSION}-v80`;
+const ASSET_VERSION = `${BUILD_VERSION}-v81`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -423,21 +423,58 @@ function renderHomeShortcuts() {
 }
 function renderHome() {
   const { dashboard } = state.boot;
+  // Today is a date-scoped planner, not a list of every future event.
   const todayItems = (dashboard.upcoming_events || []).filter(item =>
-    String(item.start_at || '').slice(0, 10) === dashboard.today || upcomingNow(item)
+    String(item.start_at || item.work_date || '').slice(0, 10) === dashboard.today
   ).slice(0, 50);
-  const eventGroups = new Set(todayItems.map(item => eventLocationKey(item) || `event:${item.origin || ''}:${item.id || item.start_at}`));
   const totalHours = todayItems.reduce((sum, item) => sum + todayDurationHours(item), 0);
   const minutes = Math.round(totalHours * 60);
   const totalLabel = `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`;
+  ensureTodayInboundTravel(todayItems[0]);
+  const inbound = state.todayInboundJourney?.key === todayInboundKey(todayItems[0]) && typeof journeyEventSummary === 'function'
+    ? journeyEventSummary(state.todayInboundJourney.notes) : '';
   return `<section class="page today-reference-page">
+    <nav class="today-planner-actions" aria-label="Planner actions">
+      <button type="button" class="secondary-button" data-shift-action="settings">Planner settings</button>
+      <button type="button" class="secondary-button" data-nav="sections">Manage events</button>
+    </nav>
     <header class="today-reference-header">
       <div class="today-reference-date"><span class="today-reference-calendar" aria-hidden="true">▦</span><h1>${escapeHtml(fullDateLabel(dashboard.today))}</h1></div>
-      <div class="today-reference-total"><strong>${eventGroups.size} Events</strong><span>•</span><strong>${totalLabel} Total</strong></div>
+      <div class="today-reference-total"><strong>${todayItems.length} Events</strong><span>•</span><strong>${totalLabel} Total</strong></div>
     </header>
+    ${inbound ? `<div class="today-inbound-travel" aria-label="Travel to first event"><strong>Travel to first event</strong>${inbound}</div>` : ''}
     <div class="today-event-timeline">${todayItems.length ? renderTodayTimeline(todayItems) : '<div class="card empty">Nothing scheduled for today. Add a shift or appointment to see it here.</div>'}</div>
     ${state.boot.personal && homeSection('today') && homeSectionContent('today','show_quick_add',true) && typeof personalQuickAdd === 'function' ? `<div class="dashboard-bottom-tools">${personalQuickAdd()}</div>` : ''}
   </section>`;
+}
+
+function todayInboundKey(item) {
+  return item && (item.location || item.address) && item.start_at
+    ? `${item.origin || ''}:${item.id || item.start_at}:${item.start_at}` : '';
+}
+async function ensureTodayInboundTravel(item) {
+  if (typeof eventIsUnderway === 'function' && eventIsUnderway(item)) return;
+  const key = todayInboundKey(item);
+  if (!key || state.todayInboundKey === key || state.todayInboundLoading) return;
+  state.todayInboundKey = key;
+  state.todayInboundLoading = true;
+  try {
+    const result = await api('/api/personal/journey', { method: 'POST', body: {
+      destination: String(item.location || item.address).trim(),
+      arrival: item.start_at,
+    }});
+    if (result?.notes && state.boot?.dashboard?.today === String(item.start_at).slice(0, 10)) {
+      const steps = result.steps || [];
+      const notes = '[Align travel]\\n' + result.notes + '\\n[/Align travel]' +
+        (steps.length ? '\\n[Align travel steps]\\n' + JSON.stringify(steps) + '\\n[/Align travel steps]' : '');
+      state.todayInboundJourney = { key, notes };
+      if (['today','home'].includes(state.tab)) render();
+    }
+  } catch (_) {
+    // An unavailable route must never prevent the day's schedule from rendering.
+  } finally {
+    state.todayInboundLoading = false;
+  }
 }
 
 function sectionEventDate(event) {
@@ -535,9 +572,9 @@ function renderGroupedEventRows(events, options = {}) {
   }).join('');
 }
 function todayTravelConnector(event) {
-  if (!event || !event.location || typeof eventTravelMarkup !== 'function') return '';
+  if (!event || typeof eventTravelMarkup !== 'function') return '';
   const markup = eventTravelMarkup(event);
-  return markup ? '<div class="today-travel-connector" aria-label="Travel to next event">'+markup+'</div>' : '';
+  return markup ? '<div class="today-travel-connector" aria-label="Travel after this event">'+markup+'</div>' : '';
 }
 function todayDurationHours(event) {
   const supplied = Number(event.hours);
@@ -564,7 +601,8 @@ function renderTodayTimeline(events) {
       if(item.origin==='Shift'){
         const areaStart=String(item.start_at||'').slice(11,16),areaEnd=String(item.end_at||'').slice(11,16);
         const areaHours=todayDurationHours(item);
-        return '<div class="today-location-area today-shift-area" style="--area-colour:'+escapeHtml(areaColour)+'"><div class="today-area-name">'+escapeHtml(area)+'</div><div class="today-area-time">'+escapeHtml(areaStart)+'–'+escapeHtml(areaEnd)+'</div><strong class="today-area-duration">'+escapeHtml(Number.isInteger(areaHours)?areaHours+'h':areaHours.toFixed(1)+'h')+'</strong></div>';
+        const shiftActions='<div class="today-shift-actions"><button type="button" class="secondary-button" data-shift-action="edit" data-id="'+Number(item.id)+'" data-work-date="'+escapeHtml(item.work_date||String(item.start_at||'').slice(0,10))+'">Edit shift</button><button type="button" class="secondary-button" data-shift-action="travel" data-id="'+Number(item.id)+'">Travel after shift</button><button type="button" class="secondary-button" data-shift-action="delete" data-id="'+Number(item.id)+'">Delete</button></div>';
+        return '<div class="today-location-area today-shift-area" style="--area-colour:'+escapeHtml(areaColour)+'"><div class="today-area-name">'+escapeHtml(area)+'</div><div class="today-area-time">'+escapeHtml(areaStart)+'–'+escapeHtml(areaEnd)+'</div><strong class="today-area-duration">'+escapeHtml(Number.isInteger(areaHours)?areaHours+'h':areaHours.toFixed(1)+'h')+'</strong>'+shiftActions+'</div>';
       }
       const row=renderUpcomingEvent({...item,_suppressTravel:true},0,{showDate:false,condensed:false});
       return '<div class="today-location-area today-appointment-area" style="--area-colour:'+escapeHtml(areaColour)+'">'+row+'</div>';

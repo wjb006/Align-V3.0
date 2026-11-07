@@ -402,8 +402,21 @@
         return;
       }
       if(action==='edit'){
-        const s=selectedShifts().find(item=>String(item.id)===String(button.dataset.id));
-        if(s){state.shiftPlannerEdit={...s};state.shiftPlannerModal='edit';paint();}
+        let shift=selectedShifts().find(item=>String(item.id)===String(button.dataset.id));
+        if(!shift && button.dataset.workDate){
+          const day=button.dataset.workDate;
+          state.plannerAnchor=monday(day);
+          state.plannerMode='week';
+          state.shiftPlannerData=await api('/api/week?start='+encodeURIComponent(state.plannerAnchor));
+          shift=selectedShifts().find(item=>String(item.id)===String(button.dataset.id));
+        }
+        if(shift){
+          state.tab='planner';
+          state.shiftPlannerEdit={...shift};
+          state.shiftPlannerModal='edit';
+          if(typeof render==='function')render();
+          paint();
+        }
         return;
       }
       if(action==='travel'){
@@ -416,7 +429,7 @@
       }
       if(action==='delete'){
         if(!confirm('Delete this shift?'))return;
-        await api('/api/shifts/'+button.dataset.id,{method:'DELETE'}); if(typeof toast==='function')toast('Shift deleted.'); await reload();return;
+        await api('/api/shifts/'+button.dataset.id,{method:'DELETE'}); if(typeof toast==='function')toast('Shift deleted.'); if(['today','home'].includes(state.tab)){if(typeof refresh==='function')await refresh();}else await reload();return;
       }
       if(action==='delete-leave'){
         if(!confirm('Remove this annual leave day?'))return;
