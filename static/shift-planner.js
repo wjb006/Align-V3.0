@@ -180,10 +180,12 @@
     return '<div class="restored-month-grid">'+['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>'<span class="restored-month-heading">'+d+'</span>').join('')+cells+'</div>';
   }
   function plannerLocationKey(item) {
+    const address=String(item.location||item.address||'').trim().toLocaleLowerCase().replace(/\\s+/g,' ');
+    if(address)return 'address:'+address;
     const id=item.location_id||item.place_id;
     if(id)return 'id:'+id;
-    const address=String(item.location||item.address||'').trim().toLocaleLowerCase().replace(/\\s+/g,' ');
-    return address?'address:'+address:'';
+    if(item._plannerKind==='leave')return '';
+    return 'unlocated:'+(item._plannerKind||'item')+':'+(item.id||item.start_at||item.work_date||item.title||'unknown');
   }
   function plannerItemStart(item) {
     return item.work_date ? item.work_date+'T'+(item.start_time||'00:00') : String(item.start_at||'');
@@ -213,7 +215,7 @@
       const group=[item];let j=i+1;
       while(j<ordered.length&&plannerLocationKey(ordered[j])===key){group.push(ordered[j]);j++;}
       const first=group[0],last=group[group.length-1];
-      const title=first.location_name||first.place_name||first.location_label||first.location||first.address||'Location';
+      const title=first.location_name||first.place_name||first.location_label||first.location||first.address||'Location not set';
       const address=first.location||first.address||'';
       const colour=first.location_colour||first.colour||first.section_colour||'#365CE6';
       const start=plannerItemStart(first).slice(11,16),end=plannerItemEnd(last).slice(11,16);
