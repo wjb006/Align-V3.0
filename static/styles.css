@@ -900,3 +900,13 @@ body[data-management-theme="light"] .guide-page { --guide-well: #f4f7fb; }
 .shift-location-group,.shift-location-banner,.shift-location-items{display:contents!important}
 .shift-area-panel{border-color:var(--area-colour,#6479D8)!important;border-left:4px solid var(--area-colour,#6479D8)!important}
 .journey-event-details{display:block!important}.journey-itinerary-strip{display:flex;align-items:center;gap:5px;flex-wrap:wrap}.journey-event-details .journey-breakdown{margin-top:8px}
+
+
+/* Today-only full itinerary timeline; planner/calendar views remain compact */
+.today-event-timeline{display:grid;gap:14px}
+.today-location-block{position:relative;border:2px solid var(--location-colour,#2878E8);border-left-width:6px;border-radius:20px;padding:12px;background:color-mix(in srgb,var(--location-colour,#2878E8) 8%,var(--surface,#07172A));display:grid;gap:11px}
+.today-location-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:13px;background:color-mix(in srgb,var(--location-colour,#2878E8) 72%,#07172A);color:#fff}
+.today-location-header>div{min-width:0;display:grid;gap:3px}.today-location-header>div>strong{font-size:1.18rem}.today-location-header small{font-size:.78rem;opacity:.9;overflow-wrap:anywhere}.today-location-header small a{color:inherit}.today-location-span{white-space:nowrap;font-size:1.05rem}
+.today-location-areas{display:grid;gap:9px}.today-location-area{position:relative;border:1.5px solid var(--area-colour,#16A99B);border-radius:13px;padding:10px 64px 10px 13px;min-height:64px}.today-area-name{font-size:1.08rem;font-weight:750;color:var(--area-colour,#16A99B)}.today-area-time{font-size:.88rem;margin-top:2px}.today-area-duration{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:1rem}
+.today-event-block{display:grid;gap:8px}.today-event-block .week-event-row{margin:0}.today-travel-connector{padding:2px 4px 2px 16px;border-left:2px dashed var(--location-colour,#2878E8);margin-left:16px}.today-travel-connector .shift-travel-itinerary-wrap,.today-travel-connector .compact-event-details{margin:0}.today-travel-connector .shift-travel-itinerary{flex-wrap:nowrap;overflow-x:auto}
+@media(max-width:600px){.today-location-header{padding:10px}.today-location-header>div>strong{font-size:1.05rem}.today-location-span{font-size:.9rem}.today-location-block{padding:9px}.today-travel-connector{margin-left:10px;padding-left:10px}}
