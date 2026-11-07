@@ -97,7 +97,7 @@
     const travel='';
     const notes=String(s.notes||'').replace(/\[Align travel(?: steps)?\][\s\S]*?(?:\[\/Align travel(?: steps)?\]|$)/ig,'').replace(/\[Align travel pending\]/ig,'').trim();
     return '<article class="card restored-shift-card" style="--shift-colour:'+esc(s.location_colour||s.colour||'#365CE6')+'">'+
-      '<div class="shift-area-panel" style="--area-colour:'+esc(s.shift_type_colour||'#6479D8')+'"><div class="restored-shift-top"><div><h3>'+esc(s.shift_type_name||'Work')+'</h3><p>'+esc(s.location_name||'')+(notes?' · '+esc(notes):'')+'</p></div>'+
+      '<div class="shift-area-panel" style="--area-colour:'+esc(s.shift_type_colour||'#6479D8')+'"><div class="restored-shift-top"><div><h3>'+esc(s.shift_type_name||'Work')+'</h3><p>'+esc(s.location_name||'')+(s.location?' · '+esc(s.location):'')+'</p></div>'+
       '<span class="restored-shift-hours">'+esc(fmtHours(s.hours))+'</span></div>'+
       '<p class="restored-shift-time">'+esc(s.start_time)+'–'+esc(s.end_time)+(Number(s.break_minutes)?' · '+esc(s.break_minutes)+' min break':'')+'</p></div>'+
       (travel?'<div class="shift-travel-summary">'+travel+'</div>':'')+
@@ -125,7 +125,7 @@
     const packed=encodeURIComponent(JSON.stringify({...e,origin:imported?'Calendar':'Event'}));
     const colour=e.section_colour||e.colour||'#365CE6';
     const travel='';
-    return '<article class="card restored-event-card location-bracket-card" style="--location-colour:'+esc(colour)+';--area-colour:'+esc(colour)+'"><button type="button" class="restored-event-open" data-shift-action="view-event" data-event-data="'+esc(packed)+'"><div class="restored-event-top"><span class="restored-event-mark">'+(imported?'▦':'•')+'</span><div><strong>'+esc(e.title||'Event')+'</strong><p>'+esc(category)+(e.location?' · '+esc(e.location):'')+'</p></div></div><p class="restored-event-time">'+esc(when)+(e.notes?' · '+esc(e.notes):'')+'</p>'+(e.location?'<small class="restored-event-address">'+esc(e.location)+'</small>':'')+'<span class="helper">View details</span></button><div class="button-row">'+(!imported&&e.section_id&&e.id?'<button class="secondary-button" data-shift-action="edit-event" data-event-data="'+esc(packed)+'">Edit event</button>':'')+'<button class="secondary-button" data-nav="sections">Manage events</button></div></article>';
+    return '<article class="card restored-event-card location-bracket-card" style="--location-colour:'+esc(colour)+';--area-colour:'+esc(colour)+'"><button type="button" class="restored-event-open" data-shift-action="view-event" data-event-data="'+esc(packed)+'"><div class="restored-event-top"><span class="restored-event-mark">'+(imported?'▦':'•')+'</span><div><strong>'+esc(e.title||'Event')+'</strong><p>'+esc(category)+(e.location?' · '+esc(e.location):'')+'</p></div></div><p class="restored-event-time">'+esc(when)+'</p>'+(e.location?'<small class="restored-event-address">'+esc(e.location)+'</small>':'')+'<span class="helper">View details</span></button><div class="button-row">'+(!imported&&e.section_id&&e.id?'<button class="secondary-button" data-shift-action="edit-event" data-event-data="'+esc(packed)+'">Edit event</button>':'')+'<button class="secondary-button" data-nav="sections">Manage events</button></div></article>';
   }
   function leaveCard(l) {
     return '<article class="card restored-leave-card"><div><strong>Annual leave</strong><p>'+esc(fmtDay(l.leave_date))+(l.notes?' · '+esc(l.notes):'')+'</p></div><button class="secondary-button" data-shift-action="delete-leave" data-id="'+esc(l.id)+'">Remove</button></article>';
