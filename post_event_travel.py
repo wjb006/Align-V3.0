@@ -85,13 +85,23 @@ def handle(c, body):
             if route['all_day']: raise ValueError('Set an event end time to plan travel after it.')
             if not route['origin'].strip(): raise ValueError('Add an event location first.')
             if not route['destination'].strip(): raise ValueError('Add your home address in Personal details.')
-            if instant(route['departure']) <= datetime.now(ZONE): raise ValueError('This event has finished. Choose a future end time to refresh travel.')
-            journey = plan(c,route)
-            saved.update(journey=journey,fingerprint=fingerprint)
-            result['journey'] = journey
+            if instant(route['departure']) <= datetime.now(ZONE):
+                # A completed event must never trigger a retrospective route
+                # calculation. Keep the journey that was planned before it
+                # finished, provided its saved inputs still match this route.
+                result['journey'] = saved.get('journey')
+                result['historical'] = bool(result['journey'])
+                if result['journey']:
+                    result['message'] = 'This event has finished; its previously planned return journey is being retained.'
+                else:
+                    result['error'] = 'This event has finished. A new departure recommendation cannot be generated retrospectively.'
+            else:
+                journey = plan(c,route)
+                saved.update(journey=journey,fingerprint=fingerprint)
+                result['journey'] = journey
         except ValueError as error:
-            saved.pop('journey',None)
-            result.update(journey=None,error=str(error))
+            # Provider errors should not erase a still-valid saved itinerary.
+            result.update(journey=saved.get('journey'),error=str(error))
     c.execute('INSERT INTO settings(setting_key,setting_value) VALUES(?,?) ON CONFLICT(setting_key) DO UPDATE SET setting_value=excluded.setting_value',(key,json.dumps(saved)))
     return result
 
@@ -129,5 +139,5 @@ def decorate(c, items, kind=None):
         _, route = target(c,event_kind,item['id'],all_events,home_row[0] if home_row else '')
         route['mode'] = saved.get('mode','transit')
         fingerprint = hashlib.sha256(json.dumps(route,sort_keys=True).encode()).hexdigest()
-        item['post_travel'] = {**route,'enabled':True,'journey':saved.get('journey') if saved.get('fingerprint')==fingerprint else None}
+        item['post_travel'] = {**route,'enabled':True,'historical':instant(route['departure']) <= datetime.now(ZONE),'journey':saved.get('journey') if saved.get('fingerprint')==fingerprint else None}
     return items
