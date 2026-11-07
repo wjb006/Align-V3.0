@@ -464,9 +464,13 @@ async function ensureTodayInboundTravel(item) {
   state.todayInboundKey = key;
   state.todayInboundLoading = true;
   try {
+    const prefs = typeof personalPrefs === 'function' ? personalPrefs() : {};
     const result = await api('/api/personal/journey', { method: 'POST', body: {
       destination: String(item.location || item.address).trim(),
       arrival: item.start_at,
+      mode: prefs.default_travel || 'transit',
+      departure_buffer: Number(prefs.departure_buffer ?? 5),
+      arrival_buffer: Number(prefs.arrival_buffer ?? 10),
     }});
     if (result?.notes && state.boot?.dashboard?.today === String(item.start_at).slice(0, 10)) {
       const steps = result.steps || [];
