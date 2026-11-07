@@ -180,7 +180,7 @@
     return '<div class="restored-month-grid">'+['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>'<span class="restored-month-heading">'+d+'</span>').join('')+cells+'</div>';
   }
   function plannerLocationKey(item) {
-    const address=String(item.location||item.address||'').trim().toLocaleLowerCase().replace(/\\s+/g,' ');
+    const address=String(item.location||item.address||'').trim().toLocaleLowerCase().replace(/\s+/g,' ');
     if(address)return 'address:'+address;
     const id=item.location_id||item.place_id;
     if(id)return 'id:'+id;
