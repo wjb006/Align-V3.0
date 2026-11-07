@@ -609,7 +609,7 @@ function renderTodayAppointment(event) {
     ? `data-action="open-section-event" data-section-id="${Number(event.section_id)}" data-event-id="${Number(event.id)}" tabindex="0" role="button"`
     : eventViewAttributes(event);
   return `<article class="today-appointment-card" style="--appointment-colour:${escapeHtml(colour)}" ${attrs}>
-    <header class="today-appointment-heading"><span class="today-appointment-icon" aria-hidden="true">♡</span><div><strong>${escapeHtml(event.title||'Event')}</strong>${location?`<small>⌖ ${appleDestinationLink(location)}</small>`:''}</div><time>${escapeHtml(time)}</time></header>
+    <header class="today-appointment-heading"><span class="today-appointment-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M13 7v10a8 8 0 0 0 16 0V7M9 7h8M25 7h8M29 25v3a8 8 0 0 0 16 0v-2M41 26a4 4 0 1 0 8 0 4 4 0 0 0-8 0" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" transform="translate(-3 0)"/></svg></span><div><strong>${escapeHtml(event.title||'Event')}</strong>${location?`<small>⌖ ${appleDestinationLink(location)}</small>`:''}</div><time>${escapeHtml(time)}</time></header>
     ${notes?`<div class="today-appointment-notes"><span aria-hidden="true">▣</span><span>${escapeHtml(notes)}</span><strong>${escapeHtml(todayEventDurationLabel(event))}</strong></div>`: `<div class="today-appointment-notes"><span aria-hidden="true">◷</span><span>Event</span><strong>${escapeHtml(todayEventDurationLabel(event))}</strong></div>`}
   </article>`;
 }
