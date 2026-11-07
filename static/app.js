@@ -18,7 +18,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 158;
-const ASSET_VERSION = `${BUILD_VERSION}-v83`;
+const ASSET_VERSION = `${BUILD_VERSION}-v84`
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -395,7 +395,7 @@ function renderHomeGreeting(dashboard) {
     ? (settings.user_name || 'Align admin')
     : `${greeting()}${settings.user_name ? `, ${settings.user_name}` : ''}`;
   const weather = typeof homeWeatherChip === 'function' ? homeWeatherChip() : '';
-  return `<header class="dashboard-welcome home-greeting"><div class="home-date-row"><p class="eyebrow">${escapeHtml(fullDateLabel(dashboard.today))}</p>${weather}</div><h1>${escapeHtml(title)}</h1><p class="subtle">Everything in one place.</p></header>`;
+  return `<header class="dashboard-welcome home-greeting"><div class="home-date-row"><p class="eyebrow">${escapeHtml(fromIso(String(dashboard.today).slice(0,10)).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }))}</p>${weather}</div><h1>${escapeHtml(title)}</h1><p class="subtle">Everything in one place.</p></header>`;
 }
 function homeShortcutSection(pattern) {
   return (state.sectionDefinitions || []).find(section => pattern.test(`${section.key || ''} ${section.name || ''}`));
@@ -439,15 +439,11 @@ function renderHome() {
   ).slice(0, 50);
   const totalHours = todayItems.reduce((sum, item) => sum + todayDurationHours(item), 0);
   const minutes = Math.round(totalHours * 60);
-  const totalLabel = `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`;
+  const totalLabel = `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
   ensureTodayInboundTravel(todayItems[0]);
   const inbound = state.todayInboundJourney?.key === todayInboundKey(todayItems[0]) && typeof journeyEventSummary === 'function'
     ? journeyEventSummary(state.todayInboundJourney.notes) : '';
   return `<section class="page today-reference-page">
-    <nav class="today-planner-actions" aria-label="Planner actions">
-      <button type="button" class="secondary-button" data-shift-action="settings">Planner settings</button>
-      <button type="button" class="secondary-button" data-nav="sections">Manage events</button>
-    </nav>
     <header class="today-reference-header">
       <div class="today-reference-date"><span class="today-reference-calendar" aria-hidden="true">▦</span><h1>${escapeHtml(fullDateLabel(dashboard.today))}</h1></div>
       <div class="today-reference-total"><strong>${todayTimelineItemCount(todayItems)} ${todayTimelineItemCount(todayItems) === 1 ? 'Event' : 'Events'}</strong><span>•</span><strong>${totalLabel} Total</strong></div>
@@ -595,57 +591,66 @@ function todayEventDurationLabel(event) {
   const minutes = Math.max(0, Math.round(todayDurationHours(event) * 60));
   return minutes >= 60 ? `${Math.floor(minutes / 60)}h${minutes % 60 ? ` ${minutes % 60}m` : ''}` : `${minutes}m`;
 }
+function todayAreaIcon(name) {
+  const value=String(name||'').toLowerCase();
+  if(/ward|inpatient|bed/.test(value))return '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M5 37V12M5 28h38v9M10 28V18h10a7 7 0 0 1 7 7v3M27 28v-6h11a5 5 0 0 1 5 5v1M9 37v4M40 37v4" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  if(/clinic|treatment|medical/.test(value))return '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M12 5h24v38H12zM18 5V2h12v3M24 14v15M16.5 21.5h15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  return '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 42V10h32v32M3 42h42M18 18h12M24 12v12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+}
 function renderTodayAppointment(event) {
-  const colour = safeColour(event.section_colour || event.shift_type_colour || event.colour, '#a76aff');
-  const time = `${String(event.start_at || '').slice(11,16)}–${String(event.end_at || '').slice(11,16)}`;
-  const location = event.location || event.address || '';
-  const notes = String(event.notes || '').replace(/\[Align travel\][\s\S]*?\[\/Align travel\]/g, '').trim();
-  const row = renderUpcomingEvent({...event, _suppressTravel:true}, 0, {showDate:false, condensed:false, showLocation:false});
-  return `<article class="today-appointment-card" style="--appointment-colour:${escapeHtml(colour)}">
-    <div class="today-appointment-heading"><span class="today-appointment-icon" aria-hidden="true">✚</span><div><strong>${escapeHtml(event.title || 'Appointment')}</strong>${location ? `<small>${appleDestinationLink(location)}</small>` : ''}</div><time>${escapeHtml(time)}</time></div>
-    ${notes ? `<p class="today-appointment-notes">${escapeHtml(notes)}</p>` : ''}
-    <div class="today-appointment-footer"><span>${escapeHtml(todayEventDurationLabel(event))}</span></div>
-    ${row}
+  const colour=safeColour(event.section_colour||event.colour,'#a76aff');
+  const time=event.all_day?'All day':`${String(event.start_at||'').slice(11,16)}–${String(event.end_at||'').slice(11,16)}`;
+  const location=event.location||event.address||'';
+  const notes=String(event.notes||'')
+    .replace(/\[Align travel\][\s\S]*?\[\/Align travel\]/g,'')
+    .replace(/\[Align travel steps\][\s\S]*?\[\/Align travel steps\]/g,'')
+    .trim();
+  const attrs=event.section_id&&event.id&&!event.all_day
+    ? `data-action="open-section-event" data-section-id="${Number(event.section_id)}" data-event-id="${Number(event.id)}" tabindex="0" role="button"`
+    : eventViewAttributes(event);
+  return `<article class="today-appointment-card" style="--appointment-colour:${escapeHtml(colour)}" ${attrs}>
+    <header class="today-appointment-heading"><span class="today-appointment-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M13 7v10a8 8 0 0 0 16 0V7M9 7h8M25 7h8M29 25v3a8 8 0 0 0 16 0v-2M41 26a4 4 0 1 0 8 0 4 4 0 0 0-8 0" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" transform="translate(-3 0)"/></svg></span><div><strong>${escapeHtml(event.title||'Event')}</strong>${location?`<small>⌖ ${appleDestinationLink(location)}</small>`:''}</div><time>${escapeHtml(time)}</time></header>
+    ${notes?`<div class="today-appointment-notes"><span aria-hidden="true">▣</span><span>${escapeHtml(notes)}</span><strong>${escapeHtml(todayEventDurationLabel(event))}</strong></div>`: `<div class="today-appointment-notes"><span aria-hidden="true">◷</span><span>Event</span><strong>${escapeHtml(todayEventDurationLabel(event))}</strong></div>`}
   </article>`;
 }
-function renderTodayTimeline(events, inbound = '') {
-  const ordered = [...events].sort((a,b)=>String(a.start_at||'').localeCompare(String(b.start_at||'')));
-  const output = [];
-  let inboundPlaced = false;
-  const inboundMarkup = inbound ? `<div class="today-inbound-travel" aria-label="Travel to first event"><strong>Travel to ${ordered[0]?.origin === 'Shift' ? 'workplace' : 'first event'}</strong>${inbound}</div>` : '';
-  for (let i=0;i<ordered.length;) {
+function renderTodayTimeline(events,inbound='') {
+  const ordered=[...events].sort((a,b)=>String(a.start_at||'').localeCompare(String(b.start_at||'')));
+  const output=[];
+  let inboundPlaced=false;
+  const inboundMarkup=inbound?`<div class="today-inbound-travel"><strong>Travel to ${escapeHtml(ordered[0]?.origin==='Shift'?(ordered[0].location_name||eventPlaceName(ordered[0])):(ordered[0]?.title||'first event'))}</strong>${inbound}</div>`:'';
+  for(let i=0;i<ordered.length;){
     const first=ordered[i];
-    if (first.origin !== 'Shift') {
-      if (!inboundPlaced && inboundMarkup) { output.push(inboundMarkup); inboundPlaced = true; }
+    if(first.origin!=='Shift'){
+      if(!inboundPlaced&&inboundMarkup){output.push(inboundMarkup);inboundPlaced=true;}
       output.push(renderTodayAppointment(first));
-      const connector=todayTravelConnector(first); if(connector) output.push(connector);
-      i++;
-      continue;
+      const connector=todayTravelConnector(first);if(connector)output.push(connector);
+      i++;continue;
     }
-    const key=eventLocationKey(first), group=[first];
-    let j=i+1;
-    while(j<ordered.length && ordered[j].origin==='Shift' && key && eventLocationKey(ordered[j])===key){group.push(ordered[j]);j++;}
-    const last=group[group.length-1];
-    const title=first.location_name||eventPlaceName(first);
-    const address=first.location||first.address||'';
+    const key=eventLocationKey(first),group=[first];let j=i+1;
+    while(j<ordered.length&&ordered[j].origin==='Shift'&&key&&eventLocationKey(ordered[j])===key){group.push(ordered[j]);j++;}
+    const last=group[group.length-1],title=first.location_name||eventPlaceName(first),address=first.location||first.address||'';
     const colour=safeColour(first.location_colour||first.colour||first.section_colour,'#078ef0');
-    const startTime=String(first.start_at||'').slice(11,16), endTime=String(last.end_at||'').slice(11,16);
+    const startTime=String(first.start_at||'').slice(11,16),endTime=String(last.end_at||'').slice(11,16);
     const total=group.reduce((sum,item)=>sum+todayDurationHours(item),0);
     const areas=group.map(item=>{
       const area=item.shift_type_name||item.category_name||'Work';
       const areaColour=safeColour(item.shift_type_colour||item.section_colour||item.colour,'#16d5d0');
       const areaStart=String(item.start_at||'').slice(11,16),areaEnd=String(item.end_at||'').slice(11,16);
       const areaHours=todayDurationHours(item);
-      const shiftActions='<div class="today-shift-actions"><button type="button" class="secondary-button" data-shift-action="edit" data-id="'+Number(item.id)+'" data-work-date="'+escapeHtml(item.work_date||String(item.start_at||'').slice(0,10))+'">Edit shift</button><button type="button" class="secondary-button" data-shift-action="travel" data-id="'+Number(item.id)+'">Travel after shift</button><button type="button" class="secondary-button" data-shift-action="delete" data-id="'+Number(item.id)+'">Delete</button></div>';
-      return '<div class="today-location-area today-shift-area" style="--area-colour:'+escapeHtml(areaColour)+'"><div class="today-area-name">'+escapeHtml(area)+'</div><div class="today-area-time">'+escapeHtml(areaStart)+'–'+escapeHtml(areaEnd)+'</div><strong class="today-area-duration">'+escapeHtml(Number.isInteger(areaHours)?areaHours+'h':areaHours.toFixed(1)+'h')+'</strong>'+shiftActions+'</div>';
+      return `<button type="button" class="today-location-area today-shift-area" style="--area-colour:${escapeHtml(areaColour)}" data-shift-action="edit" data-id="${Number(item.id)}" data-work-date="${escapeHtml(item.work_date||String(item.start_at||'').slice(0,10))}" aria-label="Edit ${escapeHtml(area)} shift">
+        <span class="today-area-icon">${todayAreaIcon(area)}</span><span class="today-area-copy"><strong class="today-area-name">${escapeHtml(area)}</strong><span class="today-area-time">${escapeHtml(areaStart)}–${escapeHtml(areaEnd)}</span></span><strong class="today-area-duration">${escapeHtml(Number.isInteger(areaHours)?areaHours+'h':areaHours.toFixed(1)+'h')}</strong>
+      </button>`;
     }).join('');
-    const inboundInside = !inboundPlaced && inboundMarkup ? inboundMarkup : '';
-    if (inboundInside) inboundPlaced = true;
-    output.push('<section class="today-location-block" style="--location-colour:'+escapeHtml(colour)+'"><header class="today-location-header"><div><strong>'+escapeHtml(title)+'</strong>'+(address?'<small>'+appleDestinationLink(address)+'</small>':'')+'<small>'+total.toFixed(Number.isInteger(total)?0:1)+' hours total · '+group.length+' shift'+(group.length===1?'':'s')+'</small></div><strong class="today-location-span">'+escapeHtml(startTime)+'–'+escapeHtml(endTime)+'</strong></header>'+inboundInside+'<div class="today-location-areas">'+areas+'</div></section>');
+    const inboundInside=!inboundPlaced&&inboundMarkup?inboundMarkup:'';if(inboundInside)inboundPlaced=true;
+    const locationIcon='<svg viewBox="0 0 56 56" aria-hidden="true"><path d="M9 49V17h38v32M5 49h46M20 17V8h16v9M20 27h5v5h-5zM32 27h5v5h-5zM20 38h5v5h-5zM32 38h5v11h-5z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg>';
+    output.push(`<section class="today-location-block" style="--location-colour:${escapeHtml(colour)}">
+      <header class="today-location-header"><span class="today-location-icon">${locationIcon}</span><div><strong>${escapeHtml(title)}</strong>${address?`<small>⌖ ${appleDestinationLink(address)}</small>`:''}<small>${total.toFixed(Number.isInteger(total)?0:1)} hours total · ${group.length} shift${group.length===1?'':'s'}</small></div><strong class="today-location-span">${escapeHtml(startTime)}–${escapeHtml(endTime)}</strong></header>
+      ${inboundInside}<div class="today-location-areas">${areas}</div>
+    </section>`);
     const connector=todayTravelConnector(last);if(connector)output.push(connector);
     i=j;
   }
-  if (!inboundPlaced && inboundMarkup) output.unshift(inboundMarkup);
+  if(!inboundPlaced&&inboundMarkup)output.unshift(inboundMarkup);
   return output.join('');
 }
 function renderUpcomingGrouped(dashboard) {
