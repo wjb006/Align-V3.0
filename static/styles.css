@@ -922,3 +922,50 @@ body[data-management-theme="light"] .guide-page { --guide-well: #f4f7fb; }
 
 .planner-inbound-travel{padding:7px 9px 9px;border:1px solid color-mix(in srgb,var(--location-colour,#365CE6) 60%,#6b8aa8);border-radius:12px;background:color-mix(in srgb,var(--location-colour,#365CE6) 10%,#07172a)}
 .planner-inbound-travel .shift-travel-itinerary-wrap{margin:0}.planner-inbound-travel .shift-travel-itinerary{flex-wrap:nowrap;overflow-x:auto}.planner-event-detail{margin:7px 0 0;padding:8px 10px;border-radius:9px;background:color-mix(in srgb,var(--area-colour,#365CE6) 10%,transparent);font-size:.88rem;white-space:pre-wrap;overflow-wrap:anywhere}
+
+
+/* Reference-matched Today timeline: mobile-first, high-contrast navy cards. */
+.today-reference-page{width:100%;max-width:1180px;margin:0 auto;padding-top:8px}
+.today-reference-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 16px;padding:13px 16px;border:2px solid #15558a;border-radius:18px;background:#03172a;color:#f7fbff}
+.today-reference-date{display:flex;align-items:center;gap:13px;min-width:0}
+.today-reference-calendar{display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;border:2px solid #f7fbff;border-radius:9px;font-size:30px;line-height:1}
+.today-reference-date h1{margin:0;color:#f7fbff;font-size:clamp(1.12rem,4.8vw,2.15rem);font-weight:800;line-height:1.12}
+.today-reference-total{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap;padding:8px 12px;border:2px solid #3975a5;border-radius:14px;background:#123453;color:#fff;font-size:clamp(.76rem,2.7vw,1.1rem);white-space:nowrap}
+.today-reference-total strong{font-weight:750}
+.today-event-timeline{display:grid;gap:14px}
+.today-location-block{border:3px solid var(--location-colour,#078ef0);border-radius:24px;padding:11px;background:#031a2d}
+.today-location-header{display:flex;align-items:center;gap:13px;padding:4px 8px 12px;border-radius:0;background:transparent;color:#fff}
+.today-location-header>div{display:grid;gap:4px;min-width:0;flex:1}
+.today-location-header>div>strong{font-size:clamp(1.25rem,5vw,2rem);font-weight:850}
+.today-location-header small{font-size:.9rem;line-height:1.25}
+.today-location-span{font-size:clamp(1.15rem,4.5vw,1.9rem);font-weight:850}
+.today-location-areas{display:grid;gap:10px}
+.today-location-area{position:relative;display:flex;align-items:center;gap:12px;min-height:84px;padding:13px 68px 13px 18px;border:2px solid var(--area-colour,#16d5d0);border-radius:19px;background:rgba(0,12,25,.58)}
+.today-shift-area{display:block}
+.today-area-name{font-size:clamp(1.2rem,4.5vw,1.8rem);font-weight:850;color:var(--area-colour,#16d5d0)}
+.today-area-time{font-size:clamp(1rem,3.6vw,1.3rem);margin-top:2px;color:#f7fbff}
+.today-area-duration{right:17px;font-size:clamp(1.1rem,4vw,1.55rem);color:#fff}
+.today-appointment-area{border-color:#a76aff;background:linear-gradient(110deg,rgba(105,45,185,.38),rgba(42,23,91,.5));padding:8px}
+.today-appointment-area .week-event-row{display:grid;grid-template-columns:1fr;gap:5px;margin:0;padding:8px 10px;border:0;background:transparent;box-shadow:none;color:#fff}
+.today-appointment-area .week-event-time{display:none}
+.today-appointment-area .week-event-row>div:last-child>strong{font-size:clamp(1.1rem,4.4vw,1.75rem);color:#fff}
+.today-appointment-area .week-event-row small{color:#f1eaff;font-size:.92rem}
+.today-appointment-area .type-badge,.today-appointment-area .event-travel-button{display:none}
+.today-travel-connector{margin:0 0 0 20px;padding:7px 10px;border:2px solid #4b89b9;border-radius:15px;border-left-width:4px;background:#071d32}
+.today-travel-connector .shift-travel-itinerary-wrap{margin:0}
+.today-travel-connector .shift-travel-itinerary{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:8px}
+.today-reference-page .dashboard-bottom-tools{margin-top:18px}
+@media(max-width:600px){
+ .today-reference-page{padding:4px 0 18px}
+ .today-reference-header{align-items:flex-start;padding:10px;gap:8px;border-radius:15px}
+ .today-reference-date{gap:8px}
+ .today-reference-calendar{flex-basis:34px;width:34px;height:34px;font-size:24px}
+ .today-reference-total{padding:6px 8px;gap:4px;border-radius:11px;font-size:.72rem}
+ .today-location-block{padding:8px;border-radius:20px}
+ .today-location-header{padding:4px 5px 10px;gap:8px}
+ .today-location-header small{font-size:.76rem}
+ .today-location-areas{gap:8px}
+ .today-location-area{min-height:76px;padding:10px 54px 10px 13px;border-radius:15px}
+ .today-area-duration{right:12px}
+ .today-travel-connector{margin-left:12px;padding:6px 7px}
+}
