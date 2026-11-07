@@ -1,7 +1,7 @@
 function postTravelSummary(item) {
   const info=item.post_travel;if(!info?.enabled)return '';
   const e=escapeHtml, journey=info.journey||null;
-  const heading=item?.work_date||item?.origin==='Shift'?'After shift':'After event';
+  const heading=info.historical?'Planned return journey':(item?.work_date||item?.origin==='Shift'?'After shift':'After event');
   let itinerary='';
   if(journey?.notes && typeof journeyEventSummary==='function') itinerary=journeyEventSummary(journey.notes);
   if(!itinerary && journey?.steps?.length){
@@ -80,16 +80,33 @@ function eventStartAt(item) {
   if(item?.work_date&&item?.start_time)return parseAlignDateTime(`${item.work_date}T${item.start_time}`);
   return null;
 }
+function eventEndAt(item) {
+  if(item?.end_at)return parseAlignDateTime(item.end_at);
+  if(item?.work_date&&item?.end_time){
+    const end=parseAlignDateTime(`${item.work_date}T${item.end_time}`);
+    const start=eventStartAt(item);
+    if(end&&start&&end.getTime()<=start.getTime())return new Date(end.getTime()+86400000);
+    return end;
+  }
+  return null;
+}
 function eventIsUnderway(item) {
-  const start=eventStartAt(item);
-  if(!start||!Number.isFinite(start.getTime()))return false;
-  return start.getTime()<=Date.now()&&upcomingNow(item);
+  const start=eventStartAt(item),end=eventEndAt(item),now=Date.now();
+  return !!(start&&end&&Number.isFinite(start.getTime())&&Number.isFinite(end.getTime())&&start.getTime()<=now&&end.getTime()>now);
+}
+function eventHasFinished(item) {
+  const end=eventEndAt(item);
+  return !!(end&&Number.isFinite(end.getTime())&&end.getTime()<=Date.now());
 }
 function eventTravelMarkup(item) {
   if(!item||eventIsUnderway(item))return '';
+  const post=postTravelSummary(item);
+  // Once a shift/event has ended, keep its planned onward/return itinerary
+  // visible, but do not show the now-irrelevant journey that got the user there.
+  if(eventHasFinished(item))return post;
   const notes=item.notes||'';
   const travel=typeof journeyEventSummary==='function'?journeyEventSummary(notes):(typeof travelCard==='function'?travelCard(notes):(typeof savedTravelSummary==='function'?savedTravelSummary(notes):''));
-  return travel+postTravelSummary(item);
+  return travel+post;
 }
 setInterval(()=>{
   if(state.boot&&['home','today'].includes(state.tab)&&!modalRoot.textContent.trim())render();
