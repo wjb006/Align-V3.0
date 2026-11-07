@@ -163,7 +163,7 @@
     let cells=Array.from({length:offset},()=>'<span class="restored-month-empty"></span>').join('');
     for(let i=1;i<=count;i++){
       const day=month+'-'+String(i).padStart(2,'0'), n=shifts.filter(s=>s.work_date===day).length, leave=leaves.some(l=>l.leave_date===day);
-      const eventCount=events.filter(e=>String(e.start_at||'').slice(0,10)<=day && String(e.end_at||'').slice(0,10)>=day).length;
+      const eventCount=events.filter(e=>String(e.start_at||'')<day+'T23:59:59' && String(e.end_at||'')>day+'T00:00').length;
       const total=n+eventCount+(leave?1:0);
       cells+='<button class="restored-month-day '+(day===getToday()?'is-today ':'')+(n?'has-shifts ':'')+(leave?'has-leave ':'')+(eventCount?'has-events':'')+'" data-shift-date="'+day+'"><span>'+i+'</span>'+(total?'<small>'+total+' total item'+(total===1?'':'s')+'</small>':'')+(n?'<small>'+n+' shift'+(n===1?'':'s')+'</small>':'')+(leave?'<small>Leave</small>':'')+'</button>';
     }
@@ -179,7 +179,7 @@
     for(let i=1;i<=count;i++){
       const day=month+'-'+String(i).padStart(2,'0');
       const ds=shifts.filter(s=>s.work_date===day), ls=leaves.filter(l=>l.leave_date===day);
-      const es=events.filter(e=>e.origin!=='Finance'&&String(e.start_at||'').slice(0,10)<=day&&String(e.end_at||'').slice(0,10)>=day);
+      const es=events.filter(e=>e.origin!=='Finance'&&String(e.start_at||'')<day+'T23:59:59'&&String(e.end_at||'')>day+'T00:00');
       const fes=visibleFinance(data).filter(e=>String(e.start_at||'').slice(0,10)===day);
       if(!ds.length&&!ls.length&&!es.length&&!fes.length)continue;
       rows.push('<section class="restored-planner-day"><h3>'+esc(fmtDay(day))+' · '+(ds.length+es.length+fes.length+ls.length)+' total item'+(ds.length+es.length+fes.length+ls.length===1?'':'s')+'</h3>'+ds.map(shiftCard).join('')+es.map(e=>eventCard(e,(e.origin==='Calendar')||(!e.section_name&&!!e.category_name))).join('')+fes.map(financeCard).join('')+ls.map(leaveCard).join('')+'</section>');
