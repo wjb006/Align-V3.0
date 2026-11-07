@@ -96,12 +96,20 @@
   function shiftCard(s) {
     const travel=typeof eventTravelMarkup==='function'?eventTravelMarkup(s):'';
     const notes=String(s.notes||'').replace(/\[Align travel(?: steps)?\][\s\S]*?(?:\[\/Align travel(?: steps)?\]|$)/ig,'').replace(/\[Align travel pending\]/ig,'').trim();
-    return '<article class="card restored-shift-card" style="--shift-colour:'+esc(s.colour||'#365CE6')+'">'+
-      '<div class="restored-shift-top"><div><span class="restored-shift-date">'+esc(fmtDay(s.work_date))+'</span><h3>'+esc(s.location_name||'Shift')+'</h3><p>'+esc(s.shift_type_name||'Work')+(notes?' · '+esc(notes):'')+'</p></div>'+
+    return '<article class="card restored-shift-card" style="--shift-colour:'+esc(s.location_colour||s.colour||'#365CE6')+'">'+
+      '<div class="shift-area-panel" style="--area-colour:'+esc(s.shift_type_colour||'#6479D8')+'"><div class="restored-shift-top"><div><span class="restored-shift-date">'+esc(fmtDay(s.work_date))+'</span><h3>'+esc(s.location_name||'Shift')+'</h3><p>'+esc(s.shift_type_name||'Work')+(notes?' · '+esc(notes):'')+'</p></div>'+
       '<span class="restored-shift-hours">'+esc(fmtHours(s.hours))+'</span></div>'+
-      '<p class="restored-shift-time">'+esc(s.start_time)+'–'+esc(s.end_time)+(Number(s.break_minutes)?' · '+esc(s.break_minutes)+' min break':'')+'</p>'+
+      '<p class="restored-shift-time">'+esc(s.start_time)+'–'+esc(s.end_time)+(Number(s.break_minutes)?' · '+esc(s.break_minutes)+' min break':'')+'</p></div>'+
       (travel?'<div class="shift-travel-summary">'+travel+'</div>':'')+
       '<div class="button-row"><button class="secondary-button" data-shift-action="edit" data-id="'+esc(s.id)+'">Edit shift</button><button class="secondary-button" data-shift-action="travel" data-id="'+esc(s.id)+'">Travel after shift</button><button class="secondary-button" data-shift-action="delete" data-id="'+esc(s.id)+'">Delete</button></div></article>';
+  }
+  function shiftGroupsMarkup(shifts) {
+    const groups = new Map();
+    shifts.forEach(s => { const key=String(s.location_id||s.location_name||'work'); if(!groups.has(key))groups.set(key,[]); groups.get(key).push(s); });
+    return [...groups.values()].map(rows => {
+      const first=rows[0], colour=first.location_colour||first.colour||'#365CE6';
+      return '<section class="shift-location-group" style="--location-colour:'+esc(colour)+'"><header class="shift-location-banner"><span class="shift-location-swatch"></span><strong>'+esc(first.location_name||'Work location')+'</strong><small>'+rows.length+' shift'+(rows.length===1?'':'s')+'</small></header><div class="shift-location-items">'+rows.map(shiftCard).join('')+'</div></section>';
+    }).join('');
   }
   function visibleFinance(data) {
     return data.finance_calendar && data.finance_calendar.visible === false ? [] : (data.finance_events || []);
@@ -182,7 +190,7 @@
       const es=events.filter(e=>e.origin!=='Finance'&&String(e.start_at||'')<day+'T23:59:59'&&String(e.end_at||'')>day+'T00:00');
       const fes=visibleFinance(data).filter(e=>String(e.start_at||'').slice(0,10)===day);
       if(!ds.length&&!ls.length&&!es.length&&!fes.length)continue;
-      rows.push('<section class="restored-planner-day"><h3>'+esc(fmtDay(day))+' · '+(ds.length+es.length+fes.length+ls.length)+' total item'+(ds.length+es.length+fes.length+ls.length===1?'':'s')+'</h3>'+ds.map(shiftCard).join('')+es.map(e=>eventCard(e,(e.origin==='Calendar')||(!e.section_name&&!!e.category_name))).join('')+fes.map(financeCard).join('')+ls.map(leaveCard).join('')+'</section>');
+      rows.push('<section class="restored-planner-day"><h3>'+esc(fmtDay(day))+' · '+(ds.length+es.length+fes.length+ls.length)+' total item'+(ds.length+es.length+fes.length+ls.length===1?'':'s')+'</h3>'+shiftGroupsMarkup(ds)+es.map(e=>eventCard(e,(e.origin==='Calendar')||(!e.section_name&&!!e.category_name))).join('')+fes.map(financeCard).join('')+ls.map(leaveCard).join('')+'</section>');
     }
     return rows.length?'<div class="restored-week-list">'+rows.join('')+'</div>':'<p class="empty">Nothing planned this month.</p>';
   }
@@ -204,7 +212,7 @@
         return '<section class="restored-planner-day"><h3>'+esc(fmtDay(day))+' · '+total+' total item'+(total===1?'':'s')+'</h3>'+(ds.length?ds.map(shiftCard).join(''):'')+es.map(e=>eventCard(e,false)).join('')+ies.map(e=>eventCard(e,true)).join('')+fes.map(financeCard).join('')+ls.map(leaveCard).join('')+(!total?'<p class="restored-rest-day">Nothing planned</p>':'')+'</section>';
       }).join('')
       : state.plannerMode==='list' ? renderMonthList(d)
-      : calendarMarkup(d)+'<div class="restored-planner-list">'+shifts.map(shiftCard).join('')+[...(d.events||[]).map(e=>eventCard(e,false)),...(d.imported_events||[]).map(e=>eventCard(e,true)),...visibleFinance(d).map(financeCard)].join('')+leaves.map(leaveCard).join('')+(!shifts.length&&!leaves.length&&!(d.events||[]).length&&!(d.imported_events||[]).length&&!visibleFinance(d).length?'<p class="empty">No shifts, events or leave this month.</p>':'')+'</div>';
+      : calendarMarkup(d)+'<div class="restored-planner-list">'+shiftGroupsMarkup(shifts)+[...(d.events||[]).map(e=>eventCard(e,false)),...(d.imported_events||[]).map(e=>eventCard(e,true)),...visibleFinance(d).map(financeCard)].join('')+leaves.map(leaveCard).join('')+(!shifts.length&&!leaves.length&&!(d.events||[]).length&&!(d.imported_events||[]).length&&!visibleFinance(d).length?'<p class="empty">No shifts, events or leave this month.</p>':'')+'</div>';
     return '<section class="page planner-page restored-planner-page"><div class="add-head"><p class="eyebrow">Work schedule</p><h1>Planner</h1><p class="subtle">Your shifts, saved patterns and annual leave — together in one place.</p></div>'+
       '<div class="card restored-planner-toolbar"><div class="schedule-week-nav"><button class="secondary-button" data-shift-action="previous" aria-label="Previous '+state.plannerMode+'">‹</button><h2>'+esc(title)+'</h2><button class="secondary-button" data-shift-action="next" aria-label="Next '+state.plannerMode+'">›</button></div><div class="button-row"><button class="'+(state.plannerMode==='list'?'primary-button':'secondary-button')+'" data-shift-action="list">List</button><button class="'+(state.plannerMode==='week'?'primary-button':'secondary-button')+'" data-shift-action="week">Week</button><button class="'+(state.plannerMode==='month'?'primary-button':'secondary-button')+'" data-shift-action="month">Month</button><button class="secondary-button" data-shift-action="today">Today</button></div>'+
       '<label class="field">Jump to date<input type="date" data-shift-jump value="'+esc(state.plannerAnchor)+'"></label>'+

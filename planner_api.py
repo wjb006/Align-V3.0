@@ -196,8 +196,9 @@ def _week(connection, raw_date):
     chosen = date.fromisoformat(_iso_date(raw_date))
     start = chosen - timedelta(days=chosen.weekday())
     end = start + timedelta(days=6)
-    shifts = _rows(connection, """SELECT * FROM shifts WHERE work_date BETWEEN ? AND ?
-        ORDER BY work_date,start_time,id""",(start.isoformat(),end.isoformat()))
+    shifts = _rows(connection, """SELECT s.*,l.colour AS location_colour,st.colour AS shift_type_colour
+        FROM shifts s LEFT JOIN locations l ON l.id=s.location_id LEFT JOIN shift_types st ON st.id=s.shift_type_id
+        WHERE s.work_date BETWEEN ? AND ? ORDER BY s.work_date,s.start_time,s.id""",(start.isoformat(),end.isoformat()))
     from post_event_travel import decorate as decorate_post_travel
     shifts = decorate_post_travel(connection, shifts, kind='shift')
     leave = _rows(connection,"SELECT * FROM annual_leave WHERE leave_date BETWEEN ? AND ? ORDER BY leave_date",(start.isoformat(),end.isoformat()))
@@ -227,7 +228,9 @@ def _month(connection, raw_month, app):
     end = date(start.year + (start.month==12), start.month%12+1, 1)-timedelta(days=1)
     data = _week(connection,start.isoformat())
     event_data = app.month_data(connection, month)
-    shifts = _rows(connection,"SELECT * FROM shifts WHERE work_date BETWEEN ? AND ? ORDER BY work_date,start_time",(start.isoformat(),end.isoformat()))
+    shifts = _rows(connection,"""SELECT s.*,l.colour AS location_colour,st.colour AS shift_type_colour
+        FROM shifts s LEFT JOIN locations l ON l.id=s.location_id LEFT JOIN shift_types st ON st.id=s.shift_type_id
+        WHERE s.work_date BETWEEN ? AND ? ORDER BY s.work_date,s.start_time""",(start.isoformat(),end.isoformat()))
     from post_event_travel import decorate as decorate_post_travel
     shifts = decorate_post_travel(connection, shifts, kind='shift')
     leave = _rows(connection,"SELECT * FROM annual_leave WHERE leave_date BETWEEN ? AND ? ORDER BY leave_date",(start.isoformat(),end.isoformat()))
