@@ -794,7 +794,12 @@ def dashboard(connection: sqlite3.Connection) -> dict:
            JOIN calendar_sources cs ON cs.id=ce.source_id
            LEFT JOIN organiser_sections os ON os.id=cs.section_id
            WHERE ce.end_at>=?""", (today,)))
-    upcoming_events = [e for e in upcoming_events if instant(e['end_at']) > now]
+    # Keep the complete current-day timeline visible, including shifts and events
+    # that have already finished. Future days remain limited to active/upcoming items.
+    upcoming_events = [
+        e for e in upcoming_events
+        if str(e.get('start_at', ''))[:10] == today or instant(e['end_at']) > now
+    ]
     post_event_travel.decorate(connection, upcoming_events)
 
     # Include first-class Work shifts in the Today feed. Keep the shifts table
@@ -827,7 +832,7 @@ def dashboard(connection: sqlite3.Connection) -> dict:
                 'section_colour': shift.get('colour') or '#365CE6',
                 'location': shift.get('location') or shift.get('location_name') or '',
             }
-            if instant(end_at) > now:
+            if shift['work_date'] == today or instant(end_at) > now:
                 upcoming_shifts.append(item)
         post_event_travel.decorate(connection, upcoming_shifts, kind='shift')
         upcoming_events.extend(upcoming_shifts)
