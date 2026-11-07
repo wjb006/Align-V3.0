@@ -58,6 +58,7 @@ for (const [name, source] of [['app',app],['index',index],['service worker',work
 }
 const appBuild = app.match(/^const BUILD_VERSION = (\d+);$/m)?.[1];
 const assetVersion = app.match(/^const ASSET_VERSION = `\$\{BUILD_VERSION\}-(v\d+)`/m)?.[1];
+if (!/add:\s*\{\s*context:\s*null\s*\}/.test(app)) throw new Error('Add-event context must be initialised before Work Settings saves');
 if (!appBuild || !assetVersion) throw new Error('App build and asset version markers are missing');
 if (!index.includes(`${appBuild}-${assetVersion}`)) throw new Error('Index asset version does not match the app build');
 if (!worker.includes('align-v13-shell-${ASSET_VERSION}')) throw new Error('Shell cache template is missing');
