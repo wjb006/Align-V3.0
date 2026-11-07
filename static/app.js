@@ -395,7 +395,7 @@ function renderHomeGreeting(dashboard) {
     ? (settings.user_name || 'Align admin')
     : `${greeting()}${settings.user_name ? `, ${settings.user_name}` : ''}`;
   const weather = typeof homeWeatherChip === 'function' ? homeWeatherChip() : '';
-  return `<header class="dashboard-welcome home-greeting"><div class="home-date-row"><p class="eyebrow">${escapeHtml(fullDateLabel(dashboard.today))}</p>${weather}</div><h1>${escapeHtml(title)}</h1><p class="subtle">Everything in one place.</p></header>`;
+  return `<header class="dashboard-welcome home-greeting"><div class="home-date-row"><p class="eyebrow">${escapeHtml(fromIso(String(dashboard.today).slice(0,10)).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }))}</p>${weather}</div><h1>${escapeHtml(title)}</h1><p class="subtle">Everything in one place.</p></header>`;
 }
 function homeShortcutSection(pattern) {
   return (state.sectionDefinitions || []).find(section => pattern.test(`${section.key || ''} ${section.name || ''}`));
@@ -439,7 +439,7 @@ function renderHome() {
   ).slice(0, 50);
   const totalHours = todayItems.reduce((sum, item) => sum + todayDurationHours(item), 0);
   const minutes = Math.round(totalHours * 60);
-  const totalLabel = `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`;
+  const totalLabel = `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
   ensureTodayInboundTravel(todayItems[0]);
   const inbound = state.todayInboundJourney?.key === todayInboundKey(todayItems[0]) && typeof journeyEventSummary === 'function'
     ? journeyEventSummary(state.todayInboundJourney.notes) : '';
