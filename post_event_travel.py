@@ -132,12 +132,15 @@ def decorate(c, items, kind=None):
     for item in items:
         event_kind = kind or ('calendar' if item.get('origin')=='Calendar' or item.get('source_kind')=='icloud' else 'event')
         saved = saved_rows.get(f"post_event_travel:{event_kind}:{item['id']}",{})
-        if not saved.get('enabled'): continue
+        # Automatic travel is part of the daily timeline for every dated event.
+        # Keep any saved route/mode, but don't let legacy per-event False values
+        # suppress travel on the current V3 experience.
         if all_events is None:
             all_events = events(c)
             home_row = c.execute("SELECT setting_value FROM settings WHERE setting_key='user_address'").fetchone()
         _, route = target(c,event_kind,item['id'],all_events,home_row[0] if home_row else '')
-        route['mode'] = saved.get('mode','transit')
+        from personal_planner import preferences
+        route['mode'] = saved.get('mode') or preferences(c)['default_travel']
         fingerprint = hashlib.sha256(json.dumps(route,sort_keys=True).encode()).hexdigest()
         item['post_travel'] = {**route,'enabled':True,'historical':instant(route['departure']) <= datetime.now(ZONE),'journey':saved.get('journey') if saved.get('fingerprint')==fingerprint else None}
     return items
