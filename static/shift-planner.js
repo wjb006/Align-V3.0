@@ -45,22 +45,32 @@
   }
   async function loadInboundPlannerJourneys(data) {
     const all=[...(data.shifts||[]).map(x=>Object.assign(x,{_plannerKind:'shift'})),...(data.events||[]).map(x=>Object.assign(x,{_plannerKind:'event'})),...(data.imported_events||[]).map(x=>Object.assign(x,{_plannerKind:'imported'}))]
-      .filter(x=>String(x.location||x.address||'').trim()&&!x.all_day&&plannerItemStart(x)&&new Date(plannerItemStart(x)).getTime()>Date.now());
+      .filter(x=>String(x.location||x.address||'').trim()&&!x.all_day&&plannerItemStart(x));
     const byDay=new Map();
-    for(const item of all){const day=plannerItemStart(item).slice(0,10);const current=byDay.get(day);if(day&&(!current||plannerItemStart(item)<plannerItemStart(current)))byDay.set(day,item);}
+    for(const item of all){const day=plannerItemStart(item).slice(0,10);if(day)byDay.set(day,true);}
     const days=[...byDay.keys()].filter(day=>day>=getToday()).sort().slice(0,state.plannerMode==='month'?35:7);
-    await Promise.all(days.map(async day=>{const item=byDay.get(day);try{
-      const result=await api('/api/personal/journey',{method:'POST',body:{destination:String(item.location||item.address).trim(),arrival:plannerItemStart(item),mode:data.preferences?.default_travel||undefined}});
-      if(result?.notes){const steps=result.steps||[];item.pre_travel={...result,notes:'[Align travel]\\n'+result.notes+'\\n[/Align travel]'+(steps.length?'\\n[Align travel steps]\\n'+JSON.stringify(steps)+'\\n[/Align travel steps]':'')};}
-    }catch(error){item.pre_travel_error=error.message||'Inbound journey unavailable';}}));
-    // Plan the outbound leg after the final item at each workplace/location.
-    // The API chooses the next event within an hour, otherwise the saved home address.
     await Promise.all(days.map(async day=>{
-      const daily=all.filter(item=>plannerItemStart(item).slice(0,10)===day)
-        .sort((a,b)=>plannerItemStart(a).localeCompare(plannerItemStart(b)));
+      const daily=all.filter(item=>plannerItemStart(item).slice(0,10)===day).sort((a,b)=>plannerItemStart(a).localeCompare(plannerItemStart(b)));
+      let previousEnd=null,previousKey='';
+      for(let i=0;i<daily.length;){
+        const first=daily[i],key=plannerLocationKey(first),group=[first];let j=i+1;
+        while(j<daily.length&&key&&plannerLocationKey(daily[j])===key){group.push(daily[j]);j++;}
+        const start=new Date(plannerItemStart(first)),gap=previousEnd?start.getTime()-previousEnd.getTime():Infinity;
+        if(start.getTime()>Date.now()&&(!previousEnd||(key!==previousKey&&gap>3600000))){
+          try{
+            const result=await api('/api/personal/journey',{method:'POST',body:{destination:String(first.location||first.address).trim(),arrival:plannerItemStart(first),mode:data.preferences?.default_travel||undefined}});
+            if(result?.notes){const steps=result.steps||[];first.pre_travel={...result,notes:'[Align travel]\\n'+result.notes+'\\n[/Align travel]'+(steps.length?'\\n[Align travel steps]\\n'+JSON.stringify(steps)+'\\n[/Align travel steps]':'')};}
+          }catch(error){first.pre_travel_error=error.message||'Inbound journey unavailable';}
+        }
+        previousEnd=new Date(plannerItemEnd(group[group.length-1]));
+        previousKey=key;
+        i=j;
+      }
+      // Plan the outbound leg after the final item at each workplace/location.
+      // The API chooses the next event within an hour, otherwise the saved home address.
       const legs=daily.filter((item,index)=>{
         const key=plannerLocationKey(item);
-        if(item._plannerKind==='shift'&&key&&daily[index+1]?._plannerKind==='shift'&&plannerLocationKey(daily[index+1])===key)return false;
+        if(key&&daily[index+1]&&plannerLocationKey(daily[index+1])===key)return false;
         const end=plannerItemEnd(item);
         return !!(item.location&&!item.all_day&&end&&new Date(end).getTime()>Date.now());
       });
