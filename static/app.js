@@ -421,6 +421,16 @@ function renderHomeShortcuts() {
     ${shortcut('finances','Finances',finance ? 'Open your finance records' : 'Set up in Sections',finance,'sections')}
   </nav>`;
 }
+function todayTimelineItemCount(events) {
+  let count = 0, previousShiftKey = '';
+  for (const item of [...events].sort((a,b)=>String(a.start_at||'').localeCompare(String(b.start_at||'')))) {
+    if (item.origin !== 'Shift') { count++; previousShiftKey = ''; continue; }
+    const key = eventLocationKey(item);
+    if (!key || key !== previousShiftKey) count++;
+    previousShiftKey = key;
+  }
+  return count;
+}
 function renderHome() {
   const { dashboard } = state.boot;
   // Today is a date-scoped planner, not a list of every future event.
@@ -440,7 +450,7 @@ function renderHome() {
     </nav>
     <header class="today-reference-header">
       <div class="today-reference-date"><span class="today-reference-calendar" aria-hidden="true">▦</span><h1>${escapeHtml(fullDateLabel(dashboard.today))}</h1></div>
-      <div class="today-reference-total"><strong>${todayItems.length} Events</strong><span>•</span><strong>${totalLabel} Total</strong></div>
+      <div class="today-reference-total"><strong>${todayTimelineItemCount(todayItems)} Events</strong><span>•</span><strong>${totalLabel} Total</strong></div>
     </header>
     <div class="today-event-timeline">${todayItems.length ? renderTodayTimeline(todayItems, inbound) : '<div class="card empty">Nothing scheduled for today. Add a shift or appointment to see it here.</div>'}</div>
     ${state.boot.personal && homeSection('today') && homeSectionContent('today','show_quick_add',true) && typeof personalQuickAdd === 'function' ? `<div class="dashboard-bottom-tools">${personalQuickAdd()}</div>` : ''}
