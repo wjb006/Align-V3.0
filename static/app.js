@@ -496,7 +496,7 @@ function renderEventRow(event, {
   const badgeColour = event.section_colour || colour;
   const badge = badgeName && typeof typeBadge === 'function' ? typeBadge(badgeName, badgeColour) : '';
   const meta = condensed
-    ? badge
+    ? `${badge}<small>${showLocation && event.location ? appleDestinationLink(event.location) : ''}</small>`
     : `${badge}<small>${showLocation && event.location ? appleDestinationLink(event.location) : ''}${detailTime}</small>`;
   const classes = [
     'card', 'week-event-row', 'upcoming-event',
