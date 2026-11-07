@@ -102,6 +102,18 @@ class EventChangesTests(unittest.TestCase):
         app.ensure_import_categories(self.c)
         self.assertEqual(self.c.execute("SELECT COUNT(*) FROM organiser_sections WHERE calendar_name='My calendar'").fetchone()[0],1)
 
+    def test_dashboard_decorates_future_events_for_automatic_travel(self):
+        now=datetime.now(post.ZONE)
+        start=(now+timedelta(days=2)).replace(hour=9,minute=0,second=0,microsecond=0)
+        end=start+timedelta(hours=1)
+        ident=self.event(start.isoformat(timespec='minutes'),end.isoformat(timespec='minutes'),location='Arrowe Park Hospital, Wirral')
+        item={'id':ident,'start_at':start.isoformat(timespec='minutes'),'end_at':end.isoformat(timespec='minutes'),
+              'location':'Arrowe Park Hospital, Wirral','all_day':0,'origin':'Event'}
+        decorated=post.decorate(self.c,[item],kind='event')
+        self.assertTrue(decorated[0]['post_travel']['enabled'])
+        self.assertEqual(decorated[0]['post_travel']['mode'],personal_planner.preferences(self.c)['default_travel'])
+        self.assertIsNone(decorated[0]['post_travel']['journey'])
+
     def test_completed_event_retains_previously_planned_return_journey(self):
         now=datetime.now(post.ZONE)
         start=(now-timedelta(hours=3)).isoformat(timespec='minutes')
