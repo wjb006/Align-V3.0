@@ -123,7 +123,7 @@
   function formMarkup(edit={}) {
     const data=state.shiftPlannerData||{};
     const locations=data.locations||[], types=data.shift_types||[];
-    const day=edit.work_date||state.plannerAnchor||getToday();
+    const day=edit.work_date||state.shiftPlannerSelectedDay||state.plannerAnchor||getToday();
     const templates=availableTemplatesForDate(day,edit.id);
     const template=templates.find(t=>String(t.id)===String(edit.template_id||''))||
       (edit.id?(data.templates||[]).find(t=>String(t.id)===String(edit.template_id||'')):null)||null;
@@ -265,12 +265,12 @@
   document.addEventListener('click',async event=>{
     const button=event.target.closest('[data-shift-action],[data-shift-date]');
     if(!button)return;
-    if(button.dataset.shiftDate){state.plannerAnchor=monday(button.dataset.shiftDate);state.plannerMode='week';state.shiftPlannerModal='';await reload();return;}
+    if(button.dataset.shiftDate){state.shiftPlannerSelectedDay=button.dataset.shiftDate;state.plannerAnchor=monday(button.dataset.shiftDate);state.plannerMode='week';state.shiftPlannerModal='';await reload();return;}
     const action=button.dataset.shiftAction;
     if(!action)return;
     event.preventDefault();
     try {
-      if(action==='previous'||action==='next'){
+      if(action==='previous'||action==='next'){state.shiftPlannerSelectedDay=null;
         if(state.plannerMode!=='week'){
           const current=new Date(state.plannerAnchor.slice(0,7)+'-01T12:00:00');
           const next=new Date(current.getFullYear(),current.getMonth()+(action==='next'?1:-1),1);
@@ -280,7 +280,7 @@
         }
         await reload();return;
       }
-      if(action==='week'||action==='month'||action==='list'){state.plannerMode=action;state.plannerAnchor=action==='week'?monday(state.plannerAnchor):state.plannerAnchor.slice(0,7)+'-01';await reload();return;}
+      if(action==='week'||action==='month'||action==='list'){state.shiftPlannerSelectedDay=null;state.plannerMode=action;state.plannerAnchor=action==='week'?monday(state.plannerAnchor):state.plannerAnchor.slice(0,7)+'-01';await reload();return;}
       if(action==='today'){state.plannerAnchor=state.plannerMode==='week'?monday(getToday()):getToday().slice(0,7)+'-01';await reload();return;}
       if(action==='add'){state.shiftPlannerModal='add';state.shiftPlannerEdit=null;paint();return;}
       if(action==='work-settings'){if(typeof openWorkSetup==='function')await openWorkSetup();return;}
