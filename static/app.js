@@ -444,16 +444,13 @@ function renderHome() {
   const minutes = Math.round(totalHours * 60);
   const totalLabel = `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
   ensureDailyTravel(todayItems);
-  const firstTravelItem=todayItems.find(item=>(item.location||item.address)&&!item.all_day&&parseAlignDateTime(item.start_at)?.getTime()>Date.now());
-  const inboundJourney=state.dailyInboundJourneys[todayInboundKey(firstTravelItem)];
-  const inbound = inboundJourney && typeof travelRouteStrip === 'function'
-    ? travelRouteStrip(inboundJourney) : (inboundJourney && typeof journeyEventSummary === 'function' ? journeyEventSummary(inboundJourney.notes) : '');
+
   return `<section class="page today-reference-page">
     <header class="today-reference-header">
       <div class="today-reference-date"><span class="today-reference-calendar" aria-hidden="true">▦</span><h1>${escapeHtml(fullDateLabel(dashboard.today))}</h1></div>
       <div class="today-reference-total"><strong>${todayTimelineItemCount(todayItems)} ${todayTimelineItemCount(todayItems) === 1 ? 'Event' : 'Events'}</strong><span>•</span><strong>${totalLabel} Total</strong></div>
     </header>
-    <div class="today-event-timeline">${todayItems.length ? renderTodayTimeline(todayItems, inbound) : '<div class="card empty">Nothing scheduled for today. Add a shift or appointment to see it here.</div>'}</div>
+    <div class="today-event-timeline">${todayItems.length ? renderTodayTimeline(todayItems) : '<div class="card empty">Nothing scheduled for today. Add a shift or appointment to see it here.</div>'}</div>
     ${state.boot.personal && homeSection('today') && homeSectionContent('today','show_quick_add',true) && typeof personalQuickAdd === 'function' ? `<div class="dashboard-bottom-tools">${personalQuickAdd()}</div>` : ''}
   </section>`;
 }
@@ -498,7 +495,7 @@ async function ensureDailyPostTravel(items) {
   const visibleLegs = [];
   for (let i=0;i<ordered.length;i++) {
     const item=ordered[i], key=eventLocationKey(item), location=String(item.location||item.address||'').trim();
-    if (item.origin==='Shift' && key && ordered[i+1]?.origin==='Shift' && eventLocationKey(ordered[i+1])===key) continue;
+    if (key && ordered[i+1] && eventLocationKey(ordered[i+1])===key) continue;
     if (!location || item.all_day || !item.end_at) continue;
     const end=parseAlignDateTime(item.end_at);
     if (!end || end.getTime()<=Date.now()) continue;
@@ -523,8 +520,19 @@ async function ensureDailyPostTravel(items) {
 }
 function ensureDailyTravel(items) {
   const ordered=[...(items||[])].sort((a,b)=>String(a.start_at||'').localeCompare(String(b.start_at||'')));
-  const first=ordered.find(item=>(item.location||item.address)&&!item.all_day&&parseAlignDateTime(item.start_at)?.getTime()>Date.now());
-  if(first) void ensureTodayInboundTravel(first);
+  let previousEnd=null,previousKey='';
+  for(let i=0;i<ordered.length;){
+    const first=ordered[i],key=eventLocationKey(first),group=[first];
+    let j=i+1;
+    while(j<ordered.length&&key&&ordered[j].origin==='Shift'&&first.origin==='Shift'&&eventLocationKey(ordered[j])===key){group.push(ordered[j]);j++;}
+    const start=parseAlignDateTime(first.start_at);
+    const samePlace=!!(key&&key===previousKey);
+    const gap=previousEnd&&start?start.getTime()-previousEnd.getTime():Infinity;
+    if((!previousEnd||(!samePlace&&gap>3600000))&&start&&start.getTime()>Date.now()&&(first.location||first.address)&&!first.all_day)void ensureTodayInboundTravel(first);
+    previousEnd=parseAlignDateTime(group[group.length-1].end_at);
+    previousKey=key;
+    i=j;
+  }
   void ensureDailyPostTravel(ordered);
 }
 function sectionEventDate(event) {
@@ -658,17 +666,31 @@ function renderTodayAppointment(event) {
     ${notes?`<div class="today-appointment-notes"><span aria-hidden="true">▣</span><span>${escapeHtml(notes)}</span><strong>${escapeHtml(todayEventDurationLabel(event))}</strong></div>`: `<div class="today-appointment-notes"><span aria-hidden="true">◷</span><span>Event</span><strong>${escapeHtml(todayEventDurationLabel(event))}</strong></div>`}
   </article>`;
 }
-function renderTodayTimeline(events,inbound='') {
+function todayInboundMarkup(item,previousEnd=null,previousKey='') {
+  if(!item||item.all_day||!(item.location||item.address))return '';
+  const start=parseAlignDateTime(item.start_at),key=eventLocationKey(item);
+  if(!start||start.getTime()<=Date.now())return '';
+  const gap=previousEnd?start.getTime()-previousEnd.getTime():Infinity;
+  if(previousEnd&&(key===previousKey||gap<=3600000))return '';
+  const journey=state.dailyInboundJourneys[todayInboundKey(item)];
+  if(!journey)return '';
+  const route=typeof travelRouteStrip==='function'?travelRouteStrip(journey):(typeof journeyEventSummary==='function'?journeyEventSummary(journey.notes):'');
+  if(!route)return '';
+  const title=item.origin==='Shift'?(item.location_name||eventPlaceName(item)):(item.title||'next event');
+  return '<div class="today-inbound-travel"><strong>Travel to '+escapeHtml(title)+'</strong>'+route+'</div>';
+}
+function renderTodayTimeline(events) {
   const ordered=[...events].sort((a,b)=>String(a.start_at||'').localeCompare(String(b.start_at||'')));
   const output=[];
-  let inboundPlaced=false;
-  const inboundMarkup=inbound?`<div class="today-inbound-travel"><strong>Travel to ${escapeHtml(ordered[0]?.origin==='Shift'?(ordered[0].location_name||eventPlaceName(ordered[0])):(ordered[0]?.title||'first event'))}</strong>${inbound}</div>`:'';
+  let previousEnd=null,previousKey='';
   for(let i=0;i<ordered.length;){
     const first=ordered[i];
     if(first.origin!=='Shift'){
-      if(!inboundPlaced&&inboundMarkup){output.push(inboundMarkup);inboundPlaced=true;}
+      const inbound=todayInboundMarkup(first,previousEnd,previousKey);if(inbound)output.push(inbound);
       output.push(renderTodayAppointment(first));
       const connector=todayTravelConnector(first);if(connector)output.push(connector);
+      previousEnd=parseAlignDateTime(first.end_at);
+      previousKey=eventLocationKey(first);
       i++;continue;
     }
     const key=eventLocationKey(first),group=[first];let j=i+1;
@@ -686,16 +708,17 @@ function renderTodayTimeline(events,inbound='') {
         <span class="today-area-icon">${todayAreaIcon(area)}</span><span class="today-area-copy"><strong class="today-area-name">${escapeHtml(area)}</strong><span class="today-area-time">${escapeHtml(areaStart)}–${escapeHtml(areaEnd)}</span></span><strong class="today-area-duration">${escapeHtml(Number.isInteger(areaHours)?areaHours+'h':areaHours.toFixed(1)+'h')}</strong>
       </button>`;
     }).join('');
-    const inboundInside=!inboundPlaced&&inboundMarkup?inboundMarkup:'';if(inboundInside)inboundPlaced=true;
+    const inbound=todayInboundMarkup(first,previousEnd,previousKey);
     const locationIcon='<svg viewBox="0 0 56 56" aria-hidden="true"><path d="M9 49V17h38v32M5 49h46M20 17V8h16v9M20 27h5v5h-5zM32 27h5v5h-5zM20 38h5v5h-5zM32 38h5v11h-5z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg>';
     output.push(`<section class="today-location-block" style="--location-colour:${escapeHtml(colour)}">
       <header class="today-location-header"><span class="today-location-icon">${locationIcon}</span><div><strong>${escapeHtml(title)}</strong>${address?`<small>⌖ ${appleDestinationLink(address)}</small>`:''}<small>${total.toFixed(Number.isInteger(total)?0:1)} hours total · ${group.length} shift${group.length===1?'':'s'}</small></div><strong class="today-location-span">${escapeHtml(startTime)}–${escapeHtml(endTime)}</strong></header>
-      ${inboundInside}<div class="today-location-areas">${areas}</div>
+      ${inbound}<div class="today-location-areas">${areas}</div>
     </section>`);
     const connector=todayTravelConnector(last);if(connector)output.push(connector);
+    previousEnd=parseAlignDateTime(last.end_at);
+    previousKey=key;
     i=j;
   }
-  if(!inboundPlaced&&inboundMarkup)output.unshift(inboundMarkup);
   return output.join('');
 }
 function renderUpcomingGrouped(dashboard) {
@@ -707,10 +730,7 @@ function renderUpcomingGrouped(dashboard) {
   if (!items.length) return '<div class="card empty">No upcoming events yet. Add your first one above.</div>';
   if (['today','home'].includes(state.tab)) {
     ensureDailyTravel(items);
-    const first=items.find(item=>(item.location||item.address)&&!item.all_day&&parseAlignDateTime(item.start_at)?.getTime()>Date.now());
-    const inboundJourney=state.dailyInboundJourneys[todayInboundKey(first)];
-    const inbound=inboundJourney&&typeof travelRouteStrip==='function'?travelRouteStrip(inboundJourney):(inboundJourney&&typeof journeyEventSummary==='function'?journeyEventSummary(inboundJourney.notes):'');
-    return '<div class="today-event-timeline">'+renderTodayTimeline(items,inbound)+'</div>';
+    return '<div class="today-event-timeline">'+renderTodayTimeline(items)+'</div>';
   }
   const groups = [];
   for (const event of items) {
@@ -721,10 +741,7 @@ function renderUpcomingGrouped(dashboard) {
   }
   return `<div class="upcoming-day-list">${groups.map(group => {
     ensureDailyTravel(group.events);
-    const first=group.events.find(item=>(item.location||item.address)&&!item.all_day&&parseAlignDateTime(item.start_at)?.getTime()>Date.now());
-    const inboundJourney=state.dailyInboundJourneys[todayInboundKey(first)];
-    const inbound=inboundJourney&&typeof travelRouteStrip==='function'?travelRouteStrip(inboundJourney):(inboundJourney&&typeof journeyEventSummary==='function'?journeyEventSummary(inboundJourney.notes):'');
-    return `<section class="upcoming-day"><h3 class="upcoming-day-heading">${escapeHtml(dayHeading(group.day))}</h3><div class="today-event-timeline">${renderTodayTimeline(group.events,inbound)}</div></section>`;
+    return `<section class="upcoming-day"><h3 class="upcoming-day-heading">${escapeHtml(dayHeading(group.day))}</h3><div class="today-event-timeline">${renderTodayTimeline(group.events)}</div></section>`;
   }).join('')}</div>`;
 }
 function renderSection() {
