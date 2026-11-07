@@ -45,14 +45,34 @@
   }
   async function loadInboundPlannerJourneys(data) {
     const all=[...(data.shifts||[]).map(x=>Object.assign(x,{_plannerKind:'shift'})),...(data.events||[]).map(x=>Object.assign(x,{_plannerKind:'event'})),...(data.imported_events||[]).map(x=>Object.assign(x,{_plannerKind:'imported'}))]
-      .filter(x=>String(x.location||x.address||'').trim()&&plannerItemStart(x));
+      .filter(x=>String(x.location||x.address||'').trim()&&!x.all_day&&plannerItemStart(x)&&new Date(plannerItemStart(x)).getTime()>Date.now());
     const byDay=new Map();
     for(const item of all){const day=plannerItemStart(item).slice(0,10);const current=byDay.get(day);if(day&&(!current||plannerItemStart(item)<plannerItemStart(current)))byDay.set(day,item);}
-    const days=[...byDay.keys()].filter(day=>day>=getToday()).sort().slice(0,7);
+    const days=[...byDay.keys()].filter(day=>day>=getToday()).sort().slice(0,state.plannerMode==='month'?35:7);
     await Promise.all(days.map(async day=>{const item=byDay.get(day);try{
       const result=await api('/api/personal/journey',{method:'POST',body:{destination:String(item.location||item.address).trim(),arrival:plannerItemStart(item),mode:data.preferences?.default_travel||undefined}});
-      if(result?.notes){const steps=result.steps||[];item.pre_travel={notes:'[Align travel]\n'+result.notes+'\n[/Align travel]'+(steps.length?'\n[Align travel steps]\n'+JSON.stringify(steps)+'\n[/Align travel steps]':''),leave_at:result.leave_at,arrival_at:result.arrival_at,steps,minutes:result.minutes};}
+      if(result?.notes){const steps=result.steps||[];item.pre_travel={...result,notes:'[Align travel]\\n'+result.notes+'\\n[/Align travel]'+(steps.length?'\\n[Align travel steps]\\n'+JSON.stringify(steps)+'\\n[/Align travel steps]':'')};}
     }catch(error){item.pre_travel_error=error.message||'Inbound journey unavailable';}}));
+    // Plan the outbound leg after the final item at each workplace/location.
+    // The API chooses the next event within an hour, otherwise the saved home address.
+    await Promise.all(days.map(async day=>{
+      const daily=all.filter(item=>plannerItemStart(item).slice(0,10)===day)
+        .sort((a,b)=>plannerItemStart(a).localeCompare(plannerItemStart(b)));
+      const legs=daily.filter((item,index)=>{
+        const key=plannerLocationKey(item);
+        if(item._plannerKind==='shift'&&key&&daily[index+1]?._plannerKind==='shift'&&plannerLocationKey(daily[index+1])===key)return false;
+        const end=plannerItemEnd(item);
+        return !!(item.location&&!item.all_day&&end&&new Date(end).getTime()>Date.now());
+      });
+      await Promise.all(legs.map(async item=>{
+        const kind=item._plannerKind==='shift'?'shift':item._plannerKind==='imported'?'calendar':'event';
+        try{
+          item.post_travel=await api('/api/personal/post-event-travel',{method:'POST',body:{
+            kind,id:Number(item.id),enabled:true,mode:item.post_travel?.mode||data.preferences?.default_travel||'transit',plan:true
+          }});
+        }catch(error){item.post_travel_error=error.message||'Outbound journey unavailable';}
+      }));
+    }));
   }
   function selectedShifts() {
     const data=state.shiftPlannerData||{};
@@ -246,9 +266,9 @@
       let travel='';
       if(typeof eventTravelMarkup==='function'){
         const candidate={...last,origin:last._plannerKind==='shift'?'Shift':last._plannerKind==='imported'?'Calendar':'Event'};
-        travel=eventTravelMarkup(candidate)||'';
+        travel=eventTravelMarkup(candidate,{includeInbound:false})||'';
       }
-      const inbound=first.pre_travel&&typeof journeyEventSummary==='function'?'<div class="planner-inbound-travel">'+journeyEventSummary(first.pre_travel.notes)+'</div>':'';
+      const inbound=first.pre_travel?(typeof travelRouteStrip==='function'?'<div class="planner-inbound-travel">'+travelRouteStrip(first.pre_travel)+'</div>':(typeof journeyEventSummary==='function'?'<div class="planner-inbound-travel">'+journeyEventSummary(first.pre_travel.notes)+'</div>':'')):'';
       chunks.push('<section class="planner-location-group" style="--location-colour:'+esc(colour)+'"><header class="planner-location-header"><div><strong>'+esc(title)+'</strong>'+(address?'<small>'+esc(address)+'</small>':'')+'<small>'+hours.toFixed(Number.isInteger(hours)?0:1)+' hours · '+group.length+' item'+(group.length===1?'':'s')+'</small></div><strong>'+esc(start)+'–'+esc(end)+'</strong></header>'+inbound+'<div class="planner-location-areas">'+areas+'</div></section>'+(travel?'<div class="planner-location-travel">'+travel+'</div>':''));
       i=j;
     }
