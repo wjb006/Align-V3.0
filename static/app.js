@@ -7,6 +7,9 @@ const state = {
   sectionId: null,
   sectionData: null,
   sectionDefinitions: [],
+  dailyInboundJourneys: {},
+  dailyInboundLoading: {},
+  postTravelRequests: new Set(),
 };
 window.ALIGN_STATE = state;
 
@@ -18,7 +21,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 158;
-const ASSET_VERSION = `${BUILD_VERSION}-v85`
+const ASSET_VERSION = `${BUILD_VERSION}-v86`
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -440,15 +443,14 @@ function renderHome() {
   const totalHours = todayItems.reduce((sum, item) => sum + todayDurationHours(item), 0);
   const minutes = Math.round(totalHours * 60);
   const totalLabel = `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
-  ensureTodayInboundTravel(todayItems[0]);
-  const inbound = state.todayInboundJourney?.key === todayInboundKey(todayItems[0]) && typeof journeyEventSummary === 'function'
-    ? journeyEventSummary(state.todayInboundJourney.notes) : '';
+  ensureDailyTravel(todayItems);
+
   return `<section class="page today-reference-page">
     <header class="today-reference-header">
       <div class="today-reference-date"><span class="today-reference-calendar" aria-hidden="true">▦</span><h1>${escapeHtml(fullDateLabel(dashboard.today))}</h1></div>
       <div class="today-reference-total"><strong>${todayTimelineItemCount(todayItems)} ${todayTimelineItemCount(todayItems) === 1 ? 'Event' : 'Events'}</strong><span>•</span><strong>${totalLabel} Total</strong></div>
     </header>
-    <div class="today-event-timeline">${todayItems.length ? renderTodayTimeline(todayItems, inbound) : '<div class="card empty">Nothing scheduled for today. Add a shift or appointment to see it here.</div>'}</div>
+    <div class="today-event-timeline">${todayItems.length ? renderTodayTimeline(todayItems) : '<div class="card empty">Nothing scheduled for today. Add a shift or appointment to see it here.</div>'}</div>
     ${state.boot.personal && homeSection('today') && homeSectionContent('today','show_quick_add',true) && typeof personalQuickAdd === 'function' ? `<div class="dashboard-bottom-tools">${personalQuickAdd()}</div>` : ''}
   </section>`;
 }
@@ -457,12 +459,15 @@ function todayInboundKey(item) {
   return item && (item.location || item.address) && item.start_at
     ? `${item.origin || ''}:${item.id || item.start_at}:${item.start_at}` : '';
 }
+function eventTravelKind(item) {
+  return item?.origin === 'Shift' ? 'shift' : (item?.origin === 'Calendar' || item?.source_kind === 'icloud' ? 'calendar' : 'event');
+}
 async function ensureTodayInboundTravel(item) {
-  if (typeof eventIsUnderway === 'function' && eventIsUnderway(item)) return;
-  const key = todayInboundKey(item);
-  if (!key || state.todayInboundKey === key || state.todayInboundLoading) return;
-  state.todayInboundKey = key;
-  state.todayInboundLoading = true;
+  if (!item || (typeof eventIsUnderway === 'function' && eventIsUnderway(item))) return;
+  const key = todayInboundKey(item), day = String(item.start_at || '').slice(0,10);
+  const end=eventEndAt(item);
+  if (!key || (end&&end.getTime()<=Date.now()) || state.dailyInboundJourneys[key] || state.dailyInboundLoading[key]) return;
+  state.dailyInboundLoading[key] = true;
   try {
     const prefs = typeof personalPrefs === 'function' ? personalPrefs() : {};
     const result = await api('/api/personal/journey', { method: 'POST', body: {
@@ -472,20 +477,64 @@ async function ensureTodayInboundTravel(item) {
       departure_buffer: Number(prefs.departure_buffer ?? 5),
       arrival_buffer: Number(prefs.arrival_buffer ?? 10),
     }});
-    if (result?.notes && state.boot?.dashboard?.today === String(item.start_at).slice(0, 10)) {
+    if (result?.notes) {
       const steps = result.steps || [];
       const notes = '[Align travel]\\n' + result.notes + '\\n[/Align travel]' +
         (steps.length ? '\\n[Align travel steps]\\n' + JSON.stringify(steps) + '\\n[/Align travel steps]' : '');
-      state.todayInboundJourney = { key, notes };
-      if (['today','home'].includes(state.tab)) render();
+      state.dailyInboundJourneys[key] = { ...result, key, day, notes };
+      if (state.boot && ['today','home','planner','calendar'].includes(state.tab)) render();
     }
   } catch (_) {
     // An unavailable route must never prevent the day's schedule from rendering.
   } finally {
-    state.todayInboundLoading = false;
+    delete state.dailyInboundLoading[key];
   }
 }
-
+async function ensureDailyPostTravel(items) {
+  const ordered = [...(items || [])].sort((a,b)=>String(a.start_at||'').localeCompare(String(b.start_at||'')));
+  const visibleLegs = [];
+  for (let i=0;i<ordered.length;i++) {
+    const item=ordered[i], key=eventLocationKey(item), location=String(item.location||item.address||'').trim();
+    if (key && ordered[i+1] && eventLocationKey(ordered[i+1])===key) continue;
+    if (!location || item.all_day || !item.end_at) continue;
+    const end=parseAlignDateTime(item.end_at);
+    if (!end || end.getTime()<=Date.now()) continue;
+    const kind=eventTravelKind(item), requestKey=`${kind}:${item.id}:${item.end_at}:${location}`;
+    if (item.post_travel?.journey || state.postTravelRequests.has(requestKey)) continue;
+    state.postTravelRequests.add(requestKey);
+    visibleLegs.push({item,kind});
+  }
+  for (const leg of visibleLegs) {
+    const {item,kind}=leg;
+    try {
+      const prefs=typeof personalPrefs==='function'?personalPrefs():{};
+      const result=await api('/api/personal/post-event-travel',{method:'POST',body:{
+        kind,id:Number(item.id),enabled:true,mode:item.post_travel?.mode||prefs.default_travel||'transit',plan:true
+      }});
+      item.post_travel={...(item.post_travel||{}),...result,enabled:true};
+      if (state.boot && ['today','home','planner','calendar'].includes(state.tab)) render();
+    } catch (error) {
+      item.post_travel={...(item.post_travel||{}),enabled:true,error:String(error?.message||error)};
+    }
+  }
+}
+function ensureDailyTravel(items) {
+  const ordered=[...(items||[])].sort((a,b)=>String(a.start_at||'').localeCompare(String(b.start_at||'')));
+  let previousEnd=null,previousKey='';
+  for(let i=0;i<ordered.length;){
+    const first=ordered[i],key=eventLocationKey(first),group=[first];
+    let j=i+1;
+    while(j<ordered.length&&key&&ordered[j].origin==='Shift'&&first.origin==='Shift'&&eventLocationKey(ordered[j])===key){group.push(ordered[j]);j++;}
+    const start=parseAlignDateTime(first.start_at);
+    const samePlace=!!(key&&key===previousKey);
+    const gap=previousEnd&&start?start.getTime()-previousEnd.getTime():Infinity;
+    if((!previousEnd||(!samePlace&&gap>3600000))&&start&&start.getTime()>Date.now()&&(first.location||first.address)&&!first.all_day)void ensureTodayInboundTravel(first);
+    previousEnd=parseAlignDateTime(group[group.length-1].end_at);
+    previousKey=key;
+    i=j;
+  }
+  void ensureDailyPostTravel(ordered);
+}
 function sectionEventDate(event) {
   const day = event.start_at.slice(0, 10);
   if (event.all_day) return `${prettyDate(day, { weekday: 'short', day: 'numeric', month: 'short' })} · all day`;
@@ -582,7 +631,7 @@ function renderGroupedEventRows(events, options = {}) {
 }
 function todayTravelConnector(event) {
   if (!event || typeof eventTravelMarkup !== 'function') return '';
-  const markup = eventTravelMarkup(event);
+  const markup = eventTravelMarkup(event,{includeInbound:false});
   return markup ? '<div class="today-travel-connector" aria-label="Travel after this event">'+markup+'</div>' : '';
 }
 function todayDurationHours(event) {
@@ -617,17 +666,31 @@ function renderTodayAppointment(event) {
     ${notes?`<div class="today-appointment-notes"><span aria-hidden="true">▣</span><span>${escapeHtml(notes)}</span><strong>${escapeHtml(todayEventDurationLabel(event))}</strong></div>`: `<div class="today-appointment-notes"><span aria-hidden="true">◷</span><span>Event</span><strong>${escapeHtml(todayEventDurationLabel(event))}</strong></div>`}
   </article>`;
 }
-function renderTodayTimeline(events,inbound='') {
+function todayInboundMarkup(item,previousEnd=null,previousKey='') {
+  if(!item||item.all_day||!(item.location||item.address))return '';
+  const start=parseAlignDateTime(item.start_at),key=eventLocationKey(item);
+  if(!start||start.getTime()<=Date.now())return '';
+  const gap=previousEnd?start.getTime()-previousEnd.getTime():Infinity;
+  if(previousEnd&&(key===previousKey||gap<=3600000))return '';
+  const journey=state.dailyInboundJourneys[todayInboundKey(item)];
+  if(!journey)return '';
+  const route=typeof travelRouteStrip==='function'?travelRouteStrip(journey):(typeof journeyEventSummary==='function'?journeyEventSummary(journey.notes):'');
+  if(!route)return '';
+  const title=item.origin==='Shift'?(item.location_name||eventPlaceName(item)):(item.title||'next event');
+  return '<div class="today-inbound-travel"><strong>Travel to '+escapeHtml(title)+'</strong>'+route+'</div>';
+}
+function renderTodayTimeline(events) {
   const ordered=[...events].sort((a,b)=>String(a.start_at||'').localeCompare(String(b.start_at||'')));
   const output=[];
-  let inboundPlaced=false;
-  const inboundMarkup=inbound?`<div class="today-inbound-travel"><strong>Travel to ${escapeHtml(ordered[0]?.origin==='Shift'?(ordered[0].location_name||eventPlaceName(ordered[0])):(ordered[0]?.title||'first event'))}</strong>${inbound}</div>`:'';
+  let previousEnd=null,previousKey='';
   for(let i=0;i<ordered.length;){
     const first=ordered[i];
     if(first.origin!=='Shift'){
-      if(!inboundPlaced&&inboundMarkup){output.push(inboundMarkup);inboundPlaced=true;}
+      const inbound=todayInboundMarkup(first,previousEnd,previousKey);if(inbound)output.push(inbound);
       output.push(renderTodayAppointment(first));
       const connector=todayTravelConnector(first);if(connector)output.push(connector);
+      previousEnd=parseAlignDateTime(first.end_at);
+      previousKey=eventLocationKey(first);
       i++;continue;
     }
     const key=eventLocationKey(first),group=[first];let j=i+1;
@@ -645,16 +708,17 @@ function renderTodayTimeline(events,inbound='') {
         <span class="today-area-icon">${todayAreaIcon(area)}</span><span class="today-area-copy"><strong class="today-area-name">${escapeHtml(area)}</strong><span class="today-area-time">${escapeHtml(areaStart)}–${escapeHtml(areaEnd)}</span></span><strong class="today-area-duration">${escapeHtml(Number.isInteger(areaHours)?areaHours+'h':areaHours.toFixed(1)+'h')}</strong>
       </button>`;
     }).join('');
-    const inboundInside=!inboundPlaced&&inboundMarkup?inboundMarkup:'';if(inboundInside)inboundPlaced=true;
+    const inbound=todayInboundMarkup(first,previousEnd,previousKey);
     const locationIcon='<svg viewBox="0 0 56 56" aria-hidden="true"><path d="M9 49V17h38v32M5 49h46M20 17V8h16v9M20 27h5v5h-5zM32 27h5v5h-5zM20 38h5v5h-5zM32 38h5v11h-5z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg>';
     output.push(`<section class="today-location-block" style="--location-colour:${escapeHtml(colour)}">
       <header class="today-location-header"><span class="today-location-icon">${locationIcon}</span><div><strong>${escapeHtml(title)}</strong>${address?`<small>⌖ ${appleDestinationLink(address)}</small>`:''}<small>${total.toFixed(Number.isInteger(total)?0:1)} hours total · ${group.length} shift${group.length===1?'':'s'}</small></div><strong class="today-location-span">${escapeHtml(startTime)}–${escapeHtml(endTime)}</strong></header>
-      ${inboundInside}<div class="today-location-areas">${areas}</div>
+      ${inbound}<div class="today-location-areas">${areas}</div>
     </section>`);
     const connector=todayTravelConnector(last);if(connector)output.push(connector);
+    previousEnd=parseAlignDateTime(last.end_at);
+    previousKey=key;
     i=j;
   }
-  if(!inboundPlaced&&inboundMarkup)output.unshift(inboundMarkup);
   return output.join('');
 }
 function renderUpcomingGrouped(dashboard) {
@@ -663,26 +727,23 @@ function renderUpcomingGrouped(dashboard) {
     return isCurrentDay || upcomingNow(item);
   });
   const items = events.slice(0, 50);
-  if (!items.length) {
-    return '<div class="card empty">No upcoming events yet. Add your first one above.</div>';
-  }
-  if (['today','home'].includes(state.tab)) return '<div class="today-event-timeline">'+renderTodayTimeline(items)+'</div>';
-  const groupByDay = homeSectionContent('upcoming', 'group_by_day', true);
-  if (!groupByDay) {
-    return `<div class="upcoming-day-list"><div class="upcoming-day-items">${renderGroupedEventRows(items, { showDate: true, condensed: true })}</div></div>`;
+  if (!items.length) return '<div class="card empty">No upcoming events yet. Add your first one above.</div>';
+  if (['today','home'].includes(state.tab)) {
+    ensureDailyTravel(items);
+    return '<div class="today-event-timeline">'+renderTodayTimeline(items)+'</div>';
   }
   const groups = [];
   for (const event of items) {
     const last = groups[groups.length - 1];
-    const day = event.start_at.slice(0, 10);
+    const day = String(event.start_at || '').slice(0, 10);
     if (!last || last.day !== day) groups.push({ day, events: [event] });
     else last.events.push(event);
   }
   return `<div class="upcoming-day-list">${groups.map(group => {
-    return `<section class="upcoming-day"><h3 class="upcoming-day-heading">${escapeHtml(dayHeading(group.day))}</h3><div class="upcoming-day-items">${renderGroupedEventRows(group.events, { showDate: false, condensed: true })}</div></section>`;
+    ensureDailyTravel(group.events);
+    return `<section class="upcoming-day"><h3 class="upcoming-day-heading">${escapeHtml(dayHeading(group.day))}</h3><div class="today-event-timeline">${renderTodayTimeline(group.events)}</div></section>`;
   }).join('')}</div>`;
 }
-
 function renderSection() {
   const section = state.sectionData;
   if (!section) return '<section class="page"><div class="card empty">Loading section…</div></section>';

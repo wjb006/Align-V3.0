@@ -17,7 +17,7 @@ for (const route of ['today: renderHome','inbox: renderInbox','sections: renderS
 }
 if (!app.includes('planner: renderPlannerCalendar')) throw new Error('Restored Planner route is missing');
 if (app.includes("if (['calendar','add','work-setup'].includes(state.tab))") || app.includes("if (['calendar','add'].includes(state.tab))")) throw new Error('Planner destinations must not be redirected to Sections');
-if (!app.includes('Set up Work Calendar') || !app.includes('data-action=') || !app.includes('work-setup')) throw new Error('Set up Work Calendar entry is missing or does not open Work Settings');
+if (!app.includes('Work Calendar') || !app.includes('data-action=') || !app.includes('work-setup')) throw new Error('Work Calendar entry is missing or does not open Work Settings');
 if (!app.includes("'/api/builder/records/work/enable'")) throw new Error('Work opt-in action is missing');
 const more = app.slice(app.indexOf('function renderMore()'), app.indexOf('function rootParentBranches()'));
 if (more.includes('Asset Studio') || more.includes("data-nav=\"assets\"")) throw new Error('Owner Asset Studio controls must stay in Align Management Studio, outside the user app');
@@ -56,12 +56,14 @@ if (!app.includes("{ branch_key: 'events', title: 'Events & calendars'")) throw 
 for (const [name, source] of [['app',app],['index',index],['service worker',worker]]) {
   if (source.includes('maps173')) throw new Error(`Stale maps173 asset version remains in ${name}`);
 }
-if (!app.includes('const ASSET_VERSION = `${BUILD_VERSION}-v69`;')) throw new Error('App asset version template is not the current Build 156 assets');
-if (!index.includes('156-v69')) throw new Error('Index asset version is not 156-v69');
+const appBuild = app.match(/^const BUILD_VERSION = (\d+);$/m)?.[1];
+const assetVersion = app.match(/^const ASSET_VERSION = `\$\{BUILD_VERSION\}-(v\d+)`/m)?.[1];
+if (!appBuild || !assetVersion) throw new Error('App build and asset version markers are missing');
+if (!index.includes(`${appBuild}-${assetVersion}`)) throw new Error('Index asset version does not match the app build');
 if (!worker.includes('align-v13-shell-${ASSET_VERSION}')) throw new Error('Shell cache template is missing');
 if (!worker.includes('align-v13-api-${ASSET_VERSION}')) throw new Error('API cache template is missing');
 if (!worker.includes("url.pathname === '/api/sections/definitions'")) throw new Error('Offline-safe API cache omits section definitions');
 if (!app.includes('const addressSearchTimers = new WeakMap();')) throw new Error('Address suggestions are missing their debounce timer store');
 if (!app.includes('data-address-search="true"')) throw new Error('Address fields do not support live suggestions');
-if (!index.includes('/work-setup.js?v=156-v69') || !worker.includes('/work-setup.js?v=${ASSET_VERSION}')) throw new Error('Restored Work Settings assets are not loaded and cached');
+if (!index.includes(`/work-setup.js?v=${appBuild}-${assetVersion}`) || !worker.includes('/work-setup.js?v=${ASSET_VERSION}')) throw new Error('Restored Work Settings assets are not loaded and cached');
 console.log('core navigation, Events, Work Settings and Planner settings checks passed');

@@ -25,6 +25,8 @@ jobs:
           node --check static/personal-planner.js
           node --check static/travel-assets.js
           node --check static/service-worker.js
+          node --check static/shift-planner.js
+          node --check static/post-event-travel.js
           node --check static/build152.js
           node --check static/management-studio.js
           node --check static/management-studio-nav.js
@@ -40,6 +42,7 @@ jobs:
           node test_display_dates.js
           node test_travel_autofill.js
           node test_related_travel.js
+          node test_post_event_travel_ui.js
           node test_weather_timeout.js
           node test_work_calendar_entry.js
           node test_desktop_shell.js
