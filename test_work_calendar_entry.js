@@ -49,8 +49,9 @@ const plannerContext={
 vm.createContext(plannerContext);
 vm.runInContext(plannerSource,plannerContext);
 const plannerHtml=plannerContext.window.renderShiftPlanner();
-assert(plannerHtml.includes('value="2"'),'An AM shift already booked must leave the PM pattern available');
-assert(!plannerHtml.includes('value="1"'),'An AM shift already booked must hide other AM patterns');
+const templateChoices=(plannerHtml.match(/<select name="template_id">([\\s\\S]*?)<\\/select>/)||[])[1]||'';
+assert(templateChoices.includes('value="2"'),'An AM shift already booked must leave the PM pattern available');
+assert(!templateChoices.includes('value="1"'),'An AM shift already booked must hide other AM patterns');
 assert(plannerHtml.includes('2 total items'),'The month cell must count the shift and calendar event together');
 assert(plannerHtml.includes('Travel to Clatterbridge'),'Saved onward travel must appear on the shift card');
 console.log('AM/PM filtering, combined calendar totals and shift travel UI passed');
