@@ -1167,3 +1167,6 @@ body[data-management-theme="light"] .guide-page { --guide-well: #f4f7fb; }
  .today-appointment-notes{grid-template-columns:25px minmax(0,1fr) auto;gap:6px;padding:8px;font-size:.8rem}
  .today-appointment-notes strong{font-size:.78rem;padding:4px 6px}
 }
+
+.today-appointment-icon:after{display:none!important}.today-appointment-icon svg{width:48px;height:48px;color:#fff}
+@media(max-width:600px){.today-appointment-icon svg{width:38px;height:38px}}
