@@ -94,10 +94,10 @@
     return {hours,contracted,overtime,pay:rate>0?hours*rate:0};
   }
   function shiftCard(s, options={}) {
-    const travel=!options.hideTravel&&typeof eventTravelMarkup==='function'?eventTravelMarkup(s):'';
+    const travel='';
     const notes=String(s.notes||'').replace(/\[Align travel(?: steps)?\][\s\S]*?(?:\[\/Align travel(?: steps)?\]|$)/ig,'').replace(/\[Align travel pending\]/ig,'').trim();
     return '<article class="card restored-shift-card" style="--shift-colour:'+esc(s.location_colour||s.colour||'#365CE6')+'">'+
-      '<div class="shift-area-panel" style="--area-colour:'+esc(s.shift_type_colour||'#6479D8')+'"><div class="restored-shift-top"><div><span class="restored-shift-date">'+esc(fmtDay(s.work_date))+'</span><h3>'+esc(s.location_name||'Shift')+'</h3><p>'+esc(s.shift_type_name||'Work')+(notes?' · '+esc(notes):'')+'</p></div>'+
+      '<div class="shift-area-panel" style="--area-colour:'+esc(s.shift_type_colour||'#6479D8')+'"><div class="restored-shift-top"><div><h3>'+esc(s.shift_type_name||'Work')+'</h3><p>'+esc(s.location_name||'')+(notes?' · '+esc(notes):'')+'</p></div>'+
       '<span class="restored-shift-hours">'+esc(fmtHours(s.hours))+'</span></div>'+
       '<p class="restored-shift-time">'+esc(s.start_time)+'–'+esc(s.end_time)+(Number(s.break_minutes)?' · '+esc(s.break_minutes)+' min break':'')+'</p></div>'+
       (travel?'<div class="shift-travel-summary">'+travel+'</div>':'')+
