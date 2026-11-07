@@ -1,8 +1,16 @@
 function postTravelSummary(item) {
   const info=item.post_travel;if(!info?.enabled)return '';
-  const e=escapeHtml;
-  const heading=item?.work_date||item?.origin==='Shift'?'After shift:':'After event:';
-  return `<details class="compact-event-details"><summary>${heading} ${e(info.destination_name)}</summary>${info.journey?`<p style="white-space:pre-line">${e(info.journey.notes)}</p>`:'<p>Travel needs refreshing. Open this item to update it.</p>'}</details>`;
+  const e=escapeHtml, journey=info.journey||null;
+  const heading=item?.work_date||item?.origin==='Shift'?'After shift':'After event';
+  let itinerary='';
+  if(journey?.notes && typeof journeyEventSummary==='function') itinerary=journeyEventSummary(journey.notes);
+  if(!itinerary && journey?.steps?.length){
+    const steps=journey.steps, leave=journey.leave_at||journey.departure||info.departure, arrive=journey.arrival_at||journey.arrival||'';
+    const stop=(label,time,step)=>'<span class="shift-travel-stop">'+(step&&typeof journeyModeArtwork==='function'?journeyModeArtwork(step,30):'')+'<span>'+e(label)+(time?' · '+e(journeyClock(time)):'')+'</span></span>';
+    itinerary='<div class="shift-travel-itinerary">'+stop('Leave',leave,null)+steps.map(s=>stop(s.mode==='walk'?'Walk':s.mode==='bus'?'Bus':'Train',s.expected_start||s.start,s)).join('<span class="shift-travel-arrow">›</span>')+'<span class="shift-travel-arrow">›</span>'+stop('Arrive',arrive,null)+'</div>';
+  }
+  if(!itinerary)itinerary='<p class="shift-travel-refresh">Travel details need refreshing. Open “Travel after shift” to update them.</p>';
+  return '<section class="shift-travel-itinerary-wrap" aria-label="'+heading+' journey"><strong>'+heading+' · '+e(info.destination_name||'Next destination')+'</strong>'+itinerary+'</section>';
 }
 function postTravelFields(info={}) {
   return `<label class="setup-check"><input type="checkbox" name="show_post_travel" ${info.enabled?'checked':''}> Show post event travel information</label><p class="helper">Travel from this event to the next event with a location starting within one hour, or home otherwise.</p><label>Travel after event<select name="post_travel_mode">${[['transit','Bus and train'],['bus','Bus'],['train','Train'],['drive','Driving']].map(([v,l])=>`<option value="${v}" ${(info.mode||personalPrefs().default_travel||'transit')===v?'selected':''}>${l}</option>`).join('')}</select></label>`;
