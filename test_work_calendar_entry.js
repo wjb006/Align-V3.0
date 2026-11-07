@@ -28,7 +28,7 @@ console.log('Work Calendar setup and management entry points passed');
 const plannerSource=fs.readFileSync('static/shift-planner.js','utf8');
 const plannerContext={
   state:{
-    plannerMode:'month',plannerAnchor:'2026-11-01',tab:'planner',shiftPlannerModal:'add',
+    plannerMode:'month',plannerAnchor:'2026-11-01',shiftPlannerSelectedDay:'2026-11-09',tab:'planner',shiftPlannerModal:'add',
     shiftPlannerData:{
       start:'2026-11-01',end:'2026-11-30',
       shifts:[{id:11,work_date:'2026-11-09',start_time:'08:30',end_time:'12:30',location_name:'Arrowe Park',shift_type_name:'Clinic',hours:4,colour:'#123456',post_travel:{enabled:true,destination_name:'Clatterbridge',journey:{notes:'Leave at 12:30'}}}],
