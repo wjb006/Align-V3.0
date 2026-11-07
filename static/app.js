@@ -525,20 +525,64 @@ function eventPlaceName(event) {
   return event.location_name || String(event.title || '').split(' · ')[0] || event.location || 'Event';
 }
 function renderGroupedEventRows(events, options = {}) {
-  let previousKey='';
-  return events.map((event,index)=>{
-    const key=eventLocationKey(event);
-    const item={...event,_suppressTravel:!!key&&key===previousKey};
-    previousKey=key;
+  let previousKey = '';
+  return events.map((event,index) => {
+    const key = eventLocationKey(event);
+    const item = {...event, _suppressTravel: !!key && key === previousKey};
+    previousKey = key;
     return renderUpcomingEvent(item,index,options);
   }).join('');
 }
+function todayTravelConnector(event) {
+  if (!event || !event.location || typeof eventTravelMarkup !== 'function') return '';
+  const markup = eventTravelMarkup(event);
+  return markup ? '<div class="today-travel-connector" aria-label="Travel to next event">'+markup+'</div>' : '';
+}
+function todayDurationHours(event) {
+  const supplied = Number(event.hours);
+  if (Number.isFinite(supplied) && supplied > 0) return supplied;
+  const start = new Date(event.start_at), end = new Date(event.end_at);
+  return Number.isFinite(start.getTime()) && Number.isFinite(end.getTime()) ? Math.max(0,(end-start)/3600000) : 0;
+}
+function renderTodayTimeline(events) {
+  const ordered = [...events].sort((a,b)=>String(a.start_at||'').localeCompare(String(b.start_at||'')));
+  const output = [];
+  for (let i=0;i<ordered.length;) {
+    const item = ordered[i];
+    if (item.origin === 'Shift') {
+      const key = eventLocationKey(item), group=[item];
+      let j=i+1;
+      while (j<ordered.length && ordered[j].origin==='Shift' && key && eventLocationKey(ordered[j])===key) { group.push(ordered[j]); j++; }
+      const first=group[0], last=group[group.length-1];
+      const start=String(first.start_at||'').slice(11,16), finish=String(last.end_at||'').slice(11,16);
+      const hours=group.reduce((sum,shift)=>sum+todayDurationHours(shift),0);
+      const colour=first.location_colour||first.colour||first.section_colour||'#365CE6';
+      const address=first.location||first.address||'';
+      const areas=group.map(shift=>{
+        const area=shift.shift_type_name||shift.category_name||'Work';
+        const areaColour=shift.shift_type_colour||shift.section_colour||'#16A99B';
+        const areaStart=String(shift.start_at||'').slice(11,16), areaEnd=String(shift.end_at||'').slice(11,16);
+        const areaHours=todayDurationHours(shift);
+        return '<div class="today-location-area" style="--area-colour:'+escapeHtml(areaColour)+'"><div class="today-area-name">'+escapeHtml(area)+'</div><div class="today-area-time">'+escapeHtml(areaStart)+'–'+escapeHtml(areaEnd)+'</div><strong class="today-area-duration">'+escapeHtml(Number.isInteger(areaHours)?areaHours+'h':areaHours.toFixed(1)+'h')+'</strong></div>';
+      }).join('');
+      const title=first.location_name||eventPlaceName(first);
+      output.push('<section class="today-location-block" style="--location-colour:'+escapeHtml(colour)+'"><header class="today-location-header"><div><strong>'+escapeHtml(title)+'</strong>'+(address?'<small>'+appleDestinationLink(address)+'</small>':'')+'<small>'+hours.toFixed(Number.isInteger(hours)?0:1)+' hours total · '+group.length+' shifts</small></div><strong class="today-location-span">'+escapeHtml(start)+'–'+escapeHtml(finish)+'</strong></header>'+todayTravelConnector(first)+'<div class="today-location-areas">'+areas+'</div></section>');
+      i=j; continue;
+    }
+    const key=eventLocationKey(item), previous=ordered[i-1], sameAsPrevious=!!key&&!!previous&&eventLocationKey(previous)===key;
+    const row=renderUpcomingEvent({...item,_suppressTravel:true},i,{showDate:false,condensed:false});
+    output.push('<section class="today-event-block" style="--location-colour:'+escapeHtml(item.section_colour||item.colour||'#8B6BE8')+'">'+row+(!sameAsPrevious?todayTravelConnector(item):'')+'</section>');
+    i++;
+  }
+  return output.join('');
+}
 function renderUpcomingGrouped(dashboard) {
   const events = (dashboard.upcoming_events || []).filter(upcomingNow);
-  const items = events.slice(0, 8);
+  const items = events.slice(0, 50);
   if (!items.length) {
     return '<div class="card empty">No upcoming events yet. Add your first one above.</div>';
   }
+  if (['today','home'].includes(state.tab)) return '<div class="today-event-timeline">'+renderTodayTimeline(items)+'</div>';
   const groupByDay = homeSectionContent('upcoming', 'group_by_day', true);
   if (!groupByDay) {
     return `<div class="upcoming-day-list"><div class="upcoming-day-items">${renderGroupedEventRows(items, { showDate: true })}</div></div>`;
