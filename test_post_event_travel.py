@@ -63,6 +63,17 @@ class EventChangesTests(unittest.TestCase):
         decorated=post.decorate(self.c,[{'id':1,'work_date':'2030-10-01','start_time':'08:30','end_time':'12:30'}],kind='shift')
         self.assertTrue(decorated[0]['post_travel']['enabled'])
 
+    def test_post_shift_travel_skips_following_shift_at_same_location(self):
+        self.c.execute("CREATE TABLE locations(id INTEGER PRIMARY KEY,address TEXT)")
+        self.c.execute("""CREATE TABLE shifts(id INTEGER PRIMARY KEY,work_date TEXT,start_time TEXT,end_time TEXT,location_id INTEGER,location_name TEXT,shift_type_name TEXT)""")
+        self.c.execute("INSERT INTO locations(id,address) VALUES(1,'Arrowe Park Road, Wirral')")
+        self.c.execute("INSERT INTO shifts VALUES(1,'2030-10-01','08:00','12:00',1,'Arrowe Park','Wards')")
+        self.c.execute("INSERT INTO shifts VALUES(2,'2030-10-01','12:30','16:30',1,'Arrowe Park','Clinic')")
+        self.event('2030-10-01T17:15','2030-10-01T18:00',location='Arrowe Park Medical Centre, Wirral',title='GP Appointment')
+        _, route=post.target(self.c,'shift',1)
+        self.assertEqual(route['destination'],'Arrowe Park Medical Centre, Wirral')
+        self.assertEqual(route['destination_name'],'GP Appointment')
+
     def test_dashboard_includes_first_class_shifts_and_post_shift_travel(self):
         self.c.execute("CREATE TABLE locations(id INTEGER PRIMARY KEY,address TEXT)")
         self.c.execute("""CREATE TABLE shifts(

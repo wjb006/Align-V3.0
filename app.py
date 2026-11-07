@@ -802,8 +802,10 @@ def dashboard(connection: sqlite3.Connection) -> dict:
     import planner_api
     if planner_api._has_table(connection, 'shifts'):
         shift_rows = rows_as_dicts(connection.execute(
-            """SELECT s.*, COALESCE(NULLIF(l.address,''),s.location_name) AS location
+            """SELECT s.*, COALESCE(NULLIF(l.address,''),s.location_name) AS location,
+                      l.colour AS location_colour, st.colour AS shift_type_colour
                FROM shifts s LEFT JOIN locations l ON l.id=s.location_id
+               LEFT JOIN shift_types st ON st.id=s.shift_type_id
                WHERE s.work_date >= ?
                ORDER BY s.work_date,s.start_time,s.id""", (today,)
         ))

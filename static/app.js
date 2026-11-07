@@ -477,7 +477,7 @@ function renderEventRow(event, {
   const attrs = isShift ? '' : (editable
       ? ` data-action="open-section-event" data-section-id="${event.section_id}" data-event-id="${event.id}" tabindex="0" role="button" aria-label="Open ${escapeHtml(event.title || 'event')}"`
       : eventViewAttributes(event));
-  const travel = !event._suppressTravel && typeof eventTravelMarkup === 'function' ? eventTravelMarkup(event) : '';
+  const travel = !condensed && !event._suppressTravel && typeof eventTravelMarkup === 'function' ? eventTravelMarkup(event) : '';
   const contact = condensed ? '' : (window.ALIGN152?.eventContactMarkup(event.notes) || '');
   let timeLabel;
   if (event.all_day) timeLabel = 'All day';
@@ -496,7 +496,7 @@ function renderEventRow(event, {
   const badgeColour = event.section_colour || colour;
   const badge = badgeName && typeof typeBadge === 'function' ? typeBadge(badgeName, badgeColour) : '';
   const meta = condensed
-    ? badge
+    ? `${badge}<small>${showLocation && event.location ? appleDestinationLink(event.location) : ''}</small>`
     : `${badge}<small>${showLocation && event.location ? appleDestinationLink(event.location) : ''}${detailTime}</small>`;
   const classes = [
     'card', 'week-event-row', 'upcoming-event',
@@ -525,23 +525,69 @@ function eventPlaceName(event) {
   return event.location_name || String(event.title || '').split(' · ')[0] || event.location || 'Event';
 }
 function renderGroupedEventRows(events, options = {}) {
-  let previousKey='';
-  return events.map((event,index)=>{
-    const key=eventLocationKey(event);
-    const item={...event,_suppressTravel:!!key&&key===previousKey};
-    previousKey=key;
+  let previousKey = '';
+  return events.map((event,index) => {
+    const key = eventLocationKey(event);
+    const item = {...event, _suppressTravel: !!key && key === previousKey};
+    previousKey = key;
     return renderUpcomingEvent(item,index,options);
   }).join('');
 }
+function todayTravelConnector(event) {
+  if (!event || !event.location || typeof eventTravelMarkup !== 'function') return '';
+  const markup = eventTravelMarkup(event);
+  return markup ? '<div class="today-travel-connector" aria-label="Travel to next event">'+markup+'</div>' : '';
+}
+function todayDurationHours(event) {
+  const supplied = Number(event.hours);
+  if (Number.isFinite(supplied) && supplied > 0) return supplied;
+  const start = new Date(event.start_at), end = new Date(event.end_at);
+  return Number.isFinite(start.getTime()) && Number.isFinite(end.getTime()) ? Math.max(0,(end-start)/3600000) : 0;
+}
+function renderTodayTimeline(events) {
+  const ordered = [...events].sort((a,b)=>String(a.start_at||'').localeCompare(String(b.start_at||'')));
+  const output = [];
+  for (let i=0;i<ordered.length;) {
+    const item = ordered[i];
+    if (item.origin === 'Shift') {
+      const key = eventLocationKey(item), group=[item];
+      let j=i+1;
+      while (j<ordered.length && ordered[j].origin==='Shift' && key && eventLocationKey(ordered[j])===key) { group.push(ordered[j]); j++; }
+      const first=group[0], last=group[group.length-1];
+      const start=String(first.start_at||'').slice(11,16), finish=String(last.end_at||'').slice(11,16);
+      const hours=group.reduce((sum,shift)=>sum+todayDurationHours(shift),0);
+      const colour=first.location_colour||first.colour||first.section_colour||'#365CE6';
+      const address=first.location||first.address||'';
+      const areas=group.map(shift=>{
+        const area=shift.shift_type_name||shift.category_name||'Work';
+        const areaColour=shift.shift_type_colour||shift.section_colour||'#16A99B';
+        const areaStart=String(shift.start_at||'').slice(11,16), areaEnd=String(shift.end_at||'').slice(11,16);
+        const areaHours=todayDurationHours(shift);
+        return '<div class="today-location-area" style="--area-colour:'+escapeHtml(areaColour)+'"><div class="today-area-name">'+escapeHtml(area)+'</div><div class="today-area-time">'+escapeHtml(areaStart)+'–'+escapeHtml(areaEnd)+'</div><strong class="today-area-duration">'+escapeHtml(Number.isInteger(areaHours)?areaHours+'h':areaHours.toFixed(1)+'h')+'</strong></div>';
+      }).join('');
+      const title=first.location_name||eventPlaceName(first);
+      output.push('<section class="today-location-block" style="--location-colour:'+escapeHtml(colour)+'"><header class="today-location-header"><div><strong>'+escapeHtml(title)+'</strong>'+(address?'<small>'+appleDestinationLink(address)+'</small>':'')+'<small>'+hours.toFixed(Number.isInteger(hours)?0:1)+' hours total · '+group.length+' shifts</small></div><strong class="today-location-span">'+escapeHtml(start)+'–'+escapeHtml(finish)+'</strong></header><div class="today-location-areas">'+areas+'</div></section>');
+      const connector=todayTravelConnector(last); if(connector)output.push(connector);
+      i=j; continue;
+    }
+    const key=eventLocationKey(item), previous=ordered[i-1], sameAsPrevious=!!key&&!!previous&&eventLocationKey(previous)===key;
+    const row=renderUpcomingEvent({...item,_suppressTravel:true},i,{showDate:false,condensed:false});
+    output.push('<section class="today-event-block" style="--location-colour:'+escapeHtml(item.section_colour||item.colour||'#8B6BE8')+'">'+row+'</section>');
+    if(!sameAsPrevious){const connector=todayTravelConnector(item);if(connector)output.push(connector);}
+    i++;
+  }
+  return output.join('');
+}
 function renderUpcomingGrouped(dashboard) {
   const events = (dashboard.upcoming_events || []).filter(upcomingNow);
-  const items = events.slice(0, 8);
+  const items = events.slice(0, 50);
   if (!items.length) {
     return '<div class="card empty">No upcoming events yet. Add your first one above.</div>';
   }
+  if (['today','home'].includes(state.tab)) return '<div class="today-event-timeline">'+renderTodayTimeline(items)+'</div>';
   const groupByDay = homeSectionContent('upcoming', 'group_by_day', true);
   if (!groupByDay) {
-    return `<div class="upcoming-day-list"><div class="upcoming-day-items">${renderGroupedEventRows(items, { showDate: true })}</div></div>`;
+    return `<div class="upcoming-day-list"><div class="upcoming-day-items">${renderGroupedEventRows(items, { showDate: true, condensed: true })}</div></div>`;
   }
   const groups = [];
   for (const event of items) {
@@ -551,7 +597,7 @@ function renderUpcomingGrouped(dashboard) {
     else last.events.push(event);
   }
   return `<div class="upcoming-day-list">${groups.map(group => {
-    return `<section class="upcoming-day"><h3 class="upcoming-day-heading">${escapeHtml(dayHeading(group.day))}</h3><div class="upcoming-day-items">${renderGroupedEventRows(group.events, { showDate: false })}</div></section>`;
+    return `<section class="upcoming-day"><h3 class="upcoming-day-heading">${escapeHtml(dayHeading(group.day))}</h3><div class="upcoming-day-items">${renderGroupedEventRows(group.events, { showDate: false, condensed: true })}</div></section>`;
   }).join('')}</div>`;
 }
 
@@ -580,7 +626,7 @@ function renderSection() {
           category_name: section.name,
           origin: event.source_kind === 'icloud' ? 'Calendar' : 'Event',
           notes: event.notes || '',
-        }, { showDate: true, index });
+        }, { showDate: true, index, condensed: true });
         const actions = event.source_kind === 'align'
           ? `<button class="small-button" data-action="edit-section-event" data-id="${event.id}">Edit</button>`
           : '';
