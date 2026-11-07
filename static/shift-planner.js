@@ -219,7 +219,7 @@
   }
   function paint() { const root=document.querySelector('#app'); if(root && ['planner','calendar'].includes(state.tab)) root.innerHTML=render(); }
   async function reload() {
-    state.shiftPlannerData=null; state.shiftPlannerError=''; await load();
+    state.shiftPlannerData=null; state.shiftPlannerDateShifts=null; state.shiftPlannerError=''; await load();
   }
   function formObject(form) { return Object.fromEntries(new FormData(form).entries()); }
   document.addEventListener('change', async event => {
