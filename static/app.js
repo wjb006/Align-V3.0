@@ -453,6 +453,7 @@ function todayInboundKey(item) {
     ? `${item.origin || ''}:${item.id || item.start_at}:${item.start_at}` : '';
 }
 async function ensureTodayInboundTravel(item) {
+  if (typeof eventIsUnderway === 'function' && eventIsUnderway(item)) return;
   const key = todayInboundKey(item);
   if (!key || state.todayInboundKey === key || state.todayInboundLoading) return;
   state.todayInboundKey = key;
