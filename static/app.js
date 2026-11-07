@@ -566,12 +566,14 @@ function renderTodayTimeline(events) {
         return '<div class="today-location-area" style="--area-colour:'+escapeHtml(areaColour)+'"><div class="today-area-name">'+escapeHtml(area)+'</div><div class="today-area-time">'+escapeHtml(areaStart)+'–'+escapeHtml(areaEnd)+'</div><strong class="today-area-duration">'+escapeHtml(Number.isInteger(areaHours)?areaHours+'h':areaHours.toFixed(1)+'h')+'</strong></div>';
       }).join('');
       const title=first.location_name||eventPlaceName(first);
-      output.push('<section class="today-location-block" style="--location-colour:'+escapeHtml(colour)+'"><header class="today-location-header"><div><strong>'+escapeHtml(title)+'</strong>'+(address?'<small>'+appleDestinationLink(address)+'</small>':'')+'<small>'+hours.toFixed(Number.isInteger(hours)?0:1)+' hours total · '+group.length+' shifts</small></div><strong class="today-location-span">'+escapeHtml(start)+'–'+escapeHtml(finish)+'</strong></header>'+todayTravelConnector(last)+'<div class="today-location-areas">'+areas+'</div></section>');
+      output.push('<section class="today-location-block" style="--location-colour:'+escapeHtml(colour)+'"><header class="today-location-header"><div><strong>'+escapeHtml(title)+'</strong>'+(address?'<small>'+appleDestinationLink(address)+'</small>':'')+'<small>'+hours.toFixed(Number.isInteger(hours)?0:1)+' hours total · '+group.length+' shifts</small></div><strong class="today-location-span">'+escapeHtml(start)+'–'+escapeHtml(finish)+'</strong></header><div class="today-location-areas">'+areas+'</div></section>');
+      const connector=todayTravelConnector(last); if(connector)output.push(connector);
       i=j; continue;
     }
     const key=eventLocationKey(item), previous=ordered[i-1], sameAsPrevious=!!key&&!!previous&&eventLocationKey(previous)===key;
     const row=renderUpcomingEvent({...item,_suppressTravel:true},i,{showDate:false,condensed:false});
-    output.push('<section class="today-event-block" style="--location-colour:'+escapeHtml(item.section_colour||item.colour||'#8B6BE8')+'">'+row+(!sameAsPrevious?todayTravelConnector(item):'')+'</section>');
+    output.push('<section class="today-event-block" style="--location-colour:'+escapeHtml(item.section_colour||item.colour||'#8B6BE8')+'">'+row+'</section>');
+    if(!sameAsPrevious){const connector=todayTravelConnector(item);if(connector)output.push(connector);}
     i++;
   }
   return output.join('');
