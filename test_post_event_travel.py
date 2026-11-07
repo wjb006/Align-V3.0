@@ -63,6 +63,23 @@ class EventChangesTests(unittest.TestCase):
         decorated=post.decorate(self.c,[{'id':1,'work_date':'2030-10-01','start_time':'08:30','end_time':'12:30'}],kind='shift')
         self.assertTrue(decorated[0]['post_travel']['enabled'])
 
+    def test_dashboard_includes_first_class_shifts_and_post_shift_travel(self):
+        self.c.execute("CREATE TABLE locations(id INTEGER PRIMARY KEY,address TEXT)")
+        self.c.execute("""CREATE TABLE shifts(
+            id INTEGER PRIMARY KEY,work_date TEXT,start_time TEXT,end_time TEXT,
+            location_id INTEGER,location_name TEXT,shift_type_name TEXT,
+            notes TEXT,hours REAL,colour TEXT
+        )""")
+        self.c.execute("INSERT INTO locations(id,address) VALUES(1,'Arrowe Park Road, Wirral')")
+        self.c.execute("INSERT INTO shifts VALUES(1,'2030-10-01','08:30','12:30',1,'Arrowe Park','Clinic','',4,'#365CE6')")
+        post.handle(self.c, {'kind':'shift','id':1,'enabled':True,'mode':'bus'})
+        dashboard = app.dashboard(self.c)
+        shift = next(item for item in dashboard['upcoming_events'] if item.get('origin') == 'Shift')
+        self.assertEqual(shift['title'], 'Arrowe Park · Clinic')
+        self.assertEqual(shift['location'], 'Arrowe Park Road, Wirral')
+        self.assertEqual(shift['start_at'], '2030-10-01T08:30')
+        self.assertTrue(shift['post_travel']['enabled'])
+
     def test_import_creates_one_category_and_preserves_locations(self):
         ics='BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:example\nDTSTART:20301001T090000\nDTEND:20301001T100000\nSUMMARY:Example\nLOCATION:Test L1 1JD\nEND:VEVENT\nEND:VCALENDAR'
         source,count=app.import_ics_calendar(self.c,'My calendar',ics)

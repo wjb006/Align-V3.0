@@ -18,7 +18,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 158;
-const ASSET_VERSION = `${BUILD_VERSION}-v72`;
+const ASSET_VERSION = `${BUILD_VERSION}-v73`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -472,10 +472,11 @@ function renderEventRow(event, {
   index = 0,
 } = {}) {
   const colour = eventSectionColour(event);
-  const editable = event.origin !== 'Calendar' && event.section_id && event.id && !event.all_day;
-  const attrs = editable
+  const isShift = event.origin === 'Shift';
+  const editable = !isShift && event.origin !== 'Calendar' && event.section_id && event.id && !event.all_day;
+  const attrs = isShift ? '' : (editable
       ? ` data-action="open-section-event" data-section-id="${event.section_id}" data-event-id="${event.id}" tabindex="0" role="button" aria-label="Open ${escapeHtml(event.title || 'event')}"`
-      : eventViewAttributes(event);
+      : eventViewAttributes(event));
   const travel = typeof eventTravelMarkup === 'function' ? eventTravelMarkup(event) : '';
   const contact = condensed ? '' : (window.ALIGN152?.eventContactMarkup(event.notes) || '');
   let timeLabel;
@@ -498,10 +499,14 @@ function renderEventRow(event, {
     ? badge
     : `${badge}<small>${showLocation && event.location ? appleDestinationLink(event.location) : ''}${detailTime}</small>`;
   const classes = [
-    'card', 'week-event-row', 'upcoming-event', 'is-clickable',
+    'card', 'week-event-row', 'upcoming-event',
+    isShift ? 'work-shift-row' : 'is-clickable',
     condensed ? 'event-condensed' : (index === 0 ? 'event-featured' : 'event-compact'),
   ].filter(Boolean).join(' ');
-  return `<article class="${classes}" style="--section-colour:${escapeHtml(colour)}"${attrs}><div class="week-event-time">${timeLabel}</div><div><strong>${escapeHtml(shownTitle)}</strong>${meta}${contact}${travel}${!condensed && editable ? `<button type="button" class="small-button event-travel-button" data-week-action="event-travel" data-section-id="${event.section_id}" data-event-id="${event.id}">Add travel info</button>` : ''}</div></article>`;
+  const shiftTravelAction = !condensed && isShift
+    ? `<button type="button" class="small-button event-travel-button" data-shift-action="travel" data-id="${Number(event.id)}">Travel after shift</button>`
+    : '';
+  return `<article class="${classes}" style="--section-colour:${escapeHtml(colour)}"${attrs}><div class="week-event-time">${timeLabel}</div><div><strong>${escapeHtml(shownTitle)}</strong>${meta}${contact}${travel}${shiftTravelAction}${!condensed && editable ? `<button type="button" class="small-button event-travel-button" data-week-action="event-travel" data-section-id="${event.section_id}" data-event-id="${event.id}">Add travel info</button>` : ''}</div></article>`;
 }
 function renderUpcomingEvent(event, index = 0, options = {}) {
   return renderEventRow(event, { index, ...options });

@@ -794,8 +794,43 @@ def dashboard(connection: sqlite3.Connection) -> dict:
            JOIN calendar_sources cs ON cs.id=ce.source_id
            LEFT JOIN organiser_sections os ON os.id=cs.section_id
            WHERE ce.end_at>=?""", (today,)))
-    upcoming_events = sorted((e for e in upcoming_events if instant(e['end_at']) > now), key=lambda e: instant(e['start_at']))[:50]
+    upcoming_events = [e for e in upcoming_events if instant(e['end_at']) > now]
     post_event_travel.decorate(connection, upcoming_events)
+
+    # Include first-class Work shifts in the Today feed. Keep the shifts table
+    # authoritative: this is a read-only dashboard projection, not event copying.
+    import planner_api
+    if planner_api._has_table(connection, 'shifts'):
+        shift_rows = rows_as_dicts(connection.execute(
+            """SELECT s.*, COALESCE(NULLIF(l.address,''),s.location_name) AS location
+               FROM shifts s LEFT JOIN locations l ON l.id=s.location_id
+               WHERE s.work_date >= ?
+               ORDER BY s.work_date,s.start_time,s.id""", (today,)
+        ))
+        upcoming_shifts = []
+        for shift in shift_rows:
+            start_at = f"{shift['work_date']}T{shift['start_time']}"
+            end_day = shift['work_date']
+            if shift['end_time'] <= shift['start_time']:
+                end_day = (date.fromisoformat(end_day) + timedelta(days=1)).isoformat()
+            end_at = f"{end_day}T{shift['end_time']}"
+            item = {
+                **shift,
+                'title': ' · '.join(part for part in (shift.get('location_name'), shift.get('shift_type_name')) if part) or 'Work shift',
+                'start_at': start_at,
+                'end_at': end_at,
+                'all_day': 0,
+                'origin': 'Shift',
+                'category_name': 'Work',
+                'section_colour': shift.get('colour') or '#365CE6',
+                'location': shift.get('location') or shift.get('location_name') or '',
+            }
+            if instant(end_at) > now:
+                upcoming_shifts.append(item)
+        post_event_travel.decorate(connection, upcoming_shifts, kind='shift')
+        upcoming_events.extend(upcoming_shifts)
+
+    upcoming_events = sorted(upcoming_events, key=lambda e: instant(e['start_at']))[:50]
     return {
         "today": today,
         # Keep legacy response keys empty for older installed clients while
