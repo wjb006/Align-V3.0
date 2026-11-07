@@ -18,7 +18,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 158;
-const ASSET_VERSION = `${BUILD_VERSION}-v82`;
+const ASSET_VERSION = `${BUILD_VERSION}-v83`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -589,7 +589,7 @@ function renderTodayAppointment(event) {
   const colour = safeColour(event.section_colour || event.shift_type_colour || event.colour, '#a76aff');
   const time = `${String(event.start_at || '').slice(11,16)}–${String(event.end_at || '').slice(11,16)}`;
   const location = event.location || event.address || '';
-  const notes = String(event.notes || '').replace(/\\[Align travel\\][\\s\\S]*?\\[\\/Align travel\\]/g, '').trim();
+  const notes = String(event.notes || '').replace(/\[Align travel\][\s\S]*?\[\/Align travel\]/g, '').trim();
   const row = renderUpcomingEvent({...event, _suppressTravel:true}, 0, {showDate:false, condensed:false, showLocation:false});
   return `<article class="today-appointment-card" style="--appointment-colour:${escapeHtml(colour)}">
     <div class="today-appointment-heading"><span class="today-appointment-icon" aria-hidden="true">✚</span><div><strong>${escapeHtml(event.title || 'Appointment')}</strong>${location ? `<small>${appleDestinationLink(location)}</small>` : ''}</div><time>${escapeHtml(time)}</time></div>
