@@ -506,7 +506,7 @@ function renderEventRow(event, {
   const shiftTravelAction = !condensed && isShift
     ? `<button type="button" class="small-button event-travel-button" data-shift-action="travel" data-id="${Number(event.id)}">Travel after shift</button>`
     : '';
-  return `<article class="${classes}" style="--section-colour:${escapeHtml(colour)}"${attrs}><div class="week-event-time">${timeLabel}</div><div><strong>${escapeHtml(shownTitle)}</strong>${meta}${contact}${travel}${shiftTravelAction}${!condensed && editable ? `<button type="button" class="small-button event-travel-button" data-week-action="event-travel" data-section-id="${event.section_id}" data-event-id="${event.id}">Add travel info</button>` : ''}</div></article>`;
+  return `<article class="${classes} location-bracket-card" style="--section-colour:${escapeHtml(colour)};--location-colour:${escapeHtml(event.location_colour||event.colour||colour)};--area-colour:${escapeHtml(event.shift_type_colour||event.section_colour||colour)}"${attrs}><div class="week-event-time">${timeLabel}</div><div><strong>${escapeHtml(shownTitle)}</strong>${meta}${contact}${travel}${shiftTravelAction}${!condensed && editable ? `<button type="button" class="small-button event-travel-button" data-week-action="event-travel" data-section-id="${event.section_id}" data-event-id="${event.id}">Add travel info</button>` : ''}</div></article>`;
 }
 function renderUpcomingEvent(event, index = 0, options = {}) {
   return renderEventRow(event, { index, ...options });
