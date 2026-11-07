@@ -50,7 +50,8 @@ def target(c, kind, ident, items=None, home=None):
     event = next((e for e in items if e['kind']==kind and e['id']==ident),None)
     if not event: raise ValueError('Event no longer exists.')
     end = instant(event['end_at'])
-    following = sorted((e for e in items if (e['kind'],e['id'])!=(kind,ident) and e['location'].strip() and not e['all_day'] and end <= instant(e['start_at']) <= end+timedelta(hours=1)), key=lambda e:(instant(e['start_at']),e['kind'],e['id']))
+    origin_key = ' '.join(str(event.get('location') or '').casefold().split())
+    following = sorted((e for e in items if (e['kind'],e['id'])!=(kind,ident) and e['location'].strip() and ' '.join(str(e.get('location') or '').casefold().split()) != origin_key and not e['all_day'] and end <= instant(e['start_at']) <= end+timedelta(hours=1)), key=lambda e:(instant(e['start_at']),e['kind'],e['id']))
     if home is None:
         row = c.execute("SELECT setting_value FROM settings WHERE setting_key='user_address'").fetchone()
         home = row[0] if row else ''
