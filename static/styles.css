@@ -969,3 +969,20 @@ body[data-management-theme="light"] .guide-page { --guide-well: #f4f7fb; }
  .today-area-duration{right:12px}
  .today-travel-connector{margin-left:12px;padding:6px 7px}
 }
+\n
+/* Today reference refinement: settings, live configured colours, shift controls and travel. */
+.today-planner-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 12px}
+.today-planner-actions .secondary-button{min-height:54px;border-radius:16px;font-weight:750}
+.today-location-header{background:color-mix(in srgb,var(--location-colour,#365CE6) 82%,#06172b);padding:12px 14px;border-radius:13px}
+.today-location-block{border-color:var(--location-colour,#365CE6);background:color-mix(in srgb,var(--location-colour,#365CE6) 8%,#031a2d)}
+.today-location-area{border-color:var(--area-colour,#16A99B);background:color-mix(in srgb,var(--area-colour,#16A99B) 9%,#00101f)}
+.today-area-name{color:var(--area-colour,#16A99B)}
+.today-shift-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0 0;padding-top:10px;border-top:1px solid color-mix(in srgb,var(--area-colour,#16A99B) 36%,transparent)}
+.today-shift-actions .secondary-button{min-width:0;min-height:48px;padding:8px 6px;border-radius:12px;font-size:.82rem;line-height:1.2;white-space:normal}
+.today-appointment-area{border-color:var(--area-colour,#a76aff);background:color-mix(in srgb,var(--area-colour,#a76aff) 17%,#08182d)}
+.today-appointment-area .week-event-row>div:last-child>strong{color:var(--area-colour,#fff)}
+.today-travel-connector{border-color:var(--location-colour,#4b89b9);border-left-color:var(--location-colour,#4b89b9);background:color-mix(in srgb,var(--location-colour,#4b89b9) 12%,#071d32)}
+.today-inbound-travel{display:grid;gap:6px;padding:10px 12px;margin:0 0 12px 14px;border:1.5px dashed var(--travel-colour,var(--blue,#4b89b9));border-radius:13px;background:color-mix(in srgb,var(--travel-colour,var(--blue,#4b89b9)) 10%,#071d32)}
+.today-inbound-travel>strong{font-size:.9rem}
+.today-inbound-travel .compact-event-details{margin:0}
+@media(max-width:600px){.today-planner-actions{gap:8px}.today-planner-actions .secondary-button{min-height:50px;padding:8px 6px;font-size:.88rem}.today-shift-actions{gap:6px}.today-shift-actions .secondary-button{font-size:.76rem;min-height:46px}}
