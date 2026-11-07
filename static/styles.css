@@ -891,3 +891,12 @@ body[data-management-theme="light"] .guide-page { --guide-well: #f4f7fb; }
 .shift-area-panel .restored-shift-time{margin:0}
 .shift-travel-itinerary{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:9px 2px 2px}.shift-travel-stop{display:inline-flex;align-items:center;gap:5px;font-size:.78rem;font-weight:650;color:var(--ink,#202939)}
 .shift-travel-stop .journey-mode-art{--journey-icon-size:30px!important;width:30px;height:30px}.shift-travel-arrow{color:var(--muted,#667085);font-size:15px}.shift-travel-refresh{font-size:.76rem;color:var(--muted,#667085);margin:2px 0 0}
+
+/* Slim location-colour brace: keep every item as its own card */
+.location-bracket-card{position:relative;border-left:0!important;padding-left:22px!important}
+.location-bracket-card:before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:13px;border-left:4px solid var(--location-colour,#365CE6);border-top:4px solid var(--location-colour,#365CE6);border-bottom:4px solid var(--location-colour,#365CE6);border-radius:17px 0 0 17px;pointer-events:none}
+.restored-shift-card{border-left:0!important;padding-left:22px!important;position:relative}
+.restored-shift-card:before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:13px;border-left:4px solid var(--shift-colour,#365CE6);border-top:4px solid var(--shift-colour,#365CE6);border-bottom:4px solid var(--shift-colour,#365CE6);border-radius:17px 0 0 17px;pointer-events:none}
+.shift-location-group,.shift-location-banner,.shift-location-items{display:contents!important}
+.shift-area-panel{border-color:var(--area-colour,#6479D8)!important;border-left:4px solid var(--area-colour,#6479D8)!important}
+.journey-event-details{display:block!important}.journey-itinerary-strip{display:flex;align-items:center;gap:5px;flex-wrap:wrap}.journey-event-details .journey-breakdown{margin-top:8px}
