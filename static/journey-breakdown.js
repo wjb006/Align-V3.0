@@ -64,7 +64,7 @@ function journeyEventSummary(notes = '') {
    return {mode,service:serviceHead[0].trim(),from:transitLine[3].trim(),start:transitLine[4],to:transitLine[5].trim(),end:transitLine[6]};
   }).filter(Boolean);
  }
- const transit=steps.filter(step=>['bus','train','rail','tram'].includes(journeyModeKey(step.mode)));
+ const transit=steps.filter(step=>['walk','bus','train','rail','tram'].includes(journeyModeKey(step.mode)));
  const items=[];
  const add=(label,time,step=null)=>{
   if(!time)return;
@@ -73,7 +73,7 @@ function journeyEventSummary(notes = '') {
   items.push('<span class="journey-time-icon">'+art+'<span class="journey-time-copy"><small>'+escapeHtml(label+service)+'</small><strong>'+escapeHtml(time)+'</strong></span></span>');
  };
  add('Leave',leave);
- transit.forEach(step=>add(journeyModeKey(step.mode)==='bus'?'Bus':'Train',journeyClock(step.expected_start||step.start),step));
+ transit.forEach(step=>{const key=journeyModeKey(step.mode);add(key==='walk'?'Walk':key==='bus'?'Bus':'Train',journeyClock(step.expected_start||step.start),step);});
  add('Arrive',arrival);
  if(!items.length)return '';
  const legs=steps.length?journeyBreakdown(steps):'<p class="helper">Detailed walking and service steps are not available for this journey.</p>';
