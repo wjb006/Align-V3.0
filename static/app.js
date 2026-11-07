@@ -477,7 +477,7 @@ function renderEventRow(event, {
   const attrs = isShift ? '' : (editable
       ? ` data-action="open-section-event" data-section-id="${event.section_id}" data-event-id="${event.id}" tabindex="0" role="button" aria-label="Open ${escapeHtml(event.title || 'event')}"`
       : eventViewAttributes(event));
-  const travel = !event._suppressTravel && typeof eventTravelMarkup === 'function' ? eventTravelMarkup(event) : '';
+  const travel = !condensed && !event._suppressTravel && typeof eventTravelMarkup === 'function' ? eventTravelMarkup(event) : '';
   const contact = condensed ? '' : (window.ALIGN152?.eventContactMarkup(event.notes) || '');
   let timeLabel;
   if (event.all_day) timeLabel = 'All day';
@@ -585,7 +585,7 @@ function renderUpcomingGrouped(dashboard) {
   if (['today','home'].includes(state.tab)) return '<div class="today-event-timeline">'+renderTodayTimeline(items)+'</div>';
   const groupByDay = homeSectionContent('upcoming', 'group_by_day', true);
   if (!groupByDay) {
-    return `<div class="upcoming-day-list"><div class="upcoming-day-items">${renderGroupedEventRows(items, { showDate: true })}</div></div>`;
+    return `<div class="upcoming-day-list"><div class="upcoming-day-items">${renderGroupedEventRows(items, { showDate: true, condensed: true })}</div></div>`;
   }
   const groups = [];
   for (const event of items) {
@@ -595,7 +595,7 @@ function renderUpcomingGrouped(dashboard) {
     else last.events.push(event);
   }
   return `<div class="upcoming-day-list">${groups.map(group => {
-    return `<section class="upcoming-day"><h3 class="upcoming-day-heading">${escapeHtml(dayHeading(group.day))}</h3><div class="upcoming-day-items">${renderGroupedEventRows(group.events, { showDate: false })}</div></section>`;
+    return `<section class="upcoming-day"><h3 class="upcoming-day-heading">${escapeHtml(dayHeading(group.day))}</h3><div class="upcoming-day-items">${renderGroupedEventRows(group.events, { showDate: false, condensed: true })}</div></section>`;
   }).join('')}</div>`;
 }
 
@@ -624,7 +624,7 @@ function renderSection() {
           category_name: section.name,
           origin: event.source_kind === 'icloud' ? 'Calendar' : 'Event',
           notes: event.notes || '',
-        }, { showDate: true, index });
+        }, { showDate: true, index, condensed: true });
         const actions = event.source_kind === 'align'
           ? `<button class="small-button" data-action="edit-section-event" data-id="${event.id}">Edit</button>`
           : '';
