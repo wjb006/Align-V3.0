@@ -71,7 +71,9 @@ function upcomingNow(item) {
     const start=parseAlignDateTime(`${item.work_date}T${item.start_time}`);
     if(end&&start&&end.getTime()<=start.getTime())end=new Date(end.getTime()+86400000);
   }
-  return !!(end&&end.getTime()>Date.now());
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const startDay = String(item?.start_at || item?.work_date || '').slice(0, 10);
+  return !!(startDay === today || (end && end.getTime() > Date.now()));
 }
 function eventStartAt(item) {
   if(item?.start_at)return parseAlignDateTime(item.start_at);
