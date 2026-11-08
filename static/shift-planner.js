@@ -498,7 +498,6 @@
       const note=form.querySelector('[data-shift-period-note]');
       if(weekendOnly&&note)note.textContent='Saturday and Sunday will automatically be added as Arrowe Park Wards, 07:30–11:30.';
       const patternSelect=form.querySelector('[name="template_id"]');
-      const dates=selectedShiftDays(form);
       if(patternSelect){
         patternSelect.innerHTML=templateOptionsMarkup(dates[0]||state.shiftPlannerSelectedDay||state.plannerAnchor,form.dataset.id||null,'',form.elements.location_id.value,form.elements.shift_type_id.value,dates);
         patternSelect.disabled=!dates.length||!form.elements.location_id.value||!form.elements.shift_type_id.value;
@@ -506,8 +505,10 @@
       }
       const pmPattern=form.querySelector('[data-pm-template]');
       if(pmPattern)pmPattern.innerHTML=templateOptionsMarkup(dates[0]||state.shiftPlannerSelectedDay||state.plannerAnchor||getToday(),null,'',form.elements.location_id.value,form.elements.shift_type_id.value,dates,'PM');
-      const note=form.querySelector('[data-shift-period-note]');
-      if(note)note.textContent=dates.length?dates.length+' day'+(dates.length===1?'':'s')+' selected. One shift setup will be applied to all selected days.':'Select at least one day to continue.';
+      if(note)note.textContent=weekendOnly
+        ? 'Saturday and Sunday will automatically be added as Arrowe Park Wards, 07:30–11:30.'
+        : dates.length?dates.length+' day'+(dates.length===1?'':'s')+' selected. One shift setup will be applied to all selected days.'
+        : 'Select at least one day to continue.';
       return;
     }
     if(target.matches('[name="location_id"]')){
