@@ -67,3 +67,17 @@
  .journey-itinerary-strip{gap:7px 5px}.journey-time-icon>svg{width:26px;height:26px}
  .journey-time-copy strong{font-size:14px}
 }
+
+/* Multi-day Add Shifts selector */
+.add-shift-days-field{margin:4px 0 16px}
+.add-shift-days-field>.field-label{display:block;font-weight:750;color:var(--ink);margin-bottom:5px}
+.add-shift-days-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}
+.add-shift-day-option{position:relative;display:block;cursor:pointer;min-width:0}
+.add-shift-day-option input{position:absolute;opacity:0;inset:0;width:100%;height:100%;cursor:pointer}
+.add-shift-day-option span{display:flex;min-height:58px;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:1px solid #477da7;border-radius:13px;background:#091d35;color:#dceaff;padding:7px 4px;transition:background .15s,border-color .15s,box-shadow .15s}
+.add-shift-day-option strong{font-size:13px}
+.add-shift-day-option small{font-size:11px;color:#a9bfd8}
+.add-shift-day-option input:checked+span{background:linear-gradient(145deg,#0b4f91,#103c72);border:2px solid #168ff5;box-shadow:0 0 0 2px #168ff533;color:#fff}
+.add-shift-day-option input:checked+span small{color:#e0efff}
+.add-shift-day-option input:focus-visible+span{outline:2px solid #fff;outline-offset:3px}
+@media(min-width:520px){.add-shift-days-grid{grid-template-columns:repeat(7,minmax(0,1fr))}}
