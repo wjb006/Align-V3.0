@@ -8,8 +8,8 @@ vm.createContext(context);
 vm.runInContext(source.slice(start,end),context);
 
 let html=context.renderSectionsIndex();
-assert(html.includes('Work Calendar'),'Unconfigured Work must have a clear setup entry');
 assert(html.includes('data-action="work-rota"'),'Unconfigured Work must offer rota upload');
+assert(html.includes('Work Calendar'),'Unconfigured Work must have a clear setup entry');
 assert(html.includes('data-action="work-setup"'),'Unconfigured Work must offer manual setup');
 
 context.state.sectionDefinitions=[{key:'work',optional:true,enabled:false,name:'Work'}];
