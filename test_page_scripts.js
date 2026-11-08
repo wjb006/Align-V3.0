@@ -241,7 +241,7 @@ for (const [name, kind] of Object.entries(defined)) {
 
 runPage(planner, `
   state.boot = {
-    build_version: Number(build[1]),
+    build_version: ${Number(build[1])},
     settings: { onboarding_completed: true, user_name: 'Alex', user_address: '', notifications: false },
     dashboard: { today: '2026-11-03', upcoming_events: [], alerts: [] },
     sections: [],
@@ -258,9 +258,9 @@ runPage(planner, `
   };
   state.sectionDefinitions = [];
   const screens = {
-    today: 'Everything in one place',
+    today: 'Nothing scheduled for today.',
     inbox: 'Inbox',
-    sections: 'Set up Work Calendar',
+    sections: 'Work Calendar',
     more: 'Work settings',
     planner: 'Planner',
     transport: 'Travel',
@@ -307,7 +307,7 @@ runPage(planner, `
   if (work.includes('Unable to load Align') || !work.includes('Work Settings')) missing.push('work-setup did not render');
   state.tab = 'missing-screen';
   render();
-  if (!document.querySelector('#app').innerHTML.includes('Everything in one place')) missing.push('unknown tab did not fall back to home');
+  if (!document.querySelector('#app').innerHTML.includes('Nothing scheduled for today.')) missing.push('unknown tab did not fall back to home');
   if (missing.length) throw new Error(missing.join('; '));
   globalThis.renderWorkSetup = undefined;
   state.tab = 'work-setup';
