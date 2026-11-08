@@ -440,7 +440,7 @@
       }
       if(patternSelect){
         const dates=form.dataset.id?[form.elements.work_date.value]:selectedShiftDays(form);
-        patternSelect.innerHTML=templateOptionsMarkup(dates[0]||day,form.dataset.id||null,'',target.value,'',dates);
+        patternSelect.innerHTML=templateOptionsMarkup(dates[0]||state.shiftPlannerSelectedDay||state.plannerAnchor||getToday(),form.dataset.id||null,'',target.value,'',dates);
         patternSelect.disabled=true;
         patternSelect.value='';
       }
@@ -450,7 +450,7 @@
       const patternSelect=form.querySelector('[name="template_id"]');
       if(patternSelect){
         const dates=form.dataset.id?[form.elements.work_date.value]:selectedShiftDays(form);
-        patternSelect.innerHTML=templateOptionsMarkup(dates[0]||day,form.dataset.id||null,'',form.elements.location_id.value,target.value,dates);
+        patternSelect.innerHTML=templateOptionsMarkup(dates[0]||state.shiftPlannerSelectedDay||state.plannerAnchor||getToday(),form.dataset.id||null,'',form.elements.location_id.value,target.value,dates);
         patternSelect.disabled=!form.elements.location_id.value||!target.value;
         patternSelect.value='';
       }
