@@ -129,11 +129,9 @@
       if(!/arrowe/.test(place)||!/ward/.test(kind)) return null;
       return {start:'07:30',end:'11:30'};
     }
-    if(/arrowe/.test(place)){
-      if(!weekend && /clinic/.test(kind) && startTime==='13:30' && friday) end='17:00';
-    } else if(/clatterbridge/.test(place) && !weekend && /clinic|hub/.test(kind) && startTime==='13:30' && friday){
-      start='13:00'; end='17:00';
-    }
+    // Friday shifts finish at 17:00 regardless of workplace or shift label.
+    // Preserve the selected start time; only enforce the published finish.
+    if(friday && String(startTime||'00:00')>='12:00') end='17:00';
     return {start,end};
   }
   function weekendDefault(day) {
@@ -271,15 +269,17 @@
     const usedPeriods=[...new Set(used.map(s=>shiftPeriod(s.start_time)))];
     const periodNote=usedPeriods.length?usedPeriods.map(p=>p+' shift already planned').join(' · ')+'. Only the other period is available.':'Choose an AM or PM pattern. You can add the other period afterwards.';
     const initialDays=edit.id?[]:[state.shiftPlannerSelectedDay||day];
+    const initialWeekendOnly=initialDays.length>0&&initialDays.every(weekendDefault);
+    const requiredAttr=initialWeekendOnly?'':' required';
     return '<section class="card restored-planner-form" id="shift-planner-form"><div class="section-head"><div><p class="eyebrow">'+(edit.id?'Edit shift':'Plan a shift')+'</p><h2>'+(edit.id?'Update shift':'Add shifts')+'</h2></div><button class="secondary-button" data-shift-action="close-form">Close</button></div>'+
       '<form data-shift-form="shift" data-id="'+esc(edit.id||'')+'">'+
       (edit.id?'<label class="field">Work date<input type="date" name="work_date" data-shift-work-date required value="'+esc(day)+'"></label>':addShiftDaysMarkup(day,initialDays))+
-      '<label class="field">Choose where<select name="location_id" data-shift-location required><option value="">Choose a workplace</option>'+locations.map(l=>'<option value="'+esc(l.id)+'" '+(String(chosenLocation)===String(l.id)?'selected':'')+'>'+esc(l.name)+'</option>').join('')+'</select></label>'+
-      '<label class="field">AM shift type<select name="shift_type_id" data-shift-type required '+(!chosenLocation?'disabled':'')+'>'+shiftTypeOptionsMarkup(chosenLocation,chosenType,'AM')+'</select></label>'+
+      '<label class="field">Choose where<select name="location_id" data-shift-location'+requiredAttr+'><option value="">Choose a workplace</option>'+locations.map(l=>'<option value="'+esc(l.id)+'" '+(String(chosenLocation)===String(l.id)?'selected':'')+'>'+esc(l.name)+'</option>').join('')+'</select></label>'+
+      '<label class="field">AM shift type<select name="shift_type_id" data-shift-type'+requiredAttr+' '+(!chosenLocation?'disabled':'')+'>'+shiftTypeOptionsMarkup(chosenLocation,chosenType,'AM')+'</select></label>'+
       '<label class="field">AM shift pattern<select name="template_id" data-shift-template '+(!chosenLocation||!chosenType?'disabled':'')+'>'+templateOptionsMarkup(day,edit.id,template?.id,chosenLocation,chosenType,initialDays,'AM')+'</select></label>'+
       '<p class="helper" data-shift-period-note>'+esc(periodNote)+'</p>'+
-      '<div class="form-grid"><label class="field">Start time<input type="time" name="start_time" step="900" required value="'+esc(edit.start_time||template?.start_time||(weekend?'07:30':'09:00'))+'"></label>'+
-      '<label class="field">End time<input type="time" name="end_time" step="900" required value="'+esc(edit.end_time||template?.end_time||(weekend?'11:30':'13:00'))+'"></label>'+
+      '<div class="form-grid"><label class="field">Start time<input type="time" name="start_time" step="900"'+requiredAttr+' value="'+esc(edit.start_time||template?.start_time||(weekend?'07:30':'09:00'))+'"></label>'+
+      '<label class="field">End time<input type="time" name="end_time" step="900"'+requiredAttr+' value="'+esc(edit.end_time||template?.end_time||(weekend?'11:30':'13:00'))+'"></label>'+
       '<label class="field">Break (minutes)<input type="number" name="break_minutes" min="0" max="720" value="'+esc(edit.break_minutes??template?.break_minutes??0)+'"></label></div>'+
       (edit.id?'':pmShiftMarkup(day,chosenLocation,chosenType,initialDays,edit.start_time||template?.start_time||'09:00'))+
       '<label class="field">Notes<textarea name="notes" rows="2">'+esc(edit.notes||'')+'</textarea></label>'+
