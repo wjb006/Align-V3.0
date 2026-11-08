@@ -581,12 +581,17 @@
       if(action==='review-confirm'){
         const drafts=state.shiftPlannerReview?.shifts||[];
         if(!drafts.length)throw new Error('There are no shifts to save.');
-        let saved=0;
-        for(const draft of drafts){
-          const body={...draft};delete body._location_name;delete body._type_name;delete body._automatic;
-          try{await api('/api/shifts',{method:'POST',body});saved++;}
-          catch(error){if(typeof toast==='function')toast(saved+' of '+drafts.length+' shifts saved. The remaining shifts were not saved: '+(error.message||'unknown error'));throw error;}
-        }
+        const batch=drafts.map(draft=>{
+          const body={...draft};
+          delete body._location_name;delete body._type_name;delete body._automatic;
+          return body;
+        });
+        // The existing planner API accepts a single batch and commits it once,
+        // so a clash cannot leave half of the reviewed week saved.
+        const result=await api('/api/shifts',{method:'POST',body:{
+          shifts:batch,request_id:state.shiftPlannerReview.requestId
+        }});
+        const saved=Array.isArray(result.shifts)?result.shifts.length:drafts.length;
         state.shiftPlannerReview=null;state.shiftPlannerModal='';
         if(typeof toast==='function')toast(saved+' shifts saved after review. Weekend defaults and Friday finish times applied.');
         await reload();return;
@@ -725,7 +730,7 @@
               }
             }
           }
-          state.shiftPlannerReview={shifts:drafts,selectedDays:days.slice(),notes:values.notes||''};
+          state.shiftPlannerReview={shifts:drafts,selectedDays:days.slice(),notes:values.notes||'',requestId:'weekly-review-'+(window.crypto?.randomUUID?.()||Date.now()+'-'+Math.random().toString(36).slice(2))};
           state.shiftPlannerModal='review';
           paint();
           return;
