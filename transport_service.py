@@ -20,9 +20,18 @@ def enabled(): return os.environ.get('ALIGN_TRANSPORT_ENABLED','0')=='1'
 
 def routing_status():
     here = os.environ.get('ALIGN_JOURNEY_PROVIDER') == 'here'
-    configured = bool(os.environ.get('ALIGN_HERE_ROUTING_KEY') and
-                      os.environ.get('ALIGN_HERE_TRANSIT_ENABLED') == '1') if here else bool(os.environ.get('ALIGN_OTP_URL'))
-    return {'provider': 'HERE' if here else 'OpenTripPlanner', 'routing_configured': configured}
+    here_key = bool(os.environ.get('ALIGN_HERE_ROUTING_KEY'))
+    here_transit = here_key and os.environ.get('ALIGN_HERE_TRANSIT_ENABLED') == '1'
+    otp = bool(os.environ.get('ALIGN_OTP_URL'))
+    # Driving and address lookup use HERE Routing/Geocoding independently of
+    # the optional public-transport switch. Keep the two capabilities explicit.
+    return {
+        'provider': 'HERE' if here else 'OpenTripPlanner',
+        'routing_configured': bool(here_transit if here else otp),
+        'driving_configured': bool(here_key if here else otp),
+        'transit_configured': bool(here_transit if here else otp),
+        'geocoding_configured': bool(here_key if here else otp),
+    }
 
 def coordinates(value):
     if not isinstance(value,(list,tuple)) or len(value)!=2: raise ValueError('Enter latitude and longitude')
