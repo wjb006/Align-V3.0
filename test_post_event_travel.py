@@ -34,7 +34,7 @@ class EventChangesTests(unittest.TestCase):
     def test_upcoming_excludes_finished_keeps_current_future_and_history(self):
         now=datetime.now(post.ZONE)
         fmt=lambda dt:dt.isoformat(timespec='seconds')
-        past=self.event(fmt(now-timedelta(hours=2)),fmt(now-timedelta(minutes=1)))
+        past=self.event(fmt(now-timedelta(days=2,hours=2)),fmt(now-timedelta(days=2,minutes=1)))
         current=self.event(fmt(now-timedelta(minutes=20)),fmt(now+timedelta(minutes=20)))
         future=self.event(fmt(now+timedelta(hours=2)),fmt(now+timedelta(hours=3)))
         ids=[e['id'] for e in app.dashboard(self.c)['upcoming_events']]
@@ -50,10 +50,8 @@ class EventChangesTests(unittest.TestCase):
             post.handle(self.c, {'kind': 'shift', 'id': 1})
 
     def test_shift_post_travel_uses_next_calendar_item_or_home(self):
-        self.c.execute("CREATE TABLE locations(id INTEGER PRIMARY KEY,address TEXT)")
-        self.c.execute("CREATE TABLE shifts(id INTEGER PRIMARY KEY,work_date TEXT,start_time TEXT,end_time TEXT,location_id INTEGER,location_name TEXT,shift_type_name TEXT)")
-        self.c.execute("INSERT INTO locations(id,address) VALUES(1,'Arrowe Park Road, Wirral')")
-        self.c.execute("INSERT INTO shifts VALUES(1,'2030-10-01','08:30','12:30',1,'Arrowe Park','Clinic')")
+        self.c.execute("INSERT INTO locations(id,name,address) VALUES(1,'Arrowe Park','Arrowe Park Road, Wirral')")
+        self.c.execute("INSERT INTO shifts(id,work_date,start_time,end_time,location_id,location_name,shift_type_name,colour,hours) VALUES(1,'2030-10-01','08:30','12:30',1,'Arrowe Park','Clinic','#365CE6',4)")
         self.event('2030-10-01T13:00','2030-10-01T14:00',location='Clatterbridge Road, Wirral',title='PM Clinic')
         item=next(row for row in post.events(self.c) if row['kind']=='shift')
         self.assertEqual(item['location'],'Arrowe Park Road, Wirral')
@@ -66,25 +64,17 @@ class EventChangesTests(unittest.TestCase):
         self.assertTrue(decorated[0]['post_travel']['enabled'])
 
     def test_post_shift_travel_skips_following_shift_at_same_location(self):
-        self.c.execute("CREATE TABLE locations(id INTEGER PRIMARY KEY,address TEXT)")
-        self.c.execute("""CREATE TABLE shifts(id INTEGER PRIMARY KEY,work_date TEXT,start_time TEXT,end_time TEXT,location_id INTEGER,location_name TEXT,shift_type_name TEXT)""")
-        self.c.execute("INSERT INTO locations(id,address) VALUES(1,'Arrowe Park Road, Wirral')")
-        self.c.execute("INSERT INTO shifts VALUES(1,'2030-10-01','08:00','12:00',1,'Arrowe Park','Wards')")
-        self.c.execute("INSERT INTO shifts VALUES(2,'2030-10-01','12:30','16:30',1,'Arrowe Park','Clinic')")
+        self.c.execute("INSERT INTO locations(id,name,address) VALUES(1,'Arrowe Park','Arrowe Park Road, Wirral')")
+        self.c.execute("INSERT INTO shifts(id,work_date,start_time,end_time,location_id,location_name,shift_type_name,colour,hours) VALUES(1,'2030-10-01','08:00','12:00',1,'Arrowe Park','Wards','#365CE6',4)")
+        self.c.execute("INSERT INTO shifts(id,work_date,start_time,end_time,location_id,location_name,shift_type_name,colour,hours) VALUES(2,'2030-10-01','12:30','16:30',1,'Arrowe Park','Clinic','#365CE6',4)")
         self.event('2030-10-01T17:15','2030-10-01T18:00',location='Arrowe Park Medical Centre, Wirral',title='GP Appointment')
         _, route=post.target(self.c,'shift',1)
         self.assertEqual(route['destination'],'Arrowe Park Medical Centre, Wirral')
         self.assertEqual(route['destination_name'],'GP Appointment')
 
     def test_dashboard_includes_first_class_shifts_and_post_shift_travel(self):
-        self.c.execute("CREATE TABLE locations(id INTEGER PRIMARY KEY,address TEXT)")
-        self.c.execute("""CREATE TABLE shifts(
-            id INTEGER PRIMARY KEY,work_date TEXT,start_time TEXT,end_time TEXT,
-            location_id INTEGER,location_name TEXT,shift_type_name TEXT,
-            notes TEXT,hours REAL,colour TEXT
-        )""")
-        self.c.execute("INSERT INTO locations(id,address) VALUES(1,'Arrowe Park Road, Wirral')")
-        self.c.execute("INSERT INTO shifts VALUES(1,'2030-10-01','08:30','12:30',1,'Arrowe Park','Clinic','',4,'#365CE6')")
+        self.c.execute("INSERT INTO locations(id,name,address) VALUES(1,'Arrowe Park','Arrowe Park Road, Wirral')")
+        self.c.execute("INSERT INTO shifts(id,work_date,start_time,end_time,location_id,location_name,shift_type_name,notes,hours,colour) VALUES(1,'2030-10-01','08:30','12:30',1,'Arrowe Park','Clinic','',4,'#365CE6')")
         post.handle(self.c, {'kind':'shift','id':1,'enabled':True,'mode':'bus'})
         dashboard = app.dashboard(self.c)
         shift = next(item for item in dashboard['upcoming_events'] if item.get('origin') == 'Shift')

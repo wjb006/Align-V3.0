@@ -51,7 +51,15 @@ def target(c, kind, ident, items=None, home=None):
     if not event: raise ValueError('Event no longer exists.')
     end = instant(event['end_at'])
     origin_key = ' '.join(str(event.get('location') or '').casefold().split())
-    following = sorted((e for e in items if (e['kind'],e['id'])!=(kind,ident) and e['location'].strip() and ' '.join(str(e.get('location') or '').casefold().split()) != origin_key and not e['all_day'] and end <= instant(e['start_at']) <= end+timedelta(hours=1)), key=lambda e:(instant(e['start_at']),e['kind'],e['id']))
+    norm = lambda e: ' '.join(str(e.get('location') or '').casefold().split())
+    # Back-to-back items at the same address extend the stay; look for the next
+    # destination from the end of that run rather than the first item's end.
+    search_from = end
+    while True:
+        same = [e for e in items if (e['kind'],e['id'])!=(kind,ident) and norm(e) == origin_key and origin_key and not e['all_day'] and search_from < instant(e['end_at']) and search_from <= instant(e['start_at']) <= search_from+timedelta(hours=1)]
+        if not same: break
+        search_from = max(instant(e['end_at']) for e in same)
+    following = sorted((e for e in items if (e['kind'],e['id'])!=(kind,ident) and e['location'].strip() and norm(e) != origin_key and not e['all_day'] and search_from <= instant(e['start_at']) <= search_from+timedelta(hours=1)), key=lambda e:(instant(e['start_at']),e['kind'],e['id']))
     if home is None:
         row = c.execute("SELECT setting_value FROM settings WHERE setting_key='user_address'").fetchone()
         home = row[0] if row else ''
