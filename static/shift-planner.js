@@ -659,29 +659,42 @@
           const addPm=form.elements.add_pm_shift?.checked===true;
           const pmValues=addPm?{location_id:values.location_id,shift_type_id:values.pm_shift_type_id,start_time:values.pm_start_time,end_time:values.pm_end_time,break_minutes:values.pm_break_minutes||0,notes:values.notes||''}:null;
           if(addPm&&(!pmValues.shift_type_id||!pmValues.start_time||!pmValues.end_time||shiftPeriod(pmValues.start_time)!=='PM'))throw new Error('Choose a PM shift type and valid PM shift time.');
-          const invalidDays=days.filter(work_date=>!shiftRuleTimes(values.location_id,values.shift_type_id,values.start_time,values.end_time,work_date)||(addPm&&!shiftRuleTimes(pmValues.location_id,pmValues.shift_type_id,pmValues.start_time,pmValues.end_time,work_date)));
-          if(invalidDays.length)throw new Error('The selected shift rules do not allow that workplace/shift combination on '+invalidDays.map(fmtDay).join(', ')+'. Weekend shifts are Arrowe Park Wards, 07:30–11:30 only.');
+          const weekendRule=findWeekendDefault();
+          const invalidDays=days.filter(work_date=>{
+            if(weekendDefault(work_date))return !weekendRule;
+            return !shiftRuleTimes(values.location_id,values.shift_type_id,values.start_time,values.end_time,work_date)||
+              (addPm&&!shiftRuleTimes(pmValues.location_id,pmValues.shift_type_id,pmValues.start_time,pmValues.end_time,work_date));
+          });
+          if(invalidDays.length)throw new Error('The selected workplace and shift pattern do not match the saved rules for '+invalidDays.map(fmtDay).join(', ')+'.');
           const conflicts=days.filter(work_date=>{
             const existing=shiftsForDate(work_date).map(shift=>shiftPeriod(shift.start_time));
-            return existing.includes(period)||(addPm&&existing.includes('PM'));
+            const weekend=weekendDefault(work_date);
+            return existing.includes(weekend?'AM':period)||(!weekend&&addPm&&existing.includes('PM'));
           });
-          if(conflicts.length)throw new Error('A shift already exists in the selected AM/PM period on '+conflicts.map(fmtDay).join(', ')+'. Remove those days or choose different days.');
+          if(conflicts.length)throw new Error('A shift already exists in the required AM/PM period on '+conflicts.map(fmtDay).join(', ')+'. Remove those days or choose different days.');
           delete values.add_pm_shift;delete values.pm_template_id;delete values.pm_shift_type_id;delete values.pm_start_time;delete values.pm_end_time;delete values.pm_break_minutes;
           let saved=0;
           for(const work_date of days){
             try{
-              const amTimes=shiftRuleTimes(values.location_id,values.shift_type_id,values.start_time,values.end_time,work_date);
-              await api('/api/shifts',{method:'POST',body:{...values,...amTimes,work_date}});saved++;
-              if(addPm){
-                const pmTimes=shiftRuleTimes(pmValues.location_id,pmValues.shift_type_id,pmValues.start_time,pmValues.end_time,work_date);
-                await api('/api/shifts',{method:'POST',body:{...pmValues,...pmTimes,work_date}});saved++;
+              if(weekendDefault(work_date)){
+                await api('/api/shifts',{method:'POST',body:{
+                  location_id:weekendRule.location.id,shift_type_id:weekendRule.type.id,
+                  start_time:'07:30',end_time:'11:30',break_minutes:0,notes:values.notes||'',work_date
+                }});saved++;
+              } else {
+                const amTimes=shiftRuleTimes(values.location_id,values.shift_type_id,values.start_time,values.end_time,work_date);
+                await api('/api/shifts',{method:'POST',body:{...values,...amTimes,work_date}});saved++;
+                if(addPm){
+                  const pmTimes=shiftRuleTimes(pmValues.location_id,pmValues.shift_type_id,pmValues.start_time,pmValues.end_time,work_date);
+                  await api('/api/shifts',{method:'POST',body:{...pmValues,...pmTimes,work_date}});saved++;
+                }
               }
             }catch(error){
               if(saved&&typeof toast==='function')toast(saved+' shift'+(saved===1?'':'s')+' saved before '+work_date+' failed: '+(error.message||'unknown error'));
               throw error;
             }
           }
-          if(typeof toast==='function')toast(saved+' shift'+(saved===1?'':'s')+' added across '+days.length+' selected day'+(days.length===1?'':'s')+(addPm?' (AM and PM).':'.')+' Workplace rules, including Friday finish times, applied.');
+          if(typeof toast==='function')toast(saved+' shift'+(saved===1?'':'s')+' added across '+days.length+' selected day'+(days.length===1?'':'s')+(addPm?' (PM added on weekdays; weekends use the Arrowe Park default).':'.')+' Workplace rules, including Friday finish times, applied.');
         }
       } else if(kind==='leave'){
         await api('/api/annual-leave',{method:'POST',body:values});if(typeof toast==='function')toast('Annual leave booked.');
