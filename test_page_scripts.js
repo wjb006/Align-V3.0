@@ -258,7 +258,7 @@ runPage(planner, `
   };
   state.sectionDefinitions = [];
   const screens = {
-    today: 'Daily schedule summary',
+    today: 'today-reference-page',
     inbox: 'Inbox',
     sections: 'Work Calendar',
     more: 'Work settings',
@@ -268,11 +268,13 @@ runPage(planner, `
     'work-rota': 'Upload my rota',
   };
   const missing = [];
+  let todayHTML = '';
   for (const [tab, needle] of Object.entries(screens)) {
     state.tab = tab;
     if (tab === 'settings') state.settingsBranch = 'work';
     render();
     const html = document.querySelector('#app').innerHTML;
+    if (tab === 'today') todayHTML = html;
     if (html.includes('Unable to load Align') || html.includes("Can't find variable")) missing.push(tab + ' showed the load error');
     else if (!html.includes(needle)) missing.push(tab + ' did not render ' + needle);
   }
@@ -307,7 +309,7 @@ runPage(planner, `
   if (work.includes('Unable to load Align') || !work.includes('Work Settings')) missing.push('work-setup did not render');
   state.tab = 'missing-screen';
   render();
-  if (!document.querySelector('#app').innerHTML.includes('Daily schedule summary')) missing.push('unknown tab did not fall back to home');
+  if (document.querySelector('#app').innerHTML !== todayHTML) missing.push('unknown tab did not fall back to home');
   if (missing.length) throw new Error(missing.join('; '));
   globalThis.renderWorkSetup = undefined;
   state.tab = 'work-setup';
