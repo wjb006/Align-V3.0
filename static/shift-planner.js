@@ -149,7 +149,7 @@
       options.map(t=>'<option value="'+esc(t.id)+'" '+(String(selectedId||'')===String(t.id)?'selected':'')+'>'+esc(t.label+' ('+t.start_time+'–'+t.end_time+')')+'</option>').join('');
   }
   function pmShiftMarkup(day, locationId, typeId, days, startTime) {
-    const enabled=!!locationId&&!!typeId&&shiftPeriod(startTime||'09:00')==='AM';
+    const enabled=!!locationId&&!!typeId&&shiftPeriod(startTime||'09:00')==='AM'&&shiftTypesForLocation(locationId,'PM').length>0;
     return '<div class="add-pm-shift-wrap"><label class="add-pm-shift-toggle"><input type="checkbox" name="add_pm_shift" value="1" data-add-pm-shift '+(!enabled?'disabled':'')+'><span><strong>Add PM shift as well</strong><small>Choose a separate PM shift type, such as Hub</small></span></label>'+
       '<div class="add-pm-shift-fields" data-pm-shift-fields hidden>'+
       '<label class="field">PM shift type<select name="pm_shift_type_id" data-pm-shift-type disabled>'+shiftTypeOptionsMarkup(locationId,'','PM')+'</select></label>'+
@@ -492,7 +492,7 @@
         patternSelect.value='';
       }
       const pmToggle=form.querySelector('[data-add-pm-shift]');
-      if(pmToggle){pmToggle.disabled=!form.elements.location_id.value||!target.value;pmToggle.checked=false;const panel=form.querySelector('[data-pm-shift-fields]');if(panel){panel.hidden=true;panel.querySelectorAll('input,select').forEach(field=>field.disabled=true);}}
+      if(pmToggle){pmToggle.disabled=!form.elements.location_id.value||!target.value||!shiftTypesForLocation(form.elements.location_id.value,'PM').length;pmToggle.checked=false;const panel=form.querySelector('[data-pm-shift-fields]');if(panel){panel.hidden=true;panel.querySelectorAll('input,select').forEach(field=>field.disabled=true);}}
       const pmType=form.querySelector('[data-pm-shift-type]');
       if(pmType){pmType.innerHTML=shiftTypeOptionsMarkup(form.elements.location_id.value,'','PM');}
       const pmPattern=form.querySelector('[data-pm-template]');
