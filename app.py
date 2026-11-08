@@ -807,7 +807,7 @@ def dashboard(connection: sqlite3.Connection) -> dict:
     import planner_api
     if planner_api._has_table(connection, 'shifts'):
         shift_rows = rows_as_dicts(connection.execute(
-            """SELECT s.*, COALESCE(NULLIF(l.address,''),s.location_name) AS location,
+            """SELECT s.*, l.address AS location,
                       l.colour AS location_colour, st.colour AS shift_type_colour
                FROM shifts s LEFT JOIN locations l ON l.id=s.location_id
                LEFT JOIN shift_types st ON st.id=s.shift_type_id
@@ -830,7 +830,7 @@ def dashboard(connection: sqlite3.Connection) -> dict:
                 'origin': 'Shift',
                 'category_name': 'Work',
                 'section_colour': shift.get('colour') or '#365CE6',
-                'location': shift.get('location') or shift.get('location_name') or '',
+                'location': shift.get('location') or '',
             }
             if shift['work_date'] == today or instant(end_at) > now:
                 upcoming_shifts.append(item)

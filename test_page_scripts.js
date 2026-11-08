@@ -241,7 +241,7 @@ for (const [name, kind] of Object.entries(defined)) {
 
 runPage(planner, `
   state.boot = {
-    build_version: 156,
+    build_version: ${build[1]},
     settings: { onboarding_completed: true, user_name: 'Alex', user_address: '', notifications: false },
     dashboard: { today: '2026-11-03', upcoming_events: [], alerts: [] },
     sections: [],

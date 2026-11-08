@@ -73,6 +73,55 @@ class EventChangesTests(unittest.TestCase):
         self.assertEqual(route['destination_name'],'GP Appointment')
         self.assertTrue(route['departure'].startswith('2030-10-01T16:30'))
 
+    def test_timeline_route_target_skips_same_location_shift_and_uses_same_day_appointment(self):
+        self.c.execute("INSERT INTO locations(id,name,address) VALUES(1,'Workplace','Work Road, Wirral')")
+        self.c.execute("INSERT INTO shifts(id,work_date,start_time,end_time,location_id,location_name,shift_type_name,colour,hours) VALUES(1,'2030-10-01','08:00','12:00',1,'Workplace','Shift A','#365CE6',4)")
+        self.c.execute("INSERT INTO shifts(id,work_date,start_time,end_time,location_id,location_name,shift_type_name,colour,hours) VALUES(2,'2030-10-01','12:30','16:30',1,'Workplace','Shift B','#365CE6',4)")
+        self.event('2030-10-01T17:15','2030-10-01T18:00',location='Clinic Road, Wirral',title='Appointment')
+        self.event('2030-10-02T09:00','2030-10-02T10:00',location='Next Day Road, Wirral',title='Next day')
+        _,route=post.target(self.c,'shift',1,timeline=True)
+        self.assertEqual(route['destination'],'Clinic Road, Wirral')
+        self.assertEqual(route['destination_name'],'Appointment')
+        self.assertEqual(route['deadline'],'2030-10-01T17:15')
+        self.assertEqual(post.instant(route['departure']),post.instant('2030-10-01T16:30'))
+
+    def test_timeline_route_plan_enforces_arrival_buffer(self):
+        route=dict(origin='Work Road, Wirral',destination='Clinic Road, Wirral',
+                   departure='2030-10-01T16:30',deadline='2030-10-01T17:15',
+                   mode='transit',timeline=True,arrival_buffer=10)
+        journeys=[
+            {'leave_at':'2030-10-01T16:30','arrival_at':'2030-10-01T17:10','steps':[]},
+            {'leave_at':'2030-10-01T16:35','arrival_at':'2030-10-01T17:05','steps':[]},
+        ]
+        with patch.dict('os.environ',{'ALIGN_JOURNEY_PROVIDER':'otp'}), \
+             patch.object(personal_otp,'plan',return_value={'journeys':journeys}):
+            self.assertEqual(post.plan(self.c,route)['arrival_at'],'2030-10-01T17:05')
+        with patch.dict('os.environ',{'ALIGN_JOURNEY_PROVIDER':'otp'}), \
+             patch.object(personal_otp,'plan',return_value={'journeys':journeys[:1]}):
+            with self.assertRaisesRegex(ValueError,'reach the next event in time'):
+                post.plan(self.c,route)
+
+    def test_timeline_route_cache_reuses_and_invalidates_changed_inputs(self):
+        self.c.execute("INSERT INTO locations(id,name,address) VALUES(1,'Workplace','Work Road, Wirral')")
+        self.c.execute("INSERT INTO shifts(id,work_date,start_time,end_time,location_id,location_name,shift_type_name,colour,hours) VALUES(1,'2030-10-01','16:00','16:30',1,'Workplace','Shift','#365CE6',.5)")
+        appointment=self.event('2030-10-01T17:15','2030-10-01T18:00',location='Clinic Road, Wirral',title='Appointment')
+        journey={'leave_at':'2030-10-01T16:30','arrival_at':'2030-10-01T17:00','steps':[]}
+        request=dict(kind='shift',id=1,enabled=True,mode='transit',plan=True,timeline=True)
+        with patch.object(post,'_provider_cache_version',return_value='provider-v1'), \
+             patch.object(post,'plan',return_value=journey) as planner:
+            first=post.handle(self.c,request)
+            second=post.handle(self.c,request)
+            self.assertEqual(first['journey'],journey)
+            self.assertEqual(second['journey'],journey)
+            self.assertEqual(planner.call_count,1)
+            self.c.execute("UPDATE organiser_events SET location='New Clinic Road, Wirral' WHERE id=?",(appointment,))
+            post.handle(self.c,request)
+            self.assertEqual(planner.call_count,2)
+        with patch.object(post,'_provider_cache_version',return_value='provider-v2'), \
+             patch.object(post,'plan',return_value=journey) as planner:
+            post.handle(self.c,request)
+            self.assertEqual(planner.call_count,1)
+
     def test_stay_extension_stops_when_another_address_intervenes(self):
         self.event('2030-10-01T08:00','2030-10-01T12:00',location='Site A',title='AM')
         self.event('2030-10-01T12:15','2030-10-01T12:30',location='Site B',title='Stop B')
