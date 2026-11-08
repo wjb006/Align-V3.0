@@ -123,8 +123,8 @@
     }).join('')+'</div></div>';
   }
   function templateOptionsMarkup(day, editId, selectedId, locationId, shiftTypeId, days) {
-    const selectedDays=(days&&days.length?days:[day]).filter(Boolean);
-    let options=availableTemplatesForDate(selectedDays[0]||day,editId);
+    const selectedDays=(Array.isArray(days)?days:[day]).filter(Boolean);
+    let options=selectedDays.length?availableTemplatesForDate(selectedDays[0],editId):[];
     for(const date of selectedDays.slice(1)){
       const available=new Set(availableTemplatesForDate(date,editId).map(t=>String(t.id)));
       options=options.filter(t=>available.has(String(t.id)));
@@ -571,6 +571,9 @@
           if(!days.length)throw new Error('Select at least one day to add shifts.');
           delete values.selected_days;
           delete values.work_date;
+          const period=shiftPeriod(values.start_time);
+          const conflicts=days.filter(work_date=>shiftsForDate(work_date).some(shift=>shiftPeriod(shift.start_time)===period));
+          if(conflicts.length)throw new Error('A '+period+' shift is already planned on '+conflicts.map(fmtDay).join(', ')+'. Remove those days or choose the other shift period.');
           let saved=0;
           for(const work_date of days){
             try{await api('/api/shifts',{method:'POST',body:{...values,work_date}});saved++;}
