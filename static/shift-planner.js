@@ -138,8 +138,8 @@
     return '<option value="">'+prompt+'</option>'+
       options.map(t=>'<option value="'+esc(t.id)+'" '+(String(selectedId||'')===String(t.id)?'selected':'')+'>'+esc(t.label+' ('+t.start_time+'–'+t.end_time+')')+'</option>').join('');
   }
-  function pmShiftMarkup(day, locationId, typeId, days) {
-    const enabled=!!locationId&&!!typeId;
+  function pmShiftMarkup(day, locationId, typeId, days, startTime) {
+    const enabled=!!locationId&&!!typeId&&shiftPeriod(startTime||'09:00')==='AM';
     return '<div class="add-pm-shift-wrap"><label class="add-pm-shift-toggle"><input type="checkbox" name="add_pm_shift" value="1" data-add-pm-shift '+(!enabled?'disabled':'')+'><span><strong>Add PM shift as well</strong><small>Automatically add an afternoon shift on the same selected days</small></span></label>'+
       '<div class="add-pm-shift-fields" data-pm-shift-fields hidden>'+
       '<label class="field">PM shift pattern<select name="pm_template_id" data-pm-template disabled>'+templateOptionsMarkup(day,null,'',locationId,typeId,days,'PM')+'</select></label>'+
@@ -244,7 +244,7 @@
       '<div class="form-grid"><label class="field">Start time<input type="time" name="start_time" step="900" required value="'+esc(edit.start_time||template?.start_time||'09:00')+'"></label>'+
       '<label class="field">End time<input type="time" name="end_time" step="900" required value="'+esc(edit.end_time||template?.end_time||'13:00')+'"></label>'+
       '<label class="field">Break (minutes)<input type="number" name="break_minutes" min="0" max="720" value="'+esc(edit.break_minutes??template?.break_minutes??0)+'"></label></div>'+
-      (edit.id?'':pmShiftMarkup(day,chosenLocation,chosenType,initialDays))+
+      (edit.id?'':pmShiftMarkup(day,chosenLocation,chosenType,initialDays,edit.start_time||template?.start_time||'09:00'))+
       '<label class="field">Notes<textarea name="notes" rows="2">'+esc(edit.notes||'')+'</textarea></label>'+
       '<div class="button-row"><button class="primary-button" type="submit">'+(edit.id?'Save changes':'Add shifts to selected days')+'</button></div></form></section>';
   }
