@@ -125,8 +125,11 @@
     const friday=weekday===5;
     const weekend=weekday===0||weekday===6;
     let start=startTime, end=endTime;
+    if(weekend){
+      if(!/arrowe/.test(place)||!/ward/.test(kind)) return null;
+      return {start:'07:30',end:'11:30'};
+    }
     if(/arrowe/.test(place)){
-      if(weekend && /ward/.test(kind) && startTime==='07:30') return {start:'07:30',end:'11:30'};
       if(!weekend && /clinic/.test(kind) && startTime==='13:30' && friday) end='17:00';
     } else if(/clatterbridge/.test(place) && !weekend && /clinic|hub/.test(kind) && startTime==='13:30' && friday){
       start='13:00'; end='17:00';
@@ -656,6 +659,8 @@
           const addPm=form.elements.add_pm_shift?.checked===true;
           const pmValues=addPm?{location_id:values.location_id,shift_type_id:values.pm_shift_type_id,start_time:values.pm_start_time,end_time:values.pm_end_time,break_minutes:values.pm_break_minutes||0,notes:values.notes||''}:null;
           if(addPm&&(!pmValues.shift_type_id||!pmValues.start_time||!pmValues.end_time||shiftPeriod(pmValues.start_time)!=='PM'))throw new Error('Choose a PM shift type and valid PM shift time.');
+          const invalidDays=days.filter(work_date=>!shiftRuleTimes(values.location_id,values.shift_type_id,values.start_time,values.end_time,work_date)||(addPm&&!shiftRuleTimes(pmValues.location_id,pmValues.shift_type_id,pmValues.start_time,pmValues.end_time,work_date)));
+          if(invalidDays.length)throw new Error('The selected shift rules do not allow that workplace/shift combination on '+invalidDays.map(fmtDay).join(', ')+'. Weekend shifts are Arrowe Park Wards, 07:30–11:30 only.');
           const conflicts=days.filter(work_date=>{
             const existing=shiftsForDate(work_date).map(shift=>shiftPeriod(shift.start_time));
             return existing.includes(period)||(addPm&&existing.includes('PM'));
