@@ -99,10 +99,27 @@
     const used=new Set(shiftsForDate(day,excludeId).map(s=>shiftPeriod(s.start_time)));
     return (state.shiftPlannerData?.templates||[]).filter(t=>t.active!==0 && !used.has(shiftPeriod(t.start_time)));
   }
-  function templateOptionsMarkup(day, editId, selectedId) {
-    const options=availableTemplatesForDate(day,editId);
-    return '<option value="">'+(options.length?'Choose pattern or enter details':'No AM/PM patterns remain for this day')+'</option>'+
-      options.map(t=>'<option value="'+esc(t.id)+'" '+(String(selectedId||'')===String(t.id)?'selected':'')+'>'+esc(t.location_name+' · '+t.label+' ('+t.start_time+'–'+t.end_time+')')+'</option>').join('');
+  function shiftTypesForLocation(locationId) {
+    const data=state.shiftPlannerData||{};
+    const templates=(data.templates||[]).filter(t=>t.active!==0 && String(t.location_id)===String(locationId||''));
+    const ids=new Set(templates.map(t=>String(t.shift_type_id)));
+    const matching=(data.shift_types||[]).filter(t=>ids.has(String(t.id)));
+    // If no patterns have been configured for this workplace yet, allow manual shift setup.
+    return matching.length ? matching : (data.shift_types||[]);
+  }
+  function shiftTypeOptionsMarkup(locationId, selectedId) {
+    const options=locationId ? shiftTypesForLocation(locationId) : [];
+    return '<option value="">'+(locationId?(options.length?'Choose shift type':'No shift types configured'):'Choose a workplace first')+'</option>'+
+      options.map(t=>'<option value="'+esc(t.id)+'" '+(String(selectedId||'')===String(t.id)?'selected':'')+'>'+esc(t.name)+'</option>').join('');
+  }
+  function templateOptionsMarkup(day, editId, selectedId, locationId, shiftTypeId) {
+    const options=availableTemplatesForDate(day,editId).filter(t=>
+      (!locationId || String(t.location_id)===String(locationId)) &&
+      (!shiftTypeId || String(t.shift_type_id)===String(shiftTypeId))
+    );
+    const prompt=!locationId?'Choose a workplace first':!shiftTypeId?'Choose a shift type first':options.length?'Choose a saved shift pattern':'No matching patterns remain for this day';
+    return '<option value="">'+prompt+'</option>'+
+      options.map(t=>'<option value="'+esc(t.id)+'" '+(String(selectedId||'')===String(t.id)?'selected':'')+'>'+esc(t.label+' ('+t.start_time+'–'+t.end_time+')')+'</option>').join('');
   }
   function dayItems(data, day) {
     const shifts=(data.shifts||[]).filter(s=>s.work_date===day);
@@ -192,12 +209,12 @@
     const periodNote=usedPeriods.length?usedPeriods.map(p=>p+' shift already planned').join(' · ')+'. Only the other period is available.':'Choose an AM or PM pattern. You can add the other period afterwards.';
     return '<section class="card restored-planner-form" id="shift-planner-form"><div class="section-head"><div><p class="eyebrow">'+(edit.id?'Edit shift':'Plan a shift')+'</p><h2>'+(edit.id?'Update shift':'Add shift')+'</h2></div><button class="secondary-button" data-shift-action="close-form">Close</button></div>'+
       '<form data-shift-form="shift" data-id="'+esc(edit.id||'')+'">'+
-      '<label class="field">Saved shift pattern<select name="template_id">'+templateOptionsMarkup(day,edit.id,template?.id)+'</select></label>'+
+      '<label class="field">Work date<input type="date" name="work_date" data-shift-work-date required value="'+esc(day)+'"></label>'+
+      '<label class="field">Choose where<select name="location_id" data-shift-location required><option value="">Choose a workplace</option>'+locations.map(l=>'<option value="'+esc(l.id)+'" '+(String(chosenLocation)===String(l.id)?'selected':'')+'>'+esc(l.name)+'</option>').join('')+'</select></label>'+
+      '<label class="field">Choose shift type<select name="shift_type_id" data-shift-type required '+(!chosenLocation?'disabled':'')+'>'+shiftTypeOptionsMarkup(chosenLocation,chosenType)+'</select></label>'+
+      '<label class="field">Choose shift pattern<select name="template_id" data-shift-template '+(!chosenLocation||!chosenType?'disabled':'')+'>'+templateOptionsMarkup(day,edit.id,template?.id,chosenLocation,chosenType)+'</select></label>'+
       '<p class="helper" data-shift-period-note>'+esc(periodNote)+'</p>'+
-      '<div class="form-grid"><label class="field">Work date<input type="date" name="work_date" data-shift-work-date required value="'+esc(day)+'"></label>'+
-      '<label class="field">Location<select name="location_id" required><option value="">Choose location</option>'+locations.map(l=>'<option value="'+esc(l.id)+'" '+(String(chosenLocation)===String(l.id)?'selected':'')+'>'+esc(l.name)+'</option>').join('')+'</select></label>'+
-      '<label class="field">Shift type<select name="shift_type_id" required><option value="">Choose shift type</option>'+types.map(t=>'<option value="'+esc(t.id)+'" '+(String(chosenType)===String(t.id)?'selected':'')+'>'+esc(t.name)+'</option>').join('')+'</select></label>'+
-      '<label class="field">Start time<input type="time" name="start_time" required value="'+esc(edit.start_time||template?.start_time||'09:00')+'"></label>'+
+      '<div class="form-grid"><label class="field">Start time<input type="time" name="start_time" required value="'+esc(edit.start_time||template?.start_time||'09:00')+'"></label>'+
       '<label class="field">End time<input type="time" name="end_time" required value="'+esc(edit.end_time||template?.end_time||'13:00')+'"></label>'+
       '<label class="field">Break (minutes)<input type="number" name="break_minutes" min="0" max="720" value="'+esc(edit.break_minutes??template?.break_minutes??0)+'"></label></div>'+
       '<label class="field">Notes<textarea name="notes" rows="2">'+esc(edit.notes||'')+'</textarea></label>'+
@@ -366,16 +383,46 @@
         state.shiftPlannerDateShifts={day,shifts:result.shifts||[]};
         const selected=form.querySelector('[name="template_id"]')?.value||'';
         const editId=form.dataset.id||null;
-        const choices=availableTemplatesForDate(day,editId);
+        const locationId=form.querySelector('[name="location_id"]')?.value||'';
+        const shiftTypeId=form.querySelector('[name="shift_type_id"]')?.value||'';
+        const choices=availableTemplatesForDate(day,editId).filter(t=>
+          (!locationId||String(t.location_id)===String(locationId)) &&
+          (!shiftTypeId||String(t.shift_type_id)===String(shiftTypeId))
+        );
         const select=form.querySelector('[name="template_id"]');
         if(select){
-          select.innerHTML=templateOptionsMarkup(day,editId,choices.some(t=>String(t.id)===String(selected))?selected:'');
+          select.innerHTML=templateOptionsMarkup(day,editId,choices.some(t=>String(t.id)===String(selected))?selected:'',locationId,shiftTypeId);
+          select.disabled=!locationId||!shiftTypeId;
           if(!choices.some(t=>String(t.id)===String(selected))) select.value='';
         }
         const used=[...new Set(shiftsForDate(day,editId).map(s=>shiftPeriod(s.start_time)))];
         const note=form.querySelector('[data-shift-period-note]');
         if(note)note.textContent=used.length?used.map(p=>p+' shift already planned').join(' · ')+'. Only the other period is available.':'Choose an AM or PM pattern. You can add the other period afterwards.';
       }catch(error){state.shiftPlannerError=error.message||'Could not check shifts for this date.';paint();}
+      return;
+    }
+    if(target.matches('[name="location_id"]')){
+      const typeSelect=form.querySelector('[name="shift_type_id"]');
+      const patternSelect=form.querySelector('[name="template_id"]');
+      if(typeSelect){
+        typeSelect.innerHTML=shiftTypeOptionsMarkup(target.value,'');
+        typeSelect.disabled=!target.value;
+        typeSelect.value='';
+      }
+      if(patternSelect){
+        patternSelect.innerHTML=templateOptionsMarkup(form.elements.work_date.value,form.dataset.id||null,'',target.value,'');
+        patternSelect.disabled=true;
+        patternSelect.value='';
+      }
+      return;
+    }
+    if(target.matches('[name="shift_type_id"]')){
+      const patternSelect=form.querySelector('[name="template_id"]');
+      if(patternSelect){
+        patternSelect.innerHTML=templateOptionsMarkup(form.elements.work_date.value,form.dataset.id||null,'',form.elements.location_id.value,target.value);
+        patternSelect.disabled=!form.elements.location_id.value||!target.value;
+        patternSelect.value='';
+      }
       return;
     }
     if(target.matches('[name="template_id"]')){
