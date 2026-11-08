@@ -214,8 +214,8 @@
       '<label class="field">Choose shift type<select name="shift_type_id" data-shift-type required '+(!chosenLocation?'disabled':'')+'>'+shiftTypeOptionsMarkup(chosenLocation,chosenType)+'</select></label>'+
       '<label class="field">Choose shift pattern<select name="template_id" data-shift-template '+(!chosenLocation||!chosenType?'disabled':'')+'>'+templateOptionsMarkup(day,edit.id,template?.id,chosenLocation,chosenType)+'</select></label>'+
       '<p class="helper" data-shift-period-note>'+esc(periodNote)+'</p>'+
-      '<div class="form-grid"><label class="field">Start time<input type="time" name="start_time" required value="'+esc(edit.start_time||template?.start_time||'09:00')+'"></label>'+
-      '<label class="field">End time<input type="time" name="end_time" required value="'+esc(edit.end_time||template?.end_time||'13:00')+'"></label>'+
+      '<div class="form-grid"><label class="field">Start time<input type="time" name="start_time" step="900" required value="'+esc(edit.start_time||template?.start_time||'09:00')+'"></label>'+
+      '<label class="field">End time<input type="time" name="end_time" step="900" required value="'+esc(edit.end_time||template?.end_time||'13:00')+'"></label>'+
       '<label class="field">Break (minutes)<input type="number" name="break_minutes" min="0" max="720" value="'+esc(edit.break_minutes??template?.break_minutes??0)+'"></label></div>'+
       '<label class="field">Notes<textarea name="notes" rows="2">'+esc(edit.notes||'')+'</textarea></label>'+
       '<div class="button-row"><button class="primary-button" type="submit">'+(edit.id?'Save changes':'Save shift')+'</button></div></form></section>';
