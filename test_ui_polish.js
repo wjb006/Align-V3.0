@@ -36,8 +36,16 @@ if (!app.includes('function installPanel()') || !app.includes('data-action="prom
 if (!app.includes('form.checkValidity()') || !app.includes('function showFormError(') || !app.includes("addEventListener('invalid'")) throw new Error('Inline form validation is missing');
 if (!travel.includes('f.checkValidity()') || !travel.includes("message.classList.add('form-error')") || !travel.includes('id="travel-message"')) throw new Error('Travel form feedback is missing');
 
-if (!index.includes('156-v69') || !app.includes('`${BUILD_VERSION}-v69`') || !worker.includes('`${BUILD}-v69`')) throw new Error('Current app and offline cache asset versions do not match the shipped files');
-if (!index.includes('/visual-theme.css?v=156-v69') || !worker.includes('/visual-theme.css?v=${ASSET_VERSION}')) throw new Error('Navy visual theme is not loaded');
+const appBuild = app.match(/const BUILD_VERSION = (\d+);/);
+const appAssetVersion = app.match(/const ASSET_VERSION = `\$\{BUILD_VERSION\}-([^`]+)`/);
+const workerBuild = worker.match(/const BUILD = (\d+);/);
+const workerAssetVersion = worker.match(/const ASSET_VERSION = `\$\{BUILD\}-([^`]+)`/);
+if (!appBuild || !appAssetVersion || !workerBuild || !workerAssetVersion
+  || appBuild[1] !== workerBuild[1] || appAssetVersion[1] !== workerAssetVersion[1]) {
+  throw new Error('Current app and offline cache asset versions do not match the shipped files');
+}
+const assetVersion = `${appBuild[1]}-${appAssetVersion[1]}`;
+if (!index.includes(`?v=${assetVersion}`) || !index.includes(`/visual-theme.css?v=${assetVersion}`) || !worker.includes('/visual-theme.css?v=${ASSET_VERSION}')) throw new Error('Navy visual theme is not loaded');
 if (!worker.includes('align-v13-shell-${ASSET_VERSION}')) throw new Error('Service worker shell cache name changed');
 
 console.log('UI polish checks passed');
