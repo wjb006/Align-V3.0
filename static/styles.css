@@ -1187,3 +1187,86 @@ body[data-management-theme="light"] .guide-page { --guide-well: #f4f7fb; }
  .today-travel-connector .journey-time-icon small{font-size:.64rem}
  .today-travel-connector .journey-time-icon strong{font-size:.78rem}
 }
+
+/* Daily timeline: keep the schedule readable at iPhone widths without clipping route details. */
+.organiser-section-tile{border-color:color-mix(in srgb,var(--section-colour) 35%,var(--line))}
+.organiser-section-tile>b{color:var(--section-colour)}
+.today-reference-page{max-width:var(--shell);padding:8px 0 22px;min-width:0}
+.today-reference-header{min-width:0;gap:12px;padding:12px 14px;border:1px solid #28547a;border-radius:16px;background:#071a30}
+.today-reference-date{gap:11px;min-width:0}
+.today-reference-calendar{display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;border:1px solid #5b86ac;border-radius:12px;color:#d9ecff}
+.today-reference-calendar svg{width:26px;height:26px}
+.today-reference-date h1{min-width:0;margin:0;font-size:1.35rem;line-height:1.2;letter-spacing:-.03em;overflow-wrap:anywhere}
+.today-reference-total{flex:0 0 auto;gap:7px;padding:7px 10px;border:1px solid #365b7b;border-radius:12px;background:#102b47;font-size:.88rem;white-space:normal;text-align:center}
+.today-event-timeline{gap:14px;min-width:0}
+.today-location-block,.today-appointment-card,.today-travel-connector{width:100%;min-width:0}
+.today-location-block{gap:10px;padding:10px;border:2px solid #1688dc;border-radius:20px;background:#071a2d}
+.today-location-header{grid-template-columns:48px minmax(0,1fr) auto;gap:10px;padding:10px 11px;border:1px solid #24659c;border-radius:14px;background:#0d3154}
+.today-location-icon{width:44px;height:46px;padding-right:6px;border-right:1px solid #7fa8c8}
+.today-location-icon svg{width:38px;height:38px}
+.today-location-header>div>strong{font-size:1.12rem;line-height:1.2;overflow-wrap:anywhere}
+.today-location-header small{font-size:.82rem;line-height:1.35;overflow-wrap:anywhere}
+.today-location-span{align-self:start;padding:4px 7px;border-radius:8px;background:#071d33;font-size:.88rem;line-height:1.25}
+.today-inbound-travel{min-width:0;gap:8px;padding:9px 10px;border:1px solid #4d83ae;border-radius:12px;background:#0b2944}
+.today-inbound-travel>strong{justify-self:start;padding:0;background:transparent;color:#e5f3ff;font-size:.9rem}
+.today-inbound-travel>small{color:#c3d9ee;overflow-wrap:anywhere}
+.today-inbound-travel p,.today-route-unavailable p{margin:0;color:#d4e5f4;font-size:.86rem;line-height:1.4;overflow-wrap:anywhere}
+.today-inbound-travel.is-unavailable,.today-route-unavailable{border-color:#6b83a0;background:#0a2137}
+.today-location-areas{gap:8px;min-width:0}
+.today-location-area{grid-template-columns:48px minmax(0,1fr) auto;gap:10px;min-height:72px;padding:10px 12px;border:1px solid var(--area-colour,#16d5d0);border-radius:14px;background:#061426}
+.today-area-icon{width:42px;height:42px;padding-right:7px;border-right:1px solid #466579}
+.today-area-icon svg{width:34px;height:34px}
+.today-area-copy{gap:2px}
+.today-area-name{font-size:1rem;line-height:1.25;overflow-wrap:anywhere}
+.today-area-time{font-size:.88rem;line-height:1.25;white-space:nowrap}
+.today-area-duration{align-self:start;padding:5px 7px;border:1px solid #506b80;border-radius:8px;background:#0d2238;font-size:.9rem;line-height:1.2}
+.today-travel-connector{margin:0;padding:9px 11px;border:1px solid #4a7395;border-radius:14px;background:#091f34}
+.today-travel-connector .shift-travel-itinerary-wrap{grid-template-columns:minmax(0,1fr);gap:7px;margin:0}
+.today-travel-connector .shift-travel-itinerary-wrap>strong{font-size:.9rem}
+.today-travel-connector .shift-travel-itinerary-wrap>strong small{display:block;margin-top:3px;color:#c3d9ee;font-size:.8rem;font-weight:500;overflow-wrap:anywhere}
+.today-travel-connector .journey-itinerary-strip-detailed{display:flex;flex-wrap:wrap;align-items:stretch;gap:6px;min-width:0;overflow:visible}
+.today-travel-connector .journey-route-leg{flex:1 1 124px;min-width:0;max-width:100%;align-items:flex-start;padding:7px;border:1px solid #385b77;border-radius:10px;background:#0c2943}
+.today-travel-connector .journey-route-leg .journey-time-copy{min-width:0;overflow-wrap:anywhere}
+.today-travel-connector .journey-route-leg .journey-time-copy>small{display:block;white-space:normal;color:#c6d9e8;font-size:.74rem;line-height:1.25}
+.today-travel-connector .journey-route-leg .journey-time-copy>strong{display:block;font-size:.85rem;line-height:1.3;white-space:normal}
+.today-travel-connector .journey-route-service{color:#fff!important;font-weight:700}
+.today-travel-connector .journey-route-places{overflow-wrap:anywhere}
+.today-travel-connector .shift-travel-arrow{align-self:center}
+.today-travel-connector .journey-itinerary-strip-detailed>.shift-travel-arrow{display:none}
+.today-route-source{color:#bcd3e8;font-size:.76rem;line-height:1.35}
+.today-route-unavailable{display:grid;gap:3px;padding:4px 1px}
+.today-route-unavailable>strong{font-size:.9rem}
+.today-route-unavailable>small{color:#c3d9ee;font-size:.8rem;overflow-wrap:anywhere}
+.today-appointment-card{gap:10px;padding:12px;border:2px solid var(--appointment-colour,#a76aff);border-radius:20px;background:#21173a}
+.today-appointment-heading{grid-template-columns:44px minmax(0,1fr) auto;gap:10px}
+.today-appointment-icon{width:42px;height:42px;border-right:1px solid #c1a8e7}
+.today-appointment-icon svg{width:32px;height:32px}
+.today-appointment-heading>div>strong{font-size:1.12rem;line-height:1.2;overflow-wrap:anywhere}
+.today-appointment-heading small{font-size:.82rem;line-height:1.35;overflow-wrap:anywhere}
+.today-appointment-heading time{align-self:start;padding:5px 7px;border:1px solid #7656a0;border-radius:8px;background:#160f27;font-size:.88rem;line-height:1.25;white-space:normal;text-align:center}
+.today-appointment-notes{grid-template-columns:20px minmax(0,1fr) auto;gap:8px;padding:9px 10px;border:1px solid #7958a4;border-radius:12px;font-size:.88rem;line-height:1.4;overflow-wrap:anywhere}
+.today-appointment-notes>span:first-child{font-size:1rem}
+.today-appointment-notes strong{padding:4px 7px;border:1px solid #ac8acb;border-radius:8px;font-size:.8rem}
+.today-appointment-card[role=button]:focus-visible,.today-shift-area:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
+@media(max-width:420px){
+ .today-reference-header{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;padding:9px 10px}
+ .today-reference-date{gap:8px}
+ .today-reference-calendar{flex-basis:36px;width:36px;height:36px}
+ .today-reference-date h1{font-size:1.14rem}
+ .today-reference-total{justify-content:flex-start;justify-self:start;padding:5px 8px;font-size:.78rem}
+ .today-location-header{grid-template-columns:38px minmax(0,1fr);gap:8px;padding:8px}
+ .today-location-icon{width:35px;height:38px}
+ .today-location-icon svg{width:31px;height:31px}
+ .today-location-span{grid-column:2;justify-self:start}
+ .today-location-area{grid-template-columns:38px minmax(0,1fr) auto;gap:8px;padding:9px}
+ .today-area-icon{width:34px;height:36px}
+ .today-area-icon svg{width:28px;height:28px}
+ .today-area-time{font-size:.82rem}
+ .today-area-duration{padding:4px 5px;font-size:.8rem}
+ .today-appointment-heading{grid-template-columns:34px minmax(0,1fr);gap:7px}
+ .today-appointment-icon{width:32px;height:34px}
+ .today-appointment-icon svg{width:27px;height:27px}
+ .today-appointment-heading time{grid-column:2;justify-self:start}
+ .today-appointment-notes{grid-template-columns:16px minmax(0,1fr);gap:6px}
+ .today-appointment-notes strong{grid-column:2;justify-self:start}
+}
