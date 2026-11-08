@@ -46,10 +46,8 @@ jobs:
       - name: Test the desktop programme and build the Windows package
         shell: pwsh
         run: |
-          python -m pip install --upgrade pip pyinstaller
-          python -m pip install -r requirements.txt
+          powershell -NoProfile -ExecutionPolicy Bypass -File desktop/build_windows.ps1
           python -m unittest test_desktop_programme.py
-          python -m PyInstaller --noconfirm --clean desktop/align.spec
           if (-not (Test-Path "dist\Align\Align.exe")) { throw "Align.exe was not built" }
           if (-not (Test-Path "dist\Align\ocr\tesseract.exe")) { throw "The package is missing its bundled OCR engine" }
           if (-not (Test-Path "dist\Align\ocr\tessdata\eng.traineddata")) { throw "The package is missing the English OCR model" }

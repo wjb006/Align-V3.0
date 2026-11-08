@@ -25,6 +25,13 @@ class TestBuildIsolationTests(unittest.TestCase):
         self.assertIn('APP_NAME = "Align V3.0 Test" if TEST_BUILD else "Align"', spec)
         self.assertIn('$env:ALIGN_TEST_BUILD = "1"', build)
 
+    def test_production_workflow_uses_build_that_stages_ocr_runtime(self):
+        workflow = Path(".github/workflows/windows-studio-installer.yml").read_text(encoding="utf-8")
+        build = Path("desktop/build_windows.ps1").read_text(encoding="utf-8")
+        self.assertIn("desktop/build_windows.ps1", workflow)
+        self.assertIn("Copy-Item $TesseractExe $OcrRoot -Force", build)
+        self.assertIn('Copy-Item (Join-Path $TesseractSource "tessdata\\eng.traineddata") $OcrTessdata -Force', build)
+
 
 if __name__ == "__main__":
     unittest.main()
