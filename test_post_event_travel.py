@@ -82,6 +82,15 @@ class EventChangesTests(unittest.TestCase):
         self.assertEqual(route['destination_name'],'Stop B')
         self.assertTrue(route['departure'].startswith('2030-10-01T12:00'))
 
+    def test_overlapping_same_address_items_extend_the_stay(self):
+        first=self.event('2030-10-01T08:00','2030-10-01T12:00',location='Site A',title='One')
+        self.event('2030-10-01T12:30','2030-10-01T14:00',location='Site A',title='Two')
+        self.event('2030-10-01T13:30','2030-10-01T16:00',location='Site A',title='Three')
+        self.event('2030-10-01T16:30','2030-10-01T17:00',location='Site B',title='Stop B')
+        _,route=post.target(self.c,'event',first)
+        self.assertEqual(route['destination_name'],'Stop B')
+        self.assertTrue(route['departure'].startswith('2030-10-01T16:00'))
+
     def test_dashboard_includes_first_class_shifts_and_post_shift_travel(self):
         self.c.execute("INSERT INTO locations(id,name,address) VALUES(1,'Arrowe Park','Arrowe Park Road, Wirral')")
         self.c.execute("INSERT INTO shifts(id,work_date,start_time,end_time,location_id,location_name,shift_type_name,notes,hours,colour) VALUES(1,'2030-10-01','08:30','12:30',1,'Arrowe Park','Clinic','',4,'#365CE6')")

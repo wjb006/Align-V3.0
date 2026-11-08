@@ -57,7 +57,7 @@ def target(c, kind, ident, items=None, home=None):
     # different address within the hour is the destination.
     next_event = None
     while True:
-        candidates = sorted((e for e in items if (e['kind'],e['id'])!=(kind,ident) and e['location'].strip() and not e['all_day'] and end <= instant(e['start_at']) <= end+timedelta(hours=1)), key=lambda e:(instant(e['start_at']),e['kind'],e['id']))
+        candidates = sorted((e for e in items if (e['kind'],e['id'])!=(kind,ident) and e['location'].strip() and not e['all_day'] and instant(e['start_at']) <= end+timedelta(hours=1) and (end <= instant(e['start_at']) or (norm(e) == origin_key and instant(e['end_at']) > end))), key=lambda e:(instant(e['start_at']),e['kind'],e['id']))
         if not candidates: break
         first = candidates[0]
         if norm(first) != origin_key:
