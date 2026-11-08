@@ -482,9 +482,10 @@ class RotaImportTests(unittest.TestCase):
                 raise rota_ocr_provider.OcrError('invalid test image')
         with mock.patch.object(rota_ocr_provider, 'get_provider', return_value=BrokenProvider()):
             photo = self.upload('rota.heic', heic(), 'image/heic')
+            available = rota_ocr_provider.is_available()
         self.assertEqual(photo['import']['status'], 'failed')
         self.assertEqual(photo['import']['error_code'], 'ocr_failed')
-        self.assertEqual(photo['capabilities']['image_ocr'], rota_ocr_provider.is_available())
+        self.assertEqual(photo['capabilities']['image_ocr'], available)
         self.assertEqual(rota_file_processor.cleanup_abandoned(max_age=-1) >= 0, True)
         self.assertFalse(any(rota_file_processor.temp_root().glob('rota-*')))
 

@@ -51,11 +51,23 @@ def target(c, kind, ident, items=None, home=None):
     if not event: raise ValueError('Event no longer exists.')
     end = instant(event['end_at'])
     origin_key = ' '.join(str(event.get('location') or '').casefold().split())
-    following = sorted((e for e in items if (e['kind'],e['id'])!=(kind,ident) and e['location'].strip() and ' '.join(str(e.get('location') or '').casefold().split()) != origin_key and not e['all_day'] and end <= instant(e['start_at']) <= end+timedelta(hours=1)), key=lambda e:(instant(e['start_at']),e['kind'],e['id']))
+    norm = lambda e: ' '.join(str(e.get('location') or '').casefold().split())
+    # Walk the following located items chronologically. Back-to-back items at the
+    # same address extend the stay (and the departure); the first item at a
+    # different address within the hour is the destination.
+    next_event = None
+    while True:
+        candidates = sorted((e for e in items if (e['kind'],e['id'])!=(kind,ident) and e['location'].strip() and not e['all_day'] and instant(e['start_at']) <= end+timedelta(hours=1) and (end <= instant(e['start_at']) or (norm(e) == origin_key and instant(e['end_at']) > end))), key=lambda e:(instant(e['start_at']),e['kind'],e['id']))
+        if not candidates: break
+        first = candidates[0]
+        if norm(first) != origin_key:
+            next_event = first
+            break
+        end = max(end, instant(first['end_at']))
+        items = [e for e in items if (e['kind'],e['id'])!=(first['kind'],first['id'])]
     if home is None:
         row = c.execute("SELECT setting_value FROM settings WHERE setting_key='user_address'").fetchone()
         home = row[0] if row else ''
-    next_event = following[0] if following else None
     return event, dict(origin=event['location'],destination=next_event['location'] if next_event else home,
                        destination_name=next_event['title'] if next_event else 'Home',departure=end.isoformat(),
                        deadline=next_event['start_at'] if next_event else '',all_day=bool(event['all_day']))

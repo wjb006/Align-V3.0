@@ -4,7 +4,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-if os.name == "nt":
+# Entry script only: importing it (e.g. by test discovery) must not mutate the environment.
+if os.name == "nt" and __name__ == "__main__":
     local = Path(os.environ.get("LOCALAPPDATA") or (Path.home() / "AppData" / "Local"))
     os.environ["ALIGN_DATA_DIR"] = str(local / "Align-Test")
     # Never adopt or copy the user's normal Align database into this test build.
