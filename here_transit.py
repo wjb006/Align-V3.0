@@ -20,13 +20,14 @@ class HERETransitProvider:
         selected = set(modes or [])
         allowed = [m for group, names in [('bus', BUS), ('rail', RAIL)]
                    if group in selected for m in names]
-        if 'walk' in selected:
-            allowed.append('pedestrian')
+        # HERE's Transit API accepts only public-transport modes in
+        # the modes filter. Walking access/egress is configured separately.
         if not allowed:
             raise ValueError('Select bus or train travel for HERE transit routing.')
         params = dict(origin=','.join(map(str, origin)),
                       destination=','.join(map(str, destination)),
                       arrivalTime=target.isoformat(), modes=','.join(allowed),
+                      **{'pedestrian[maxDistance]': 2000 if 'walk' in selected else 0},
                       alternatives=3, lang='en-GB', apiKey=key)
         if depart_after: params['departureTime'] = params.pop('arrivalTime')
         from here_quota import reserve
