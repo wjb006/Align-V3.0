@@ -71,6 +71,16 @@ class EventChangesTests(unittest.TestCase):
         _, route=post.target(self.c,'shift',1)
         self.assertEqual(route['destination'],'Arrowe Park Medical Centre, Wirral')
         self.assertEqual(route['destination_name'],'GP Appointment')
+        self.assertTrue(route['departure'].startswith('2030-10-01T16:30'))
+
+    def test_stay_extension_stops_when_another_address_intervenes(self):
+        self.event('2030-10-01T08:00','2030-10-01T12:00',location='Site A',title='AM')
+        self.event('2030-10-01T12:15','2030-10-01T12:30',location='Site B',title='Stop B')
+        self.event('2030-10-01T12:45','2030-10-01T16:00',location='Site A',title='PM')
+        first=self.c.execute("SELECT id FROM organiser_events WHERE title='AM'").fetchone()[0]
+        _,route=post.target(self.c,'event',first)
+        self.assertEqual(route['destination_name'],'Stop B')
+        self.assertTrue(route['departure'].startswith('2030-10-01T12:00'))
 
     def test_dashboard_includes_first_class_shifts_and_post_shift_travel(self):
         self.c.execute("INSERT INTO locations(id,name,address) VALUES(1,'Arrowe Park','Arrowe Park Road, Wirral')")
