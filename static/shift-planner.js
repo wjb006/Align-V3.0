@@ -112,12 +112,28 @@
     return '<option value="">'+(locationId?(options.length?'Choose shift type':'No shift types configured'):'Choose a workplace first')+'</option>'+
       options.map(t=>'<option value="'+esc(t.id)+'" '+(String(selectedId||'')===String(t.id)?'selected':'')+'>'+esc(t.name)+'</option>').join('');
   }
-  function templateOptionsMarkup(day, editId, selectedId, locationId, shiftTypeId) {
-    const options=availableTemplatesForDate(day,editId).filter(t=>
+  function selectedShiftDays(form) {
+    return [...form.querySelectorAll('[name="selected_days"]:checked')].map(input=>input.value).sort();
+  }
+  function addShiftDaysMarkup(day, selectedDays) {
+    const start=monday(day), chosen=new Set(selectedDays||[day]);
+    return '<div class="field add-shift-days-field"><span class="field-label">Select days to add shifts</span><p class="helper">Choose every day this shift should be added to. You only need to set the workplace and shift once.</p><div class="add-shift-days-grid">'+Array.from({length:7},(_,i)=>{
+      const date=shiftDay(start,i), label=fmtDay(date);
+      return '<label class="add-shift-day-option"><input type="checkbox" name="selected_days" value="'+date+'" '+(chosen.has(date)?'checked':'')+'><span><strong>'+esc(label.split(' ')[0])+'</strong><small>'+esc(date.slice(8,10)+'/'+date.slice(5,7))+'</small></span></label>';
+    }).join('')+'</div></div>';
+  }
+  function templateOptionsMarkup(day, editId, selectedId, locationId, shiftTypeId, days) {
+    const selectedDays=(days&&days.length?days:[day]).filter(Boolean);
+    let options=availableTemplatesForDate(selectedDays[0]||day,editId);
+    for(const date of selectedDays.slice(1)){
+      const available=new Set(availableTemplatesForDate(date,editId).map(t=>String(t.id)));
+      options=options.filter(t=>available.has(String(t.id)));
+    }
+    options=options.filter(t=>
       (!locationId || String(t.location_id)===String(locationId)) &&
       (!shiftTypeId || String(t.shift_type_id)===String(shiftTypeId))
     );
-    const prompt=!locationId?'Choose a workplace first':!shiftTypeId?'Choose a shift type first':options.length?'Choose a saved shift pattern':'No matching patterns remain for this day';
+    const prompt=!selectedDays.length?'Select at least one day first':!locationId?'Choose a workplace first':!shiftTypeId?'Choose a shift type first':options.length?'Choose a saved shift pattern':'No matching patterns are available on every selected day';
     return '<option value="">'+prompt+'</option>'+
       options.map(t=>'<option value="'+esc(t.id)+'" '+(String(selectedId||'')===String(t.id)?'selected':'')+'>'+esc(t.label+' ('+t.start_time+'–'+t.end_time+')')+'</option>').join('');
   }
@@ -207,18 +223,19 @@
     const used=shiftsForDate(day,edit.id);
     const usedPeriods=[...new Set(used.map(s=>shiftPeriod(s.start_time)))];
     const periodNote=usedPeriods.length?usedPeriods.map(p=>p+' shift already planned').join(' · ')+'. Only the other period is available.':'Choose an AM or PM pattern. You can add the other period afterwards.';
-    return '<section class="card restored-planner-form" id="shift-planner-form"><div class="section-head"><div><p class="eyebrow">'+(edit.id?'Edit shift':'Plan a shift')+'</p><h2>'+(edit.id?'Update shift':'Add shift')+'</h2></div><button class="secondary-button" data-shift-action="close-form">Close</button></div>'+
+    const initialDays=edit.id?[]:[state.shiftPlannerSelectedDay||day];
+    return '<section class="card restored-planner-form" id="shift-planner-form"><div class="section-head"><div><p class="eyebrow">'+(edit.id?'Edit shift':'Plan a shift')+'</p><h2>'+(edit.id?'Update shift':'Add shifts')+'</h2></div><button class="secondary-button" data-shift-action="close-form">Close</button></div>'+
       '<form data-shift-form="shift" data-id="'+esc(edit.id||'')+'">'+
-      '<label class="field">Work date<input type="date" name="work_date" data-shift-work-date required value="'+esc(day)+'"></label>'+
+      (edit.id?'<label class="field">Work date<input type="date" name="work_date" data-shift-work-date required value="'+esc(day)+'"></label>':addShiftDaysMarkup(day,initialDays))+
       '<label class="field">Choose where<select name="location_id" data-shift-location required><option value="">Choose a workplace</option>'+locations.map(l=>'<option value="'+esc(l.id)+'" '+(String(chosenLocation)===String(l.id)?'selected':'')+'>'+esc(l.name)+'</option>').join('')+'</select></label>'+
       '<label class="field">Choose shift type<select name="shift_type_id" data-shift-type required '+(!chosenLocation?'disabled':'')+'>'+shiftTypeOptionsMarkup(chosenLocation,chosenType)+'</select></label>'+
-      '<label class="field">Choose shift pattern<select name="template_id" data-shift-template '+(!chosenLocation||!chosenType?'disabled':'')+'>'+templateOptionsMarkup(day,edit.id,template?.id,chosenLocation,chosenType)+'</select></label>'+
+      '<label class="field">Choose shift pattern<select name="template_id" data-shift-template '+(!chosenLocation||!chosenType?'disabled':'')+'>'+templateOptionsMarkup(day,edit.id,template?.id,chosenLocation,chosenType,initialDays)+'</select></label>'+
       '<p class="helper" data-shift-period-note>'+esc(periodNote)+'</p>'+
       '<div class="form-grid"><label class="field">Start time<input type="time" name="start_time" step="900" required value="'+esc(edit.start_time||template?.start_time||'09:00')+'"></label>'+
       '<label class="field">End time<input type="time" name="end_time" step="900" required value="'+esc(edit.end_time||template?.end_time||'13:00')+'"></label>'+
       '<label class="field">Break (minutes)<input type="number" name="break_minutes" min="0" max="720" value="'+esc(edit.break_minutes??template?.break_minutes??0)+'"></label></div>'+
       '<label class="field">Notes<textarea name="notes" rows="2">'+esc(edit.notes||'')+'</textarea></label>'+
-      '<div class="button-row"><button class="primary-button" type="submit">'+(edit.id?'Save changes':'Save shift')+'</button></div></form></section>';
+      '<div class="button-row"><button class="primary-button" type="submit">'+(edit.id?'Save changes':'Add shifts to selected days')+'</button></div></form></section>';
   }
   function leaveForm() {
     return '<section class="card restored-planner-form"><div class="section-head"><div><p class="eyebrow">Time off</p><h2>Book annual leave</h2></div><button class="secondary-button" data-shift-action="close-form">Close</button></div>'+
@@ -401,6 +418,18 @@
       }catch(error){state.shiftPlannerError=error.message||'Could not check shifts for this date.';paint();}
       return;
     }
+    if(target.matches('[name="selected_days"]')){
+      const patternSelect=form.querySelector('[name="template_id"]');
+      const dates=selectedShiftDays(form);
+      if(patternSelect){
+        patternSelect.innerHTML=templateOptionsMarkup(dates[0]||state.shiftPlannerSelectedDay||state.plannerAnchor,form.dataset.id||null,'',form.elements.location_id.value,form.elements.shift_type_id.value,dates);
+        patternSelect.disabled=!dates.length||!form.elements.location_id.value||!form.elements.shift_type_id.value;
+        patternSelect.value='';
+      }
+      const note=form.querySelector('[data-shift-period-note]');
+      if(note)note.textContent=dates.length?dates.length+' day'+(dates.length===1?'':'s')+' selected. One shift setup will be applied to all selected days.':'Select at least one day to continue.';
+      return;
+    }
     if(target.matches('[name="location_id"]')){
       const typeSelect=form.querySelector('[name="shift_type_id"]');
       const patternSelect=form.querySelector('[name="template_id"]');
@@ -410,7 +439,8 @@
         typeSelect.value='';
       }
       if(patternSelect){
-        patternSelect.innerHTML=templateOptionsMarkup(form.elements.work_date.value,form.dataset.id||null,'',target.value,'');
+        const dates=form.dataset.id?[form.elements.work_date.value]:selectedShiftDays(form);
+        patternSelect.innerHTML=templateOptionsMarkup(dates[0]||day,form.dataset.id||null,'',target.value,'',dates);
         patternSelect.disabled=true;
         patternSelect.value='';
       }
@@ -419,7 +449,8 @@
     if(target.matches('[name="shift_type_id"]')){
       const patternSelect=form.querySelector('[name="template_id"]');
       if(patternSelect){
-        patternSelect.innerHTML=templateOptionsMarkup(form.elements.work_date.value,form.dataset.id||null,'',form.elements.location_id.value,target.value);
+        const dates=form.dataset.id?[form.elements.work_date.value]:selectedShiftDays(form);
+        patternSelect.innerHTML=templateOptionsMarkup(dates[0]||day,form.dataset.id||null,'',form.elements.location_id.value,target.value,dates);
         patternSelect.disabled=!form.elements.location_id.value||!target.value;
         patternSelect.value='';
       }
@@ -532,9 +563,24 @@
       const values=formObject(form), kind=form.dataset.shiftForm;
       if(kind==='shift'){
         const id=form.dataset.id;
-        if(id) await api('/api/shifts/'+id,{method:'PUT',body:values});
-        else await api('/api/shifts',{method:'POST',body:values});
-        if(typeof toast==='function')toast(id?'Shift updated.':'Shift saved.');
+        if(id) {
+          await api('/api/shifts/'+id,{method:'PUT',body:values});
+          if(typeof toast==='function')toast('Shift updated.');
+        } else {
+          const days=selectedShiftDays(form);
+          if(!days.length)throw new Error('Select at least one day to add shifts.');
+          delete values.selected_days;
+          delete values.work_date;
+          let saved=0;
+          for(const work_date of days){
+            try{await api('/api/shifts',{method:'POST',body:{...values,work_date}});saved++;}
+            catch(error){
+              if(saved&&typeof toast==='function')toast(saved+' shift'+(saved===1?'':'s')+' saved; '+work_date+' failed: '+(error.message||'unknown error'));
+              throw error;
+            }
+          }
+          if(typeof toast==='function')toast(saved+' shift'+(saved===1?'':'s')+' added across '+days.length+' selected day'+(days.length===1?'':'s')+'.');
+        }
       } else if(kind==='leave'){
         await api('/api/annual-leave',{method:'POST',body:values});if(typeof toast==='function')toast('Annual leave booked.');
       } else if(kind==='location'){
