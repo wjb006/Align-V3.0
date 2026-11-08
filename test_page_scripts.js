@@ -258,7 +258,7 @@ runPage(planner, `
   };
   state.sectionDefinitions = [];
   const screens = {
-    today: 'Nothing scheduled for today.',
+    today: 'Daily schedule summary',
     inbox: 'Inbox',
     sections: 'Work Calendar',
     more: 'Work settings',
@@ -307,7 +307,7 @@ runPage(planner, `
   if (work.includes('Unable to load Align') || !work.includes('Work Settings')) missing.push('work-setup did not render');
   state.tab = 'missing-screen';
   render();
-  if (!document.querySelector('#app').innerHTML.includes('Nothing scheduled for today.')) missing.push('unknown tab did not fall back to home');
+  if (!document.querySelector('#app').innerHTML.includes('Daily schedule summary')) missing.push('unknown tab did not fall back to home');
   if (missing.length) throw new Error(missing.join('; '));
   globalThis.renderWorkSetup = undefined;
   state.tab = 'work-setup';

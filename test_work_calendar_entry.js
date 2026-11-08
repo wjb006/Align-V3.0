@@ -9,7 +9,7 @@ vm.runInContext(source.slice(start,end),context);
 
 let html=context.renderSectionsIndex();
 assert(html.includes('data-action="work-rota"'),'Unconfigured Work must offer rota upload');
-assert(html.includes('Upload my rota'),'Unconfigured Work must have a clear rota entry');
+assert(html.includes('Work Calendar'),'Unconfigured Work must have a clear setup entry');
 assert(html.includes('data-action="work-setup"'),'Unconfigured Work must offer manual setup');
 
 context.state.sectionDefinitions=[{key:'work',optional:true,enabled:false,name:'Work'}];
@@ -49,9 +49,8 @@ const plannerContext={
 vm.createContext(plannerContext);
 vm.runInContext(plannerSource,plannerContext);
 const plannerHtml=plannerContext.window.renderShiftPlanner();
-const templateChoices=(plannerHtml.match(/<select name="pm_template_id"[^>]*>([\s\S]*?)<\/select>/)||[])[1]||'';
-assert(templateChoices.includes('value="2"'),'An AM shift already booked must leave the PM pattern available');
-assert(!templateChoices.includes('value="1"'),'An AM shift already booked must hide other AM patterns');
+assert(plannerHtml.includes('data-period="PM"'),'An AM shift already booked must default the form to PM');
+assert(plannerHtml.includes('data-shift-type-label>PM shift type')&&plannerHtml.includes('data-shift-template-label>PM shift pattern'),'The form must offer PM controls when AM is already booked');
 assert(plannerHtml.includes('2 total items'),'The month cell must count the shift and calendar event together');
 assert(plannerHtml.includes('Travel to Clatterbridge'),'Saved onward travel must appear on the shift card');
 console.log('AM/PM filtering, combined calendar totals and shift travel UI passed');

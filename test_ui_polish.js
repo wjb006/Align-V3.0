@@ -39,8 +39,14 @@ if (!app.includes('form.checkValidity()') || !app.includes('function showFormErr
 if (!travel.includes('f.checkValidity()') || !travel.includes("message.classList.add('form-error')") || !travel.includes('id="travel-message"')) throw new Error('Travel form feedback is missing');
 
 if (!buildVersion || !assetVersion) throw new Error('App build and asset versions are missing');
+const workerBuild = worker.match(/const BUILD = (\d+);/);
+const workerAssetVersion = worker.match(/const ASSET_VERSION = `\$\{BUILD\}-([^`]+)`/);
+if (!workerBuild || !workerAssetVersion
+  || buildVersion[1] !== workerBuild[1] || assetVersion[1] !== workerAssetVersion[1]) {
+  throw new Error('Current app and offline cache asset versions do not match the shipped files');
+}
 const currentAssetVersion = `${buildVersion[1]}-${assetVersion[1]}`;
-if (!index.includes(currentAssetVersion) || !app.includes('`${BUILD_VERSION}-' + assetVersion[1] + '`') || !worker.includes('`${BUILD}-' + assetVersion[1] + '`')) throw new Error('Current app and offline cache asset versions do not match the shipped files');
+if (!index.includes(`?v=${currentAssetVersion}`) || !app.includes('`${BUILD_VERSION}-' + assetVersion[1] + '`') || !worker.includes('`${BUILD}-' + assetVersion[1] + '`')) throw new Error('Current app and offline cache asset versions do not match the shipped files');
 if (!index.includes(`/visual-theme.css?v=${currentAssetVersion}`) || !worker.includes('/visual-theme.css?v=${ASSET_VERSION}')) throw new Error('Navy visual theme is not loaded');
 if (!worker.includes('align-v13-shell-${ASSET_VERSION}')) throw new Error('Service worker shell cache name changed');
 
