@@ -45,12 +45,13 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install --upgrade pip pyinstaller
-          python -m pip install -r requirements.txt
+          python -m pip install -r requirements.txt pytest
 
       - name: Run Align, Work rota, OCR and authentication tests
         shell: pwsh
         run: |
-          python -m unittest test_test_build_isolation.py test_rota_ocr_provider.py test_work_setup.py test_work_rota_import.py test_desktop_auth.py test_desktop_auth_http.py test_desktop_programme.py test_desktop_update.py test_owner_builder.py test_admin_owner_status.py test_studio150.py test_asset_studio_migration.py test_studio_update.py test_studio_deploy.py test_studio_render_deploy.py test_personal_planner.py test_post_event_travel.py test_personal_otp.py test_transport_build149.py test_here_transit.py test_here_quota.py test_hosted_travel.py test_hosted_persistence.py test_month_calendar.py test_event_calendar_feed.py test_week_reminders151.py test_builder_finance.py test_builder_formatting.py test_local_backup.py test_ui_polish.py test_calendar_appearance.py test_phone_push.py test_credential_recovery.py
+          python -m unittest test_test_build_isolation.py test_rota_ocr_provider.py test_work_setup.py test_work_rota_import.py test_desktop_auth.py test_desktop_auth_http.py test_desktop_programme.py test_desktop_update.py test_owner_builder.py test_admin_owner_status.py test_studio150.py test_asset_studio_migration.py test_studio_update.py test_studio_deploy.py test_studio_render_deploy.py test_personal_planner.py test_post_event_travel.py test_personal_otp.py test_transport_build149.py test_hosted_persistence.py test_month_calendar.py test_event_calendar_feed.py test_week_reminders151.py test_builder_finance.py test_builder_formatting.py test_local_backup.py test_ui_polish.py test_calendar_appearance.py test_phone_push.py test_credential_recovery.py
+          python -m pytest -q test_here_transit.py test_here_quota.py test_hosted_travel.py
 
       - name: Check frontend and launcher
         shell: pwsh
