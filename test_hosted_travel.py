@@ -34,4 +34,4 @@ def test_hosted_travel_uses_here_and_caches_without_coordinates():
 
 def test_here_status_does_not_claim_otp_is_hosted_routing():
     with patch.dict(travel.os.environ, {'ALIGN_JOURNEY_PROVIDER':'here','ALIGN_HERE_ROUTING_KEY':'','ALIGN_HERE_TRANSIT_ENABLED':'1','ALIGN_OTP_URL':'http://localhost:8080'}):
-        assert travel.routing_status() == {'provider':'HERE','routing_configured':False}
+        assert travel.routing_status() == {'provider':'HERE','routing_configured':False,'driving_configured':False,'transit_configured':False,'geocoding_configured':False}
