@@ -393,6 +393,20 @@
     }
     return rows.length?'<div class="restored-week-list">'+rows.join('')+'</div>':'<p class="empty">Nothing planned this month.</p>';
   }
+  function reviewMarkup() {
+    const review=state.shiftPlannerReview;
+    if(!review||!Array.isArray(review.shifts))return '<section class="card restored-planner-form"><p>There is no shift review to display.</p><button class="secondary-button" data-shift-action="close-form">Close</button></section>';
+    const grouped=new Map();
+    for(const shift of review.shifts){if(!grouped.has(shift.work_date))grouped.set(shift.work_date,[]);grouped.get(shift.work_date).push(shift);}
+    const rows=[...grouped.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([day,items])=>
+      '<section class="restored-planner-day"><h3>'+esc(fmtDay(day))+'</h3>'+items.map(item=>
+        '<article class="card restored-shift-card"><div class="restored-shift-top"><div><strong>'+esc(item._location_name)+' · '+esc(item._type_name)+'</strong>'+
+        (item._automatic?'<p class="helper">Automatically filled weekend rule</p>':'')+'</div><strong>'+esc(item.start_time)+'–'+esc(item.end_time)+'</strong></div>'+
+        '<p class="helper">'+esc(Number(item.break_minutes||0))+' min break</p></article>').join('')+'</section>').join('');
+    return '<section class="card restored-planner-form" data-shift-review><div class="section-head"><div><p class="eyebrow">Final check</p><h2>Review shifts before saving</h2><p class="helper">'+review.shifts.length+' shifts across '+review.selectedDays.length+' selected days. Nothing has been saved yet.</p></div></div>'+
+      rows+(review.notes?'<p class="helper">Notes: '+esc(review.notes)+'</p>':'')+
+      '<div class="button-row"><button type="button" class="secondary-button" data-shift-action="review-edit">Back to edit</button><button type="button" class="primary-button" data-shift-action="review-confirm">Confirm and save all shifts</button></div></section>';
+  }
   function render() {
     init();
     if (!state.shiftPlannerData && !state.shiftPlannerLoading && !state.shiftPlannerError) { void load(); }
@@ -420,7 +434,7 @@
       (state.shiftPlannerError?'<div class="card planner-error" role="alert">'+esc(state.shiftPlannerError)+'<button class="secondary-button" data-shift-action="retry">Retry</button></div>':'')+
       (state.shiftPlannerLoading?'<p class="empty" role="status">Loading planner…</p>':'')+
       '<div class="button-row restored-planner-actions"><button class="primary-button" data-shift-action="add">＋ Add shift</button><button class="secondary-button" data-shift-action="leave">Book annual leave</button><button class="secondary-button" data-shift-action="patterns">Manage patterns</button><button class="secondary-button" data-shift-action="work-settings">Work settings</button><button class="secondary-button" data-shift-action="settings">Planner settings</button><button class="secondary-button" data-nav="sections">Manage events</button></div>'+
-      (state.shiftPlannerModal==='add'?formMarkup():state.shiftPlannerModal==='edit'?formMarkup(state.shiftPlannerEdit||{}):state.shiftPlannerModal==='leave'?leaveForm():state.shiftPlannerModal==='patterns'?patternManager():'')+
+      (state.shiftPlannerModal==='add'?formMarkup():state.shiftPlannerModal==='edit'?formMarkup(state.shiftPlannerEdit||{}):state.shiftPlannerModal==='leave'?leaveForm():state.shiftPlannerModal==='patterns'?patternManager():state.shiftPlannerModal==='review'?reviewMarkup():'')+
       (state.plannerMode==='week'?'<div class="restored-week-list">'+list+'</div>':list)+
       '<p class="helper">Shifts are checked for overlaps and clashes with your existing Align and imported calendar events.</p></section>';
   }
@@ -478,6 +492,11 @@
       return;
     }
     if(target.matches('[name="selected_days"]')){
+      const dates=selectedShiftDays(form);
+      const weekendOnly=dates.length>0&&dates.every(weekendDefault);
+      ['location_id','shift_type_id','start_time','end_time'].forEach(name=>{const field=form.querySelector('[name="'+name+'"]');if(field)field.required=!weekendOnly;});
+      const note=form.querySelector('[data-shift-period-note]');
+      if(weekendOnly&&note)note.textContent='Saturday and Sunday will automatically be added as Arrowe Park Wards, 07:30–11:30.';
       const patternSelect=form.querySelector('[name="template_id"]');
       const dates=selectedShiftDays(form);
       if(patternSelect){
@@ -557,6 +576,20 @@
     if(!action)return;
     event.preventDefault();
     try {
+      if(action==='review-edit'||action==='review-cancel'){state.shiftPlannerModal='add';state.shiftPlannerReview=null;paint();return;}
+      if(action==='review-confirm'){
+        const drafts=state.shiftPlannerReview?.shifts||[];
+        if(!drafts.length)throw new Error('There are no shifts to save.');
+        let saved=0;
+        for(const draft of drafts){
+          const body={...draft};delete body._location_name;delete body._type_name;delete body._automatic;
+          try{await api('/api/shifts',{method:'POST',body});saved++;}
+          catch(error){if(typeof toast==='function')toast(saved+' of '+drafts.length+' shifts saved. The remaining shifts were not saved: '+(error.message||'unknown error'));throw error;}
+        }
+        state.shiftPlannerReview=null;state.shiftPlannerModal='';
+        if(typeof toast==='function')toast(saved+' shifts saved after review. Weekend defaults and Friday finish times applied.');
+        await reload();return;
+      }
       if(action==='previous'||action==='next'){state.shiftPlannerSelectedDay=null;
         if(state.plannerMode!=='week'){
           const current=new Date(state.plannerAnchor.slice(0,7)+'-01T12:00:00');
@@ -673,28 +706,28 @@
           });
           if(conflicts.length)throw new Error('A shift already exists in the required AM/PM period on '+conflicts.map(fmtDay).join(', ')+'. Remove those days or choose different days.');
           delete values.add_pm_shift;delete values.pm_template_id;delete values.pm_shift_type_id;delete values.pm_start_time;delete values.pm_end_time;delete values.pm_break_minutes;
-          let saved=0;
+          const drafts=[];
           for(const work_date of days){
-            try{
-              if(weekendDefault(work_date)){
-                await api('/api/shifts',{method:'POST',body:{
-                  location_id:weekendRule.location.id,shift_type_id:weekendRule.type.id,
-                  start_time:'07:30',end_time:'11:30',break_minutes:0,notes:values.notes||'',work_date
-                }});saved++;
-              } else {
-                const amTimes=shiftRuleTimes(values.location_id,values.shift_type_id,values.start_time,values.end_time,work_date);
-                await api('/api/shifts',{method:'POST',body:{...values,...amTimes,work_date}});saved++;
-                if(addPm){
-                  const pmTimes=shiftRuleTimes(pmValues.location_id,pmValues.shift_type_id,pmValues.start_time,pmValues.end_time,work_date);
-                  await api('/api/shifts',{method:'POST',body:{...pmValues,...pmTimes,work_date}});saved++;
-                }
+            if(weekendDefault(work_date)){
+              drafts.push({location_id:weekendRule.location.id,shift_type_id:weekendRule.type.id,
+                start_time:'07:30',end_time:'11:30',break_minutes:0,notes:values.notes||'',work_date,
+                _location_name:weekendRule.location.name,_type_name:weekendRule.type.name,_automatic:true});
+            } else {
+              const amTimes=shiftRuleTimes(values.location_id,values.shift_type_id,values.start_time,values.end_time,work_date);
+              const location=(state.shiftPlannerData?.locations||[]).find(x=>String(x.id)===String(values.location_id));
+              const type=(state.shiftPlannerData?.shift_types||[]).find(x=>String(x.id)===String(values.shift_type_id));
+              drafts.push({...values,...amTimes,work_date,_location_name:location?.name||'Workplace',_type_name:type?.name||'AM shift',_automatic:false});
+              if(addPm){
+                const pmTimes=shiftRuleTimes(pmValues.location_id,pmValues.shift_type_id,pmValues.start_time,pmValues.end_time,work_date);
+                const pmType=(state.shiftPlannerData?.shift_types||[]).find(x=>String(x.id)===String(pmValues.shift_type_id));
+                drafts.push({...pmValues,...pmTimes,work_date,_location_name:location?.name||'Workplace',_type_name:pmType?.name||'PM shift',_automatic:false});
               }
-            }catch(error){
-              if(saved&&typeof toast==='function')toast(saved+' shift'+(saved===1?'':'s')+' saved before '+work_date+' failed: '+(error.message||'unknown error'));
-              throw error;
             }
           }
-          if(typeof toast==='function')toast(saved+' shift'+(saved===1?'':'s')+' added across '+days.length+' selected day'+(days.length===1?'':'s')+(addPm?' (PM added on weekdays; weekends use the Arrowe Park default).':'.')+' Workplace rules, including Friday finish times, applied.');
+          state.shiftPlannerReview={shifts:drafts,selectedDays:days.slice(),notes:values.notes||''};
+          state.shiftPlannerModal='review';
+          paint();
+          return;
         }
       } else if(kind==='leave'){
         await api('/api/annual-leave',{method:'POST',body:values});if(typeof toast==='function')toast('Annual leave booked.');
