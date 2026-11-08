@@ -17,8 +17,13 @@ class HERETransitProvider:
         key = os.environ.get('ALIGN_HERE_ROUTING_KEY')
         if not key:
             raise ValueError('The owner needs to configure the HERE routing key on the hosted server.')
+        selected = set(modes or [])
         allowed = [m for group, names in [('bus', BUS), ('rail', RAIL)]
-                   if group in modes for m in names]
+                   if group in selected for m in names]
+        if 'walk' in selected:
+            allowed.append('pedestrian')
+        if not allowed:
+            raise ValueError('Select bus or train travel for HERE transit routing.')
         params = dict(origin=','.join(map(str, origin)),
                       destination=','.join(map(str, destination)),
                       arrivalTime=target.isoformat(), modes=','.join(allowed),
@@ -37,7 +42,7 @@ class HERETransitProvider:
                     raw_mode = transport.get('mode')
                     mode = ('walk' if raw_mode == 'pedestrian' else
                             'bus' if raw_mode in BUS else 'rail' if raw_mode in RAIL else None)
-                    if mode not in modes:
+                    if mode not in selected:
                         legs = []
                         break
                     departure, arrival = section['departure'], section['arrival']
@@ -59,16 +64,24 @@ class HERETransitProvider:
                     if legs and start < datetime.fromisoformat(legs[-1]['end']):
                         legs = []
                         break
+                    minutes = max(0, int((end - start).total_seconds() // 60))
                     legs.append(dict(mode=mode, start=start.isoformat(), end=end.isoformat(),
+                                     minutes=minutes,
                                      service=transport.get('name') or '',
                                      service_number=transport.get('shortName') or transport.get('name') or '',
-                                     platform=((departure.get('place') or {}).get('platform') or '') if mode == 'rail' else '',
+                                     platform=((departure.get('place') or {}).get('platform') or ''),
                                      live=False,
                                      **{'from': (departure.get('place') or {}).get('name') or '',
                                         'to': (arrival.get('place') or {}).get('name') or ''}))
                 # HERE can return an extra walking-only alternative.
                 if legs and any(leg['mode'] != 'walk' for leg in legs):
-                    journeys.append({'legs': legs, 'attributions': attributions, 'provider': 'HERE'})
+                    journeys.append({
+                        'legs': legs, 'attributions': attributions, 'provider': 'HERE',
+                        'minutes': max(0, int((datetime.fromisoformat(legs[-1]['end']) -
+                                               datetime.fromisoformat(legs[0]['start'])).total_seconds() // 60)),
+                        'leave_at': legs[0]['start'], 'arrival_at': legs[-1]['end'],
+                        'steps': legs,
+                    })
         except (KeyError, TypeError, ValueError, AttributeError):
             raise ProviderUnavailable('HERE returned an unreadable journey') from None
         return journeys
