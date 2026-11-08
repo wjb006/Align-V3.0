@@ -1,0 +1,69 @@
+/* Align V3.0 shared event cards — Today, Calendar, Planner and event listings */
+.today-location-block,.planner-location-group{display:grid;gap:12px;padding:12px;border:3px solid var(--location-colour,#168ff5);border-radius:27px;background:linear-gradient(145deg,#071c34,#06172b);box-shadow:0 0 0 1px #168ff533,0 12px 30px #0003;overflow:hidden}
+.today-location-header,.planner-location-header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;padding:15px 16px;border-radius:20px;color:#fff;background:linear-gradient(120deg,color-mix(in srgb,var(--location-colour,#168ff5) 72%,#082a54),color-mix(in srgb,var(--location-colour,#168ff5) 48%,#071d3c))}
+.today-location-header>div,.planner-location-header>div{min-width:0}
+.today-location-header strong,.planner-location-header strong{font-size:clamp(17px,4.5vw,23px);line-height:1.2}
+.today-location-header small,.planner-location-header small{display:block;margin-top:5px;color:#e1edff;font-size:13px;line-height:1.35;overflow-wrap:anywhere}
+.today-location-header{grid-template-columns:56px minmax(0,1fr) auto}
+.today-location-icon{width:54px;height:54px;display:grid;place-items:center;color:#fff;border-right:2px solid #ffffff55;padding-right:12px}
+.today-location-icon svg{width:44px;height:44px}
+.today-location-span,.planner-location-header>strong:last-child{white-space:nowrap;font-size:clamp(16px,4.2vw,22px)}
+.today-location-areas,.planner-location-areas{display:grid;gap:10px;min-width:0}
+.today-shift-area,.location-group-area{min-width:0;border:2px solid var(--area-colour,#16a99b);border-radius:21px;background:color-mix(in srgb,var(--area-colour,#16a99b) 9%,#06172b)}
+.today-shift-area{display:grid;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:12px;width:100%;padding:13px 15px;color:var(--ink);text-align:left}
+.today-area-icon{width:42px;height:42px;display:grid;place-items:center;color:var(--area-colour,#16a99b);border-right:2px solid #ffffff55;padding-right:8px}
+.today-area-icon svg{width:38px;height:38px}
+.today-area-copy{min-width:0;display:grid;gap:3px}
+.today-area-name{font-size:18px;color:var(--area-colour,#16a99b)}
+.today-area-time{font-size:15px;color:#b4c9df}
+.today-area-duration{font-size:19px;white-space:nowrap}
+.location-group-area{padding:0;overflow:hidden}
+.location-group-area>.card,.location-group-area>.restored-event-card{border:0!important;border-radius:18px!important;background:transparent!important;box-shadow:none!important}
+.today-inbound-travel,.planner-inbound-travel,.today-travel-connector,.planner-location-travel,.shift-travel-itinerary-wrap{min-width:0;border:2px solid #477da7;border-radius:20px;padding:12px 14px;background:#07172d;color:var(--ink)}
+.today-inbound-travel>strong,.planner-inbound-travel>strong,.shift-travel-itinerary-wrap>strong{display:block;margin-bottom:8px;color:#f2f7ff;font-size:15px}
+.today-inbound-travel .compact-event-details,.planner-inbound-travel .compact-event-details,.shift-travel-itinerary-wrap .compact-event-details{border-top:1px solid #294563;padding-top:10px}
+.journey-itinerary-strip{display:flex;flex-wrap:wrap;align-items:center;gap:8px 7px;min-width:0}
+.journey-time-icon{display:inline-flex;align-items:center;gap:7px;min-width:0;color:#91aaff}
+.journey-time-icon>svg{width:30px;height:30px;flex:0 0 auto}
+.journey-time-copy{display:grid;line-height:1.2}
+.journey-time-copy small{font-size:12px;color:#9fb3cc}
+.journey-time-copy strong{font-size:15px;color:#f1f5ff;white-space:nowrap}
+.shift-travel-arrow{color:#c8d7f5;font-size:20px;line-height:1}
+.today-appointment-card,.week-event-row,.upcoming-event,.restored-event-card{border:1px solid #477da7!important;border-radius:20px!important;background:linear-gradient(145deg,#0a2340,#07172b)!important;color:var(--ink);box-shadow:0 8px 22px #0003!important}
+.today-appointment-card{padding:15px}
+.today-appointment-heading{display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:10px;align-items:center}
+.today-appointment-heading>div{min-width:0}
+.today-appointment-heading>div>strong{font-size:18px}
+.today-appointment-heading small{display:block;color:#b4c9df;overflow-wrap:anywhere}
+.today-appointment-heading time{font-weight:750;white-space:nowrap}
+.today-appointment-icon{color:var(--appointment-colour);width:38px;height:38px}
+.today-appointment-icon svg{width:100%;height:100%}
+.today-appointment-notes{display:flex;gap:10px;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid #294563;color:#b4c9df}
+.today-appointment-notes strong{margin-left:auto;color:var(--ink);white-space:nowrap}
+.week-event-row{display:grid;grid-template-columns:minmax(72px,auto) minmax(0,1fr);gap:10px;padding:13px!important;align-items:start}
+.week-event-row .week-event-time{font-weight:750;color:#eaf2ff}
+.week-event-row>div{min-width:0}
+.week-event-row>div>strong{font-size:17px}
+.week-event-row small{color:#b4c9df}
+.event-travel-button{margin-top:8px}
+.restored-event-open{width:100%;text-align:left;color:inherit;background:transparent;border:0}
+.planner-location-group{margin:8px 0 14px}
+.planner-location-header{padding:14px 16px}
+.planner-location-header>div>strong{display:block}
+.planner-location-header small{overflow-wrap:anywhere}
+.planner-location-travel{margin-top:0}
+@media(max-width:420px){
+ .today-location-block,.planner-location-group{padding:9px;border-radius:23px}
+ .today-location-header{grid-template-columns:44px minmax(0,1fr) auto;padding:12px;gap:8px}
+ .today-location-icon{width:42px;height:42px;padding-right:7px}
+ .today-location-icon svg{width:36px;height:36px}
+ .today-location-span,.planner-location-header>strong:last-child{font-size:15px}
+ .today-shift-area{grid-template-columns:38px minmax(0,1fr) auto;padding:11px;gap:8px}
+ .today-area-icon{width:34px;height:36px}
+ .today-area-icon svg{width:31px;height:31px}
+ .today-area-name{font-size:16px}.today-area-time{font-size:14px}.today-area-duration{font-size:17px}
+ .today-appointment-heading{grid-template-columns:32px minmax(0,1fr) auto;gap:7px}
+ .today-appointment-heading time{font-size:13px}
+ .journey-itinerary-strip{gap:7px 5px}.journey-time-icon>svg{width:26px;height:26px}
+ .journey-time-copy strong{font-size:14px}
+}
