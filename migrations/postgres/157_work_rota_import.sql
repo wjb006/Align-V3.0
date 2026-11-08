@@ -46,6 +46,14 @@ CREATE INDEX IF NOT EXISTS idx_work_rota_entries_import_status ON align_owner.wo
 CREATE INDEX IF NOT EXISTS idx_work_rota_entries_fingerprint ON align_owner.work_rota_entries(fingerprint);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_work_rota_entries_shift ON align_owner.work_rota_entries(created_shift_id);
 
+CREATE TABLE IF NOT EXISTS align_owner.work_rota_approvals (
+    import_id text NOT NULL REFERENCES align_owner.work_rota_imports(id) ON DELETE CASCADE,
+    idempotency_key text NOT NULL,
+    result_json text NOT NULL,
+    created_at text NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (import_id, idempotency_key)
+);
+
 ALTER TABLE align_owner.shifts ADD COLUMN IF NOT EXISTS source_import_entry_id text;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_shifts_source_import_entry ON align_owner.shifts(source_import_entry_id);
 

@@ -524,6 +524,8 @@ class RotaImportTests(unittest.TestCase):
         for text in (sqlite_sql, postgres_sql, fresh, Path('schema_v3.sqlite.sql').read_text(encoding='utf-8')):
             self.assertIn('work_rota_imports', text)
             self.assertIn('work_rota_entries', text)
+            self.assertIn('work_rota_approvals', text)
+        self.assertIn('work_rota_approvals', postgres_sql)
         self.assertIn('source_import_entry_id', fresh)
         self.assertIn('source_import_entry_id', postgres_sql)
         self.assertIn('157_work_rota_import', readme)
