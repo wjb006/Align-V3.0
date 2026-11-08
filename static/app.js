@@ -9,6 +9,7 @@ const state = {
   sectionDefinitions: [],
   dailyInboundJourneys: {},
   dailyInboundLoading: {},
+  dailyInboundErrors: {},
   postTravelRequests: new Set(),
   add: { context: null },
 };
@@ -22,7 +23,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 158;
-const ASSET_VERSION = `${BUILD_VERSION}-v88`
+const ASSET_VERSION = `${BUILD_VERSION}-v89`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -379,7 +380,7 @@ function renderSectionsIndex() {
   const workCard = !work || !work.enabled
     ? `<section class="section"><div class="card work-optional-card"><p class="eyebrow">Work planner</p><h2>Work Calendar</h2><p class="subtle">Start by uploading your rota. Check the shifts before saving them, and add or reuse work details as you go. You can also configure your work details manually.</p><div class="button-row"><button class="primary-button" data-action="work-rota">Upload my rota</button><button class="secondary-button" data-action="work-setup">Add work details</button></div></div></section>`
     : `<section class="section work-calendar-setup"><div class="card"><p class="eyebrow">Work planner</p><h2>Work Calendar</h2><p class="subtle">Upload a new rota, or adjust your Work Settings. Workplaces and shift areas can also be saved as you use them.</p><div class="button-row"><button class="primary-button" data-action="work-rota">Upload my rota</button><button class="secondary-button" data-action="work-setup">Manage Work Settings</button></div></div></section>`;
-  return `<section class="page"><div class="add-head"><p class="eyebrow">Your data, organised your way</p><h1>Sections</h1><p class="subtle">Sections set up in Align Management Studio appear here. Your records stay private to your account.</p></div><div class="quick-grid">${visible.map(section => `<button class="quick-action organiser-section-tile" data-section-key="${escapeHtml(section.key)}" style="border-left:4px solid ${escapeHtml(section.colour)}"><b>${escapeHtml(section.icon)}</b>${escapeHtml(section.name)}<small>${escapeHtml(section.description || 'Open your saved records')}</small></button>`).join('')}${!visible.length?'<div class="card empty">No sections have been added yet.</div>':''}</div>${callOptional('plannerSectionsBlock') || ''}${workCard}</section>`;
+  return `<section class="page"><div class="add-head"><p class="eyebrow">Your data, organised your way</p><h1>Sections</h1><p class="subtle">Sections set up in Align Management Studio appear here. Your records stay private to your account.</p></div><div class="quick-grid">${visible.map(section => `<button class="quick-action organiser-section-tile" data-section-key="${escapeHtml(section.key)}" style="--section-colour:${escapeHtml(section.colour)}"><b>${escapeHtml(section.icon)}</b>${escapeHtml(section.name)}<small>${escapeHtml(section.description || 'Open your saved records')}</small></button>`).join('')}${!visible.length?'<div class="card empty">No sections have been added yet.</div>':''}</div>${callOptional('plannerSectionsBlock') || ''}${workCard}</section>`;
 }
 
 function installPanel() {
@@ -426,30 +427,71 @@ function renderHomeShortcuts() {
   </nav>`;
 }
 function todayTimelineItemCount(events) {
-  let count = 0, previousShiftKey = '';
-  for (const item of [...events].sort((a,b)=>String(a.start_at||'').localeCompare(String(b.start_at||'')))) {
-    if (item.origin !== 'Shift') { count++; previousShiftKey = ''; continue; }
-    const key = eventLocationKey(item);
-    if (!key || key !== previousShiftKey) count++;
-    previousShiftKey = key;
+  return todayTimelineGroups(events).length;
+}
+function todayLocationIdentity(item) {
+  const id = item?.location_id ?? item?.saved_location_id;
+  if (id !== null && id !== undefined && String(id).trim()) return `id:${String(id).trim()}`;
+  const hasCoordinates = item && item.latitude !== null && item.latitude !== undefined && item.longitude !== null && item.longitude !== undefined &&
+    String(item.latitude).trim() !== '' && String(item.longitude).trim() !== '';
+  const latitude = Number(item?.latitude ?? item?.location_latitude);
+  const longitude = Number(item?.longitude ?? item?.location_longitude);
+  if (hasCoordinates && Number.isFinite(latitude) && Number.isFinite(longitude) && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180) {
+    return `coordinates:${latitude.toFixed(5)},${longitude.toFixed(5)}`;
   }
-  return count;
+  const address = String(item?.location_address || item?.address || item?.location || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  return address ? `address:${address}` : '';
+}
+function sameTodayLocation(first, second) {
+  const firstId = first?.location_id ?? first?.saved_location_id;
+  const secondId = second?.location_id ?? second?.saved_location_id;
+  if (firstId !== null && firstId !== undefined && secondId !== null && secondId !== undefined && String(firstId) === String(secondId)) return true;
+  const hasCoordinates = item => item && item.latitude !== null && item.latitude !== undefined && item.longitude !== null && item.longitude !== undefined &&
+    String(item.latitude).trim() !== '' && String(item.longitude).trim() !== '';
+  const firstLatitude = Number(first?.latitude ?? first?.location_latitude);
+  const firstLongitude = Number(first?.longitude ?? first?.location_longitude);
+  const secondLatitude = Number(second?.latitude ?? second?.location_latitude);
+  const secondLongitude = Number(second?.longitude ?? second?.location_longitude);
+  if (hasCoordinates(first) && hasCoordinates(second) && [firstLatitude, firstLongitude, secondLatitude, secondLongitude].every(Number.isFinite)) {
+    return firstLatitude.toFixed(5) === secondLatitude.toFixed(5) && firstLongitude.toFixed(5) === secondLongitude.toFixed(5);
+  }
+  const address = item => String(item?.location_address || item?.address || item?.location || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const firstAddress = address(first), secondAddress = address(second);
+  return !!firstAddress && firstAddress === secondAddress;
+}
+function todayTimelineGroups(events) {
+  const ordered = [...(events || [])].sort((a, b) => String(a.start_at || '').localeCompare(String(b.start_at || '')));
+  const groups = [];
+  for (let i = 0; i < ordered.length;) {
+    const first = ordered[i], items = [first];
+    let j = i + 1;
+    if (first.origin === 'Shift') {
+      while (j < ordered.length && ordered[j].origin === 'Shift' && sameTodayLocation(first, ordered[j])) items.push(ordered[j++]);
+    }
+    const last = items.reduce((latest, item) =>
+      (eventEndAt(item)?.getTime() ?? -Infinity) > (eventEndAt(latest)?.getTime() ?? -Infinity) ? item : latest, first);
+    groups.push({ items, first, last });
+    i = j;
+  }
+  return groups;
 }
 function renderHome() {
   const { dashboard } = state.boot;
   // Today is a date-scoped planner, not a list of every future event.
   const todayItems = (dashboard.upcoming_events || []).filter(item =>
-    String(item.start_at || item.work_date || '').slice(0, 10) === dashboard.today
+    String(item.start_at || item.work_date || '').slice(0, 10) === dashboard.today ||
+    (String(item.start_at || item.work_date || '').slice(0, 10) < dashboard.today &&
+      String(item.end_at || '').slice(0, 10) >= dashboard.today)
   ).slice(0, 50);
-  const totalHours = todayItems.reduce((sum, item) => sum + todayDurationHours(item), 0);
+  const totalHours = todayItems.reduce((sum, item) => sum + (item.all_day ? 0 : todayDurationHours(item)), 0);
   const minutes = Math.round(totalHours * 60);
   const totalLabel = `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
   ensureDailyTravel(todayItems);
 
   return `<section class="page today-reference-page">
     <header class="today-reference-header">
-      <div class="today-reference-date"><span class="today-reference-calendar" aria-hidden="true">▦</span><h1>${escapeHtml(fullDateLabel(dashboard.today))}</h1></div>
-      <div class="today-reference-total"><strong>${todayTimelineItemCount(todayItems)} ${todayTimelineItemCount(todayItems) === 1 ? 'Event' : 'Events'}</strong><span>•</span><strong>${totalLabel} Total</strong></div>
+      <div class="today-reference-date"><span class="today-reference-calendar" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 2v3M17 2v3M4 8h16M5 4h14a1 1 0 0 1 1 1v14H4V5a1 1 0 0 1 1-1Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 12h2v2H8zm6 0h2v2h-2zm-6 4h2v2H8z" fill="currentColor"/></svg></span><h1>${escapeHtml(fullDateLabel(dashboard.today))}</h1></div>
+      <div class="today-reference-total" role="group" aria-label="Daily schedule summary"><strong>${todayTimelineItemCount(todayItems)} ${todayTimelineItemCount(todayItems) === 1 ? 'Event' : 'Events'}</strong><span aria-hidden="true">·</span><strong>${totalLabel} scheduled</strong></div>
     </header>
     <div class="today-event-timeline">${todayItems.length ? renderTodayTimeline(todayItems) : '<div class="card empty">Nothing scheduled for today. Add a shift or appointment to see it here.</div>'}</div>
     ${state.boot.personal && homeSection('today') && homeSectionContent('today','show_quick_add',true) && typeof personalQuickAdd === 'function' ? `<div class="dashboard-bottom-tools">${personalQuickAdd()}</div>` : ''}
@@ -457,17 +499,23 @@ function renderHome() {
 }
 
 function todayInboundKey(item) {
-  return item && (item.location || item.address) && item.start_at
-    ? `${item.origin || ''}:${item.id || item.start_at}:${item.start_at}` : '';
+  if (!item || !item.start_at) return '';
+  const prefs = typeof personalPrefs === 'function' ? personalPrefs() : {};
+  const homeAddress = String(state.boot?.settings?.user_address || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  return JSON.stringify(['home', homeAddress, item.origin || '', item.id || '', item.start_at, todayLocationIdentity(item),
+    prefs.default_travel || 'transit', Number(prefs.departure_buffer ?? 5), Number(prefs.arrival_buffer ?? 10),
+    state.boot?.personal?.journey_provider || 'configured']);
 }
 function eventTravelKind(item) {
   return item?.origin === 'Shift' ? 'shift' : (item?.origin === 'Calendar' || item?.source_kind === 'icloud' ? 'calendar' : 'event');
 }
 async function ensureTodayInboundTravel(item) {
-  if (!item || (typeof eventIsUnderway === 'function' && eventIsUnderway(item))) return;
+  if (!item || item.all_day || !item.start_at || !String(item.location || item.address || '').trim() ||
+      (typeof eventIsUnderway === 'function' && eventIsUnderway(item))) return;
   const key = todayInboundKey(item), day = String(item.start_at || '').slice(0,10);
   const end=eventEndAt(item);
-  if (!key || (end&&end.getTime()<=Date.now()) || state.dailyInboundJourneys[key] || state.dailyInboundLoading[key]) return;
+  if (!key || (end&&end.getTime()<=Date.now()) || state.dailyInboundJourneys[key] ||
+      state.dailyInboundLoading[key] || state.dailyInboundErrors[key]) return;
   state.dailyInboundLoading[key] = true;
   try {
     const prefs = typeof personalPrefs === 'function' ? personalPrefs() : {};
@@ -483,58 +531,57 @@ async function ensureTodayInboundTravel(item) {
       const notes = '[Align travel]\\n' + result.notes + '\\n[/Align travel]' +
         (steps.length ? '\\n[Align travel steps]\\n' + JSON.stringify(steps) + '\\n[/Align travel steps]' : '');
       state.dailyInboundJourneys[key] = { ...result, key, day, notes };
+      delete state.dailyInboundErrors[key];
       if (state.boot && ['today','home','planner','calendar'].includes(state.tab)) render();
+    } else {
+      state.dailyInboundErrors[key] = 'The provider did not return usable route details.';
     }
-  } catch (_) {
-    // An unavailable route must never prevent the day's schedule from rendering.
+  } catch (error) {
+    state.dailyInboundErrors[key] = String(error?.message || 'The route provider is unavailable.');
   } finally {
     delete state.dailyInboundLoading[key];
+    if (state.dailyInboundErrors[key] && state.boot && ['today','home','planner','calendar'].includes(state.tab)) render();
   }
 }
-async function ensureDailyPostTravel(items) {
-  const ordered = [...(items || [])].sort((a,b)=>String(a.start_at||'').localeCompare(String(b.start_at||'')));
-  const visibleLegs = [];
-  for (let i=0;i<ordered.length;i++) {
-    const item=ordered[i], key=eventLocationKey(item), location=String(item.location||item.address||'').trim();
-    if (key && ordered[i+1] && eventLocationKey(ordered[i+1])===key) continue;
-    if (!location || item.all_day || !item.end_at) continue;
-    const end=parseAlignDateTime(item.end_at);
-    if (!end || end.getTime()<=Date.now()) continue;
-    const kind=eventTravelKind(item), requestKey=`${kind}:${item.id}:${item.end_at}:${location}`;
-    if (item.post_travel?.journey || state.postTravelRequests.has(requestKey)) continue;
+function todayPostTravelRequestKey(from, to) {
+  const prefs = typeof personalPrefs === 'function' ? personalPrefs() : {};
+  return JSON.stringify(['timeline', eventTravelKind(from), from.id, from.end_at, todayLocationIdentity(from),
+    String(from.location || from.address || '').trim(), eventTravelKind(to), to.id, to.start_at,
+    todayLocationIdentity(to), String(to.location || to.address || '').trim(), prefs.default_travel || 'transit',
+    Number(prefs.arrival_buffer ?? 10), state.boot?.personal?.journey_provider || 'configured']);
+}
+async function ensureDailyPostTravel(groups) {
+  for (let i = 0; i < (groups || []).length - 1; i++) {
+    const from = groups[i].last, to = groups[i + 1].first;
+    if (!from || !to || sameTodayLocation(from, to) ||
+        String(from.start_at || '').slice(0, 10) !== String(to.start_at || '').slice(0, 10)) continue;
+    const requestKey = todayPostTravelRequestKey(from, to);
+    if (from._todayRouteRequestKey === requestKey || state.postTravelRequests.has(requestKey)) continue;
+    const end = eventEndAt(from), destinationStart = eventStartAt(to);
+    if (!eventStartAt(from) || !end || !destinationStart || from.all_day || to.all_day ||
+        !String(from.location || from.address || '').trim() || !String(to.location || to.address || '').trim() ||
+        end.getTime() <= Date.now() || destinationStart.getTime() <= end.getTime()) continue;
+    if (from.post_travel?.timeline && from.post_travel?.request_key === requestKey) continue;
+    from._todayRouteRequestKey = requestKey;
     state.postTravelRequests.add(requestKey);
-    visibleLegs.push({item,kind});
-  }
-  for (const leg of visibleLegs) {
-    const {item,kind}=leg;
     try {
       const prefs=typeof personalPrefs==='function'?personalPrefs():{};
       const result=await api('/api/personal/post-event-travel',{method:'POST',body:{
-        kind,id:Number(item.id),enabled:true,mode:item.post_travel?.mode||prefs.default_travel||'transit',plan:true
+        kind:eventTravelKind(from),id:Number(from.id),enabled:true,mode:prefs.default_travel||'transit',plan:true,timeline:true
       }});
-      item.post_travel={...(item.post_travel||{}),...result,enabled:true};
+      from.post_travel={...(from.post_travel||{}),...result,enabled:true,timeline:true,request_key:requestKey};
       if (state.boot && ['today','home','planner','calendar'].includes(state.tab)) render();
     } catch (error) {
-      item.post_travel={...(item.post_travel||{}),enabled:true,error:String(error?.message||error)};
+      from.post_travel={...(from.post_travel||{}),enabled:true,timeline:true,request_key:requestKey,error:String(error?.message||'The route provider is unavailable.')};
+      if (state.boot && ['today','home','planner','calendar'].includes(state.tab)) render();
     }
   }
 }
 function ensureDailyTravel(items) {
-  const ordered=[...(items||[])].sort((a,b)=>String(a.start_at||'').localeCompare(String(b.start_at||'')));
-  let previousEnd=null,previousKey='';
-  for(let i=0;i<ordered.length;){
-    const first=ordered[i],key=eventLocationKey(first),group=[first];
-    let j=i+1;
-    while(j<ordered.length&&key&&ordered[j].origin==='Shift'&&first.origin==='Shift'&&eventLocationKey(ordered[j])===key){group.push(ordered[j]);j++;}
-    const start=parseAlignDateTime(first.start_at);
-    const samePlace=!!(key&&key===previousKey);
-    const gap=previousEnd&&start?start.getTime()-previousEnd.getTime():Infinity;
-    if((!previousEnd||(!samePlace&&gap>3600000))&&start&&start.getTime()>Date.now()&&(first.location||first.address)&&!first.all_day)void ensureTodayInboundTravel(first);
-    previousEnd=parseAlignDateTime(group[group.length-1].end_at);
-    previousKey=key;
-    i=j;
-  }
-  void ensureDailyPostTravel(ordered);
+  const groups=todayTimelineGroups(items);
+  const first=groups[0]?.first;
+  if(first&&!first.all_day&&eventStartAt(first)?.getTime()>Date.now())void ensureTodayInboundTravel(first);
+  void ensureDailyPostTravel(groups);
 }
 function sectionEventDate(event) {
   const day = event.start_at.slice(0, 10);
@@ -630,18 +677,17 @@ function renderGroupedEventRows(events, options = {}) {
     return renderUpcomingEvent(item,index,options);
   }).join('');
 }
-function todayTravelConnector(event) {
-  if (!event || typeof eventTravelMarkup !== 'function') return '';
-  const markup = eventTravelMarkup(event,{includeInbound:false});
-  return markup ? '<div class="today-travel-connector" aria-label="Travel after this event">'+markup+'</div>' : '';
-}
 function todayDurationHours(event) {
   const supplied = Number(event.hours);
   if (Number.isFinite(supplied) && supplied > 0) return supplied;
-  const start = new Date(event.start_at), end = new Date(event.end_at);
-  return Number.isFinite(start.getTime()) && Number.isFinite(end.getTime()) ? Math.max(0,(end-start)/3600000) : 0;
+  if (event.all_day) return 0;
+  const start = typeof eventStartAt === 'function' ? eventStartAt(event) : new Date(event.start_at);
+  const end = typeof eventEndAt === 'function' ? eventEndAt(event) : new Date(event.end_at);
+  return start && end && Number.isFinite(start.getTime()) && Number.isFinite(end.getTime()) ? Math.max(0,(end-start)/3600000) : 0;
 }
 function todayEventDurationLabel(event) {
+  if (event?.all_day) return 'All day';
+  if (!event?.start_at || !event?.end_at || !eventStartAt(event) || !eventEndAt(event)) return 'Duration unavailable';
   const minutes = Math.max(0, Math.round(todayDurationHours(event) * 60));
   return minutes >= 60 ? `${Math.floor(minutes / 60)}h${minutes % 60 ? ` ${minutes % 60}m` : ''}` : `${minutes}m`;
 }
@@ -653,7 +699,7 @@ function todayAreaIcon(name) {
 }
 function renderTodayAppointment(event) {
   const colour=safeColour(event.section_colour||event.colour,'#a76aff');
-  const time=event.all_day?'All day':`${String(event.start_at||'').slice(11,16)}–${String(event.end_at||'').slice(11,16)}`;
+  const time=event.all_day?'All day':event.start_at&&event.end_at?`${String(event.start_at).slice(11,16)}–${String(event.end_at).slice(11,16)}`:'Time not set';
   const location=event.location||event.address||'';
   const notes=String(event.notes||'')
     .replace(/\[Align travel\][\s\S]*?\[\/Align travel\]/g,'')
@@ -664,61 +710,85 @@ function renderTodayAppointment(event) {
     : eventViewAttributes(event);
   return `<article class="today-appointment-card" style="--appointment-colour:${escapeHtml(colour)}" ${attrs}>
     <header class="today-appointment-heading"><span class="today-appointment-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M13 7v10a8 8 0 0 0 16 0V7M9 7h8M25 7h8M29 25v3a8 8 0 0 0 16 0v-2M41 26a4 4 0 1 0 8 0 4 4 0 0 0-8 0" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" transform="translate(-3 0)"/></svg></span><div><strong>${escapeHtml(event.title||'Event')}</strong>${location?`<small>⌖ ${appleDestinationLink(location)}</small>`:''}</div><time>${escapeHtml(time)}</time></header>
-    ${notes?`<div class="today-appointment-notes"><span aria-hidden="true">▣</span><span>${escapeHtml(notes)}</span><strong>${escapeHtml(todayEventDurationLabel(event))}</strong></div>`: `<div class="today-appointment-notes"><span aria-hidden="true">◷</span><span>Event</span><strong>${escapeHtml(todayEventDurationLabel(event))}</strong></div>`}
+    <div class="today-appointment-notes"><span aria-hidden="true">▣</span><span>${notes?escapeHtml(notes):'Appointment'}</span><strong>${escapeHtml(todayEventDurationLabel(event))}</strong></div>
   </article>`;
 }
-function todayInboundMarkup(item,previousEnd=null,previousKey='') {
-  if(!item||item.all_day||!(item.location||item.address))return '';
-  const start=parseAlignDateTime(item.start_at),key=eventLocationKey(item);
-  if(!start||start.getTime()<=Date.now())return '';
-  const gap=previousEnd?start.getTime()-previousEnd.getTime():Infinity;
-  if(previousEnd&&(key===previousKey||gap<=3600000))return '';
-  const journey=state.dailyInboundJourneys[todayInboundKey(item)];
-  if(!journey)return '';
-  const route=typeof travelRouteStrip==='function'?travelRouteStrip(journey):(typeof journeyEventSummary==='function'?journeyEventSummary(journey.notes):'');
-  if(!route)return '';
-  const title=item.origin==='Shift'?(item.location_name||eventPlaceName(item)):(item.title||'next event');
-  return '<div class="today-inbound-travel"><strong>Travel to '+escapeHtml(title)+'</strong>'+route+'</div>';
+function todayInboundMarkup(item, firstItem = false) {
+  if (!item || !firstItem || item.all_day) return '';
+  const key=todayInboundKey(item), journey=state.dailyInboundJourneys[key];
+  const location=String(item.location||item.address||'').trim();
+  const title=item.origin==='Shift'?(item.location_name||eventPlaceName(item)):(item.title||'first event');
+  if (journey) {
+    const route=typeof travelRouteStrip==='function'?travelRouteStrip(journey,{detailed:true}):'';
+    if(route)return `<section class="today-inbound-travel" aria-label="Travel from home to ${escapeHtml(title)}"><strong>Travel from home</strong><small>${escapeHtml(title)}</small>${route}</section>`;
+  }
+  if (!item.start_at || !location) {
+    return `<section class="today-inbound-travel is-unavailable" aria-label="Travel from home"><strong>Travel from home</strong><p role="status">${item.start_at?'Add this event’s address to plan a route.':'Set an event time and address to plan a route.'}</p></section>`;
+  }
+  const error=state.dailyInboundErrors[key];
+  const loading=state.dailyInboundLoading[key];
+  if (!error && !loading && eventStartAt(item)?.getTime()<=Date.now()) return '';
+  return `<section class="today-inbound-travel ${error?'is-unavailable':''}" aria-label="Travel from home to ${escapeHtml(title)}"><strong>Travel from home</strong><small>${escapeHtml(title)}</small><p role="status">${loading?'Checking available route details…':error?`Route unavailable: ${escapeHtml(error)}`:'Route details are not available yet.'}</p></section>`;
+}
+function todayTravelConnector(fromGroup, toGroup) {
+  const from=fromGroup?.last, to=toGroup?.first;
+  if(!from||!to||sameTodayLocation(from,to)||
+      String(from.start_at||'').slice(0,10)!==String(to.start_at||'').slice(0,10))return '';
+  const requestKey=todayPostTravelRequestKey(from,to);
+  const info=from.post_travel;
+  if(info?.timeline&&info.request_key===requestKey&&info.journey&&typeof postTravelSummary==='function'){
+    const summary=postTravelSummary({...from,post_travel:info},{detailed:true});
+    if(summary)return `<div class="today-travel-connector" aria-label="Travel to next event">${summary}</div>`;
+  }
+  let message='Checking route availability…';
+  const start=eventStartAt(from),end=eventEndAt(from),destinationStart=eventStartAt(to);
+  if(!todayLocationIdentity(from)||!todayLocationIdentity(to)||!String(from.location||from.address||'').trim()||!String(to.location||to.address||'').trim()){
+    message='A saved address is needed for both locations before a route can be planned.';
+  }else if(from.all_day||to.all_day||!start||!end||!destinationStart){
+    message='A timed event is needed at both locations before a route can be planned.';
+  }else if(info?.timeline&&info.request_key===requestKey&&info.error){
+    message=`Route unavailable: ${escapeHtml(info.error)}`;
+  }else if(info?.timeline&&info.request_key===requestKey){
+    message='No usable route details were returned by the provider.';
+  }else if(end.getTime()<=Date.now()){
+    message='This departure time has passed; no new route was requested.';
+  }
+  return `<div class="today-travel-connector"><section class="today-route-unavailable" aria-label="Travel to next event"><strong>Travel to next event</strong><small>${escapeHtml(to.title||to.location_name||'Next event')}</small><p role="status">${message}</p></section></div>`;
 }
 function renderTodayTimeline(events) {
-  const ordered=[...events].sort((a,b)=>String(a.start_at||'').localeCompare(String(b.start_at||'')));
+  const groups=todayTimelineGroups(events);
   const output=[];
-  let previousEnd=null,previousKey='';
-  for(let i=0;i<ordered.length;){
-    const first=ordered[i];
+  for(let i=0;i<groups.length;i++){
+    const group=groups[i],first=group.first,next=groups[i+1];
     if(first.origin!=='Shift'){
-      const inbound=todayInboundMarkup(first,previousEnd,previousKey);if(inbound)output.push(inbound);
+      const inbound=todayInboundMarkup(first,i===0);if(inbound)output.push(inbound);
       output.push(renderTodayAppointment(first));
-      const connector=todayTravelConnector(first);if(connector)output.push(connector);
-      previousEnd=parseAlignDateTime(first.end_at);
-      previousKey=eventLocationKey(first);
-      i++;continue;
+      const connector=todayTravelConnector(group,next);if(connector)output.push(connector);
+      continue;
     }
-    const key=eventLocationKey(first),group=[first];let j=i+1;
-    while(j<ordered.length&&ordered[j].origin==='Shift'&&key&&eventLocationKey(ordered[j])===key){group.push(ordered[j]);j++;}
-    const last=group[group.length-1],title=first.location_name||eventPlaceName(first),address=first.location||first.address||'';
+    const items=group.items,last=group.last,title=first.location_name||eventPlaceName(first),address=first.location||first.address||'';
     const colour=safeColour(first.location_colour||first.colour||first.section_colour,'#078ef0');
     const startTime=String(first.start_at||'').slice(11,16),endTime=String(last.end_at||'').slice(11,16);
-    const total=group.reduce((sum,item)=>sum+todayDurationHours(item),0);
-    const areas=group.map(item=>{
+    const total=items.reduce((sum,item)=>sum+todayDurationHours(item),0);
+    const inbound=todayInboundMarkup(first,i===0);
+    const areas=items.map(item=>{
       const area=item.shift_type_name||item.category_name||'Work';
       const areaColour=safeColour(item.shift_type_colour||item.section_colour||item.colour,'#16d5d0');
       const areaStart=String(item.start_at||'').slice(11,16),areaEnd=String(item.end_at||'').slice(11,16);
       const areaHours=todayDurationHours(item);
-      return `<button type="button" class="today-location-area today-shift-area" style="--area-colour:${escapeHtml(areaColour)}" data-shift-action="edit" data-id="${Number(item.id)}" data-work-date="${escapeHtml(item.work_date||String(item.start_at||'').slice(0,10))}" aria-label="Edit ${escapeHtml(area)} shift">
-        <span class="today-area-icon">${todayAreaIcon(area)}</span><span class="today-area-copy"><strong class="today-area-name">${escapeHtml(area)}</strong><span class="today-area-time">${escapeHtml(areaStart)}–${escapeHtml(areaEnd)}</span></span><strong class="today-area-duration">${escapeHtml(Number.isInteger(areaHours)?areaHours+'h':areaHours.toFixed(1)+'h')}</strong>
+      const time=areaStart&&areaEnd?`${areaStart}–${areaEnd}`:'Time not set';
+      const duration=areaHours>0?(Number.isInteger(areaHours)?areaHours+'h':areaHours.toFixed(1)+'h'):'Duration unavailable';
+      return `<button type="button" class="today-location-area today-shift-area" style="--area-colour:${escapeHtml(areaColour)}" data-shift-action="edit" data-id="${Number(item.id)}" data-work-date="${escapeHtml(item.work_date||String(item.start_at||'').slice(0,10))}" aria-label="Edit ${escapeHtml(area)} shift, ${escapeHtml(time)}, ${escapeHtml(duration)}">
+        <span class="today-area-icon">${todayAreaIcon(area)}</span><span class="today-area-copy"><strong class="today-area-name">${escapeHtml(area)}</strong><time class="today-area-time">${escapeHtml(time)}</time></span><strong class="today-area-duration">${escapeHtml(duration)}</strong>
       </button>`;
     }).join('');
-    const inbound=todayInboundMarkup(first,previousEnd,previousKey);
     const locationIcon='<svg viewBox="0 0 56 56" aria-hidden="true"><path d="M9 49V17h38v32M5 49h46M20 17V8h16v9M20 27h5v5h-5zM32 27h5v5h-5zM20 38h5v5h-5zM32 38h5v11h-5z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg>';
+    const span=startTime&&endTime?`${startTime}–${endTime}`:'Time not set';
     output.push(`<section class="today-location-block" style="--location-colour:${escapeHtml(colour)}">
-      <header class="today-location-header"><span class="today-location-icon">${locationIcon}</span><div><strong>${escapeHtml(title)}</strong>${address?`<small>⌖ ${appleDestinationLink(address)}</small>`:''}<small>${total.toFixed(Number.isInteger(total)?0:1)} hours total · ${group.length} shift${group.length===1?'':'s'}</small></div><strong class="today-location-span">${escapeHtml(startTime)}–${escapeHtml(endTime)}</strong></header>
+      <header class="today-location-header"><span class="today-location-icon">${locationIcon}</span><div><strong>${escapeHtml(title)}</strong>${address?`<small>⌖ ${appleDestinationLink(address)}</small>`:''}<small>${total.toFixed(Number.isInteger(total)?0:1)} hours total · ${items.length} shift${items.length===1?'':'s'}</small></div><strong class="today-location-span" aria-label="Workplace span ${escapeHtml(span)}">${escapeHtml(span)}</strong></header>
       ${inbound}<div class="today-location-areas">${areas}</div>
     </section>`);
-    const connector=todayTravelConnector(last);if(connector)output.push(connector);
-    previousEnd=parseAlignDateTime(last.end_at);
-    previousKey=key;
-    i=j;
+    const connector=todayTravelConnector(group,next);if(connector)output.push(connector);
   }
   return output.join('');
 }

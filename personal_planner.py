@@ -108,8 +108,12 @@ def _shift_schedule(c, day):
     previous=(day-timedelta(days=1)).isoformat()
     rows=[]
     for record in c.execute(
-        '''SELECT id,work_date,start_time,end_time,location_name,shift_type_name,colour
-           FROM shifts WHERE work_date IN (?,?) ORDER BY work_date,start_time,id''',
+        '''SELECT s.id,s.work_date,s.start_time,s.end_time,s.location_id,s.location_name,
+                  s.shift_type_name,s.colour,s.hours,s.break_minutes,l.address AS location,
+                  l.colour AS location_colour,st.colour AS shift_type_colour
+           FROM shifts s LEFT JOIN locations l ON l.id=s.location_id
+           LEFT JOIN shift_types st ON st.id=s.shift_type_id
+           WHERE s.work_date IN (?,?) ORDER BY s.work_date,s.start_time,s.id''',
         (previous, day.isoformat())):
         item=dict(record)
         try:
@@ -119,12 +123,15 @@ def _shift_schedule(c, day):
         if begins>=window_end or finishes<=window_start:
             continue
         rows.append({
-            'id':item['id'], 'section_id':None,
+            'id':item['id'], 'section_id':None, 'location_id':item.get('location_id'),
             'title':f"{item['location_name']} – {item['shift_type_name']}",
             'start_at':begins.isoformat(timespec='minutes'),
             'end_at':finishes.isoformat(timespec='minutes'),
-            'all_day':0, 'location':item['location_name'] or '', 'notes':'',
-            'section_colour':item['colour'] or '#365CE6',
+            'all_day':0, 'location':item.get('location') or '', 'location_name':item['location_name'] or '',
+            'hours':item.get('hours') or 0, 'break_minutes':item.get('break_minutes') or 0,
+            'location_colour':item.get('location_colour') or item['colour'] or '#365CE6',
+            'shift_type_colour':item.get('shift_type_colour') or item['colour'] or '#365CE6',
+            'notes':'', 'section_colour':item['colour'] or '#365CE6',
             'category_name':item['shift_type_name'] or '',
             'kind':'Shift', 'origin':'Shift',
         })

@@ -1,4 +1,5 @@
-function travelRouteStrip(journey={}) {
+function travelRouteStrip(journey={},options={}) {
+  const detailed=options.detailed===true;
   const e=escapeHtml, steps=Array.isArray(journey.steps)?journey.steps:[];
   const clock=value=>typeof journeyClock==='function'?journeyClock(value):String(value||'').slice(11,16);
   const duration=step=>{
@@ -9,7 +10,15 @@ function travelRouteStrip(journey={}) {
   };
   const item=(label,value,step=null)=>{
     const art=step&&typeof journeyModeArtwork==='function'?journeyModeArtwork(step,30):(typeof journeyModeArtwork==='function'?journeyModeArtwork({mode:'walk'},30):'');
-    return '<span class="journey-time-icon">'+art+'<span class="journey-time-copy"><small>'+e(label)+'</small><strong>'+e(value)+'</strong></span></span>';
+    if(!detailed)return '<span class="journey-time-icon">'+art+'<span class="journey-time-copy"><small>'+e(label)+'</small><strong>'+e(value)+'</strong></span></span>';
+    const service=String(step?.service_number||step?.service||'').trim();
+    const start=clock(step?.expected_start||step?.start),end=clock(step?.expected_end||step?.end);
+    const timing=start&&end?`${start}–${end}`:value;
+    const places=[step?.from,step?.to].filter(Boolean).map(String);
+    const placeLine=places.length?'<small class="journey-route-places">'+places.map(e).join(' → ')+'</small>':'';
+    const serviceLine=service?'<small class="journey-route-service">'+e(service)+'</small>':'';
+    const accessible=[label,service,timing,...places].filter(Boolean).join(', ');
+    return '<span class="journey-time-icon journey-route-leg" role="listitem" aria-label="'+e(accessible)+'">'+art+'<span class="journey-time-copy"><small>'+e(label)+'</small>'+serviceLine+'<strong>'+e(timing)+'</strong>'+placeLine+'</span></span>';
   };
   const entries=[];
   const leave=journey.leave_at||journey.departure||journey.depart_at;
@@ -17,27 +26,36 @@ function travelRouteStrip(journey={}) {
   if(leave)entries.push(item('Leave',clock(leave)));
   for(const step of steps){
     const mode=String(step.mode||'').toLowerCase();
-    const label=mode==='walk'?'Walk':mode==='bus'?'Bus':(['train','rail'].includes(mode)?'Train':mode==='drive'?'Drive':'Travel');
+    const label=mode==='walk'?'Walk':mode==='bus'?'Bus':(['train','rail'].includes(mode)?'Train':mode==='drive'?'Drive':mode==='wait'?'Connection':'Travel');
     const mins=duration(step);
-    entries.push(item(label,mins?mins+' min':clock(step.expected_start||step.start)||'—',step));
+    const stepStart=clock(step.expected_start||step.start),stepEnd=clock(step.expected_end||step.end);
+    const value=stepStart&&stepEnd?`${stepStart}–${stepEnd}`:mins?mins+' min':stepStart||'—';
+    entries.push(item(label,value,step));
   }
   if(arrive)entries.push(item('Arrive',clock(arrive)));
-  return entries.length?'<div class="compact-event-details journey-event-details"><div class="journey-itinerary-strip">'+entries.join('<span class="shift-travel-arrow">›</span>')+'</div></div>':'';
+  return entries.length?'<div class="compact-event-details journey-event-details"><div class="journey-itinerary-strip'+(detailed?' journey-itinerary-strip-detailed':'')+'"'+(detailed?' role="list" aria-label="Route steps in chronological order"':'')+'>'+entries.join('<span class="shift-travel-arrow" aria-hidden="true">›</span>')+'</div></div>':'';
 }
-function postTravelSummary(item) {
+function postTravelSummary(item,options={}) {
   const info=item.post_travel;if(!info?.enabled||!info?.journey)return '';
   const e=escapeHtml, journey=info.journey||null;
   const heading=info.historical?'Planned return journey':(info.deadline?'Travel to next event':'Travel home');
   const from=String(info.origin||item.location||'').trim(),to=String(info.destination_name||info.destination||'').trim();
   const routeLine=to?'<small>'+(from?e(from)+' → ':'')+e(to)+'</small>':'';
-  let itinerary=travelRouteStrip(journey);
+  let itinerary=travelRouteStrip(journey,{detailed:options.detailed===true});
   if(!itinerary&&journey?.notes&&typeof journeyEventSummary==='function'){
     const notes='[Align travel]\\n'+journey.notes+'\\n[/Align travel]'+(journey.steps?.length?'\\n[Align travel steps]\\n'+JSON.stringify(journey.steps)+'\\n[/Align travel steps]':'');
     itinerary=journeyEventSummary(notes);
   }
   if(!itinerary&&journey?.notes)itinerary='<p class="shift-travel-refresh">'+e(journey.notes)+'</p>';
   if(!itinerary)return '';
-  return '<section class="shift-travel-itinerary-wrap" aria-label="'+heading+' journey"><strong>'+heading+routeLine+'</strong>'+itinerary+'</section>';
+  let source='';
+  if(options.detailed){
+    const label=journey.scheduled===true?'Timetable-based · live delay updates unavailable':
+      (journey.live===true||journey.traffic_adjustment?.status==='applied'?'Live route estimate':
+        journey.mode==='drive'?'Driving estimate':'Provider route details');
+    source='<small class="today-route-source">'+e(label)+(journey.provider?' · '+e(journey.provider):'')+'</small>';
+  }
+  return '<section class="shift-travel-itinerary-wrap" aria-label="'+heading+' journey"><strong>'+heading+routeLine+'</strong>'+source+itinerary+'</section>';
 }
 function postTravelFields(info={}) {
   return `<label class="setup-check"><input type="checkbox" name="show_post_travel" ${info.enabled?'checked':''}> Show post event travel information</label><p class="helper">Travel from this event to the next event with a location starting within one hour, or home otherwise.</p><label>Travel after event<select name="post_travel_mode">${[['transit','Bus and train'],['bus','Bus'],['train','Train'],['drive','Driving']].map(([v,l])=>`<option value="${v}" ${(info.mode||personalPrefs().default_travel||'transit')===v?'selected':''}>${l}</option>`).join('')}</select></label>`;
