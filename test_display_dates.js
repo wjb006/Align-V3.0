@@ -17,7 +17,11 @@ assert.equal(context.formatDatesInText('Leave home: 7 Oct 06:40\nchecked 7 Oct 2
 const app = fs.readFileSync('static/app.js', 'utf8');
 if (!app.includes('return formatDisplayDate(value);')) throw new Error('prettyDate does not use the shared formatter');
 const index = fs.readFileSync('static/index.html', 'utf8');
-if (!index.includes('/dates.js?v=156-v69')) throw new Error('index.html does not load dates.js at the current asset version');
+const buildVersion = app.match(/const BUILD_VERSION = (\d+);/);
+const assetVersion = app.match(/const ASSET_VERSION = `\$\{BUILD_VERSION\}-([^`]+)`/);
+if (!buildVersion || !assetVersion || !index.includes(`/dates.js?v=${buildVersion[1]}-${assetVersion[1]}`)) {
+  throw new Error('index.html does not load dates.js at the current asset version');
+}
 const widget = fs.readFileSync('static/align-widget.js', 'utf8');
 const widgetDate = widget.match(/function widgetDate\(iso\) \{[\s\S]*?\n\}/);
 if (!widgetDate) throw new Error('widget display date helper is missing');
