@@ -99,18 +99,28 @@
     const used=new Set(shiftsForDate(day,excludeId).map(s=>shiftPeriod(s.start_time)));
     return (state.shiftPlannerData?.templates||[]).filter(t=>t.active!==0 && !used.has(shiftPeriod(t.start_time)));
   }
-  function shiftTypesForLocation(locationId) {
+  function shiftTypesForLocation(locationId, period) {
     const data=state.shiftPlannerData||{};
-    const templates=(data.templates||[]).filter(t=>t.active!==0 && String(t.location_id)===String(locationId||''));
+    const templates=(data.templates||[]).filter(t=>t.active!==0 && String(t.location_id)===String(locationId||'') && (!period||shiftPeriod(t.start_time)===period));
     const ids=new Set(templates.map(t=>String(t.shift_type_id)));
     const matching=(data.shift_types||[]).filter(t=>ids.has(String(t.id)));
-    // If no patterns have been configured for this workplace yet, allow manual shift setup.
-    return matching.length ? matching : (data.shift_types||[]);
+    return matching;
   }
-  function shiftTypeOptionsMarkup(locationId, selectedId) {
-    const options=locationId ? shiftTypesForLocation(locationId) : [];
-    return '<option value="">'+(locationId?(options.length?'Choose shift type':'No shift types configured'):'Choose a workplace first')+'</option>'+
+  function shiftTypeOptionsMarkup(locationId, selectedId, period) {
+    const options=locationId ? shiftTypesForLocation(locationId,period) : [];
+    return '<option value="">'+(locationId?(options.length?'Choose '+(period||'')+' shift type':'No '+(period||'')+' shift types configured'):'Choose a workplace first')+'</option>'+
       options.map(t=>'<option value="'+esc(t.id)+'" '+(String(selectedId||'')===String(t.id)?'selected':'')+'>'+esc(t.name)+'</option>').join('');
+  }
+  function weekendDefault(day) {
+    const date=new Date(day+'T12:00:00');
+    return date.getDay()===0||date.getDay()===6;
+  }
+  function findWeekendDefault() {
+    const data=state.shiftPlannerData||{};
+    const location=(data.locations||[]).find(x=>/arrowe/i.test(x.name||''));
+    const type=(data.shift_types||[]).find(x=>/ward/i.test(x.name||''));
+    const pattern=(data.templates||[]).find(t=>t.active!==0&&location&&type&&String(t.location_id)===String(location.id)&&String(t.shift_type_id)===String(type.id)&&t.start_time==='07:30'&&t.end_time==='11:30');
+    return location&&type?{location,type,pattern}:null;
   }
   function selectedShiftDays(form) {
     return [...form.querySelectorAll('[name="selected_days"]:checked')].map(input=>input.value).sort();
@@ -140,9 +150,10 @@
   }
   function pmShiftMarkup(day, locationId, typeId, days, startTime) {
     const enabled=!!locationId&&!!typeId&&shiftPeriod(startTime||'09:00')==='AM';
-    return '<div class="add-pm-shift-wrap"><label class="add-pm-shift-toggle"><input type="checkbox" name="add_pm_shift" value="1" data-add-pm-shift '+(!enabled?'disabled':'')+'><span><strong>Add PM shift as well</strong><small>Automatically add an afternoon shift on the same selected days</small></span></label>'+
+    return '<div class="add-pm-shift-wrap"><label class="add-pm-shift-toggle"><input type="checkbox" name="add_pm_shift" value="1" data-add-pm-shift '+(!enabled?'disabled':'')+'><span><strong>Add PM shift as well</strong><small>Choose a separate PM shift type, such as Hub</small></span></label>'+
       '<div class="add-pm-shift-fields" data-pm-shift-fields hidden>'+
-      '<label class="field">PM shift pattern<select name="pm_template_id" data-pm-template disabled>'+templateOptionsMarkup(day,null,'',locationId,typeId,days,'PM')+'</select></label>'+
+      '<label class="field">PM shift type<select name="pm_shift_type_id" data-pm-shift-type disabled>'+shiftTypeOptionsMarkup(locationId,'','PM')+'</select></label>'+
+      '<label class="field">PM shift pattern<select name="pm_template_id" data-pm-template disabled>'+templateOptionsMarkup(day,null,'',locationId,'',days,'PM')+'</select></label>'+
       '<div class="form-grid"><label class="field">PM start time<input type="time" name="pm_start_time" step="900" value="13:00" disabled></label>'+
       '<label class="field">PM end time<input type="time" name="pm_end_time" step="900" value="17:00" disabled></label>'+
       '<label class="field">PM break (minutes)<input type="number" name="pm_break_minutes" min="0" max="720" value="0" disabled></label></div></div></div>';
