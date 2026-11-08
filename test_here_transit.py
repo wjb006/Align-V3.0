@@ -32,6 +32,7 @@ def test_arrival_request_and_strict_mode_conversion():
     params = parse_qs(urlparse(fetch.call_args.args[0]).query)
     assert params['arrivalTime'] == [target.isoformat()]
     assert params['modes'] == [','.join(here.BUS)]
+    assert params['pedestrian[maxDistance]'] == ['2000']
     assert len(result) == 1
     assert result[0]['legs'][0]['service_number'] == '42'
     assert result[0]['legs'][0]['platform'] == ''
