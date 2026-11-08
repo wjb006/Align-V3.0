@@ -81,3 +81,14 @@
 .add-shift-day-option input:checked+span small{color:#e0efff}
 .add-shift-day-option input:focus-visible+span{outline:2px solid #fff;outline-offset:3px}
 @media(min-width:520px){.add-shift-days-grid{grid-template-columns:repeat(7,minmax(0,1fr))}}
+
+
+/* Optional PM companion shift */
+.add-pm-shift-wrap{margin:14px 0;padding:12px;border:1px solid #27618b;border-radius:14px;background:rgba(8,34,61,.62)}
+.add-pm-shift-toggle{display:flex;align-items:center;gap:11px;cursor:pointer;color:var(--ink)}
+.add-pm-shift-toggle input{width:20px;height:20px;accent-color:#168ff5;flex:0 0 auto}
+.add-pm-shift-toggle span{display:flex;flex-direction:column;gap:3px}
+.add-pm-shift-toggle strong{font-weight:750}
+.add-pm-shift-toggle small{color:var(--muted);font-size:12px}
+.add-pm-shift-fields{padding-top:12px;margin-top:12px;border-top:1px solid rgba(92,145,185,.3)}
+.add-pm-shift-fields[hidden]{display:none!important}
