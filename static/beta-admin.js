@@ -24,6 +24,7 @@ async function load(){try{const {body:d}=await api('/api/beta/admin');const es=d
     root.innerHTML=`<section class="page"><div class="card"><h1>Owner settings unavailable</h1><p>${esc(err.message||'The Owner status service could not be reached.')}</p></div></section>`;
   }
 }
+}
 function wire(){
  document.querySelector('#change-login-email').onclick=async()=>{const m=document.querySelector('#login-email-message');try{const {body}=await api('/api/beta/owner/login-email',{method:'PUT',body:{new_email:document.querySelector('#new-login-email').value,current_password:document.querySelector('#current-login-password').value}});const sent=(body.email_notices||[]).filter(n=>n.status==='sent').length;m.textContent=`Login email changed. ${sent} of 2 security notices sent. Sign in again.`;setTimeout(()=>location.href='/login',1800);}catch(err){m.textContent=err.message;}};
  document.querySelector('#email-settings').onsubmit=async e=>{e.preventDefault();const m=document.querySelector('#oauth-message');try{const {body}=await api('/api/beta/owner/email-settings',{method:'PUT',body:Object.fromEntries(new FormData(e.target))});m.textContent='Email settings saved. Now connect Outlook.';}catch(err){m.textContent=err.message;}};

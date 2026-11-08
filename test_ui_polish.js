@@ -5,6 +5,10 @@ const app = fs.readFileSync('static/app.js', 'utf8');
 const index = fs.readFileSync('static/index.html', 'utf8');
 const worker = fs.readFileSync('static/service-worker.js', 'utf8');
 const travel = fs.readFileSync('static/travel-assets.js', 'utf8');
+const build = app.match(/const BUILD_VERSION = (\d+);/);
+const asset = app.match(/const ASSET_VERSION = `\$\{BUILD_VERSION\}-(v\d+)`/);
+if (!build || !asset) throw new Error('Current app build and asset version markers are missing');
+const assetVersion = `${build[1]}-${asset[1]}`;
 
 function token(name) {
   const match = css.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})`));
@@ -36,8 +40,8 @@ if (!app.includes('function installPanel()') || !app.includes('data-action="prom
 if (!app.includes('form.checkValidity()') || !app.includes('function showFormError(') || !app.includes("addEventListener('invalid'")) throw new Error('Inline form validation is missing');
 if (!travel.includes('f.checkValidity()') || !travel.includes("message.classList.add('form-error')") || !travel.includes('id="travel-message"')) throw new Error('Travel form feedback is missing');
 
-if (!index.includes('156-v69') || !app.includes('`${BUILD_VERSION}-v69`') || !worker.includes('`${BUILD}-v69`')) throw new Error('Current app and offline cache asset versions do not match the shipped files');
-if (!index.includes('/visual-theme.css?v=156-v69') || !worker.includes('/visual-theme.css?v=${ASSET_VERSION}')) throw new Error('Navy visual theme is not loaded');
+if (!index.includes(`/app.js?v=${assetVersion}`) || !worker.includes(`const ASSET_VERSION = \`\${BUILD}-${asset[1]}\``)) throw new Error('Current app and offline cache asset versions do not match the shipped files');
+if (!index.includes(`/visual-theme.css?v=${assetVersion}`) || !worker.includes('/visual-theme.css?v=${ASSET_VERSION}')) throw new Error('Navy visual theme is not loaded');
 if (!worker.includes('align-v13-shell-${ASSET_VERSION}')) throw new Error('Service worker shell cache name changed');
 
 console.log('UI polish checks passed');
