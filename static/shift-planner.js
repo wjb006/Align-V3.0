@@ -111,6 +111,28 @@
     return '<option value="">'+(locationId?(options.length?'Choose '+(period||'')+' shift type':'No '+(period||'')+' shift types configured'):'Choose a workplace first')+'</option>'+
       options.map(t=>'<option value="'+esc(t.id)+'" '+(String(selectedId||'')===String(t.id)?'selected':'')+'>'+esc(t.name)+'</option>').join('');
   }
+  // Apply the published workplace/day rules to each date at save time.
+  // Saved patterns identify the shift type and normal start; Friday variants
+  // are calculated per date so a Mon-Fri batch can contain different times.
+  function shiftRuleTimes(locationId, typeId, startTime, endTime, day) {
+    const data=state.shiftPlannerData||{};
+    const location=(data.locations||[]).find(x=>String(x.id)===String(locationId));
+    const type=(data.shift_types||[]).find(x=>String(x.id)===String(typeId));
+    const place=String(location?.name||'').toLowerCase();
+    const kind=String(type?.name||'').toLowerCase();
+    const date=new Date(day+'T12:00:00');
+    const weekday=date.getDay(); // 1 Monday ... 5 Friday
+    const friday=weekday===5;
+    const weekend=weekday===0||weekday===6;
+    let start=startTime, end=endTime;
+    if(/arrowe/.test(place)){
+      if(weekend && /ward/.test(kind) && startTime==='07:30') return {start:'07:30',end:'11:30'};
+      if(!weekend && /clinic/.test(kind) && startTime==='13:30' && friday) end='17:00';
+    } else if(/clatterbridge/.test(place) && !weekend && /clinic|hub/.test(kind) && startTime==='13:30' && friday){
+      start='13:00'; end='17:00';
+    }
+    return {start,end};
+  }
   function weekendDefault(day) {
     const date=new Date(day+'T12:00:00');
     return date.getDay()===0||date.getDay()===6;
@@ -643,14 +665,18 @@
           let saved=0;
           for(const work_date of days){
             try{
-              await api('/api/shifts',{method:'POST',body:{...values,work_date}});saved++;
-              if(addPm){await api('/api/shifts',{method:'POST',body:{...pmValues,work_date}});saved++;}
+              const amTimes=shiftRuleTimes(values.location_id,values.shift_type_id,values.start_time,values.end_time,work_date);
+              await api('/api/shifts',{method:'POST',body:{...values,...amTimes,work_date}});saved++;
+              if(addPm){
+                const pmTimes=shiftRuleTimes(pmValues.location_id,pmValues.shift_type_id,pmValues.start_time,pmValues.end_time,work_date);
+                await api('/api/shifts',{method:'POST',body:{...pmValues,...pmTimes,work_date}});saved++;
+              }
             }catch(error){
               if(saved&&typeof toast==='function')toast(saved+' shift'+(saved===1?'':'s')+' saved before '+work_date+' failed: '+(error.message||'unknown error'));
               throw error;
             }
           }
-          if(typeof toast==='function')toast(saved+' shift'+(saved===1?'':'s')+' added across '+days.length+' selected day'+(days.length===1?'':'s')+(addPm?' (AM and PM).':'.'));
+          if(typeof toast==='function')toast(saved+' shift'+(saved===1?'':'s')+' added across '+days.length+' selected day'+(days.length===1?'':'s')+(addPm?' (AM and PM).':'.')+' Workplace rules, including Friday finish times, applied.');
         }
       } else if(kind==='leave'){
         await api('/api/annual-leave',{method:'POST',body:values});if(typeof toast==='function')toast('Annual leave booked.');
