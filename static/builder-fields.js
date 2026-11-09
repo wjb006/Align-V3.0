@@ -11,7 +11,7 @@ window.AlignFields = {
       const visible = this.visible(f, values);
       const legacyAddressSearch = /\b(address|postcode|location|destination)\b/i.test(f.label || '') && ['text','textarea'].includes(f.type);
       const addressSearch = f.type === 'address' || legacyAddressSearch;
-      const attrs = `id="${e(id)}" name="${e(f.id)}" ${required} ${visible?'':'disabled'}${addressSearch?` data-address-search="true" data-address-target="${e(id)}" autocomplete="street-address"`:''}${f.type === 'address'?' data-address-structured="true"':''}`;
+      const attrs = `id="${e(id)}" name="${e(f.id)}" ${required} ${visible?'':'disabled'}${addressSearch?` data-address-search="true" data-address-owner="builder" data-address-target="${e(id)}" autocomplete="street-address"`:''}${f.type === 'address'?' data-address-structured="true"':''}`;
       let input;
       if (f.type === 'formula') input = `<input id="${e(id)}" name="${e(f.id)}" value="${e(value)}" readonly placeholder="Calculated on save"><small>${e(f.formula||'')}</small>`;
       else if (f.type === 'textarea') input = `<textarea ${attrs} maxlength="10000" rows="3">${e(value)}</textarea>`;
@@ -71,7 +71,7 @@ window.AlignFields = {
     return run;
   }
   document.addEventListener('input', event => {
-    const input = event.target.closest?.('[data-address-search]');
+    const input = event.target.closest?.('[data-address-owner="builder"]');
     if (!input) return;
     if (input.dataset.addressSelectionPending) {
       delete input.dataset.addressSelectionPending;
@@ -123,7 +123,9 @@ window.AlignFields = {
       return;
     }
     if (!event.target.closest?.('.address-search')) {
-      document.querySelectorAll('[data-address-results]').forEach(list => { list.hidden = true; });
+      document.querySelectorAll('[data-address-results]').forEach(list => {
+        if (document.getElementById(list.dataset.addressResults)?.dataset.addressOwner === 'builder') list.hidden = true;
+      });
     }
   });
   document.addEventListener('keydown', event => {
@@ -137,7 +139,7 @@ window.AlignFields = {
       else if (event.key === 'Escape') { event.preventDefault(); if(list) list.hidden=true; document.getElementById(list.dataset.addressResults)?.focus(); }
       return;
     }
-    const input = event.target.closest?.('[data-address-search]');
+    const input = event.target.closest?.('[data-address-owner="builder"]');
     if (!input) return;
     const list = document.getElementById(input.id + '-results');
     if (!list || list.hidden) return;
@@ -145,6 +147,7 @@ window.AlignFields = {
     const active = options.indexOf(document.activeElement);
     if (event.key === 'ArrowDown' && options.length) { event.preventDefault(); options[Math.min(active+1,options.length-1)].focus(); }
     else if (event.key === 'ArrowUp' && options.length) { event.preventDefault(); if(active<=0) input.focus(); else options[active-1].focus(); }
+    else if (event.key === 'Enter' && options.length) { event.preventDefault(); options[0].click(); }
     else if (event.key === 'Escape') { list.hidden = true; input.focus(); }
   });
 })();

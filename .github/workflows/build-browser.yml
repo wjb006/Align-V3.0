@@ -38,7 +38,9 @@ jobs:
         env:
           BROWSER: ${{ matrix.browser }}
           MOBILE_DEVICE: ${{ matrix.mobile_device }}
-        run: node browser-tests/align.spec.js
+        run: |
+          node browser-tests/align.spec.js
+          node browser-tests/address-suggestions.spec.js
       - name: Upload mobile visual evidence
         if: always()
         uses: actions/upload-artifact@v4

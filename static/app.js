@@ -1142,6 +1142,7 @@ async function searchAddresses(input) {
   if (!results) return;
   const postcodePrefix = /^[A-Z]{1,2}\d[A-Z\d]?$/i.test(query.replace(/\s+/g, ''));
   if (query.length < 3 && !postcodePrefix) { results.innerHTML = ''; input.setAttribute('aria-expanded', 'false'); return; }
+  results.hidden = false;
   results.innerHTML = '<p class="address-status">Finding UK addresses…</p>';
   try {
     const payload = await api(`/api/address-search?q=${encodeURIComponent(query)}`);
@@ -1356,7 +1357,7 @@ document.addEventListener('change', async event => {
 document.addEventListener('input', event => {
   const field = event.target.dataset.addField;
   if (field) state.add[field] = event.target.type === 'number' ? Number(event.target.value) : event.target.value;
-  if (event.target.hasAttribute('data-address-search')) {
+  if (event.target.hasAttribute('data-address-search') && event.target.dataset.addressOwner !== 'builder') {
     if (event.target.dataset.addressSelection === 'true') {
       delete event.target.dataset.addressSelection;
       return;
@@ -1371,7 +1372,7 @@ document.addEventListener('input', event => {
 });
 
 document.addEventListener('keydown', event => {
-  if (event.key === 'Enter' && event.target.hasAttribute('data-address-search')) {
+  if (event.key === 'Enter' && event.target.hasAttribute('data-address-search') && event.target.dataset.addressOwner !== 'builder') {
     event.preventDefault();
     searchAddresses(event.target);
   }

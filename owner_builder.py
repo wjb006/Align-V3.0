@@ -1451,7 +1451,8 @@ def handle(handler, app, method):
                         if country and country not in {'united kingdom', 'great britain'} and country_code != 'gb': continue
                         street = ' '.join(part for part in (properties.get('housenumber', ''), properties.get('street', '')) if part)
                         town = properties.get('city') or properties.get('town') or properties.get('village') or properties.get('county') or ''
-                        label = ', '.join(dict.fromkeys(part for part in (properties.get('name') or street, properties.get('postcode'), town, properties.get('country')) if part))
+                        name = properties.get('name') if street else ''
+                        label = app.address_label(name, street or properties.get('name'), properties.get('postcode'), town, properties.get('country'))
                         if label: results.append({'label': label, 'postcode': properties.get('postcode', ''), 'town': town, 'country': properties.get('country', ''), 'latitude': coordinates[1], 'longitude': coordinates[0], 'provider': 'OpenStreetMap'})
                         if len(results) >= 8: break
                 except (ValueError, OSError, TimeoutError) as fallback_error:
@@ -1466,7 +1467,7 @@ def handle(handler, app, method):
                     'longitude': item.get('longitude'),
                     'place_id': item.get('place_id') or item.get('provider', ''),
                 }
-                for item in results if item.get('label')
+                for item in app.deduplicate(results) if item.get('label')
             ]})
             return True
         if owner_action:

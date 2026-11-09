@@ -2,6 +2,7 @@
 import json,re,hashlib,os
 from datetime import datetime,timezone,timedelta
 from align_paths import bundled_file
+from address_suggestions import address_label, deduplicate, here_label
 
 def request_json(url):
     """Keep the Studio place-lookup seam patchable for privacy tests."""
@@ -25,15 +26,14 @@ def lookup(body):
         places=[]
         for item in result.get('items',[]):
             position=item.get('position') or {}
-            address=item.get('address') or {}
-            name=address.get('label') or item.get('title') or ''
+            name=here_label(item)
             if not name: continue
             place={'name':name}
             if position.get('lat') is not None and position.get('lng') is not None:
                 place['point']=[position['lat'],position['lng']]
             places.append(place)
             if len(places)==8: break
-        return {'places':places}
+        return {'places':deduplicate(places, label_key='name', point_key='point')}
     if is_postcode_prefix:
         if body.get('consent') is not True: raise ValueError('Allow postcode lookup first')
         from urllib.parse import urlencode
@@ -42,7 +42,8 @@ def lookup(body):
         if postcodes and isinstance(postcodes[0],str):
             from urllib.parse import quote
             postcodes=[request_json('https://api.postcodes.io/postcodes/'+quote(code,safe=''))['result'] for code in postcodes[:8]]
-        return {'places':[{'name':item['postcode'],'point':[item['latitude'],item['longitude']]} for item in postcodes if isinstance(item,dict) and item.get('postcode') and item.get('latitude') is not None and item.get('longitude') is not None]}
+        places=[{'name':item['postcode'],'point':[item['latitude'],item['longitude']]} for item in postcodes if isinstance(item,dict) and item.get('postcode') and item.get('latitude') is not None and item.get('longitude') is not None]
+        return {'places':deduplicate(places, label_key='name', point_key='point')}
     if body.get('consent') is True:
         from urllib.parse import urlencode
         result=request_json('https://photon.komoot.io/api?'+urlencode({'q':q,'limit':8,'lang':'en'}))
@@ -58,11 +59,11 @@ def lookup(body):
             street=' '.join(filter(None,[str(properties.get('housenumber') or '').strip(),str(properties.get('street') or '').strip()]))
             name=str(properties.get('name') or '').strip()
             if not street: street=name
-            label=', '.join(dict.fromkeys(filter(None,[street,properties.get('postcode'),properties.get('city') or properties.get('town') or properties.get('village'),properties.get('state')])))
+            label=address_label(name if properties.get('street') else '',street,properties.get('postcode'),properties.get('city') or properties.get('town') or properties.get('village'),properties.get('state'))
             if not label: continue
             places.append({'name':label,'point':[coordinates[1],coordinates[0]]})
             if len(places)==8: break
-        return {'places':places}
+        return {'places':deduplicate(places, label_key='name', point_key='point')}
     return {'places':[],'message':'No matching local stop. Allow live suggestions or search by postcode.'}
 
 def calendar_key(row):
