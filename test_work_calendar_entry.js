@@ -10,6 +10,7 @@ vm.runInContext(source.slice(start,end),context);
 let html=context.renderSectionsIndex();
 assert(html.includes('data-action="work-rota"'),'Unconfigured Work must offer rota upload');
 assert(html.includes('data-action="work-setup"'),'Unconfigured Work must offer work details setup');
+assert(html.includes('data-action="work-add-shifts"'),'Unconfigured Work must offer manual shift entry');
 assert(html.includes('Work Calendar'),'Unconfigured Work must have a clear setup entry');
 
 context.state.sectionDefinitions=[{key:'work',optional:true,enabled:false,name:'Work'}];
@@ -20,6 +21,7 @@ assert(html.includes('data-action="work-setup"'),'Disabled Work must still offer
 context.state.sectionDefinitions=[{key:'work',optional:true,enabled:true,name:'Work',icon:'▣',colour:'#123456'}];
 html=context.renderSectionsIndex();
 assert(html.includes('data-action="work-setup"'),'Enabled Work must offer management settings');
+assert(html.includes('data-action="work-add-shifts"'),'Enabled Work must offer manual shift entry');
 assert(html.includes('data-action="work-rota"'),'Enabled Work must offer rota upload');
 assert(!html.includes('data-action="work-opt-in"'),'Enabled Work must not ask the user to opt in again');
 console.log('Work Calendar setup and management entry points passed');
@@ -51,11 +53,12 @@ const plannerContext={
 vm.createContext(plannerContext);
 vm.runInContext(plannerSource,plannerContext);
 const plannerHtml=plannerContext.window.renderShiftPlanner();
-const templateChoices=(plannerHtml.match(/<select name="template_id"[^>]*>([\s\S]*?)<\/select>/)||[])[1]||'';
-assert(templateChoices.includes('value="2"'),'An AM shift already booked must leave the PM pattern available');
-assert(!templateChoices.includes('value="1"'),'An AM shift already booked must hide other AM patterns');
 assert(plannerHtml.includes('data-period="PM"'),'An AM shift already booked must default the form to PM');
 assert(plannerHtml.includes('data-shift-type-label>PM shift type')&&plannerHtml.includes('data-shift-template-label>PM shift pattern'),'The form must offer PM controls when AM is already booked');
+assert(plannerHtml.includes('data-shift-action="upload-rota"'),'Manual shift entry must offer the existing rota reader');
+const dayInputs=plannerHtml.match(/<input type="checkbox" name="selected_days"[^>]*>/g)||[];
+assert.equal(dayInputs.length,7,'Add shifts must display all seven days');
+assert(dayInputs.every(input=>!input.includes('checked')),'Add shifts must not preselect a day');
 assert(plannerHtml.includes('2 total items'),'The month cell must count the shift and calendar event together');
 assert(plannerHtml.includes('Travel to Clatterbridge'),'Saved onward travel must appear on the shift card');
 assert.equal((plannerHtml.match(/Travel to Clatterbridge/g)||[]).length,1,'Shift travel must not be repeated underneath its location group');

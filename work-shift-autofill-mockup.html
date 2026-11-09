@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Work shift autofill mockup</title>
+  <link rel="stylesheet" href="static/styles.css">
+  <link rel="stylesheet" href="static/visual-theme.css">
+</head>
+<body>
+  <main class="app-shell">
+    <section class="page">
+      <p class="eyebrow">Illustrative mockup</p>
+      <section class="card restored-planner-form">
+        <h1>Add shifts</h1>
+        <button type="button" class="secondary-button">Upload an image or PDF rota</button>
+        <p class="helper">Review imported rows before saving, or add shifts manually below.</p>
+        <p>Week commencing Monday 9 November</p>
+        <div class="field add-shift-days-field">
+          <span class="field-label">Select days to add shifts</span>
+          <div class="add-shift-days-grid">
+            <label class="add-shift-day-option"><input type="checkbox"><span>Mon</span></label>
+            <label class="add-shift-day-option"><input type="checkbox"><span>Tue</span></label>
+            <label class="add-shift-day-option"><input type="checkbox"><span>Wed</span></label>
+            <label class="add-shift-day-option"><input type="checkbox"><span>Thu</span></label>
+            <label class="add-shift-day-option"><input type="checkbox"><span>Fri</span></label>
+            <label class="add-shift-day-option"><input type="checkbox"><span>Sat</span></label>
+            <label class="add-shift-day-option"><input type="checkbox"><span>Sun</span></label>
+          </div>
+        </div>
+        <label class="field">Choose where<select><option>Arrowe Park</option></select></label>
+        <label class="field">AM shift type<select><option>Wards</option></select></label>
+        <label class="field">AM shift pattern<select><option>AM Wards (08:30–12:30)</option></select></label>
+        <div class="form-grid">
+          <label class="field">Start time<input type="time" value="08:30"></label>
+          <label class="field">End time<input type="time" value="12:30"></label>
+          <label class="field">Break (minutes)<input type="number" value="0"></label>
+        </div>
+        <p class="helper">Example after selecting a day and an AM pattern:</p>
+        <div class="add-pm-shift-wrap">
+          <label class="add-pm-shift-toggle"><input type="checkbox" checked><span><strong>Add PM shift as well</strong><small>A unique saved PM pattern at the same workplace, starting 30 minutes after the AM shift, is selected automatically. The area can be different.</small></span></label>
+          <div class="add-pm-shift-fields">
+            <label class="field">PM shift type<select><option>Clinic</option></select></label>
+            <label class="field">PM shift pattern<select><option>PM Clinic (13:00–17:00)</option></select></label>
+            <div class="form-grid">
+              <label class="field">PM start time<input type="time" value="13:00"></label>
+              <label class="field">PM end time<input type="time" value="17:00"></label>
+              <label class="field">PM break (minutes)<input type="number" value="0"></label>
+            </div>
+          </div>
+        </div>
+        <button type="button" class="primary-button">Add shifts to selected days</button>
+      </section>
+    </section>
+  </main>
+</body>
+</html>

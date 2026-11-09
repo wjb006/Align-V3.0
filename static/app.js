@@ -23,7 +23,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 158;
-const ASSET_VERSION = `${BUILD_VERSION}-v91`;
+const ASSET_VERSION = `${BUILD_VERSION}-v92`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -378,8 +378,8 @@ function renderSectionsIndex() {
   const visible = sections.filter(section => !section.optional || section.enabled);
   const work = sections.find(section => section.key === 'work');
   const workCard = !work || !work.enabled
-    ? `<section class="section"><div class="card work-optional-card"><p class="eyebrow">Work planner</p><h2>Work Calendar</h2><p class="subtle">Start by uploading your rota. Check the shifts before saving them, and add or reuse work details as you go. You can also configure your work details manually.</p><div class="button-row"><button class="primary-button" data-action="work-rota">Upload my rota</button><button class="secondary-button" data-action="work-setup">Add work details</button></div></div></section>`
-    : `<section class="section work-calendar-setup"><div class="card"><p class="eyebrow">Work planner</p><h2>Work Calendar</h2><p class="subtle">Upload a new rota, or adjust your Work Settings. Workplaces and shift areas can also be saved as you use them.</p><div class="button-row"><button class="primary-button" data-action="work-rota">Upload my rota</button><button class="secondary-button" data-action="work-setup">Manage Work Settings</button></div></div></section>`;
+    ? `<section class="section"><div class="card work-optional-card"><p class="eyebrow">Work planner</p><h2>Work Calendar</h2><p class="subtle">Start by uploading your rota. Check the shifts before saving them, and add or reuse work details as you go. You can also configure your work details manually.</p><div class="button-row"><button class="primary-button" data-action="work-rota">Upload my rota</button><button class="secondary-button" data-action="work-add-shifts">Add shifts manually</button><button class="secondary-button" data-action="work-setup">Add work details</button></div></div></section>`
+    : `<section class="section work-calendar-setup"><div class="card"><p class="eyebrow">Work planner</p><h2>Work Calendar</h2><p class="subtle">Upload a new rota, or adjust your Work Settings. Workplaces and shift areas can also be saved as you use them.</p><div class="button-row"><button class="primary-button" data-action="work-rota">Upload my rota</button><button class="secondary-button" data-action="work-add-shifts">Add shifts manually</button><button class="secondary-button" data-action="work-setup">Manage Work Settings</button></div></div></section>`;
   return `<section class="page"><div class="add-head"><p class="eyebrow">Your data, organised your way</p><h1>Sections</h1><p class="subtle">Sections set up in Align Management Studio appear here. Your records stay private to your account.</p></div><div class="quick-grid">${visible.map(section => `<button class="quick-action organiser-section-tile" data-section-key="${escapeHtml(section.key)}" style="--section-colour:${escapeHtml(section.colour)}"><b>${escapeHtml(section.icon)}</b>${escapeHtml(section.name)}<small>${escapeHtml(section.description || 'Open your saved records')}</small></button>`).join('')}${!visible.length?'<div class="card empty">No sections have been added yet.</div>':''}</div>${callOptional('plannerSectionsBlock') || ''}${workCard}</section>`;
 }
 
@@ -1239,6 +1239,13 @@ document.addEventListener('click', async event => {
   }
   if (action === 'work-setup') { void openWorkSetup(); return; }
   if (action === 'work-rota') { void openWorkRota(); return; }
+  if (action === 'work-add-shifts') {
+    try {
+      if (typeof window.openAddShiftForm !== 'function') throw new Error('Manual shift entry is unavailable.');
+      await window.openAddShiftForm(); state.tab = 'planner'; render();
+    } catch (error) { toast(error.message); }
+    return;
+  }
   if (action === 'finance') { void openFinance(); return; }
   if (action === 'go-planner-settings') { state.settingsBranch = 'alerts'; state.tab = 'settings'; render(); return; }
   if (action === 'reload-app') { window.location.reload(); return; }

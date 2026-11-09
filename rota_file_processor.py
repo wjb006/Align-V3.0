@@ -84,7 +84,7 @@ def cleanup_abandoned(now=None, max_age=None):
 
 def _write_temp(payload: bytes) -> Path:
     path = temp_root() / f'{_TEMP_PREFIX}{secrets.token_hex(16)}'
-    fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, 'O_BINARY', 0), 0o600)
     try:
         os.write(fd, payload)
     finally:

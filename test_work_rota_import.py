@@ -36,12 +36,13 @@ def heic():
 
 
 def simple_pdf(text):
-    stream = f'BT ({text}) Tj ET'.encode('latin-1')
+    stream = f'BT /F1 12 Tf 20 100 Td ({text}) Tj ET'.encode('latin-1')
     objects = [
         b'<< /Type /Catalog /Pages 2 0 R >>',
         b'<< /Type /Pages /Count 1 /Kids [3 0 R] >>',
-        b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 144] /Contents 4 0 R >>',
+        b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 144] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
         b'<< /Length %d >>\nstream\n%s\nendstream' % (len(stream), stream),
+        b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
     ]
     chunks = [b'%PDF-1.4\n']
     offsets = []
@@ -188,6 +189,52 @@ class RotaImportTests(unittest.TestCase):
         self.assertEqual(uploaded['entries'][0]['end_time'], '16:00')
         self.assertFalse(fake.asserted_path.exists())
         self.assertFalse(any(rota_file_processor.temp_root().glob('rota-*')))
+
+    def test_temporary_upload_preserves_binary_bytes(self):
+        payload = b'\x89PNG\r\n\x1a\n\x00\r\n\xff'
+        path = rota_file_processor._write_temp(payload)
+        try:
+            self.assertEqual(path.read_bytes(), payload)
+        finally:
+            path.unlink()
+
+    @unittest.skipUnless(rota_ocr_provider.is_available(), 'Local Tesseract is not installed')
+    def test_real_ocr_imports_synthetic_photo_and_scanned_pdf_for_review(self):
+        import fitz
+        from PIL import Image, ImageDraw, ImageFont
+
+        font_paths = [Path('C:/Windows/Fonts/arial.ttf'),
+                      Path('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf')]
+        font_path = next((path for path in font_paths if path.is_file()), None)
+        if not font_path:
+            self.skipTest('A suitable TrueType font is not available')
+        image = Image.new('RGB', (2600, 420), 'white')
+        ImageDraw.Draw(image).text(
+            (60, 120), '2026-11-09 08:00-16:00 Ward, Ward, Main Hospital',
+            fill='black', font=ImageFont.truetype(str(font_path), 72),
+        )
+        png_buffer = io.BytesIO()
+        image.save(png_buffer, format='PNG')
+        document = fitz.open()
+        try:
+            page = document.new_page(width=1300, height=210)
+            page.insert_image(page.rect, stream=png_buffer.getvalue())
+            pdf_data = document.tobytes()
+        finally:
+            document.close()
+        for filename, payload, content_type in (
+            ('synthetic.png', png_buffer.getvalue(), 'image/png'),
+            ('synthetic.pdf', pdf_data, 'application/pdf'),
+        ):
+            with self.subTest(format=content_type):
+                result = self.upload(filename, payload, content_type)
+                self.assertEqual(result['import']['status'], 'review', result)
+                entry = result['entries'][0]
+                self.assertEqual((entry['work_date'], entry['start_time'], entry['end_time']),
+                                 ('2026-11-09', '08:00', '16:00'))
+                self.assertFalse(any(rota_file_processor.temp_root().glob('rota-*')))
+                with app.db_connection() as connection:
+                    self.assertEqual(connection.execute('SELECT COUNT(*) FROM shifts').fetchone()[0], 0)
 
     def test_review_can_learn_new_workplace_and_shift_area(self):
         uploaded = self.csv(

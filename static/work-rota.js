@@ -233,6 +233,8 @@ document.addEventListener('click', async event => {
       workRota.busy = true;
       render();
       const result = await api(`/api/work/rota/imports/${importId}/approve`, {method: 'POST', body: {idempotency_key: crypto.randomUUID(), entries: chosen}});
+      state.shiftPlannerData = null;
+      state.shiftPlannerDateShifts = null;
       await refreshRota(importId);
       const conflicts = (result.conflicts || []).map(item => item.message).filter(Boolean);
       workRota.error = conflicts.join(' ');
@@ -242,6 +244,8 @@ document.addEventListener('click', async event => {
       workRota.busy = true;
       render();
       const result = await api(`/api/work/rota/imports/${importId}/undo`, {method: 'POST', body: {}});
+      state.shiftPlannerData = null;
+      state.shiftPlannerDateShifts = null;
       await refreshRota(importId);
       const conflicts = (result.conflicts || []).map(item => item.message).filter(Boolean);
       workRota.error = conflicts.join(' ');
