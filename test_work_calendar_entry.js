@@ -83,3 +83,29 @@ plannerContext.state.shiftPlannerData.events[0].start_at='2026-11-09T16:00';
 const overlappingHtml=plannerContext.window.renderShiftPlanner();
 assert(!overlappingHtml.includes('planner-location-travel'),'An overlapping event must not produce a misleading inter-event block');
 console.log('AM/PM filtering, combined calendar totals and shift travel UI passed');
+
+(async()=>{
+  const start=plannerSource.indexOf('async function loadInboundPlannerJourneys(data) {');
+  const end=plannerSource.indexOf('\n  function selectedShifts()',start);
+  assert(start>=0&&end>start,'Timeline route loader must exist');
+  const day=new Date();
+  day.setDate(day.getDate()+1);
+  const tomorrow=[day.getFullYear(),String(day.getMonth()+1).padStart(2,'0'),String(day.getDate()).padStart(2,'0')].join('-');
+  const requests=[];
+  const timelineContext={
+    state:{plannerMode:'week'},
+    getToday:()=>tomorrow,
+    plannerItemStart:item=>item.work_date+'T'+item.start_time,
+    plannerItemEnd:item=>item.work_date+'T'+item.end_time,
+    plannerLocationKey:item=>item.location,
+    api:async(path,options)=>{requests.push({path,body:options.body});return path==='/api/personal/journey'?{notes:'Route'}:{};},
+    Date
+  };
+  vm.createContext(timelineContext);
+  const load=vm.runInContext(plannerSource.slice(start,end)+';loadInboundPlannerJourneys',timelineContext);
+  await load({shifts:[
+    {id:1,work_date:tomorrow,start_time:'08:00',end_time:'09:00',location:'First Site'},
+    {id:2,work_date:tomorrow,start_time:'13:00',end_time:'14:00',location:'Second Site'}
+  ]});
+  assert.equal(requests.filter(request=>request.path==='/api/personal/journey').length,1,'Only the first located group should receive a home-origin route.');
+})().catch(error=>{console.error(error);process.exitCode=1;});

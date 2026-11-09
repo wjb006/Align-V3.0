@@ -211,5 +211,21 @@ def decorate(c, items, kind=None):
         from personal_planner import preferences
         route['mode'] = saved.get('mode') or preferences(c)['default_travel']
         fingerprint = hashlib.sha256(json.dumps(route,sort_keys=True).encode()).hexdigest()
-        item['post_travel'] = {**route,'enabled':True,'historical':instant(route['departure']) <= datetime.now(ZONE),'journey':saved.get('journey') if saved.get('fingerprint')==fingerprint else None}
+        journey = saved.get('journey') if saved.get('fingerprint')==fingerprint else None
+        timeline_saved = saved_rows.get(f"post_event_travel:timeline:{event_kind}:{item['id']}",{})
+        if timeline_saved:
+            _, timeline_route = target(c,event_kind,item['id'],all_events,home_row[0] if home_row else '',timeline=True)
+            timeline_route.update(mode=timeline_saved.get('mode') or route['mode'],timeline=True)
+            timeline_fingerprint = hashlib.sha256(json.dumps({
+                'route':timeline_route,'provider_version':_provider_cache_version(timeline_route['mode'])
+            },sort_keys=True).encode()).hexdigest()
+            if timeline_saved.get('fingerprint')==timeline_fingerprint and timeline_saved.get('journey'):
+                timeline_route.update(
+                    enabled=True,
+                    historical=instant(timeline_route['departure']) <= datetime.now(ZONE),
+                    journey=timeline_saved['journey'],
+                )
+                item['post_travel'] = timeline_route
+                continue
+        item['post_travel'] = {**route,'enabled':True,'historical':instant(route['departure']) <= datetime.now(ZONE),'journey':journey}
     return items

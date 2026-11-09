@@ -34,7 +34,7 @@ async function main() {
     const eventStyleTag=await page.addStyleTag({content:eventStyles});
     await page.addScriptTag({content:`
       window.state={boot:{personal:{journey_provider:'configured'},settings:{user_address:'Home Road One'}},tab:'today',
-        dailyInboundJourneys:{},dailyInboundLoading:{},dailyInboundErrors:{},postTravelRequests:new Set()};
+        dailyInboundJourneys:{},dailyInboundLoading:{},dailyInboundErrors:{},postTravelRequests:new Map()};
       window.personalPrefs=()=>({default_travel:'transit',departure_buffer:5,arrival_buffer:10});
       window.eventStartAt=item=>item?.start_at?new Date(item.start_at):null;
       window.eventEndAt=item=>item?.end_at?new Date(item.end_at):null;
@@ -177,6 +177,17 @@ async function main() {
     });
     assert.equal(await page.evaluate(() => routeCalls.length),4,'Changing the destination address should refresh both affected routes.');
 
+    await page.evaluate(async () => {
+      window.api=async()=>({journey:{leave_at:'2030-10-01T16:30',arrival_at:'2030-10-01T17:00',steps:[]}});
+      const item={id:4,origin:'Event',location:'Clinic Road',start_at:'2030-10-01T16:00',end_at:'2030-10-01T16:30'};
+      await ensureDailyPostTravel([{first:item,last:item}]);
+      window.reloadedItem={...item};
+      await ensureDailyPostTravel([{first:reloadedItem,last:reloadedItem}]);
+    });
+    const reusedTravel = await page.evaluate(() => reloadedItem.post_travel);
+    assert.equal(reusedTravel.journey.arrival_at,'2030-10-01T17:00','A matching timeline result should be restored to newly decorated items.');
+    assert.ok(reusedTravel.request_key);
+
     await page.evaluate(() => {
       const next=timelineItems[2], from=timelineItems[1];
       from.post_travel={timeline:true,enabled:true,request_key:todayPostTravelRequestKey(from,next),
@@ -190,6 +201,7 @@ async function main() {
     assert.equal(await schedule.locator('.today-home-travel').count(),1);
     assert.match(await schedule.locator('.today-appointment-card .today-home-travel').innerText(),/Travel home/);
     assert.equal(await schedule.locator(':scope > .today-travel-connector').count(),1);
+    assert.equal(await schedule.locator('.today-travel-connector .journey-compact-strip').first().evaluate(node=>getComputedStyle(node).flexWrap),'wrap');
     await page.evaluate(() => {
       const last=timelineItems[1];
       last.post_travel={enabled:true,deadline:'',destination_name:'Home',

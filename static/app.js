@@ -10,7 +10,7 @@ const state = {
   dailyInboundJourneys: {},
   dailyInboundLoading: {},
   dailyInboundErrors: {},
-  postTravelRequests: new Set(),
+  postTravelRequests: new Map(),
   add: { context: null },
 };
 window.ALIGN_STATE = state;
@@ -556,7 +556,21 @@ async function ensureDailyPostTravel(groups) {
     if (!from || (to && (sameTodayLocation(from, to) ||
         String(from.start_at || '').slice(0, 10) !== String(to.start_at || '').slice(0, 10)))) continue;
     const requestKey = todayPostTravelRequestKey(from, to);
-    if (from._todayRouteRequestKey === requestKey || state.postTravelRequests.has(requestKey)) continue;
+    if (from.post_travel?.timeline && from.post_travel?.journey) {
+      from.post_travel.request_key = requestKey;
+      continue;
+    }
+    const cachedRequest = state.postTravelRequests.get(requestKey);
+    if (cachedRequest) {
+      try {
+        const result = await cachedRequest;
+        from.post_travel = { ...(from.post_travel || {}), ...result, enabled:true, timeline:true, request_key:requestKey };
+      } catch (error) {
+        from.post_travel = { ...(from.post_travel || {}), enabled:true, timeline:true, request_key:requestKey, error:String(error?.message||'The route provider is unavailable.') };
+      }
+      continue;
+    }
+    if (from._todayRouteRequestKey === requestKey) continue;
     const end = eventEndAt(from), destinationStart = to && eventStartAt(to);
     if (!eventStartAt(from) || !end || from.all_day ||
         !String(from.location || from.address || '').trim() || end.getTime() <= Date.now() ||
@@ -564,15 +578,17 @@ async function ensureDailyPostTravel(groups) {
           destinationStart.getTime() <= end.getTime()))) continue;
     if (from.post_travel?.timeline && from.post_travel?.request_key === requestKey) continue;
     from._todayRouteRequestKey = requestKey;
-    state.postTravelRequests.add(requestKey);
     try {
       const prefs=typeof personalPrefs==='function'?personalPrefs():{};
-      const result=await api('/api/personal/post-event-travel',{method:'POST',body:{
+      const request=api('/api/personal/post-event-travel',{method:'POST',body:{
         kind:eventTravelKind(from),id:Number(from.id),enabled:true,mode:prefs.default_travel||'transit',plan:true,timeline:true
       }});
+      state.postTravelRequests.set(requestKey,request);
+      const result=await request;
       from.post_travel={...(from.post_travel||{}),...result,enabled:true,timeline:true,request_key:requestKey};
       if (state.boot && ['today','home','planner','calendar'].includes(state.tab)) render();
     } catch (error) {
+      state.postTravelRequests.delete(requestKey);
       from.post_travel={...(from.post_travel||{}),enabled:true,timeline:true,request_key:requestKey,error:String(error?.message||'The route provider is unavailable.')};
       if (state.boot && ['today','home','planner','calendar'].includes(state.tab)) render();
     }
