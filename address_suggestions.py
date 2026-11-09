@@ -15,8 +15,11 @@ def address_label(name, street, postcode, locality, *extra):
 def here_label(item):
     label = str((item.get("address") or {}).get("label") or item.get("title") or "").strip()
     title = str(item.get("title") or "").strip()
-    components = {" ".join(part.split()).casefold() for part in label.split(",")}
-    if item.get("resultType") == "place" and title and " ".join(title.split()).casefold() not in components:
+    components = [" ".join(part.split()).casefold() for part in label.split(",")]
+    title_components = [" ".join(part.split()).casefold() for part in title.split(",")]
+    title_in_label = any(components[index:index + len(title_components)] == title_components
+                         for index in range(len(components)))
+    if item.get("resultType") == "place" and title and not title_in_label:
         return f"{title}, {label}"
     return label
 

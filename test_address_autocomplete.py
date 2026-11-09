@@ -151,6 +151,21 @@ class AddressAutocompleteTests(unittest.TestCase):
             ("place", "Park, 10 Park Road, London"), ("address", "10 Park Road, London")
         ])
 
+    def test_here_place_name_with_commas_deduplicates(self):
+        items = [
+            {"title": "Example Hospital, Main Wing", "resultType": "place",
+             "address": {"label": label}, "position": {"lat": 51.5, "lng": -0.1}, "id": str(index)}
+            for index, label in enumerate(["Example Hospital, Main Wing, Example Road",
+                                           "Example Road"])
+        ]
+        with patch.dict(os.environ, {"ALIGN_HERE_ROUTING_KEY": "test-key"}), patch.object(
+            app.personal_planner, "here_fetch", return_value={"items": items}
+        ):
+            results = app.find_addresses("Example Hospital")
+        self.assertEqual([(item["place_id"], item["label"]) for item in results], [
+            ("0", "Example Hospital, Main Wing, Example Road")
+        ])
+
     def test_photon_preserves_named_places_and_deduplicates_identical_nearby_results(self):
         def feature(name, lat, osm_id):
             return {"properties": {"name": name, "street": "Example Road", "postcode": "CH1 1AA",
