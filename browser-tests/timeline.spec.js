@@ -108,14 +108,15 @@ async function main() {
     assert.equal(inboundRequest.body.departure_buffer,5);
     assert.equal('arrival_buffer' in inboundRequest.body,false,'Today must use the event start, not an early-arrival buffer.');
 
-    const inboundOptions = await page.evaluate(() => {
-      state.dailyInboundJourneys[todayInboundKey(timelineItems[0])]={leave_at:'2030-10-01T07:40',steps:[]};
-      let options;
-      window.travelRouteStrip=(_journey, value)=>{options=value;return '<p>Route</p>';};
-      todayInboundMarkup(timelineItems[0],true);
-      return options;
+    await page.addScriptTag({content: postTravelSource.slice(postTravelSource.indexOf('function condensedJourneyText'), postTravelSource.indexOf('function postTravelSummary'))});
+    const inboundMarkup = await page.evaluate(() => {
+      state.dailyInboundJourneys[todayInboundKey(timelineItems[0])]={leave_at:'2030-10-01T07:40',arrival_at:'2030-10-01T08:00',steps:[{mode:'bus',service:'414'}]};
+      return todayInboundMarkup(timelineItems[0],true);
     });
-    assert.equal(inboundOptions.leaveAtFirstWalk,true,'The timeline should show the first walk start as the leave time.');
+    assert.match(inboundMarkup,/travel-condensed/,'Home travel stays on one line.');
+    assert.match(inboundMarkup,/Leave 07:40/);
+    assert.match(inboundMarkup,/Bus 414/);
+    assert.doesNotMatch(inboundMarkup,/journey-compact-item/);
 
     await page.addScriptTag({content:journeySource+'\n'+postTravelSource});
     await page.evaluate(() => {
@@ -203,7 +204,10 @@ async function main() {
     assert.equal(await schedule.locator('.today-home-travel').count(),1);
     assert.match(await schedule.locator('.today-appointment-card .today-home-travel').innerText(),/Travel home/);
     assert.equal(await schedule.locator(':scope > .today-travel-connector').count(),1);
-    assert.equal(await schedule.locator('.today-travel-connector .journey-compact-strip').first().evaluate(node=>getComputedStyle(node).flexWrap),'wrap');
+    const nextTravel=schedule.locator('.today-travel-connector[aria-label="Travel to next event"]');
+    assert.match(await nextTravel.innerText(),/Leave 16:30/);
+    assert.match(await nextTravel.innerText(),/Arrive 17:00/);
+    assert.equal(await nextTravel.locator('.journey-compact-strip').count(),0,'Home timeline travel stays condensed.');
     await page.evaluate(() => {
       const last=timelineItems[1];
       last.post_travel={enabled:true,deadline:'',destination_name:'Home',
