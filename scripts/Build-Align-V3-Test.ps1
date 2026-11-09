@@ -100,7 +100,7 @@ try {
     if (-not $ClientBuild -or $ClientBuild.Matches[0].Groups[1].Value -ne "158") { throw "Client application is not Build 158." }
     if (-not $ServerBuild -or $ServerBuild.Matches[0].Groups[1].Value -ne "158") { throw "Server application is not Build 158." }
     if (-not $WorkerBuild -or $WorkerBuild.Matches[0].Groups[1].Value -ne "158") { throw "Offline worker is not Build 158." }
-    if (-not (Select-String -Path "static\index.html" -Pattern '158-v72' -Quiet)) { throw "HTML shell is not using the Build 158 asset cache." }
+    if (-not (Select-String -Path "static\index.html" -Pattern '158-v91' -Quiet)) { throw "HTML shell is not using the Build 158 asset cache." }
     if (-not (Test-Path "static\section-guide.js")) { throw "Guided section setup is missing." }
     if (-not (Test-Path "migrations\158_section_guides.sql")) { throw "Migration 158 is missing." }
 
@@ -113,6 +113,10 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Post-event travel JavaScript syntax check failed." }
     & node test_work_calendar_entry.js
     if ($LASTEXITCODE -ne 0) { throw "Work calendar UI regression tests failed." }
+    & node test_work_shift_autofill.js
+    if ($LASTEXITCODE -ne 0) { throw "Work shift autofill regression tests failed." }
+    & node test_work_rota_entry.js
+    if ($LASTEXITCODE -ne 0) { throw "Work rota entry regression tests failed." }
     & node --check static/desktop.js
     if ($LASTEXITCODE -ne 0) { throw "Desktop JavaScript syntax check failed." }
     & node --check static/app.js
@@ -155,7 +159,7 @@ try {
     $PackagedStudio = Get-Content -Raw (Join-Path $AppRoot "_internal\static\management-studio.html")
     $PackagedOwnerAdmin = Get-Content -Raw (Join-Path $AppRoot "_internal\static\beta-admin.js")
     if ($PackagedAppJs -notmatch 'const BUILD_VERSION = 158;') { throw "Packaged frontend is not Build 158." }
-    if ($PackagedIndex -notmatch '158-v72') { throw "Packaged HTML shell is not using the Build 158 asset cache." }
+    if ($PackagedIndex -notmatch '158-v91') { throw "Packaged HTML shell is not using the Build 158 asset cache." }
     if ($PackagedStudio -notmatch 'beta-admin.js\?v=158-v72') { throw "Packaged Management Studio is not using the refreshed Owner admin script." }
     if ($PackagedOwnerAdmin -notmatch 'Not available in this local test installation') { throw "Packaged Owner admin screen is missing the local hosted-feature explanation." }
 

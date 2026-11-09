@@ -154,6 +154,12 @@
   function selectedShiftDays(form) {
     return [...form.querySelectorAll('[name="selected_days"]:checked')].map(input=>input.value).sort();
   }
+  function firstEmptyShiftWeek(start, shifts) {
+    const occupied=new Set(shifts.map(shift=>monday(shift.work_date)));
+    let week=monday(start);
+    while(occupied.has(week))week=shiftDay(week,7);
+    return week;
+  }
   function addShiftDaysMarkup(day, selectedDays) {
     const start=monday(day), chosen=new Set(selectedDays||[day]);
     return '<div class="field add-shift-days-field"><span class="field-label">Select days to add shifts</span><p class="helper">Choose every day this shift should be added to. You only need to set the workplace and shift once.</p><div class="add-shift-days-grid">'+Array.from({length:7},(_,i)=>{
@@ -177,9 +183,56 @@
     return '<option value="">'+prompt+'</option>'+
       options.map(t=>'<option value="'+esc(t.id)+'" '+(String(selectedId||'')===String(t.id)?'selected':'')+'>'+esc(t.label+' ('+t.start_time+'–'+t.end_time+')')+'</option>').join('');
   }
+  function matchingPmPattern(form) {
+    const days=selectedShiftDays(form).filter(day=>!weekendDefault(day));
+    const start=form.elements.start_time.value, end=form.elements.end_time.value;
+    if(!form.elements.template_id.value||!days.length||shiftPeriod(start)!=='AM'||
+       !/^([01]\d|2[0-3]):[0-5]\d$/.test(end)||end<=start)return null;
+    const [hour,minute]=end.split(':').map(Number), total=hour*60+minute+30;
+    if(total>=1440)return null;
+    const pmStart=String(Math.floor(total/60)).padStart(2,'0')+':'+String(total%60).padStart(2,'0');
+    if(shiftPeriod(pmStart)!=='PM')return null;
+    const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const matches=(state.shiftPlannerData?.templates||[]).filter(t=>{
+      if(t.active===0||String(t.location_id)!==String(form.elements.location_id.value)||t.start_time!==pmStart)return false;
+      const applicable=Array.isArray(t.applicable_days)?t.applicable_days:JSON.parse(t.applicable_days||'[]');
+      return days.every(day=>!shiftsForDate(day).some(s=>shiftPeriod(s.start_time)==='PM')&&
+        (!applicable.length||applicable.includes(dayNames[new Date(day+'T12:00:00').getDay()])));
+    });
+    return matches.length===1?matches[0]:null;
+  }
+  function autofillPmPattern(form) {
+    if(form.dataset.id||form.dataset.pmManual==='1')return;
+    const toggle=form.querySelector('[data-add-pm-shift]');
+    const panel=form.querySelector('[data-pm-shift-fields]');
+    const type=form.querySelector('[data-pm-shift-type]');
+    const pattern=form.querySelector('[data-pm-template]');
+    if(!toggle||!panel||!type||!pattern)return;
+    const match=matchingPmPattern(form);
+    if(!match){
+      if(form.dataset.pmAuto==='1'){
+        toggle.checked=false; panel.hidden=true;
+        panel.querySelectorAll('input,select').forEach(field=>field.disabled=true);
+        type.value=''; pattern.value='';
+        delete form.dataset.pmAuto;
+      }
+      return;
+    }
+    const days=selectedShiftDays(form).filter(day=>!weekendDefault(day));
+    toggle.disabled=false; toggle.checked=true; panel.hidden=false;
+    panel.querySelectorAll('input,select').forEach(field=>field.disabled=false);
+    type.innerHTML=shiftTypeOptionsMarkup(form.elements.location_id.value,match.shift_type_id,'PM');
+    type.value=String(match.shift_type_id);
+    pattern.innerHTML=templateOptionsMarkup(days[0],null,match.id,form.elements.location_id.value,match.shift_type_id,days,'PM');
+    pattern.value=String(match.id);
+    form.elements.pm_start_time.value=match.start_time;
+    form.elements.pm_end_time.value=match.end_time;
+    form.elements.pm_break_minutes.value=match.break_minutes||0;
+    form.dataset.pmAuto='1';
+  }
   function pmShiftMarkup(day, locationId, typeId, days, startTime) {
     const enabled=!!locationId&&!!typeId&&shiftPeriod(startTime||'09:00')==='AM'&&shiftTypesForLocation(locationId,'PM').length>0;
-    return '<div class="add-pm-shift-wrap"><label class="add-pm-shift-toggle"><input type="checkbox" name="add_pm_shift" value="1" data-add-pm-shift '+(!enabled?'disabled':'')+'><span><strong>Add PM shift as well</strong><small>Choose a separate PM shift type, such as Hub</small></span></label>'+
+    return '<div class="add-pm-shift-wrap"><label class="add-pm-shift-toggle"><input type="checkbox" name="add_pm_shift" value="1" data-add-pm-shift '+(!enabled?'disabled':'')+'><span><strong>Add PM shift as well</strong><small>A unique saved PM pattern starting 30 minutes after the AM shift is selected automatically. You can change it.</small></span></label>'+
       '<div class="add-pm-shift-fields" data-pm-shift-fields hidden>'+
       '<label class="field">PM shift type<select name="pm_shift_type_id" data-pm-shift-type disabled>'+shiftTypeOptionsMarkup(locationId,'','PM')+'</select></label>'+
       '<label class="field">PM shift pattern<select name="pm_template_id" data-pm-template disabled>'+templateOptionsMarkup(day,null,'',locationId,'',days,'PM')+'</select></label>'+
@@ -275,11 +328,12 @@
     const used=shiftsForDate(day,edit.id);
     const usedPeriods=[...new Set(used.map(s=>shiftPeriod(s.start_time)))];
     const periodNote=usedPeriods.length?usedPeriods.map(p=>p+' shift already planned').join(' · ')+'. Only the other period is available.':'Choose an AM or PM pattern. You can add the other period afterwards.';
-    const initialDays=edit.id?[]:[state.shiftPlannerSelectedDay||day];
+    const initialDays=[];
     const initialWeekendOnly=initialDays.length>0&&initialDays.every(weekendDefault);
     const requiredAttr=initialWeekendOnly?'':' required';
     return '<section class="card restored-planner-form" id="shift-planner-form"><div class="section-head"><div><p class="eyebrow">'+(edit.id?'Edit shift':'Plan a shift')+'</p><h2>'+(edit.id?'Update shift':'Add shifts')+'</h2></div><button class="secondary-button" data-shift-action="close-form">Close</button></div>'+
       '<form data-shift-form="shift" data-id="'+esc(edit.id||'')+'" data-period="'+primaryPeriod+'">'+
+      (!edit.id?'<div class="button-row"><button type="button" class="secondary-button" data-shift-action="upload-rota">Upload an image or PDF rota</button></div><p class="helper">Review imported rows before saving, or add shifts manually below.</p>':'')+
       (edit.id?'<label class="field">Work date<input type="date" name="work_date" data-shift-work-date required value="'+esc(day)+'"></label>':addShiftDaysMarkup(day,initialDays))+
       '<label class="field">Choose where<select name="location_id" data-shift-location'+requiredAttr+'><option value="">Choose a workplace</option>'+locations.map(l=>'<option value="'+esc(l.id)+'" '+(String(chosenLocation)===String(l.id)?'selected':'')+'>'+esc(l.name)+'</option>').join('')+'</select></label>'+
       '<label class="field"><span data-shift-type-label>'+primaryPeriod+' shift type</span><select name="shift_type_id" data-shift-type'+requiredAttr+' '+(!chosenLocation?'disabled':'')+'>'+shiftTypeOptionsMarkup(chosenLocation,chosenType,primaryPeriod)+'</select></label>'+
@@ -449,7 +503,21 @@
   async function reload() {
     state.shiftPlannerData=null; state.shiftPlannerDateShifts=null; state.shiftPlannerError=''; await load();
   }
+  async function openAddShiftForm() {
+    const result=await api('/api/shifts');
+    const currentWeek=monday(getToday()), viewedWeek=monday(state.plannerAnchor||getToday());
+    const start=viewedWeek>currentWeek?viewedWeek:currentWeek;
+    state.shiftPlannerSelectedDay=null;
+    state.plannerAnchor=firstEmptyShiftWeek(start,result.shifts);
+    state.plannerMode='week';state.shiftPlannerModal='add';state.shiftPlannerEdit=null;
+    await reload();
+  }
+  window.openAddShiftForm=openAddShiftForm;
   function formObject(form) { return Object.fromEntries(new FormData(form).entries()); }
+  document.addEventListener('input', event => {
+    const target=event.target, form=target.closest('[data-shift-form="shift"]');
+    if(form && target.matches('[name="pm_start_time"],[name="pm_end_time"],[name="pm_break_minutes"]'))form.dataset.pmManual='1';
+  });
   document.addEventListener('change', async event => {
     const target=event.target;
     if(target.matches('[data-finance-calendar]')){
@@ -461,6 +529,7 @@
     }
     const form=target.closest('[data-shift-form="shift"]');
     if(!form)return;
+    if(target.matches('[data-add-pm-shift],[data-pm-shift-type],[data-pm-template],[name="pm_start_time"],[name="pm_end_time"],[name="pm_break_minutes"]'))form.dataset.pmManual='1';
     if(target.matches('[data-shift-work-date]')){
       const day=target.value;
       if(!day)return;
@@ -510,8 +579,10 @@
       const addPm=form.querySelector('[data-add-pm-shift]');
       if(addPm&&shiftPeriod(target.value)==='AM'&&form.elements.location_id.value&&form.elements.shift_type_id.value)addPm.disabled=false;
       if(addPm&&shiftPeriod(target.value)==='PM'){addPm.checked=false;addPm.disabled=true;const panel=form.querySelector('[data-pm-shift-fields]');if(panel){panel.hidden=true;panel.querySelectorAll('input,select').forEach(field=>field.disabled=true);}}
+      autofillPmPattern(form);
       return;
     }
+    if(target.matches('[name="end_time"]')){autofillPmPattern(form);return;}
     if(target.matches('[name="selected_days"]')){
       const dates=selectedShiftDays(form);
       const weekendOnly=dates.length>0&&dates.every(weekendDefault);
@@ -521,16 +592,18 @@
       const patternSelect=form.querySelector('[name="template_id"]');
       const period=form.dataset.period||'AM';
       if(patternSelect){
-        patternSelect.innerHTML=templateOptionsMarkup(dates[0]||state.shiftPlannerSelectedDay||state.plannerAnchor,form.dataset.id||null,'',form.elements.location_id.value,form.elements.shift_type_id.value,dates,period);
+        const selected=patternSelect.value;
+        patternSelect.innerHTML=templateOptionsMarkup(dates[0]||state.shiftPlannerSelectedDay||state.plannerAnchor,form.dataset.id||null,selected,form.elements.location_id.value,form.elements.shift_type_id.value,dates,period);
         patternSelect.disabled=!dates.length||!form.elements.location_id.value||!form.elements.shift_type_id.value;
-        patternSelect.value='';
+        patternSelect.value=selected;
       }
       const pmPattern=form.querySelector('[data-pm-template]');
-      if(pmPattern)pmPattern.innerHTML=templateOptionsMarkup(dates[0]||state.shiftPlannerSelectedDay||state.plannerAnchor||getToday(),null,'',form.elements.location_id.value,form.elements.shift_type_id.value,dates,'PM');
+      if(pmPattern&&form.dataset.pmManual!=='1')pmPattern.innerHTML=templateOptionsMarkup(dates[0]||state.shiftPlannerSelectedDay||state.plannerAnchor||getToday(),null,'',form.elements.location_id.value,form.elements.pm_shift_type_id.value,dates,'PM');
       if(note)note.textContent=weekendOnly
         ? 'Saturday and Sunday will automatically be added as Arrowe Park Wards, 07:30–11:30.'
         : dates.length?dates.length+' day'+(dates.length===1?'':'s')+' selected. One shift setup will be applied to all selected days.'
         : 'Select at least one day to continue.';
+      autofillPmPattern(form);
       return;
     }
     if(target.matches('[name="location_id"]')){
@@ -561,22 +634,23 @@
         patternSelect.value='';
       }
       const pmToggle=form.querySelector('[data-add-pm-shift]');
-      if(pmToggle){pmToggle.disabled=!form.elements.location_id.value||!target.value||!shiftTypesForLocation(form.elements.location_id.value,'PM').length;pmToggle.checked=false;const panel=form.querySelector('[data-pm-shift-fields]');if(panel){panel.hidden=true;panel.querySelectorAll('input,select').forEach(field=>field.disabled=true);}}
+      if(pmToggle&&form.dataset.pmManual!=='1'){pmToggle.disabled=!form.elements.location_id.value||!target.value||!shiftTypesForLocation(form.elements.location_id.value,'PM').length;pmToggle.checked=false;const panel=form.querySelector('[data-pm-shift-fields]');if(panel){panel.hidden=true;panel.querySelectorAll('input,select').forEach(field=>field.disabled=true);}delete form.dataset.pmAuto;}
       const pmType=form.querySelector('[data-pm-shift-type]');
-      if(pmType){pmType.innerHTML=shiftTypeOptionsMarkup(form.elements.location_id.value,'','PM');}
+      if(pmType&&form.dataset.pmManual!=='1'){pmType.innerHTML=shiftTypeOptionsMarkup(form.elements.location_id.value,'','PM');}
       const pmPattern=form.querySelector('[data-pm-template]');
-      if(pmPattern){const dates=form.dataset.id?[form.elements.work_date.value]:selectedShiftDays(form);pmPattern.innerHTML=templateOptionsMarkup(dates[0]||state.shiftPlannerSelectedDay||state.plannerAnchor||getToday(),null,'',form.elements.location_id.value,'',dates,'PM');}
+      if(pmPattern&&form.dataset.pmManual!=='1'){const dates=form.dataset.id?[form.elements.work_date.value]:selectedShiftDays(form);pmPattern.innerHTML=templateOptionsMarkup(dates[0]||state.shiftPlannerSelectedDay||state.plannerAnchor||getToday(),null,'',form.elements.location_id.value,'',dates,'PM');}
       return;
     }
     if(target.matches('[name="template_id"]')){
       const selected=(state.shiftPlannerData?.templates||[]).find(t=>String(t.id)===String(target.value));
-      if(!selected)return;
+      if(!selected){autofillPmPattern(form);return;}
       const form=target.closest('form');
       for(const [name,value] of Object.entries({location_id:selected.location_id,shift_type_id:selected.shift_type_id,start_time:selected.start_time,end_time:selected.end_time,break_minutes:selected.break_minutes||0})){
         const field=form.querySelector('[name="'+name+'"]');if(field)field.value=value;
       }
       const pmToggle=form.querySelector('[data-add-pm-shift]');
       if(pmToggle){pmToggle.disabled=shiftPeriod(selected.start_time)!=='AM';if(pmToggle.disabled){pmToggle.checked=false;const panel=form.querySelector('[data-pm-shift-fields]');if(panel){panel.hidden=true;panel.querySelectorAll('input,select').forEach(field=>field.disabled=true);}}}
+      autofillPmPattern(form);
     }
     if(target.matches('[data-pm-shift-type]')){
       const dates=form.dataset.id?[form.elements.work_date.value]:selectedShiftDays(form);
@@ -632,7 +706,15 @@
       }
       if(action==='week'||action==='month'||action==='list'){state.shiftPlannerSelectedDay=null;state.plannerMode=action;state.plannerAnchor=action==='week'?monday(state.plannerAnchor):state.plannerAnchor.slice(0,7)+'-01';await reload();return;}
       if(action==='today'){state.plannerAnchor=state.plannerMode==='week'?monday(getToday()):getToday().slice(0,7)+'-01';await reload();return;}
-      if(action==='add'){state.shiftPlannerModal='add';state.shiftPlannerEdit=null;paint();return;}
+      if(action==='add'){
+        await openAddShiftForm();return;
+      }
+      if(action==='upload-rota'){
+        if(!window.confirm('Opening rota upload closes this unsaved shift form. Continue?'))return;
+        if(typeof openWorkRota==='function')await openWorkRota();
+        else throw new Error('Rota upload is unavailable.');
+        return;
+      }
       if(action==='work-settings'){if(typeof openWorkSetup==='function')await openWorkSetup();return;}
       if(action==='settings'){state.settingsBranch='alerts';state.tab='settings';if(typeof render==='function')render();return;}
       if(action==='leave'){state.shiftPlannerModal='leave';paint();return;}
@@ -720,7 +802,7 @@
           delete values.work_date;
           const period=shiftPeriod(values.start_time);
           const addPm=form.elements.add_pm_shift?.checked===true;
-          const pmValues=addPm?{location_id:values.location_id,shift_type_id:values.pm_shift_type_id,start_time:values.pm_start_time,end_time:values.pm_end_time,break_minutes:values.pm_break_minutes||0,notes:values.notes||''}:null;
+          const pmValues=addPm?{location_id:values.location_id,shift_type_id:values.pm_shift_type_id,template_id:values.pm_template_id||'',start_time:values.pm_start_time,end_time:values.pm_end_time,break_minutes:values.pm_break_minutes||0,notes:values.notes||''}:null;
           if(addPm&&(!pmValues.shift_type_id||!pmValues.start_time||!pmValues.end_time||shiftPeriod(pmValues.start_time)!=='PM'))throw new Error('Choose a PM shift type and valid PM shift time.');
           const weekendRule=findWeekendDefault();
           const invalidDays=days.filter(work_date=>{
@@ -746,11 +828,11 @@
               const amTimes=shiftRuleTimes(values.location_id,values.shift_type_id,values.start_time,values.end_time,work_date);
               const location=(state.shiftPlannerData?.locations||[]).find(x=>String(x.id)===String(values.location_id));
               const type=(state.shiftPlannerData?.shift_types||[]).find(x=>String(x.id)===String(values.shift_type_id));
-              drafts.push({...values,...amTimes,work_date,_location_name:location?.name||'Workplace',_type_name:type?.name||'AM shift',_automatic:false});
+              drafts.push({...values,start_time:amTimes.start,end_time:amTimes.end,work_date,_location_name:location?.name||'Workplace',_type_name:type?.name||'AM shift',_automatic:false});
               if(addPm){
                 const pmTimes=shiftRuleTimes(pmValues.location_id,pmValues.shift_type_id,pmValues.start_time,pmValues.end_time,work_date);
                 const pmType=(state.shiftPlannerData?.shift_types||[]).find(x=>String(x.id)===String(pmValues.shift_type_id));
-                drafts.push({...pmValues,...pmTimes,work_date,_location_name:location?.name||'Workplace',_type_name:pmType?.name||'PM shift',_automatic:false});
+                drafts.push({...pmValues,start_time:pmTimes.start,end_time:pmTimes.end,work_date,_location_name:location?.name||'Workplace',_type_name:pmType?.name||'PM shift',_automatic:false});
               }
             }
           }
