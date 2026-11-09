@@ -232,7 +232,7 @@
   }
   function pmShiftMarkup(day, locationId, typeId, days, startTime) {
     const enabled=!!locationId&&!!typeId&&shiftPeriod(startTime||'09:00')==='AM'&&shiftTypesForLocation(locationId,'PM').length>0;
-    return '<div class="add-pm-shift-wrap"><label class="add-pm-shift-toggle"><input type="checkbox" name="add_pm_shift" value="1" data-add-pm-shift '+(!enabled?'disabled':'')+'><span><strong>Add PM shift as well</strong><small>A unique saved PM pattern starting 30 minutes after the AM shift is selected automatically. You can change it.</small></span></label>'+
+    return '<div class="add-pm-shift-wrap"><label class="add-pm-shift-toggle"><input type="checkbox" name="add_pm_shift" value="1" data-add-pm-shift '+(!enabled?'disabled':'')+'><span><strong>Add PM shift as well</strong><small>A unique saved PM pattern at the same workplace, starting 30 minutes after the AM shift, is selected automatically. The area can be different.</small></span></label>'+
       '<div class="add-pm-shift-fields" data-pm-shift-fields hidden>'+
       '<label class="field">PM shift type<select name="pm_shift_type_id" data-pm-shift-type disabled>'+shiftTypeOptionsMarkup(locationId,'','PM')+'</select></label>'+
       '<label class="field">PM shift pattern<select name="pm_template_id" data-pm-template disabled>'+templateOptionsMarkup(day,null,'',locationId,'',days,'PM')+'</select></label>'+

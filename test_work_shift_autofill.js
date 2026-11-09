@@ -68,9 +68,13 @@ assert.equal(f.elements.pm_end_time.value, '16:45', 'Manual PM edits are not rep
 assert.equal(f.toggle.checked, true);
 
 f = makeForm();
-state.shiftPlannerData.templates.push({...pm, id: 3, shift_type_id: 1});
+assert.equal(matchingPmPattern(f).id, 2, 'The PM area may differ at the same workplace');
+state.shiftPlannerData.templates.push({...pm, id: 5, location_id: 2});
+assert.equal(matchingPmPattern(f).id, 2, 'A different workplace is not an automatic match');
+state.shiftPlannerData.templates.push({...pm, id: 4});
 autofillPmPattern(f);
 assert.equal(f.toggle.checked, false, 'Ambiguous matches remain a manual choice');
+state.shiftPlannerData.templates.pop();
 state.shiftPlannerData.templates.pop();
 state.shiftPlannerData.shifts = [{work_date: '2026-11-09', start_time: '14:00'}];
 assert.equal(matchingPmPattern(f), null, 'Existing PM shifts are not replaced');
