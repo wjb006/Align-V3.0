@@ -7,7 +7,9 @@ const source = fs.readFileSync('static/shift-planner.js', 'utf8')
 const listeners = {};
 const am = {id: 1, active: 1, location_id: 1, shift_type_id: 1, label: 'AM', start_time: '08:30', end_time: '12:30', applicable_days: '[]'};
 const pm = {id: 2, active: 1, location_id: 1, shift_type_id: 2, label: 'PM', start_time: '13:00', end_time: '17:30', break_minutes: 10, applicable_days: '["Monday","Tuesday"]'};
-const state = {shiftPlannerData: {templates: [am, pm], shifts: [], locations: [{id: 1, name: 'Arrowe Park'}], shift_types: [{id: 1, name: 'Clinic'}, {id: 2, name: 'Hub'}]}};
+const otherAm = {...am, id: 3, location_id: 2, shift_type_id: 3};
+const otherPm = {...pm, id: 6, location_id: 2, shift_type_id: 4};
+const state = {shiftPlannerData: {templates: [am, pm, otherAm, otherPm], shifts: [], locations: [{id: 1, name: 'Arrowe Park'}, {id: 2, name: 'Other'}], shift_types: [{id: 1, name: 'Clinic'}, {id: 2, name: 'Hub'}, {id: 3, name: 'Other AM'}, {id: 4, name: 'Other PM'}]}};
 const context = {state, window: {}, document: {addEventListener: (name, fn) => {(listeners[name] ||= []).push(fn);}, querySelector: () => null}, console,
   FormData: class {constructor(form) {this.form = form;} entries() {return Object.entries(this.form.elements).filter(([, field]) => !field.disabled && (field.checked === undefined || field.checked)).map(([name, field]) => [name, field.value]);}}};
 vm.createContext(context);
@@ -92,6 +94,20 @@ assert.equal(firstEmptyShiftWeek('2026-11-09', [{work_date: '2026-11-10'}, {work
 assert.equal(firstEmptyShiftWeek('2026-11-23', [{work_date: '2026-11-10'}]), '2026-11-23');
 
 (async () => {
+  f = makeForm();
+  f.dataset.pmManual = '1';
+  f.dataset.pmAuto = '1';
+  f.elements.location_id.value = '2';
+  const locationSelection = {value: '2', closest: () => f, matches: selector => selector === '[name="location_id"]'};
+  await dispatch('change', {target: locationSelection});
+  assert.equal(f.dataset.pmManual, undefined, 'Changing workplace clears manual PM state');
+  assert.equal(f.dataset.pmAuto, undefined, 'Changing workplace clears automatic PM state');
+  f.elements.shift_type_id.value = '3';
+  const otherAmSelection = {value: '3', closest: () => f, matches: selector => selector === '[name="shift_type_id"]'};
+  await dispatch('change', {target: otherAmSelection});
+  assert(f.elements.pm_shift_type_id.innerHTML.includes('value="4"'), 'The new workplace PM shift types are rebuilt');
+  assert(f.elements.pm_template_id.innerHTML.includes('value="6"'), 'The new workplace PM patterns are rebuilt');
+
   f = makeForm();
   f.days = ['2026-11-13'];
   pm.applicable_days = '["Friday"]';

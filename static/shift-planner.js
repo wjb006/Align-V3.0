@@ -607,6 +607,8 @@
       return;
     }
     if(target.matches('[name="location_id"]')){
+      delete form.dataset.pmManual;
+      delete form.dataset.pmAuto;
       const typeSelect=form.querySelector('[name="shift_type_id"]');
       const patternSelect=form.querySelector('[name="template_id"]');
       const period=form.dataset.period||'AM';
