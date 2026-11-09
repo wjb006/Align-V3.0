@@ -71,10 +71,10 @@ class UiPolishTests(unittest.TestCase):
         self.assertIn('id="travel-message"', self.travel)
 
     def test_offline_cache_version_matches_the_shell(self):
-        self.assertIn("158-v92", self.index)
-        self.assertIn("`${BUILD_VERSION}-v92`", self.app)
-        self.assertIn("`${BUILD}-v92`", self.worker)
-        self.assertIn("/visual-theme.css?v=158-v92", self.index)
+        self.assertIn("158-v93", self.index)
+        self.assertIn("`${BUILD_VERSION}-v93`", self.app)
+        self.assertIn("`${BUILD}-v93`", self.worker)
+        self.assertIn("/visual-theme.css?v=158-v93", self.index)
         self.assertIn("align-v13-shell-${ASSET_VERSION}", self.worker)
         self.assertNotIn("157-v21", self.index)
 
@@ -82,8 +82,8 @@ class UiPolishTests(unittest.TestCase):
         self.assertIn("const BUILD_VERSION = 158;", self.app)
         self.assertIn("BUILD_VERSION = 158", self.server)
         self.assertIn("const BUILD = 158;", self.worker)
-        self.assertIn("158-v92", self.index)
-        self.assertIn("/section-guide.js?v=158-v92", self.index)
+        self.assertIn("158-v93", self.index)
+        self.assertIn("/section-guide.js?v=158-v93", self.index)
 
     def test_local_owner_screen_explains_hosted_only_features(self):
         self.assertIn("/beta-admin.js?v=158-v72", self.studio)

@@ -45,12 +45,32 @@ function travelRouteStrip(journey={},options={}) {
   const breakdown=detailed&&steps.length&&typeof journeyBreakdown==='function'?'<details class="journey-compact-details"><summary>Stops and times</summary>'+journeyBreakdown(steps.map(step=>({...step,service:step.service||step.service_number})))+'</details>':'';
   return entries.length?'<div class="compact-event-details journey-event-details"><div class="journey-itinerary-strip'+(detailed?' journey-itinerary-strip-detailed journey-compact-strip':'')+'"'+(detailed?' role="list" aria-label="Route steps in chronological order"':'')+'>'+entries.join('<span class="shift-travel-arrow" aria-hidden="true">›</span>')+'</div>'+breakdown+'</div>':'';
 }
+function condensedJourneyText(journey={}) {
+  const clock=value=>typeof journeyClock==='function'?journeyClock(value):String(value||'').slice(11,16);
+  const steps=Array.isArray(journey.steps)?journey.steps:[];
+  const services=[];
+  for (const step of steps) {
+    const mode=String(step.mode||'').toLowerCase();
+    if (!['bus','train','rail','drive'].includes(mode)) continue;
+    const service=String(step.service_number||step.service||'').trim();
+    const label=mode==='bus'?'Bus':mode==='drive'?'Drive':'Train';
+    const bit=service?`${label} ${service}`:label;
+    if (!services.includes(bit)) services.push(bit);
+  }
+  const leave=clock(journey.leave_at||journey.departure||journey.depart_at);
+  const arrive=clock(journey.arrival_at||journey.arrival||journey.arrive_at);
+  return [leave?`Leave ${leave}`:'', services.join(', '), arrive?`Arrive ${arrive}`:''].filter(Boolean).join(' · ');
+}
 function postTravelSummary(item,options={}) {
   const info=item.post_travel;if(!info?.enabled||!info?.journey)return '';
   const e=escapeHtml, journey=info.journey||null;
   const heading=info.historical?'Planned return journey':(info.deadline?'Travel to next event':'Travel home');
   const from=String(info.origin||item.location||'').trim(),to=String(info.destination_name||info.destination||'').trim();
   const routeLine=to?'<small>'+(from?e(from)+' → ':'')+e(to)+'</small>':'';
+  if (options.condensed) {
+    const text=condensedJourneyText(journey);
+    if (text) return '<section class="shift-travel-itinerary-wrap travel-condensed" aria-label="'+heading+' journey"><strong>'+heading+'</strong>'+routeLine+'<p>'+e(text)+'</p></section>';
+  }
   let itinerary=travelRouteStrip(journey,{detailed:options.detailed===true});
   if(!itinerary&&journey?.notes&&typeof journeyEventSummary==='function'){
     const notes='[Align travel]\\n'+journey.notes+'\\n[/Align travel]'+(journey.steps?.length?'\\n[Align travel steps]\\n'+JSON.stringify(journey.steps)+'\\n[/Align travel steps]':'');

@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 
 const app = fs.readFileSync('static/app.js', 'utf8');
 const personal = fs.readFileSync('static/personal-planner.js', 'utf8');
-const start = app.indexOf('function renderHome() {');
+const start = app.indexOf('function homeScheduleItems(');
 const end = app.indexOf('\nfunction todayInboundKey(', start);
 assert(start >= 0 && end > start);
 const forecast = {

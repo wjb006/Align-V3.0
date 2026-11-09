@@ -22,6 +22,12 @@
 .today-inbound-travel,.planner-inbound-travel,.today-travel-connector,.planner-location-travel,.shift-travel-itinerary-wrap{min-width:0;border:2px solid #477da7;border-radius:20px;padding:12px 14px;background:#07172d;color:var(--ink)}
 .today-inbound-travel>strong,.planner-inbound-travel>strong,.shift-travel-itinerary-wrap>strong{display:block;margin-bottom:8px;color:#f2f7ff;font-size:15px}
 .today-inbound-travel .compact-event-details,.planner-inbound-travel .compact-event-details,.shift-travel-itinerary-wrap .compact-event-details{border-top:1px solid #294563;padding-top:10px}
+.today-reference-side{display:grid;justify-items:end;gap:6px;min-width:0}
+.home-next-label{margin:0 0 8px;color:#d7e7ff;font-weight:750}
+.travel-condensed{padding:8px 10px!important;border-radius:12px!important}
+.travel-condensed>strong{margin:0 0 2px!important;font-size:13px!important}
+.travel-condensed>small,.travel-condensed>p{display:block;margin:0;color:#d5e6f6;font-size:14px;line-height:1.35}
+.today-inbound-travel.travel-condensed{display:block}
 .journey-itinerary-strip{display:flex;flex-wrap:wrap;align-items:center;gap:8px 7px;min-width:0}
 .journey-time-icon{display:inline-flex;align-items:center;gap:7px;min-width:0;color:#91aaff}
 .journey-time-icon>svg{width:30px;height:30px;flex:0 0 auto}
