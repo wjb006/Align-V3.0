@@ -56,7 +56,7 @@
         const first=daily[i],key=plannerLocationKey(first),group=[first];let j=i+1;
         while(j<daily.length&&key&&plannerLocationKey(daily[j])===key){group.push(daily[j]);j++;}
         const start=new Date(plannerItemStart(first)),gap=previousEnd?start.getTime()-previousEnd.getTime():Infinity;
-        if(start.getTime()>Date.now()&&(!previousEnd||(key!==previousKey&&gap>3600000))){
+        if(start.getTime()>Date.now()&&i===0){
           try{
             const result=await api('/api/personal/journey',{method:'POST',body:{destination:String(first.location||first.address).trim(),arrival:plannerItemStart(first),mode:data.preferences?.default_travel||undefined}});
             if(result?.notes){const steps=result.steps||[];first.pre_travel={...result,notes:'[Align travel]\\n'+result.notes+'\\n[/Align travel]'+(steps.length?'\\n[Align travel steps]\\n'+JSON.stringify(steps)+'\\n[/Align travel steps]':'')};}
