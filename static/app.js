@@ -23,7 +23,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 158;
-const ASSET_VERSION = `${BUILD_VERSION}-v92`;
+const ASSET_VERSION = `${BUILD_VERSION}-v94`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -475,26 +475,37 @@ function todayTimelineGroups(events) {
   }
   return groups;
 }
+function homeScheduleItems(events, today) {
+  const ordered = [...(events || [])].sort((a, b) => String(a.start_at || a.work_date || '').localeCompare(String(b.start_at || b.work_date || '')));
+  const finished = item => typeof eventHasFinished === 'function' && eventHasFinished(item);
+  const dayOf = item => String(item.start_at || item.work_date || '').slice(0, 10);
+  const onToday = item => dayOf(item) === today || (dayOf(item) < today && String(item.end_at || '').slice(0, 10) >= today);
+  const upcoming = ordered.filter(item => !finished(item));
+  const todayUpcoming = upcoming.filter(onToday);
+  if (todayUpcoming.length) return {items: todayUpcoming, later: false};
+  const next = upcoming[0];
+  return {items: next ? [next] : [], later: !!next};
+}
 function renderHome() {
   const { dashboard } = state.boot;
-  // Today is a date-scoped planner, not a list of every future event.
-  const todayItems = (dashboard.upcoming_events || []).filter(item =>
-    String(item.start_at || item.work_date || '').slice(0, 10) === dashboard.today ||
-    (String(item.start_at || item.work_date || '').slice(0, 10) < dashboard.today &&
-      String(item.end_at || '').slice(0, 10) >= dashboard.today)
-  ).slice(0, 50);
+  // Finished events drop off Home. What is left today stays; otherwise the next event is shown with the weather.
+  const focus = homeScheduleItems(dashboard.upcoming_events || [], dashboard.today);
+  const todayItems = focus.items;
   const totalHours = todayItems.reduce((sum, item) => sum + (item.all_day ? 0 : todayDurationHours(item)), 0);
   const minutes = Math.round(totalHours * 60);
   const totalLabel = `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
   ensureDailyTravel(todayItems);
 
+  const weatherChip = typeof homeWeatherChip === 'function' ? homeWeatherChip() : '';
+  const nextHeading = focus.later ? `<p class="home-next-label">Next · ${escapeHtml(fullDateLabel(String(todayItems[0].start_at || todayItems[0].work_date || '').slice(0, 10)))}</p>` : '';
   return `<section class="page today-reference-page">
     <header class="today-reference-header">
-      <div class="today-reference-date"><span class="today-reference-calendar" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 2v3M17 2v3M4 8h16M5 4h14a1 1 0 0 1 1 1v14H4V5a1 1 0 0 1 1-1Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 12h2v2H8zm6 0h2v2h-2zm-6 4h2v2H8z" fill="currentColor"/></svg></span><h1>${escapeHtml(fullDateLabel(dashboard.today))}</h1></div>
-      <div class="today-reference-total" role="group" aria-label="Daily schedule summary"><strong>${todayTimelineItemCount(todayItems)} ${todayTimelineItemCount(todayItems) === 1 ? 'Event' : 'Events'}</strong><span aria-hidden="true">·</span><strong>${totalLabel} scheduled</strong></div>
+      <div class="today-reference-date"><span class="today-reference-calendar" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 2v3M17 2v3M4 8h16M5 4h14a1 1 0 0 1 1 1v14H4V5a1 1 0 0 1 1-1Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 12h2v2H8zm6 0h2v2h-2zm-6 4h2v2H8z" fill="currentColor"/></svg></span><h1>${escapeHtml(fullDateLabel(focus.later ? String(todayItems[0].start_at || todayItems[0].work_date || '').slice(0, 10) : dashboard.today))}</h1></div>
+      <div class="today-reference-side">${weatherChip}<div class="today-reference-total" role="group" aria-label="Daily schedule summary"><strong>${todayTimelineItemCount(todayItems)} ${todayTimelineItemCount(todayItems) === 1 ? 'Event' : 'Events'}</strong><span aria-hidden="true">·</span><strong>${totalLabel} scheduled</strong></div></div>
     </header>
     ${state.boot.personal && homeSection('today') && typeof personalWeatherPanel === 'function' ? personalWeatherPanel() : ''}
-    <div class="today-event-timeline">${todayItems.length ? renderTodayTimeline(todayItems) : '<div class="card empty">Nothing scheduled for today. Add a shift or appointment to see it here.</div>'}</div>
+    ${nextHeading}
+    <div class="today-event-timeline">${todayItems.length ? renderTodayTimeline(todayItems) : '<div class="card empty">Nothing coming up. Add a shift or appointment to see it here.</div>'}</div>
     ${state.boot.personal && homeSection('today') && homeSectionContent('today','show_quick_add',true) && typeof personalQuickAdd === 'function' ? `<div class="dashboard-bottom-tools">${personalQuickAdd()}</div>` : ''}
   </section>`;
 }
@@ -735,7 +746,7 @@ function todayHomeTravelMarkup(item) {
   const info=item?.post_travel;
   if(!info || info.deadline) return '';
   if(info.journey && typeof postTravelSummary==='function') {
-    const summary=postTravelSummary(item,{detailed:true});
+    const summary=postTravelSummary(item,{condensed:true});
     return summary?`<div class="today-travel-connector today-home-travel">${summary}</div>`:'';
   }
   if(info.timeline && info.error) return `<section class="today-route-unavailable" aria-label="Travel home"><strong>Travel home</strong><p role="status">Route unavailable: ${escapeHtml(info.error)}</p></section>`;
@@ -747,8 +758,8 @@ function todayInboundMarkup(item, firstItem = false) {
   const location=String(item.location||item.address||'').trim();
   const title=item.origin==='Shift'?(item.location_name||eventPlaceName(item)):(item.title||'first event');
   if (journey) {
-    const route=typeof travelRouteStrip==='function'?travelRouteStrip(journey,{detailed:true,leaveAtFirstWalk:true}):'';
-    if(route)return `<section class="today-inbound-travel" aria-label="Travel from home to ${escapeHtml(title)}"><strong>Travel from home</strong><small>${escapeHtml(title)}</small>${route}</section>`;
+    const line=typeof condensedJourneyText==='function'?condensedJourneyText(journey):'';
+    if(line)return `<section class="today-inbound-travel travel-condensed" aria-label="Travel from home to ${escapeHtml(title)}"><strong>Travel from home</strong><p>${escapeHtml(line)}</p></section>`;
   }
   if (!item.start_at || !location) {
     return `<section class="today-inbound-travel is-unavailable" aria-label="Travel from home"><strong>Travel from home</strong><p role="status">${item.start_at?'Add this event’s address to plan a route.':'Set an event time and address to plan a route.'}</p></section>`;
@@ -767,7 +778,7 @@ function todayTravelConnector(fromGroup, toGroup) {
   const start=eventStartAt(from),end=eventEndAt(from),destinationStart=eventStartAt(to);
   if(end&&destinationStart&&destinationStart.getTime()>end.getTime()&&info?.timeline&&info.request_key===requestKey&&info.journey&&info.deadline&&
       eventStartAt({start_at:info.deadline})?.getTime()===eventStartAt(to)?.getTime()&&typeof postTravelSummary==='function'){
-    const summary=postTravelSummary({...from,post_travel:info},{detailed:true});
+    const summary=postTravelSummary({...from,post_travel:info},{condensed:true});
     if(summary)return `<div class="today-travel-connector" aria-label="Travel to next event">${summary}</div>`;
   }
   let message='Checking route availability…';

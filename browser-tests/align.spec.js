@@ -676,7 +676,7 @@ async function main() {
     assert(forecastBoxes.every(r => r.left >= 0 && r.right <= viewportWidth + 1));
     assert(new Set(forecastBoxes.map(r => Math.round(r.top))).size === 1);
     assert(forecastBoxes[2].right <= viewportWidth + 1);
-    await todayPage.addScriptTag({content: sourceFunction(appSource, 'renderHome')});
+    await todayPage.addScriptTag({content: sourceFunctions(appSource, ['homeScheduleItems', 'renderHome'])});
     await todayPage.evaluate(() => {
       state.boot.dashboard={today:'2026-10-05',upcoming_events:[]};
       window.homeSection=()=>true;
