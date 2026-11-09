@@ -1,6 +1,8 @@
 # Align V3.0 — Live Cursor Handover: Work Rota Import
 
-> **Purpose:** This is the current working handover for Cursor. Read this file and `docs/WORK_ROTA_IMPORT_SPEC.md` before changing code. Keep this document updated as implementation progresses.
+> Historical handover, last verified 3 November 2026. Rota photo OCR has since been added: the Docker image installs Tesseract and runs the real OCR test. Treat the "no OCR provider" lines below as the state of this document, not the current app. `programme/app` is not the running source tree.
+
+> **Purpose:** This is the working handover for the rota-import implementation. Read this file and `docs/WORK_ROTA_IMPORT_SPEC.md` before changing that flow.
 >
 > **Last verified against GitHub:** 3 November 2026  
 > **Repository:** `wjb006/Align-V3.0`  

@@ -1,13 +1,23 @@
 # Align V3.0 build checklist
 **Live project handoff document**
 
-- **Last updated:** 6 November 2026
+- **Last updated:** 9 November 2026
 - **Workspace:** `C:\Users\wjboy\OneDrive\Documents\ChatGPT\Align V3.0`
 - **Original source (read-only):** `C:\Align\Align_App`
 - **Working branch:** `codex/align-v3-rebuild`
-- **Latest fully verified historical CI baseline:** `7a200038` — browser regressions, hosted persistence/PostgreSQL integration, and navigation checks passed on 11 October 2026. Current HEAD `132e46d19c0fc52abc098ab4cc13af0eca588c0b` is pushed, but GitHub reports no status checks or workflow runs for it, so the current branch is not accepted as green. Live hosting is not verified.
+- **Latest fully verified historical CI baseline:** `7a200038` — browser regressions, hosted persistence/PostgreSQL integration, and navigation checks passed on 11 October 2026. GitHub Actions are billing-locked, so later commits have no green run to cite.
+
+## 9 November 2026 — current status
+
+Read this before the older notes below.
+
+- `GET https://www.getalign.co.uk/api/health` returned HTTP 200 on 9 November 2026: build 158, app 3.0, beta mode, Postgres available. That was a read-only check. It does not show which schema migrations are applied, and it is not a DNS, Neon, or Render change.
+- Older lines that say the Render service does not exist, or that DNS still points only at the previous IONOS host, are not a reliable description of that public site. The checklist entries underneath stay as the historical log.
+- A local `pytest` run on `c3d2a71` reported 394 passed, 7 skipped, and 34 subtests passed. Five skips need a loopback Postgres fixture. GitHub Actions did not run.
+- Follow-up cleanup is tracked in `docs/CLEANUP_PLAN.md`.
+
 **Scope:** Align V3.0 implementation from the supplied Codex brief, with the user's explicit Align V3.0 naming taking precedence over any older product name in the brief.
-**Domain:** `getalign.co.uk` is owned by the user through IONOS; current DNS still points to existing IONOS hosting. Do not change records until Render provides the verified target.
+**Domain:** `getalign.co.uk` is owned through IONOS. The public site answered as Align build 158 on 9 November 2026. Do not change DNS records from this checklist.
 ## How to use this document
 - This is the running handoff/checklist. Update the date, evidence, and task boxes whenever implementation or verification changes.
 - `[x]` means implemented and checked to the evidence listed. `[~]` means partly done or needs further verification. `[ ]` means outstanding. `[!]` means blocked by an external dependency or user decision.
@@ -85,7 +95,7 @@
 - [~] Removed obsolete shift-only test modules (`test_calendar_sync.py`, `test_work_setup.py`, `test_week_booking.py`, `test_shift_completions.py`, `test_work_settings.py`) after moving retained test setup into `test_support.py`; broader shift scripts, UI and documentation remain.
 - [ ] Run the full Python suite, JavaScript unit checks, browser suite, startup/schema checks, and fresh-database migration checks.
 - [~] Active route/source audit is complete for Travel, phone push, iCloud, offline storage and Scriptable; final scan still needs to classify unreferenced legacy helpers and old release/docs references.
-**Current release gate:** not ready for external testers. The shift planner is restored in code and in the fresh schemas. Neon `align_v3` still needs `fresh_v3_schema.sql` and migration 156 applied. Render service `align-v3` is not created. Uploaded asset storage, Microsoft Graph, a real Apple account, and the initial Owner password are still pending. Do not change IONOS DNS until those gates pass. Render Free supports custom domains, with cold-start and ephemeral-file limitations.
+**Current release gate:** the public site is serving Align build 158. See the 9 November 2026 status above. Hosted schema-migration state was not inspected for this update. Uploaded asset storage, Microsoft Graph, a real Apple account, and the initial Owner password are still pending unless a later note says otherwise. Do not change IONOS DNS, Neon, or Render secrets from this document. External-tester readiness still depends on a reviewed migration check and a GitHub Actions run that actually starts. Render Free supports custom domains, with cold-start and ephemeral-file limitations.
 ## 3. Database-backed Sections and user input matrices
 - [x] Add numbered SQLite/Postgres migrations for `calendar_links`, `section_defs`, and `section_fields`; include them in migration expectations and hosted test fixture.
 - [x] Materialize published Builder layouts into database section definitions; keep submitted user data in private per-user `builder_records` storage.

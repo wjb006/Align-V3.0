@@ -9,7 +9,7 @@ jobs:
       - name: Check /api/health
         run: |
           for i in 1 2 3; do
-            code=$(curl -s -o health.json -w '%{http_code}' --max-time 60 https://align-beta-preview.onrender.com/api/health || true)
+            code=$(curl -s -o health.json -w '%{http_code}' --max-time 60 https://www.getalign.co.uk/api/health || true)
             [ "$code" = "200" ] && break
             sleep 30
           done
