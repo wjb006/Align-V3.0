@@ -23,7 +23,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 158;
-const ASSET_VERSION = `${BUILD_VERSION}-v90`;
+const ASSET_VERSION = `${BUILD_VERSION}-v91`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -1319,7 +1319,7 @@ document.addEventListener('change', async event => {
 document.addEventListener('input', event => {
   const field = event.target.dataset.addField;
   if (field) state.add[field] = event.target.type === 'number' ? Number(event.target.value) : event.target.value;
-  if (event.target.hasAttribute('data-address-search')) {
+  if (event.target.hasAttribute('data-address-search') && event.target.dataset.addressOwner !== 'builder') {
     if (event.target.dataset.addressSelection === 'true') {
       delete event.target.dataset.addressSelection;
       return;
@@ -1334,7 +1334,7 @@ document.addEventListener('input', event => {
 });
 
 document.addEventListener('keydown', event => {
-  if (event.key === 'Enter' && event.target.hasAttribute('data-address-search')) {
+  if (event.key === 'Enter' && event.target.hasAttribute('data-address-search') && event.target.dataset.addressOwner !== 'builder') {
     event.preventDefault();
     searchAddresses(event.target);
   }

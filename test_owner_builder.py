@@ -400,6 +400,25 @@ class BuilderTests(unittest.TestCase):
         self.assertEqual(status, 401, body)
         self.assertEqual(body.get('code'), 'beta_login')
 
+    def test_address_search_fallback_deduplicates_without_losing_named_places(self):
+        def feature(name, lat):
+            return {'properties':{'name':name, 'street':'Example Road', 'city':'Example',
+                                  'country':'United Kingdom', 'countrycode':'gb'},
+                    'geometry':{'coordinates':[-3.0, lat]}}
+        payload = {'features':[feature('Example Hospital', 53.4),
+                               feature('Example Hospital', 53.4001),
+                               feature('Example Pharmacy', 53.4001)]}
+        with patch.object(app, 'find_addresses', side_effect=ValueError('unavailable')), patch.object(
+            app.personal_planner, 'fetch_json', return_value=payload
+        ):
+            status, body = self.request('GET', '/api/builder/address-search?q=Example', token=self.users[0][1])
+        self.assertEqual(status, 200)
+        self.assertEqual([item['label'] for item in body['results']], [
+            'Example Hospital, Example Road, Example, United Kingdom',
+            'Example Pharmacy, Example Road, Example, United Kingdom',
+        ])
+        self.assertEqual(body['results'][0]['latitude'], 53.4)
+
     def test_removed_fields_preserve_values_and_published_types(self):
         current = self.publish()
         token = self.users[0][1]

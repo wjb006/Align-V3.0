@@ -28,6 +28,26 @@ class TravelAutofillTests(unittest.TestCase):
         self.assertEqual(result['places'][0]['point'],[53.4,-3.0])
         self.assertIn('photon.komoot.io/api?',fetch.call_args.args[0])
 
+    @patch.dict(os.environ, {'ALIGN_JOURNEY_PROVIDER':'otp'}, clear=True)
+    def test_photon_places_keep_names_and_remove_nearby_duplicates(self):
+        def feature(name, lat):
+            return {'properties':{'name':name,'street':'Example Road','city':'Example','countrycode':'gb'},
+                    'geometry':{'coordinates':[-3.0,lat]}}
+        with patch('transport_places.request_json', return_value={'features':[
+            feature('Example Hospital',53.4), feature('Example Hospital',53.4001),
+            feature('Example Pharmacy',53.4001),
+        ]}):
+            places=transport_places.lookup({'query':'Example Hospital','consent':True})['places']
+        self.assertEqual([place['name'] for place in places],['Example Hospital, Example Road, Example','Example Pharmacy, Example Road, Example'])
+        self.assertEqual(places[0]['point'],[53.4,-3.0])
+
+    @patch.dict(os.environ, {'ALIGN_JOURNEY_PROVIDER':'here','ALIGN_HERE_ROUTING_KEY':'test'})
+    def test_here_places_deduplicate_without_losing_the_first_point(self):
+        items=[{'title':'Example Hospital','position':{'lat':lat,'lng':-3.0}} for lat in (53.4,53.4001,53.41)]
+        with patch('personal_planner.here_fetch', return_value={'items':items}):
+            places=transport_places.lookup({'query':'Example Hospital','consent':True})['places']
+        self.assertEqual([place['point'] for place in places],[[53.4,-3.0],[53.41,-3.0]])
+
     @patch('personal_planner.fetch_json', side_effect=[{'result':['L1 1AA']},{'result':{'postcode':'L1 1AA','latitude':53.4,'longitude':-3.0}}])
     def test_postcode_suggestions_use_postcodes_io_with_consent(self, fetch):
         result=transport_places.lookup({'query':'L1','consent':True})

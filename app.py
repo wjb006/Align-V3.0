@@ -38,6 +38,7 @@ from colour_utils import colour as valid_colour
 from align_paths import source_root
 from beta_support import BetaError
 import personal_planner
+from address_suggestions import address_label, deduplicate, here_label
 import phone_push
 import owner_builder
 import migration_runner
@@ -416,7 +417,7 @@ def find_addresses(query: str) -> list[dict]:
                 for item in payload.get("items", []):
                     position = item.get("position") or {}
                     address = item.get("address") or {}
-                    label = address.get("label") or item.get("title") or ""
+                    label = here_label(item)
                     if not label or not position:
                         continue
                     results.append({
@@ -426,8 +427,9 @@ def find_addresses(query: str) -> list[dict]:
                         "place_id": item.get("id", ""), "provider": "HERE",
                     })
                 if results:
+                    results = deduplicate(results)[:8]
                     ADDRESS_CACHE[cache_key] = (time.monotonic(), results)
-                    return results[:8]
+                    return results
             except (ValueError, OSError) as error:
                 failures.append(str(error))
 
@@ -446,6 +448,7 @@ def find_addresses(query: str) -> list[dict]:
                     "place_id": item.get("postcode", ""), "provider": "Postcodes.io",
                 } for item in data.get("result", []) if item.get("postcode")]
                 if results:
+                    results = deduplicate(results)[:8]
                     ADDRESS_CACHE[cache_key] = (time.monotonic(), results)
                     return results
             except (ValueError, OSError) as error:
@@ -487,7 +490,8 @@ def find_addresses(query: str) -> list[dict]:
                     ]))
                     locality = str(properties.get("city") or properties.get("town") or properties.get("village") or properties.get("county") or "").strip()
                     postcode = str(properties.get("postcode") or "").strip()
-                    label = ", ".join(dict.fromkeys(filter(None, [street, postcode, locality])))
+                    name = str(properties.get("name") or "").strip() if properties.get("street") else ""
+                    label = address_label(name, street, postcode, locality)
                     if label:
                         results.append({
                             "label": label, "latitude": coordinates[1], "longitude": coordinates[0],
@@ -503,7 +507,8 @@ def find_addresses(query: str) -> list[dict]:
                     road = str(address.get("road") or address.get("pedestrian") or item.get("name") or "").strip()
                     street = " ".join(filter(None, [house, road]))
                     locality = str(address.get("town") or address.get("city") or address.get("village") or address.get("suburb") or address.get("county") or "").strip()
-                    label = ", ".join(dict.fromkeys(filter(None, [street, postcode, locality])))
+                    name = str(item.get("name") or "").strip() if address.get("road") or address.get("pedestrian") else ""
+                    label = address_label(name, street, postcode, locality)
                     if not label:
                         label = str(item.get("display_name") or "").strip()
                     try:
@@ -517,8 +522,9 @@ def find_addresses(query: str) -> list[dict]:
                             "place_id": str(item.get("place_id") or ""), "provider": provider,
                         })
             if results:
-                ADDRESS_CACHE[cache_key] = (time.monotonic(), results[:8])
-                return results[:8]
+                results = deduplicate(results)[:8]
+                ADDRESS_CACHE[cache_key] = (time.monotonic(), results)
+                return results
 
         if failures:
             raise ValueError("Address suggestions are temporarily unavailable. You can still enter and save the address manually.")
