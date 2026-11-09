@@ -1,5 +1,7 @@
 # Align V3.0 — Full repair audit
 
+> Historical note from 4 November 2026. Root `app.py` is still the running source. OCR, build 158 on getalign.co.uk, and the `programme/` copy are covered by `docs/CLEANUP_PLAN.md`. The gap list below is the audit as it stood on that date, not the current bug list.
+
 **Audit date:** 4 November 2026  
 **Repository:** `wjb006/Align-V3.0`  
 **Working branch:** `codex/align-v3-full-repair`  
