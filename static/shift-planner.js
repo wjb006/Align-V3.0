@@ -659,7 +659,6 @@
     if(target.matches('[name="template_id"]')){
       const selected=(state.shiftPlannerData?.templates||[]).find(t=>String(t.id)===String(target.value));
       if(!selected){autofillPmPattern(form);return;}
-      const form=target.closest('form');
       for(const [name,value] of Object.entries({location_id:selected.location_id,shift_type_id:selected.shift_type_id,start_time:selected.start_time,end_time:selected.end_time,break_minutes:selected.break_minutes||0})){
         const field=form.querySelector('[name="'+name+'"]');if(field)field.value=value;
       }
