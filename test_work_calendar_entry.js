@@ -44,7 +44,8 @@ const plannerContext={
   },
   escapeHtml:v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])),
   api:async()=>({}),document:{addEventListener:()=>{},querySelector:()=>null},
-  window:{},eventTravelMarkup:()=>'<details>Travel to Clatterbridge</details>',
+  window:{},postTravelSummary:item=>item?.post_travel?.journey?'<details>Travel to Clatterbridge</details>':'',
+  eventTravelMarkup:item=>item?.post_travel?.journey?'<details>Travel to Clatterbridge</details>':'',
   setTimeout:()=>0,console
 };
 vm.createContext(plannerContext);
@@ -57,4 +58,28 @@ assert(plannerHtml.includes('data-period="PM"'),'An AM shift already booked must
 assert(plannerHtml.includes('data-shift-type-label>PM shift type')&&plannerHtml.includes('data-shift-template-label>PM shift pattern'),'The form must offer PM controls when AM is already booked');
 assert(plannerHtml.includes('2 total items'),'The month cell must count the shift and calendar event together');
 assert(plannerHtml.includes('Travel to Clatterbridge'),'Saved onward travel must appear on the shift card');
+assert.equal((plannerHtml.match(/Travel to Clatterbridge/g)||[]).length,1,'Shift travel must not be repeated underneath its location group');
+assert(!plannerHtml.includes('planner-location-travel'),'Shift travel stays inside the shift card');
+plannerContext.state.shiftPlannerData.shifts=[];
+plannerContext.state.shiftPlannerData.events=[{id:21,title:'Appointment',section_name:'Health',section_id:1,location:'Clinic Road',
+  start_at:'2026-11-09T18:00',end_at:'2026-11-09T18:30',post_travel:{enabled:true,journey:{notes:'Travel home'}}}];
+const eventHtml=plannerContext.window.renderShiftPlanner();
+assert.equal((eventHtml.match(/Travel to Clatterbridge/g)||[]).length,1,'Event travel must appear once inside the event card');
+assert(eventHtml.indexOf('Travel to Clatterbridge')<eventHtml.indexOf('</article>'),'Event travel must be inside its card');
+assert(!eventHtml.includes('planner-location-travel'),'Event travel must not repeat underneath the location group');
+plannerContext.state.shiftPlannerData.shifts=[
+  {id:11,work_date:'2026-11-09',start_time:'08:00',end_time:'12:00',location_name:'Work',location:'Work Road',location_id:1,shift_type_name:'AM',hours:4},
+  {id:12,work_date:'2026-11-09',start_time:'12:30',end_time:'16:30',location_name:'Work',location:'Work Road',location_id:1,shift_type_name:'PM',hours:4,
+   post_travel:{enabled:true,deadline:'2026-11-09T17:15',journey:{notes:'Travel to appointment'}}}
+];
+plannerContext.state.shiftPlannerData.events=[{id:21,title:'Appointment',section_name:'Health',section_id:1,location:'Clinic Road',
+  start_at:'2026-11-09T17:15',end_at:'2026-11-09T18:00',post_travel:{enabled:true,journey:{notes:'Travel home'}}}];
+const scheduleHtml=plannerContext.window.renderShiftPlanner();
+assert.equal((scheduleHtml.match(/Travel to Clatterbridge/g)||[]).length,2,'Next-event travel and final home travel each render once');
+const connector=scheduleHtml.indexOf('planner-location-travel');
+assert(connector>scheduleHtml.indexOf('PM')&&connector<scheduleHtml.indexOf('Appointment'),'Journey to next event must be between schedule entries');
+assert(scheduleHtml.lastIndexOf('Travel to Clatterbridge')>scheduleHtml.indexOf('Appointment'),'Home journey must stay in the final event');
+plannerContext.state.shiftPlannerData.events[0].start_at='2026-11-09T16:00';
+const overlappingHtml=plannerContext.window.renderShiftPlanner();
+assert(!overlappingHtml.includes('planner-location-travel'),'An overlapping event must not produce a misleading inter-event block');
 console.log('AM/PM filtering, combined calendar totals and shift travel UI passed');

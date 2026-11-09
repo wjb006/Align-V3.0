@@ -5,7 +5,7 @@ from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 ZONE = ZoneInfo('Europe/London')
-TIMELINE_CACHE_VERSION = 2
+TIMELINE_CACHE_VERSION = 3
 
 
 def instant(value):
@@ -123,8 +123,7 @@ def handle(c, body):
     if type(timeline) is not bool: raise ValueError('Choose a valid daily timeline travel request.')
     event, route = target(c,kind,ident,timeline=timeline)
     if timeline:
-        from personal_planner import preferences
-        route.update(timeline=True, arrival_buffer=int(preferences(c)['arrival_buffer']))
+        route.update(timeline=True)
     key = f'post_event_travel:{"timeline:" if timeline else ""}{kind}:{ident}'
     row = c.execute('SELECT setting_value FROM settings WHERE setting_key=?',(key,)).fetchone()
     saved = json.loads(row[0]) if row else {'enabled':False}
@@ -173,9 +172,10 @@ def plan(c, route):
     from personal_planner import here_journey, preferences
     from personal_otp import plan as transit_plan
     import os
-    arrival_buffer = int(route.get('arrival_buffer', 0)) if route.get('timeline') else 0
     body = dict(origin=route['origin'],destination=route['destination'],departure=route['departure'],
-                arrival=route['departure'],mode=route['mode'],departure_buffer=0,arrival_buffer=0)
+                arrival=route['departure'],mode=route['mode'],departure_buffer=0)
+    if route.get('deadline'):
+        body['deadline'] = route['deadline']
     if route['mode']=='drive':
         result = here_journey(c,body)
     else:
@@ -184,9 +184,11 @@ def plan(c, route):
             result = transit_plan(c,body,preferences(c),HERETransitProvider(),'HERE')
         else: result = transit_plan(c,body,preferences(c))
     journeys = result.get('journeys') or [result]
-    latest_arrival = instant(route['deadline'])-timedelta(minutes=arrival_buffer) if route.get('deadline') else None
+    latest_arrival = instant(route['deadline']) if route.get('deadline') else None
     usable = [j for j in journeys if instant(j['leave_at'])>=instant(route['departure']) and (latest_arrival is None or instant(j['arrival_at'])<=latest_arrival)]
     if not usable: raise ValueError('No journey can leave after this event and reach the next event in time.')
+    if latest_arrival is not None:
+        return min(usable,key=lambda j:(instant(j['arrival_at']).timestamp()-instant(j['leave_at']).timestamp(),-instant(j['leave_at']).timestamp()))
     return min(usable,key=lambda j:instant(j['arrival_at']))
 
 

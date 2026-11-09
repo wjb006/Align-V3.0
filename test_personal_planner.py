@@ -121,12 +121,12 @@ class PersonalTests(unittest.TestCase):
             {'travelMode':'WALK','staticDuration':'600s'},
             {'transitDetails':{'transitLine':{'nameShort':'42','vehicle':{'name':{'text':'Bus'}}},'stopDetails':{'departureTime':'2030-01-02T11:10:00Z','departureStop':{'name':'Nearby stop'},'arrivalTime':'2030-01-02T11:30:00Z','arrivalStop':{'name':'Town station'}}}},
             {'travelMode':'WALK','staticDuration':'300s'}]}]}
-        plan=p.route_plan(route,'transit',datetime(2030,1,2,12,tzinfo=p.ZONE),5,10)
+        plan=p.route_plan(route,'transit',datetime(2030,1,2,12,tzinfo=p.ZONE),5)
         self.assertEqual(plan['leave_at'],'2030-01-02T10:55+00:00')
         self.assertEqual(plan['arrival_at'],'2030-01-02T11:35+00:00')
         self.assertEqual(plan['walk_to_first_stop_minutes'],10)
         self.assertIn('Bus 42',plan['notes']);self.assertIn('Nearby stop 11:10',plan['notes'])
-        self.assertIsNone(p.route_plan(route,'transit',datetime(2030,1,2,11,30,tzinfo=p.ZONE),5,0))
+        self.assertIsNone(p.route_plan(route,'transit',datetime(2030,1,2,11,30,tzinfo=p.ZONE),5))
 
     def test_train_and_mixed_transit_requests(self):
         with app.db_connection() as c:
@@ -137,9 +137,30 @@ class PersonalTests(unittest.TestCase):
                     result=p.google_journey(c,dict(destination='Test place',arrival='2030-01-02T12:00',mode=mode,arrival_buffer=10))
                     sent=fetch.call_args.args[1]
                     self.assertEqual(sent['transitPreferences']['allowedTravelModes'],allowed)
-                    self.assertEqual(sent['arrivalTime'],'2030-01-02T11:50:00Z')
+                    self.assertEqual(sent['arrivalTime'],'2030-01-02T12:00:00Z')
                     self.assertTrue(sent['computeAlternativeRoutes'])
                     self.assertEqual(len(result['journeys']),1)
+
+    def test_google_selects_fastest_route_and_ignores_legacy_arrival_buffer(self):
+        with app.db_connection() as c:
+            c.execute("UPDATE settings SET setting_value='Test home' WHERE setting_key='user_address'")
+            response={'routes':[{'duration':'1800s','legs':[]},{'duration':'1200s','legs':[]}]}
+            with patch.dict(p.os.environ,{'ALIGN_GOOGLE_ROUTES_KEY':'fake'}), \
+                 patch.object(p,'fetch_json',return_value=response) as fetch:
+                result=p.google_journey(c,dict(destination='Test place',arrival='2030-01-02T12:00',mode='bus',arrival_buffer=10))
+            self.assertEqual(fetch.call_args.args[1]['arrivalTime'],'2030-01-02T12:00:00Z')
+            self.assertEqual(result['minutes'],20)
+
+    def test_legacy_personal_arrival_preference_is_not_exposed_or_used(self):
+        with app.db_connection() as c:
+            c.execute("INSERT INTO settings(setting_key,setting_value) VALUES('personal_preferences',?) ON CONFLICT(setting_key) DO UPDATE SET setting_value=excluded.setting_value",
+                      ('{\"arrival_buffer\": 30, \"departure_buffer\": 7}',))
+            prefs=p.preferences(c)
+            self.assertNotIn('arrival_buffer',prefs)
+            self.assertEqual(prefs['departure_buffer'],7)
+            saved=p.save_preferences(c,{'weather_town':'Liverpool'})
+            self.assertNotIn('arrival_buffer',saved)
+            self.assertEqual(saved['departure_buffer'],7)
 
     def test_weather_adjustment_shifts_leave_time_and_falls_back(self):
         with app.db_connection() as c:
@@ -177,6 +198,7 @@ class PersonalTests(unittest.TestCase):
             self.assertEqual(result['provider'], 'HERE')
             self.assertEqual(result['traffic_adjustment']['extra_minutes'], 10)
             self.assertEqual(result['weather_adjustment']['extra_minutes'], 10)
+            self.assertEqual(result['leave_at'], '2030-01-02T10:35+00:00')
             self.assertNotIn('secret', str(result))
 
 if __name__=='__main__':unittest.main()

@@ -23,7 +23,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 158;
-const ASSET_VERSION = `${BUILD_VERSION}-v90`;
+const ASSET_VERSION = `${BUILD_VERSION}-v91`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -504,7 +504,7 @@ function todayInboundKey(item) {
   const prefs = typeof personalPrefs === 'function' ? personalPrefs() : {};
   const homeAddress = String(state.boot?.settings?.user_address || '').trim().toLowerCase().replace(/\s+/g, ' ');
   return JSON.stringify(['home', homeAddress, item.origin || '', item.id || '', item.start_at, todayLocationIdentity(item),
-    prefs.default_travel || 'transit', Number(prefs.departure_buffer ?? 5), Number(prefs.arrival_buffer ?? 10),
+    prefs.default_travel || 'transit', Number(prefs.departure_buffer ?? 5),
     state.boot?.personal?.journey_provider || 'configured']);
 }
 function eventTravelKind(item) {
@@ -525,7 +525,6 @@ async function ensureTodayInboundTravel(item) {
       arrival: item.start_at,
       mode: prefs.default_travel || 'transit',
       departure_buffer: Number(prefs.departure_buffer ?? 5),
-      arrival_buffer: Number(prefs.arrival_buffer ?? 10),
     }});
     if (result?.notes) {
       const steps = result.steps || [];
@@ -547,21 +546,22 @@ async function ensureTodayInboundTravel(item) {
 function todayPostTravelRequestKey(from, to) {
   const prefs = typeof personalPrefs === 'function' ? personalPrefs() : {};
   return JSON.stringify(['timeline', eventTravelKind(from), from.id, from.end_at, todayLocationIdentity(from),
-    String(from.location || from.address || '').trim(), eventTravelKind(to), to.id, to.start_at,
-    todayLocationIdentity(to), String(to.location || to.address || '').trim(), prefs.default_travel || 'transit',
-    Number(prefs.arrival_buffer ?? 10), state.boot?.personal?.journey_provider || 'configured']);
+    String(from.location || from.address || '').trim(), to?eventTravelKind(to):'home', to?.id, to?.start_at,
+    todayLocationIdentity(to), String(to?.location || to?.address || state.boot?.settings?.user_address || '').trim(), prefs.default_travel || 'transit',
+    state.boot?.personal?.journey_provider || 'configured']);
 }
 async function ensureDailyPostTravel(groups) {
-  for (let i = 0; i < (groups || []).length - 1; i++) {
-    const from = groups[i].last, to = groups[i + 1].first;
-    if (!from || !to || sameTodayLocation(from, to) ||
-        String(from.start_at || '').slice(0, 10) !== String(to.start_at || '').slice(0, 10)) continue;
+  for (let i = 0; i < (groups || []).length; i++) {
+    const from = groups[i].last, to = groups[i + 1]?.first;
+    if (!from || (to && (sameTodayLocation(from, to) ||
+        String(from.start_at || '').slice(0, 10) !== String(to.start_at || '').slice(0, 10)))) continue;
     const requestKey = todayPostTravelRequestKey(from, to);
     if (from._todayRouteRequestKey === requestKey || state.postTravelRequests.has(requestKey)) continue;
-    const end = eventEndAt(from), destinationStart = eventStartAt(to);
-    if (!eventStartAt(from) || !end || !destinationStart || from.all_day || to.all_day ||
-        !String(from.location || from.address || '').trim() || !String(to.location || to.address || '').trim() ||
-        end.getTime() <= Date.now() || destinationStart.getTime() <= end.getTime()) continue;
+    const end = eventEndAt(from), destinationStart = to && eventStartAt(to);
+    if (!eventStartAt(from) || !end || from.all_day ||
+        !String(from.location || from.address || '').trim() || end.getTime() <= Date.now() ||
+        (to && (!destinationStart || to.all_day || !String(to.location || to.address || '').trim() ||
+          destinationStart.getTime() <= end.getTime()))) continue;
     if (from.post_travel?.timeline && from.post_travel?.request_key === requestKey) continue;
     from._todayRouteRequestKey = requestKey;
     state.postTravelRequests.add(requestKey);
@@ -698,7 +698,7 @@ function todayAreaIcon(name) {
   if(/clinic|treatment|medical/.test(value))return '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M12 5h24v38H12zM18 5V2h12v3M24 14v15M16.5 21.5h15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   return '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 42V10h32v32M3 42h42M18 18h12M24 12v12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 }
-function renderTodayAppointment(event) {
+function renderTodayAppointment(event, homeTravel='') {
   const colour=safeColour(event.section_colour||event.colour,'#a76aff');
   const time=event.all_day?'All day':event.start_at&&event.end_at?`${String(event.start_at).slice(11,16)}–${String(event.end_at).slice(11,16)}`:'Time not set';
   const location=event.location||event.address||'';
@@ -712,7 +712,18 @@ function renderTodayAppointment(event) {
   return `<article class="today-appointment-card" style="--appointment-colour:${escapeHtml(colour)}" ${attrs}>
     <header class="today-appointment-heading"><span class="today-appointment-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M13 7v10a8 8 0 0 0 16 0V7M9 7h8M25 7h8M29 25v3a8 8 0 0 0 16 0v-2M41 26a4 4 0 1 0 8 0 4 4 0 0 0-8 0" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" transform="translate(-3 0)"/></svg></span><div><strong>${escapeHtml(event.title||'Event')}</strong>${location?`<small>⌖ ${appleDestinationLink(location)}</small>`:''}</div><time>${escapeHtml(time)}</time></header>
     <div class="today-appointment-notes"><span aria-hidden="true">▣</span><span>${notes?escapeHtml(notes):'Appointment'}</span><strong>${escapeHtml(todayEventDurationLabel(event))}</strong></div>
+    ${homeTravel}
   </article>`;
+}
+function todayHomeTravelMarkup(item) {
+  const info=item?.post_travel;
+  if(!info || info.deadline) return '';
+  if(info.journey && typeof postTravelSummary==='function') {
+    const summary=postTravelSummary(item,{detailed:true});
+    return summary?`<div class="today-travel-connector today-home-travel">${summary}</div>`:'';
+  }
+  if(info.timeline && info.error) return `<section class="today-route-unavailable" aria-label="Travel home"><strong>Travel home</strong><p role="status">Route unavailable: ${escapeHtml(info.error)}</p></section>`;
+  return '';
 }
 function todayInboundMarkup(item, firstItem = false) {
   if (!item || !firstItem || item.all_day) return '';
@@ -720,7 +731,7 @@ function todayInboundMarkup(item, firstItem = false) {
   const location=String(item.location||item.address||'').trim();
   const title=item.origin==='Shift'?(item.location_name||eventPlaceName(item)):(item.title||'first event');
   if (journey) {
-    const route=typeof travelRouteStrip==='function'?travelRouteStrip(journey,{detailed:true}):'';
+    const route=typeof travelRouteStrip==='function'?travelRouteStrip(journey,{detailed:true,leaveAtFirstWalk:true}):'';
     if(route)return `<section class="today-inbound-travel" aria-label="Travel from home to ${escapeHtml(title)}"><strong>Travel from home</strong><small>${escapeHtml(title)}</small>${route}</section>`;
   }
   if (!item.start_at || !location) {
@@ -737,16 +748,19 @@ function todayTravelConnector(fromGroup, toGroup) {
       String(from.start_at||'').slice(0,10)!==String(to.start_at||'').slice(0,10))return '';
   const requestKey=todayPostTravelRequestKey(from,to);
   const info=from.post_travel;
-  if(info?.timeline&&info.request_key===requestKey&&info.journey&&typeof postTravelSummary==='function'){
+  const start=eventStartAt(from),end=eventEndAt(from),destinationStart=eventStartAt(to);
+  if(end&&destinationStart&&destinationStart.getTime()>end.getTime()&&info?.timeline&&info.request_key===requestKey&&info.journey&&info.deadline&&
+      eventStartAt({start_at:info.deadline})?.getTime()===eventStartAt(to)?.getTime()&&typeof postTravelSummary==='function'){
     const summary=postTravelSummary({...from,post_travel:info},{detailed:true});
     if(summary)return `<div class="today-travel-connector" aria-label="Travel to next event">${summary}</div>`;
   }
   let message='Checking route availability…';
-  const start=eventStartAt(from),end=eventEndAt(from),destinationStart=eventStartAt(to);
   if(!todayLocationIdentity(from)||!todayLocationIdentity(to)||!String(from.location||from.address||'').trim()||!String(to.location||to.address||'').trim()){
     message='A saved address is needed for both locations before a route can be planned.';
   }else if(from.all_day||to.all_day||!start||!end||!destinationStart){
     message='A timed event is needed at both locations before a route can be planned.';
+  }else if(destinationStart.getTime()<=end.getTime()){
+    message='These events overlap or leave no time to travel between them.';
   }else if(info?.timeline&&info.request_key===requestKey&&info.error){
     message=`Route unavailable: ${escapeHtml(info.error)}`;
   }else if(info?.timeline&&info.request_key===requestKey){
@@ -763,7 +777,7 @@ function renderTodayTimeline(events) {
     const group=groups[i],first=group.first,next=groups[i+1];
     if(first.origin!=='Shift'){
       const inbound=todayInboundMarkup(first,i===0);if(inbound)output.push(inbound);
-      output.push(renderTodayAppointment(first));
+      output.push(renderTodayAppointment(first,next?'':todayHomeTravelMarkup(group.last)));
       const connector=todayTravelConnector(group,next);if(connector)output.push(connector);
       continue;
     }
@@ -787,7 +801,7 @@ function renderTodayTimeline(events) {
     const span=startTime&&endTime?`${startTime}–${endTime}`:'Time not set';
     output.push(`<section class="today-location-block" style="--location-colour:${escapeHtml(colour)}">
       <header class="today-location-header"><span class="today-location-icon">${locationIcon}</span><div><strong>${escapeHtml(title)}</strong>${address?`<small>⌖ ${appleDestinationLink(address)}</small>`:''}<small>${total.toFixed(Number.isInteger(total)?0:1)} hours total · ${items.length} shift${items.length===1?'':'s'}</small></div><strong class="today-location-span" aria-label="Workplace span ${escapeHtml(span)}">${escapeHtml(span)}</strong></header>
-      ${inbound}<div class="today-location-areas">${areas}</div>
+      ${inbound}<div class="today-location-areas">${areas}</div>${next?'':todayHomeTravelMarkup(last)}
     </section>`);
     const connector=todayTravelConnector(group,next);if(connector)output.push(connector);
   }
@@ -1408,8 +1422,7 @@ document.addEventListener('submit', async event => {
             arrival: body.start_at,
             ...(values.journey_origin === 'phone' ? await phoneLocation() : {}),
             mode: values.journey_mode || prefs.default_travel || 'transit',
-            departure_buffer: Number(values.departure_buffer ?? prefs.departure_buffer ?? 5),
-            arrival_buffer: Number(values.arrival_buffer ?? prefs.arrival_buffer ?? 10)
+            departure_buffer: Number(values.departure_buffer ?? prefs.departure_buffer ?? 5)
           }});
           const plan = journey.journeys?.[0];
           if (!plan?.notes) throw new Error('No suitable journey was found.');

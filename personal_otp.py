@@ -68,15 +68,19 @@ def plan(c, body, prefs, provider=None, provider_name='OpenTripPlanner'):
     if mode not in MODE_MAP:
         raise ValueError('Choose Bus, Train or Bus and train for OpenTripPlanner. Use Apple Maps for driving.')
     departure_buffer = int(body.get('departure_buffer', prefs['departure_buffer']))
-    arrival_buffer = int(body.get('arrival_buffer', prefs['arrival_buffer']))
-    if not 0 <= departure_buffer <= 120 or not 0 <= arrival_buffer <= 120:
+    if not 0 <= departure_buffer <= 120:
         raise ValueError('Travel buffers must be between 0 and 120 minutes.')
     depart_after = bool(body.get('departure'))
     arrival = datetime.fromisoformat(str(body.get('departure') or body.get('arrival','')))
     arrival = arrival.astimezone(ZONE) if arrival.tzinfo else arrival.replace(tzinfo=ZONE)
-    target = arrival - timedelta(minutes=arrival_buffer)
+    deadline = None
+    if depart_after and body.get('deadline'):
+        deadline = datetime.fromisoformat(str(body['deadline']))
+        deadline = deadline.astimezone(ZONE) if deadline.tzinfo else deadline.replace(tzinfo=ZONE)
+        if deadline.timestamp() <= arrival.timestamp(): raise ValueError('The next event must start after this event ends.')
+    target = arrival
     now = datetime.now(ZONE)
-    if target <= now: raise ValueError('Choose a future event time allowing for early arrival.')
+    if target <= now: raise ValueError('Choose a future event time.')
     destination = str(body.get('destination','')).strip()[:240]
     if not destination: raise ValueError('Add an event location with a full postcode.')
     try:
@@ -110,7 +114,7 @@ def plan(c, body, prefs, provider=None, provider_name='OpenTripPlanner'):
         end = datetime.fromisoformat(legs[-1]['end']).astimezone(ZONE)
         leave = start - timedelta(minutes=departure_buffer)
         if leave <= now or end < start: continue
-        if (depart_after and leave < target) or (not depart_after and end > target): continue
+        if (depart_after and leave < target) or (not depart_after and end > target) or (deadline and end.timestamp() > deadline.timestamp()): continue
         steps = []
         previous_end = None
         for leg in legs:
@@ -120,15 +124,20 @@ def plan(c, body, prefs, provider=None, provider_name='OpenTripPlanner'):
                 steps.append(dict(mode='wait',minutes=math.ceil((a-previous_end).total_seconds()/60),start=previous_end.isoformat(),end=a.isoformat(),service='Connection'))
             steps.append({**leg,'mode':'train' if leg['mode']=='rail' else leg['mode'], 'minutes':math.ceil((b-a).total_seconds()/60)})
             previous_end = b
-        minutes = math.ceil((end-start).total_seconds()/60)
-        notes = [f"Leave {origin_name}: {format_display_datetime(leave)}", f"Arrive: {end:%H:%M}" + (f" · Event ends: {arrival:%H:%M}" if depart_after else f" · Event: {arrival:%H:%M}"), f"{minutes} minutes including walking and connections", f"Allowances: {departure_buffer} minutes before leaving; arrive {arrival_buffer} minutes early", f"Start: {origin_note}; destination: {dest_note}"]
+        elapsed = end.timestamp()-start.timestamp()
+        minutes = math.ceil(elapsed/60)
+        notes = [f"Leave {origin_name}: {format_display_datetime(leave)}", f"Arrive: {end:%H:%M}" + (f" · Event ends: {arrival:%H:%M}" if depart_after else f" · Event: {arrival:%H:%M}"), f"{minutes} minutes including walking and connections", f"Allowance: {departure_buffer} minutes before leaving", f"Start: {origin_note}; destination: {dest_note}"]
         for step in steps:
             a = datetime.fromisoformat(step['start']).astimezone(ZONE)
             notes.append(f"{step['mode'].title()} {step.get('service','')} · {step['minutes']} min · {a:%H:%M} · {step.get('from','')} → {step.get('to','')}")
         notes.append(provider_name + ' · scheduled times; live delay updates unavailable · checked '+format_display_datetime(now))
         notes.extend(candidate.get('attributions', []))
-        plans.append(dict(minutes=minutes,leave_at=leave.isoformat(timespec='minutes'),arrival_at=end.isoformat(timespec='minutes'),steps=steps,notes='\n'.join(notes),mode=mode,provider=provider_name,scheduled=True))
-    plans.sort(key=lambda p: (datetime.fromisoformat(p['arrival_at']).timestamp() if depart_after else -datetime.fromisoformat(p['leave_at']).timestamp(), p['minutes']))
+        plan = dict(minutes=minutes,leave_at=leave.isoformat(timespec='minutes'),arrival_at=end.isoformat(timespec='minutes'),steps=steps,notes='\n'.join(notes),mode=mode,provider=provider_name,scheduled=True)
+        plans.append((plan, elapsed, leave))
+    if depart_after and not deadline:
+        plans.sort(key=lambda p: (datetime.fromisoformat(p[0]['arrival_at']).timestamp(), p[0]['minutes']))
+    else:
+        plans.sort(key=lambda p: (p[1], -p[2].timestamp()))
     if not plans: raise ValueError('No scheduled journey reaches this event in time. Try another time or travel mode; check that the timetable covers this date.')
-    plans = plans[:MAX_JOURNEYS]
+    plans = [plan for plan, _, _ in plans[:MAX_JOURNEYS]]
     return {**plans[0], 'journeys':plans}

@@ -1237,6 +1237,17 @@ body[data-management-theme="light"] .guide-page { --guide-well: #f4f7fb; }
 .today-route-unavailable{display:grid;gap:3px;padding:4px 1px}
 .today-route-unavailable>strong{font-size:.9rem}
 .today-route-unavailable>small{color:#c3d9ee;font-size:.8rem;overflow-wrap:anywhere}
+.today-inbound-travel .journey-compact-strip,.today-travel-connector .journey-compact-strip{display:flex;flex-wrap:wrap;justify-content:flex-start;align-items:center;gap:6px;overflow:visible}
+.today-inbound-travel .journey-compact-item,.today-travel-connector .journey-compact-item{display:grid;justify-items:center;align-content:start;gap:1px;min-width:40px;max-width:100%;color:#e5f3ff;text-align:center}
+.today-inbound-travel .journey-compact-art,.today-travel-connector .journey-compact-art{display:grid;place-items:center;height:25px;color:#91aaff}
+.today-inbound-travel .journey-compact-art svg,.today-travel-connector .journey-compact-art svg{width:24px;height:24px}
+.today-inbound-travel .journey-compact-label,.today-travel-connector .journey-compact-label{font-size:.68rem;line-height:1.2;color:#c6d9e8}
+.today-inbound-travel .journey-compact-item strong,.today-travel-connector .journey-compact-item strong{font-size:.78rem;line-height:1.25;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.today-inbound-travel .journey-compact-strip>.shift-travel-arrow,.today-travel-connector .journey-compact-strip>.shift-travel-arrow{display:block;flex:0 0 auto;align-self:center}
+.journey-compact-details{margin-top:7px;color:#d4e5f4;font-size:.8rem}
+.today-inbound-travel .journey-compact-details .journey-breakdown,.today-travel-connector .journey-compact-details .journey-breakdown{display:block!important}
+.journey-compact-details>summary{cursor:pointer}
+.journey-compact-details>summary:focus-visible{outline:2px solid var(--focus);outline-offset:3px}
 .today-appointment-card{gap:10px;padding:12px;border:2px solid var(--appointment-colour,#a76aff);border-radius:20px;background:#21173a}
 .today-appointment-heading{grid-template-columns:44px minmax(0,1fr) auto;gap:10px}
 .today-appointment-icon{width:42px;height:42px;border-right:1px solid #c1a8e7}
