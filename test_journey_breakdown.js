@@ -70,4 +70,7 @@ if (!betaSummary.includes('Bus 407') || !betaSummary.includes('08:00')) throw ne
 if (!betaSummary.includes('07:42') || !betaSummary.includes('08:50')) throw new Error('Beta-era leave and arrival times must remain visible');
 if (!betaSummary.includes('Birkenhead Bus Station')) throw new Error('Beta-era route legs must remain readable');
 
+if (context.journeyClock('2030-10-01T08:00') !== '08:00') throw new Error('Offset-less planner times must stay on the London wall clock');
+if (context.journeyClock('2030-01-01T08:00:00+00:00') !== '08:00') throw new Error('A January UTC instant must display as London time');
+if (context.journeyClock('2030-10-01T08:00:00Z') !== '09:00') throw new Error('An October UTC instant must display as British Summer Time');
 console.log('journey artwork and event summary checks passed');

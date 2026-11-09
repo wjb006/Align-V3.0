@@ -1,7 +1,14 @@
 function journeyClock(value) {
  if (!value) return '';
- if (/^(?:[01]?\d|2[0-3]):[0-5]\d$/.test(String(value))) return String(value);
- const date = new Date(value);
+ const text = String(value).trim();
+ if (/^(?:[01]?\d|2[0-3]):[0-5]\d$/.test(text)) return text;
+ // Planner times without an offset are Europe/London wall clocks. Date parses
+ // those as the host zone, so a UTC machine shows British Summer Time an hour ahead.
+ if (!/[zZ]$|[+-]\d{2}:?\d{2}$/.test(text)) {
+  const wall = text.match(/(?:T| )(\d{2}):(\d{2})/);
+  if (wall) return `${wall[1]}:${wall[2]}`;
+ }
+ const date = new Date(text);
  return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit'});
 }
 /* Align V3 iconography: inline line icons, no legacy Beta image assets. */

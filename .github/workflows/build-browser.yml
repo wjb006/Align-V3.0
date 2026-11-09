@@ -41,6 +41,7 @@ jobs:
         run: |
           node browser-tests/align.spec.js
           node browser-tests/address-suggestions.spec.js
+          node browser-tests/timeline.spec.js
       - name: Upload mobile visual evidence
         if: always()
         uses: actions/upload-artifact@v4
