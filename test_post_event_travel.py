@@ -256,6 +256,17 @@ class EventChangesTests(unittest.TestCase):
             body['departure']='2030-07-02T11:01'
             with self.assertRaises(ValueError):personal_otp.plan(otp_tests.Connection(),body,personal_planner.DEFAULTS)
 
+    def test_transit_without_deadline_keeps_provider_order(self):
+        route=dict(origin='Work Road',destination='Home Road',
+                   departure='2030-10-01T10:00',mode='transit')
+        journeys=[
+            {'leave_at':'2030-10-01T10:10','arrival_at':'2030-10-01T10:40','name':'fastest'},
+            {'leave_at':'2030-10-01T10:00','arrival_at':'2030-10-01T10:30','name':'earlier arrival'},
+        ]
+        with patch.dict('os.environ',{'ALIGN_JOURNEY_PROVIDER':'otp'}), \
+             patch.object(personal_otp,'plan',return_value={'journeys':journeys}):
+            self.assertEqual(post.plan(self.c,route)['name'],'fastest')
+
 
 class PostTravelAPITests(unittest.TestCase):
     setUp=builder_tests.BuilderTests.setUp
