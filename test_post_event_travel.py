@@ -85,19 +85,28 @@ class EventChangesTests(unittest.TestCase):
         self.assertEqual(route['deadline'],'2030-10-01T17:15')
         self.assertEqual(post.instant(route['departure']),post.instant('2030-10-01T16:30'))
 
-    def test_timeline_route_plan_enforces_arrival_buffer(self):
+    def test_timeline_route_plan_uses_event_start_and_fastest_feasible_route(self):
         route=dict(origin='Work Road, Wirral',destination='Clinic Road, Wirral',
                    departure='2030-10-01T16:30',deadline='2030-10-01T17:15',
                    mode='transit',timeline=True,arrival_buffer=10)
         journeys=[
-            {'leave_at':'2030-10-01T16:30','arrival_at':'2030-10-01T17:10','steps':[]},
-            {'leave_at':'2030-10-01T16:35','arrival_at':'2030-10-01T17:05','steps':[]},
+            {'leave_at':'2030-10-01T16:50','arrival_at':'2030-10-01T17:15','steps':[]},
+            {'leave_at':'2030-10-01T16:30','arrival_at':'2030-10-01T17:05','steps':[]},
+            {'leave_at':'2030-10-01T17:00','arrival_at':'2030-10-01T17:16','steps':[]},
         ]
         with patch.dict('os.environ',{'ALIGN_JOURNEY_PROVIDER':'otp'}), \
              patch.object(personal_otp,'plan',return_value={'journeys':journeys}):
-            self.assertEqual(post.plan(self.c,route)['arrival_at'],'2030-10-01T17:05')
+            self.assertEqual(post.plan(self.c,route)['arrival_at'],'2030-10-01T17:15')
+        rounded_journeys=[
+            {'leave_at':'2030-10-01T10:00','arrival_at':'2030-10-01T10:30','steps':[]},
+            {'leave_at':'2030-10-01T10:10','arrival_at':'2030-10-01T10:40','steps':[]},
+        ]
+        rounded_route={**route,'departure':'2030-10-01T10:00','deadline':'2030-10-01T11:00'}
         with patch.dict('os.environ',{'ALIGN_JOURNEY_PROVIDER':'otp'}), \
-             patch.object(personal_otp,'plan',return_value={'journeys':journeys[:1]}):
+             patch.object(personal_otp,'plan',return_value={'journeys':rounded_journeys}):
+            self.assertEqual(post.plan(self.c,rounded_route)['leave_at'],'2030-10-01T10:00')
+        with patch.dict('os.environ',{'ALIGN_JOURNEY_PROVIDER':'otp'}), \
+             patch.object(personal_otp,'plan',return_value={'journeys':journeys[2:]}):
             with self.assertRaisesRegex(ValueError,'reach the next event in time'):
                 post.plan(self.c,route)
 
@@ -114,13 +123,41 @@ class EventChangesTests(unittest.TestCase):
             self.assertEqual(first['journey'],journey)
             self.assertEqual(second['journey'],journey)
             self.assertEqual(planner.call_count,1)
+            decorated=post.decorate(self.c,[{
+                'id':1,'work_date':'2030-10-01','start_time':'16:00','end_time':'16:30'
+            }],kind='shift')[0]['post_travel']
+            self.assertTrue(decorated['timeline'])
+            self.assertEqual(decorated['deadline'],'2030-10-01T17:15')
+            self.assertEqual(decorated['journey'],journey)
             self.c.execute("UPDATE organiser_events SET location='New Clinic Road, Wirral' WHERE id=?",(appointment,))
+            decorated=post.decorate(self.c,[{
+                'id':1,'work_date':'2030-10-01','start_time':'16:00','end_time':'16:30'
+            }],kind='shift')[0]['post_travel']
+            self.assertIsNone(decorated['journey'])
             post.handle(self.c,request)
             self.assertEqual(planner.call_count,2)
         with patch.object(post,'_provider_cache_version',return_value='provider-v2'), \
              patch.object(post,'plan',return_value=journey) as planner:
             post.handle(self.c,request)
             self.assertEqual(planner.call_count,1)
+
+    def test_timeline_cache_is_restored_for_event_decorations(self):
+        now=datetime.now(post.ZONE)
+        start=(now+timedelta(days=2)).replace(hour=9,minute=0,second=0,microsecond=0)
+        end=start+timedelta(hours=1)
+        ident=self.event(start.isoformat(timespec='minutes'),end.isoformat(timespec='minutes'),location='Clinic Road')
+        journey={'leave_at':end.isoformat(timespec='minutes'),'arrival_at':(end+timedelta(minutes=30)).isoformat(timespec='minutes'),'steps':[]}
+        request=dict(kind='event',id=ident,enabled=True,mode='transit',plan=True,timeline=True)
+        with patch.object(post,'_provider_cache_version',return_value='provider-v1'), \
+             patch.object(post,'plan',return_value=journey):
+            post.handle(self.c,request)
+            decorated=post.decorate(self.c,[{
+                'id':ident,'start_at':start.isoformat(timespec='minutes'),'end_at':end.isoformat(timespec='minutes'),
+                'location':'Clinic Road','all_day':0
+            }],kind='event')[0]['post_travel']
+        self.assertTrue(decorated['timeline'])
+        self.assertTrue(decorated['historical'] is False)
+        self.assertEqual(decorated['journey'],journey)
 
     def test_stay_extension_stops_when_another_address_intervenes(self):
         self.event('2030-10-01T08:00','2030-10-01T12:00',location='Site A',title='AM')
@@ -210,7 +247,7 @@ class EventChangesTests(unittest.TestCase):
         self.assertFalse(post.handle(self.c,dict(kind='event',id=ident,enabled=False))['enabled'])
 
     def test_depart_after_uses_event_origin_and_excludes_early_route(self):
-        body=dict(mode='transit',arrival='2030-07-02T10:55',departure='2030-07-02T10:55',origin='Event CH41 6AZ',destination='Home L1 1JD',departure_buffer=0,arrival_buffer=0)
+        body=dict(mode='transit',arrival='2030-07-02T10:55',departure='2030-07-02T10:55',origin='Event CH41 6AZ',destination='Home L1 1JD',departure_buffer=0)
         with patch.object(personal_otp,'resolve_place',return_value=((53.,-3.),'postcode')) as resolve,patch.object(personal_otp.OTPProvider,'plan',return_value=otp_tests.PersonalOTPTests().routes()) as provider:
             result=personal_otp.plan(otp_tests.Connection(),body,personal_planner.DEFAULTS)
             self.assertEqual(resolve.call_args_list[0].args[0],'Event CH41 6AZ')
