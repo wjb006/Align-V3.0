@@ -127,7 +127,7 @@ async function main() {
         {mode:'walk',minutes:3,start:'2030-10-01T08:27',end:'2030-10-01T08:30'}
       ]};
       const strip=travelRouteStrip(journey,{detailed:true,leaveAtFirstWalk:true});
-      document.querySelector('#app').innerHTML='<section class="today-inbound-travel">'+strip+'</section><section class="today-travel-connector">'+strip+'</section>';
+      document.querySelector('#app').innerHTML='<section class="today-inbound-travel">'+strip+'</section><section class="today-travel-connector"><div class="shift-travel-itinerary-wrap"><strong>Travel</strong>'+strip+'</div></section>';
     });
     const journeyItems=page.locator('.today-inbound-travel .journey-compact-item');
     assert.equal(await journeyItems.count(),7,'Every leg and both endpoints must remain visible.');
@@ -140,6 +140,8 @@ async function main() {
     assert.match(await page.locator('.today-inbound-travel .journey-compact-details').innerText(),/Stop A → Stop B/);
     assert.equal(await page.locator('.today-travel-connector .journey-compact-item').count(),7);
     assert.equal(await page.locator('.today-travel-connector .shift-travel-arrow').first().evaluate(node=>getComputedStyle(node).display),'block');
+    assert.equal(await page.locator('.today-travel-connector .journey-compact-strip').evaluate(node=>getComputedStyle(node).flexWrap),'wrap');
+    assert.equal(await page.locator('.today-travel-connector .journey-compact-strip').evaluate(node=>getComputedStyle(node).overflowX),'visible');
     for (const width of [320,390,1440]) {
       await page.setViewportSize({width,height:844});
       const bounds=await page.evaluate(() => ({width:document.documentElement.clientWidth,scroll:document.documentElement.scrollWidth}));
@@ -209,6 +211,36 @@ async function main() {
       document.querySelector('#app').innerHTML=renderTodayTimeline(timelineItems.slice(0,2));
     });
     assert.equal(await schedule.locator('.today-location-block .today-home-travel').count(),1,'Final grouped shift keeps the home journey inside the location');
+    const restoredCache=await page.evaluate(async () => {
+      const item={id:99,origin:'Event',location:'Saved Road',start_at:'2030-10-01T14:00',end_at:'2030-10-01T15:00',
+        post_travel:{timeline:true,deadline:'',journey:{leave_at:'2030-10-01T15:00',arrival_at:'2030-10-01T15:30',steps:[]}}};
+      const before=routeCalls.length;
+      await ensureDailyPostTravel([{first:item,last:item}]);
+      return {requests:routeCalls.length-before,requestKey:item.post_travel.request_key};
+    });
+    assert.equal(restoredCache.requests,0,'A validated timeline journey should avoid a redundant request.');
+    assert.ok(restoredCache.requestKey,'A restored timeline journey should be associated with its current request key.');
+    const historicalCache=await page.evaluate(async () => {
+      const from={id:98,origin:'Event',location:'Past Road',start_at:'2020-10-01T09:00',end_at:'2020-10-01T10:00',
+        post_travel:{timeline:true,deadline:'2020-10-01T11:00',journey:{leave_at:'2020-10-01T10:00',arrival_at:'2020-10-01T10:30',steps:[]}}};
+      const to={id:97,origin:'Event',location:'Past Clinic',start_at:'2020-10-01T11:00',end_at:'2020-10-01T12:00'};
+      const before=routeCalls.length;
+      await ensureDailyPostTravel([{first:from,last:from},{first:to,last:to}]);
+      return {requests:routeCalls.length-before,requestKey:from.post_travel.request_key};
+    });
+    assert.equal(historicalCache.requests,0,'A saved journey should be retained after its departure time.');
+    assert.ok(historicalCache.requestKey,'A historical journey should still be attached to its current timeline request.');
+    const retainedResult=await page.evaluate(async () => {
+      const item={id:100,origin:'Event',location:'Cached Road',start_at:'2030-10-01T14:00',end_at:'2030-10-01T15:00'};
+      window.api=async(path,options)=>{routeCalls.push({path,body:options.body});return {destination_name:'Home',deadline:'',journey:{leave_at:'2030-10-01T15:00',arrival_at:'2030-10-01T15:30',steps:[]}};};
+      await ensureDailyPostTravel([{first:item,last:item}]);
+      const replacement={...item,post_travel:undefined};
+      delete replacement._todayRouteRequestKey;
+      await ensureDailyPostTravel([{first:replacement,last:replacement}]);
+      return {requests:routeCalls.filter(call=>call.body?.id===100).length,journey:replacement.post_travel?.journey};
+    });
+    assert.equal(retainedResult.requests,1,'A successful request should be reused instead of only remembering its key.');
+    assert.ok(retainedResult.journey,'A replacement timeline item should receive the retained journey result.');
     await page.evaluate(() => {
       timelineItems[2].start_at='2030-10-01T16:00';
       document.querySelector('#app').innerHTML=renderTodayTimeline(timelineItems);

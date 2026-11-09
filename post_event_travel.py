@@ -187,9 +187,9 @@ def plan(c, route):
     latest_arrival = instant(route['deadline']) if route.get('deadline') else None
     usable = [j for j in journeys if instant(j['leave_at'])>=instant(route['departure']) and (latest_arrival is None or instant(j['arrival_at'])<=latest_arrival)]
     if not usable: raise ValueError('No journey can leave after this event and reach the next event in time.')
+    if route['mode'] != 'drive':
+        return usable[0]
     if latest_arrival is not None:
-        if route['mode'] != 'drive':
-            return usable[0]
         return min(usable,key=lambda j:(instant(j['arrival_at']).timestamp()-instant(j['leave_at']).timestamp(),-instant(j['leave_at']).timestamp()))
     return min(usable,key=lambda j:instant(j['arrival_at']))
 
