@@ -9,7 +9,7 @@
 ## Verified architecture
 
 - The canonical application is repository-root `app.py` with root `static/` and `migrations/`. `align_paths.py` resolves source files relative to the root application, and `desktop/align.spec` packages root static assets and migrations.
-- `programme/app/` is a divergent older copy. It is not the source used by the current root entry point or desktop PyInstaller spec. Do not blindly copy it over the canonical source.
+- The divergent `programme/` snapshot was removed. Root `app.py`, `static/`, `migrations/`, and `desktop/align.spec` remain the source. The Windows installer to use is `installer/windows/Install-Align-Studio.ps1`.
 - Build 156 shift planner and Work rota import are present. Rota approval writes to the existing `shifts` table, not a parallel shift store.
 - Existing hosted databases require migration 157 for rota import and migration 158 for guided sections/events. Hosted schema migrations are not automatically applied at startup.
 - Management Studio embeds the real app at `/?studioLivePreview=1`. The root Studio page had a stale shared stylesheet reference (`styles.css?v=156-v48`) while the app shell uses `156-v68`.
@@ -38,7 +38,7 @@
 6. **CI acceptance:** the latest observed browser, navigation, hosted-persistence and Windows-package workflows all failed before executing any job steps, with no runner assigned. A retry of failed jobs produced the same result. The job-log endpoint had no log blob. This is a GitHub Actions job-start failure, not evidence that an application test failed; no current test pass is claimed.
 7. **Runtime acceptance:** no local Windows environment, user database, browser session or live provider credentials are available through this repository inspection. No local or live end-to-end test is claimed.
 8. **Legacy account compatibility:** `/api/beta/*`, `beta_users.sqlite3`, `beta_*` modules and `ALIGN_BETA_MODE` remain compatibility plumbing for hosted authentication, Owner access, iCloud credentials and remote access. Do not remove these names without a data/API migration and rollback plan.
-9. **Source-copy divergence:** root and `programme/app/` Management Studio pages differ in markup and assets. The root is canonical for current builds. Any packaged/legacy copy must be reconciled deliberately, not overwritten wholesale.
+9. **Source-copy divergence:** the drifted `programme/` tree was removed rather than merged back. Root remains the canonical build.
 
 ## Repair order
 

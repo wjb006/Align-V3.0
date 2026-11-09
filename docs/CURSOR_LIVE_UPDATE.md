@@ -26,7 +26,7 @@ Not completed:
 - No OCR engine, and no claim that photos or scanned PDFs are read.
 - Migration 157 has not been applied to production or any hosted database. Do not apply it from this session.
 - No shift-specific travel hook exists, so approval does not call `post_event_travel` or `transport_service`.
-- `programme/app` was left unchanged. It is not the running source tree.
+- The old `programme/app` snapshot has been removed. It was not the running source tree.
 - Hosted PostgreSQL tests were not executed in this environment (`psycopg` is not installed). Do not treat the SQL as production-proven.
 
 ## 2. Product decisions already agreed
