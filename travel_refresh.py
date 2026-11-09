@@ -46,7 +46,7 @@ def synchronize(c):
     for r in records(c):
         old=data.get(r['key'],{})
         has_travel='[Align travel]' in r['notes'] or PENDING in r['notes']
-        inputs=[home,r['destination'],r['arrival'],{k:prefs.get(k) for k in ('default_travel','departure_buffer','arrival_buffer','weather_adjustments','weather_rain_threshold','weather_rain_buffer','weather_storm_buffer','traffic_buffer_cap')}]
+        inputs=['event-deadline-v2',home,r['destination'],r['arrival'],{k:prefs.get(k) for k in ('default_travel','departure_buffer','weather_adjustments','weather_rain_threshold','weather_rain_buffer','weather_storm_buffer','traffic_buffer_cap')}]
         signature=hashlib.sha256(json.dumps(inputs,sort_keys=True).encode()).hexdigest()
         entry=dict(old)
         if old.get('signature')!=signature:

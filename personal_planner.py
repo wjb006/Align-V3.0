@@ -16,7 +16,7 @@ ZONE = ZoneInfo('Europe/London')
 MODES = {'drive':'Driving','bus':'Bus','train':'Train','transit':'Bus and train'}
 DEFAULTS = dict(travel_modes=['drive', 'bus'], default_travel='drive', show_todos=True,
                 include_overdue=True, quick_categories=[], weather_town='',
-                departure_buffer=5, arrival_buffer=10, weather_adjustments=True,
+                departure_buffer=5, weather_adjustments=True,
                 weather_rain_threshold=50, weather_rain_buffer=10, weather_storm_buffer=15,
                 traffic_buffer_cap=30)
 
@@ -37,7 +37,9 @@ def ensure(c):
 
 def preferences(c):
     row = c.execute("SELECT setting_value FROM settings WHERE setting_key='personal_preferences'").fetchone()
-    return {**DEFAULTS, **(json.loads(row[0]) if row else {})}
+    result = {**DEFAULTS, **(json.loads(row[0]) if row else {})}
+    result.pop('arrival_buffer', None)
+    return result
 
 def save_preferences(c, body):
     p = preferences(c)
@@ -53,7 +55,7 @@ def save_preferences(c, body):
         if key in body:
             if type(body[key]) is not bool: raise ValueError('Choose an on/off preference.')
             p[key] = body[key]
-    for key in ('departure_buffer','arrival_buffer'):
+    for key in ('departure_buffer',):
         value=int(body.get(key,p[key]))
         if not 0<=value<=120: raise ValueError('Travel buffers must be between 0 and 120 minutes.')
         p[key]=value
@@ -260,9 +262,9 @@ def journey_steps(route, mode):
     return result
 
 
-def route_plan(route, mode, event_time, departure_buffer, arrival_buffer):
+def route_plan(route, mode, event_time, departure_buffer):
     minutes=math.ceil(float(route['duration'].rstrip('s'))/60)
-    target=event_time-timedelta(minutes=arrival_buffer)
+    target=event_time
     leave=target-timedelta(minutes=minutes+departure_buffer)
     lines=[]; prewalk=0; walking_after=0; first=True; last_arrival=None
     for leg in route.get('legs',[]):
@@ -289,7 +291,7 @@ def route_plan(route, mode, event_time, departure_buffer, arrival_buffer):
     heading=[f"Leave home: {format_display_datetime(leave)}",
              f"Arrive at event location: {actual_arrival.strftime('%H:%M')} · Event: {event_time.strftime('%H:%M')}",
              f"{MODES[mode]} from home · approximately {minutes} minutes travelling",
-             f"Allowances: {departure_buffer} minutes before boarding/leaving; arrive {arrival_buffer} minutes before event"]
+             f"Allowance: {departure_buffer} minutes before boarding/leaving"]
     footer=['Google Maps · checked '+format_display_datetime(datetime.now(ZONE))+(' · timetable subject to change' if mode!='drive' else ' · driving estimate; check traffic before leaving')]
     return dict(steps=journey_steps(route, mode),minutes=minutes,leave_at=leave.isoformat(timespec='minutes'),arrival_at=actual_arrival.isoformat(timespec='minutes'),walk_to_first_stop_minutes=math.ceil(prewalk/60),notes='\n'.join(heading+lines+footer),mode=mode)
 
@@ -382,8 +384,8 @@ def here_journey(c, body):
     prefs = preferences(c)
     depart_after = bool(body.get('departure'))
     arrival = dt(str(body.get('departure') or body.get('arrival', ''))).replace(tzinfo=ZONE)
-    target = arrival - timedelta(minutes=int(body.get('arrival_buffer', prefs['arrival_buffer'])))
-    if target <= datetime.now(ZONE): raise ValueError('Choose a future event time allowing for early arrival.')
+    target = arrival
+    if target <= datetime.now(ZONE): raise ValueError('Choose a future event time.')
     if 'latitude' in body or 'longitude' in body:
         origin = {'lat': float(body['latitude']), 'lng': float(body['longitude'])}
     elif body.get('origin'):
@@ -443,20 +445,21 @@ def google_journey(c, body):
     if not dest: raise ValueError('Add the event location first.')
     if mode not in MODES: raise ValueError('Choose a travel method.')
     departure_buffer=int(body.get('departure_buffer',prefs['departure_buffer']))
-    arrival_buffer=int(body.get('arrival_buffer',prefs['arrival_buffer']))
-    if not 0<=departure_buffer<=120 or not 0<=arrival_buffer<=120: raise ValueError('Travel buffers must be between 0 and 120 minutes.')
+    if not 0<=departure_buffer<=120: raise ValueError('Travel buffers must be between 0 and 120 minutes.')
     arrival=dt(str(body.get('arrival',''))).replace(tzinfo=ZONE)
-    target=arrival-timedelta(minutes=arrival_buffer)
-    if target<=datetime.now(ZONE): raise ValueError('Choose a future event time allowing for early arrival.')
+    target=arrival
+    if target<=datetime.now(ZONE): raise ValueError('Choose a future event time.')
     request=dict(origin=origin,destination={'address':dest},travelMode='TRANSIT' if mode!='drive' else 'DRIVE',languageCode='en-GB',units='METRIC',computeAlternativeRoutes=True)
     if mode!='drive':
         request.update(arrivalTime=target.astimezone(timezone.utc).isoformat().replace('+00:00','Z'),transitPreferences={'allowedTravelModes':{'bus':['BUS'],'train':['TRAIN'],'transit':['BUS','RAIL']}[mode]})
     mask='routes.duration,routes.legs.steps.transitDetails,routes.legs.steps.staticDuration,routes.legs.steps.travelMode'
     result=fetch_json('https://routes.googleapis.com/directions/v2:computeRoutes',request,{'X-Goog-Api-Key':key,'X-Goog-FieldMask':mask})
-    plans=[route_plan(r,mode,arrival,departure_buffer,arrival_buffer) for r in result.get('routes',[])[:4]]
+    plans=[(route_plan(r,mode,arrival,departure_buffer),float(r['duration'].rstrip('s'))) for r in result.get('routes',[])]
     now=datetime.now(ZONE)
-    plans=[r for r in plans if r and datetime.fromisoformat(r['leave_at'])>now]
+    plans=[(r,duration) for r,duration in plans if r and datetime.fromisoformat(r['leave_at'])>now]
     if not plans: raise ValueError('No journey is available that leaves now or later and reaches the event in time. Try a different mode or enter travel details manually.')
+    plans.sort(key=lambda item:(item[1],-datetime.fromisoformat(item[0]['leave_at']).timestamp()))
+    plans=[plan for plan,_ in plans[:4]]
     if 'latitude' in body:
         for plan in plans:
             plan['notes'] = plan['notes'].replace('Leave home:', 'Leave current location:').replace('from home', 'from current location')

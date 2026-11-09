@@ -395,7 +395,7 @@ async function saveEventGuide() {
       const journey = await api('/api/personal/journey', {method: 'POST', body: {
         destination: draft.location.trim(), arrival: `${draft.date}T${draft.start_time}`,
         mode: draft.travel_mode || prefs.default_travel || 'transit',
-        departure_buffer: Number(prefs.departure_buffer ?? 5), arrival_buffer: Number(prefs.arrival_buffer ?? 10),
+        departure_buffer: Number(prefs.departure_buffer ?? 5),
       }});
       const plan = journey.journeys?.[0];
       if (plan?.notes) notes = `${notes}\n[Align travel]\n${plan.notes}\n[/Align travel]${plan.steps?.length ? `\n[Align travel steps]\n${JSON.stringify(plan.steps)}\n[/Align travel steps]` : ''}`.trim();
