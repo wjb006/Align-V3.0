@@ -34,7 +34,7 @@ const read = file => fs.readFileSync(path.join(root, 'static', file), 'utf8');
         <div class="field address-search">
           <input id="ordinary" data-address-search="true" data-address-target="ordinary">
           <div id="ordinary-results" data-address-results="ordinary"></div>
-        </div><form id="builder"></form>`;
+        </div><button id="outside" type="button">Outside</button><form id="builder"></form>`;
       document.querySelector('#builder').innerHTML = AlignFields.render([
         {id:'location',type:'address',label:'Location',show_when:{}},
         {id:'legacy',type:'text',label:'Address',show_when:{}}
@@ -51,7 +51,7 @@ const read = file => fs.readFileSync(path.join(root, 'static', file), 'utf8');
     await page.locator('#ordinary').fill('Example Hospita');
     await page.clock.runFor(1000);
     await page.locator('#ordinary-results [data-action="choose-address"]').waitFor();
-    await page.locator('#builder').click({position:{x:1,y:1}});
+    await page.locator('#outside').click();
     await page.locator('#ordinary').fill('Example Hospital again');
     await page.clock.runFor(1000);
     await page.locator('#ordinary-results [data-action="choose-address"]').waitFor({state:'visible'});
