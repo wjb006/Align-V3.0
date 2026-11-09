@@ -16,6 +16,22 @@ Suggested reply:
 - Safe: S1, S2, S3
 - Decisions: D1 keep and open a PR, D2 delete `programme/` after a Windows check, D4 bump Pillow and retest, D5 fix the clock and add the timeline spec to CI, D6 leave cache strings for a later UI pass, D7 refresh the three docs, D8 and D9 only if the Go launcher stays, D10 keep the mockups
 
+## Done on 9 November 2026
+
+These are open for review. None of them are merged.
+
+| Item | Result |
+| --- | --- |
+| S1 | The ten `copilot/*` branches were deleted. Each tip was already in `codex/align-v3-rebuild`. `wjb006-fix-travel-and-weather` is still there. |
+| S2, S3 | https://github.com/wjb006/Align-V3.0/pull/136 |
+| D1 | https://github.com/wjb006/Align-V3.0/pull/137 |
+| D2 | https://github.com/wjb006/Align-V3.0/pull/141 |
+| D4 | https://github.com/wjb006/Align-V3.0/pull/138 |
+| D5 | https://github.com/wjb006/Align-V3.0/pull/139 |
+| D7 | https://github.com/wjb006/Align-V3.0/pull/140 |
+
+Still waiting: D3 (Align-app launcher), D6 (cache strings), D8 and D9 (Go and Playwright, only if the Go launcher stays), D10 (mockups kept).
+
 ## 1. Branches
 
 Ahead and behind are measured against `origin/codex/align-v3-rebuild` (`c3d2a71`). "Contained" means the branch tip is already an ancestor of that commit, so the branch has no unique work.
@@ -35,7 +51,7 @@ Ahead and behind are measured against `origin/codex/align-v3-rebuild` (`c3d2a71`
 | `copilot/fix-desktop-chromium-failure-again` | 2026-10-25 09:45 `2afc998` Initial plan | 0 | 776 | yes | **Delete as merged.** |
 | `copilot/fix-failing-github-actions-job` | 2026-10-25 09:38 `1ef920c` Initial plan | 0 | 781 | yes | **Delete as merged.** |
 
-Twelve remote branches in total, including the default. `git merge-tree` of `wjb006-fix-travel-and-weather` onto `c3d2a71` completes with no conflicts.
+Twelve remote branches were present at the start of the audit, including the default. The ten `copilot/*` rows were deleted on 9 November 2026 after this table was written. `git merge-tree` of `wjb006-fix-travel-and-weather` onto `c3d2a71` completes with no conflicts.
 
 ### The one unmerged commit
 
