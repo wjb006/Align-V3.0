@@ -14,6 +14,10 @@ class LocalOcrProviderTests(unittest.TestCase):
     def provider(self):
         # The OCR executable is not invoked in these tests; only the Python
         # adapter is exercised with a mocked OCR call.
+        import pytesseract
+        patcher = mock.patch.object(pytesseract.pytesseract, 'tesseract_cmd', pytesseract.pytesseract.tesseract_cmd)
+        patcher.start()
+        self.addCleanup(patcher.stop)
         return rota_ocr_provider.LocalTesseractProvider(command=sys.executable)
 
     def test_photo_is_processed_locally_and_text_is_returned(self):

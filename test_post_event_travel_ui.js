@@ -18,3 +18,29 @@ assert.match(strip,/18 min/);
 const outbound=context.postTravelSummary({location:'Arrowe Park Hospital',post_travel:{enabled:true,origin:'Arrowe Park Hospital',destination:'Arrowe Park Medical Centre',destination_name:'Arrowe Park Medical Centre',deadline:'2026-11-09T17:15',journey:{leave_at:'2026-11-09T16:30',arrival_at:'2026-11-09T16:46',steps:[{mode:'walk',minutes:4},{mode:'bus',minutes:12,service_number:'472'}]}}});
 assert.match(outbound,/Travel to next event/);
 assert.match(outbound,/Arrowe Park Hospital/);
+
+const inbound={leave_at:'2030-01-02T08:04',arrival_at:'2030-01-02T08:44',steps:[
+  {mode:'walk',start:'2030-01-02T08:09',end:'2030-01-02T08:13'},
+  {mode:'bus',service_number:'414',start:'2030-01-02T08:13',end:'2030-01-02T08:27'},
+  {mode:'walk',start:'2030-01-02T08:27',end:'2030-01-02T08:44'},
+]};
+const actual=context.travelRouteStrip(inbound,{detailed:true,leaveAtFirstWalk:true});
+assert.match(actual,/Leave, 08:09/);
+assert.doesNotMatch(actual,/Leave, 08:04/);
+assert.match(actual,/Bus, 414, 414 · 08:13, 08:13–08:27/);
+assert.match(actual,/>4 min<\/strong>/);
+assert.match(actual,/>414 · 08:13<\/strong>/);
+assert.match(actual,/Arrive, 08:44/);
+assert.match(context.travelRouteStrip(inbound,{detailed:true}),/Leave, 08:04/);
+assert.match(context.travelRouteStrip({...inbound,steps:[]},{detailed:true,leaveAtFirstWalk:true}),/Leave, 08:04/);
+const transfers=context.travelRouteStrip({leave_at:'2030-01-02T08:00',arrival_at:'2030-01-02T08:30',steps:[
+  {mode:'walk',minutes:4},{mode:'bus',service:'<414>',start:'2030-01-02T08:04',end:'2030-01-02T08:12',from:'Stop A',to:'Stop B'},
+  {mode:'wait',minutes:3},{mode:'train',service:'West',platform:'2',start:'2030-01-02T08:15',end:'2030-01-02T08:25'},
+  {mode:'walk',minutes:5}
+]},{detailed:true});
+assert.equal((transfers.match(/role="listitem"/g)||[]).length,7);
+assert.match(transfers,/&lt;414&gt; · 08:04/);
+assert.match(transfers,/Stop A, Stop B/);
+assert.match(transfers,/Connection, Connection|Connection, 3 min/);
+assert.match(transfers,/West · 08:15/);
+assert.match(transfers,/Platform 2/);

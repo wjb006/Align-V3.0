@@ -5,7 +5,11 @@ const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
 const appSource = fs.readFileSync(path.join(ROOT, 'static', 'app.js'), 'utf8');
+const personalSource = fs.readFileSync(path.join(ROOT, 'static', 'personal-planner.js'), 'utf8');
+const journeySource = fs.readFileSync(path.join(ROOT, 'static', 'journey-breakdown.js'), 'utf8');
+const postTravelSource = fs.readFileSync(path.join(ROOT, 'static', 'post-event-travel.js'), 'utf8');
 const styles = fs.readFileSync(path.join(ROOT, 'static', 'styles.css'), 'utf8');
+const eventStyles = fs.readFileSync(path.join(ROOT, 'static', 'events-global.css'), 'utf8');
 
 function sourceFunction(name) {
   const marker = [`function ${name}(`, `async function ${name}(`]
@@ -27,9 +31,10 @@ async function main() {
   try {
     await page.setContent('<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"></head><body><div class="app-shell"><main id="app"></main></div><div id="modal-root"></div></body></html>');
     await page.addStyleTag({content:styles});
+    const eventStyleTag=await page.addStyleTag({content:eventStyles});
     await page.addScriptTag({content:`
       window.state={boot:{personal:{journey_provider:'configured'},settings:{user_address:'Home Road One'}},tab:'today',
-        dailyInboundJourneys:{},dailyInboundLoading:{},dailyInboundErrors:{},postTravelRequests:new Set()};
+        dailyInboundJourneys:{},dailyInboundLoading:{},dailyInboundErrors:{},postTravelRequests:new Map()};
       window.personalPrefs=()=>({default_travel:'transit',departure_buffer:5,arrival_buffer:10});
       window.eventStartAt=item=>item?.start_at?new Date(item.start_at):null;
       window.eventEndAt=item=>item?.end_at?new Date(item.end_at):null;
@@ -47,10 +52,21 @@ async function main() {
     const functions = [
       'todayLocationIdentity','sameTodayLocation','todayTimelineGroups','eventTravelKind',
       'todayPostTravelRequestKey','todayInboundKey','todayDurationHours','todayEventDurationLabel',
-      'todayAreaIcon','renderTodayAppointment','todayInboundMarkup','todayTravelConnector',
-      'renderTodayTimeline','ensureDailyPostTravel'
+      'todayAreaIcon','renderTodayAppointment','todayHomeTravelMarkup','todayInboundMarkup','todayTravelConnector',
+      'renderTodayTimeline','ensureDailyPostTravel','ensureTodayInboundTravel'
     ];
     await page.addScriptTag({content:functions.map(sourceFunction).join('\n')});
+    const formFunctions = ['journeyBuffers','travelOptions','savedJourneyMode','eventTravelFields']
+      .map(name => {
+        const line = personalSource.split('\n').find(value => value.startsWith(`function ${name}(`));
+        if (name === 'savedJourneyMode') return 'function savedJourneyMode(){return null;}';
+        assert.ok(line, `Missing ${name}`);
+        return line;
+      });
+    await page.addScriptTag({content:`window.isAdmin=true;const travelLabels={drive:'Driving',bus:'Bus',train:'Train',transit:'Bus and train'};\n${formFunctions.join('\n')}`});
+    const eventForm = await page.evaluate(() => eventTravelFields());
+    assert.match(eventForm,/name="departure_buffer"/);
+    assert.doesNotMatch(eventForm,/arrival_buffer|early-arrival buffer/);
     await page.evaluate(() => {
       window.timelineItems=[
         {id:1,origin:'Shift',location_id:7,location_name:'Saved Workplace',location:'Workplace Road',
@@ -85,6 +101,58 @@ async function main() {
     assert.notEqual(updatedHomeKey,model.inboundKeyBefore,'Changing the saved home address should invalidate the inbound route cache.');
 
     await page.evaluate(async () => {
+      await ensureTodayInboundTravel(timelineItems[0]);
+    });
+    const inboundRequest = await page.evaluate(() => routeCalls.shift());
+    assert.equal(inboundRequest.body.arrival,'2030-10-01T08:00');
+    assert.equal(inboundRequest.body.departure_buffer,5);
+    assert.equal('arrival_buffer' in inboundRequest.body,false,'Today must use the event start, not an early-arrival buffer.');
+
+    const inboundOptions = await page.evaluate(() => {
+      state.dailyInboundJourneys[todayInboundKey(timelineItems[0])]={leave_at:'2030-10-01T07:40',steps:[]};
+      let options;
+      window.travelRouteStrip=(_journey, value)=>{options=value;return '<p>Route</p>';};
+      todayInboundMarkup(timelineItems[0],true);
+      return options;
+    });
+    assert.equal(inboundOptions.leaveAtFirstWalk,true,'The timeline should show the first walk start as the leave time.');
+
+    await page.addScriptTag({content:journeySource+'\n'+postTravelSource});
+    await page.evaluate(() => {
+      const journey={leave_at:'2030-10-01T07:55',arrival_at:'2030-10-01T08:30',steps:[
+        {mode:'walk',minutes:4,start:'2030-10-01T08:00',end:'2030-10-01T08:04'},
+        {mode:'bus',service:'414',start:'2030-10-01T08:04',end:'2030-10-01T08:15',from:'Stop A',to:'Stop B'},
+        {mode:'wait',minutes:3,start:'2030-10-01T08:15',end:'2030-10-01T08:18'},
+        {mode:'train',service:'Rail',platform:'2',start:'2030-10-01T08:18',end:'2030-10-01T08:27'},
+        {mode:'walk',minutes:3,start:'2030-10-01T08:27',end:'2030-10-01T08:30'}
+      ]};
+      const strip=travelRouteStrip(journey,{detailed:true,leaveAtFirstWalk:true});
+      document.querySelector('#app').innerHTML='<section class="today-inbound-travel">'+strip+'</section><section class="today-travel-connector">'+strip+'</section>';
+    });
+    const journeyItems=page.locator('.today-inbound-travel .journey-compact-item');
+    assert.equal(await journeyItems.count(),7,'Every leg and both endpoints must remain visible.');
+    assert.match(await journeyItems.nth(0).innerText(),/08:00/);
+    assert.match(await journeyItems.nth(1).innerText(),/4 min/);
+    assert.match(await journeyItems.nth(2).innerText(),/414 · 08:04/);
+    assert.match(await journeyItems.nth(4).getAttribute('aria-label'),/Platform 2/);
+    assert.match(await journeyItems.nth(6).innerText(),/08:30/);
+    await page.locator('.today-inbound-travel .journey-compact-details summary').click();
+    assert.match(await page.locator('.today-inbound-travel .journey-compact-details').innerText(),/Stop A → Stop B/);
+    assert.equal(await page.locator('.today-travel-connector .journey-compact-item').count(),7);
+    assert.equal(await page.locator('.today-travel-connector .shift-travel-arrow').first().evaluate(node=>getComputedStyle(node).display),'block');
+    for (const width of [320,390,1440]) {
+      await page.setViewportSize({width,height:844});
+      const bounds=await page.evaluate(() => ({width:document.documentElement.clientWidth,scroll:document.documentElement.scrollWidth}));
+      assert.ok(bounds.scroll<=bounds.width,`Journey strip overflows at ${width}px: ${JSON.stringify(bounds)}`);
+      for (let i=0;i<7;i++) assert.equal(await journeyItems.nth(i).isVisible(),true);
+    }
+    await page.setViewportSize({width:390,height:844});
+    await page.locator('.today-inbound-travel .journey-compact-details summary').click();
+    fs.mkdirSync(path.join(__dirname,'test-results'),{recursive:true});
+    await page.screenshot({path:path.join(__dirname,'test-results','compact-route-mobile.png'),fullPage:true});
+    await eventStyleTag.evaluate(node=>node.remove());
+
+    await page.evaluate(async () => {
       const groups=todayTimelineGroups(timelineItems);
       await Promise.all([ensureDailyPostTravel(groups),ensureDailyPostTravel(groups)]);
       document.querySelector('#app').innerHTML=`<section class="page today-reference-page">
@@ -101,13 +169,55 @@ async function main() {
     assert.match(await page.locator('.today-location-header').innerText(),/08:00–16:30/);
     assert.match(await page.locator('.today-location-block').innerText(),/8 hours total · 2 shifts/);
     assert.match(await page.locator('.today-travel-connector').innerText(),/Route unavailable/);
-    assert.equal(await page.evaluate(() => routeCalls.length),1,'Concurrent renders should reuse the in-flight route request.');
+    assert.equal(await page.evaluate(() => routeCalls.length),2,'Concurrent renders should reuse both the next-event and final home requests.');
 
     await page.evaluate(async () => {
       timelineItems[2].location='Updated Clinic Road';
       await ensureDailyPostTravel(todayTimelineGroups(timelineItems));
     });
-    assert.equal(await page.evaluate(() => routeCalls.length),2,'Changing the destination address should request a fresh route.');
+    assert.equal(await page.evaluate(() => routeCalls.length),4,'Changing the destination address should refresh both affected routes.');
+
+    await page.evaluate(async () => {
+      window.api=async()=>({journey:{leave_at:'2030-10-01T16:30',arrival_at:'2030-10-01T17:00',steps:[]}});
+      const item={id:4,origin:'Event',location:'Clinic Road',start_at:'2030-10-01T16:00',end_at:'2030-10-01T16:30'};
+      await ensureDailyPostTravel([{first:item,last:item}]);
+      window.reloadedItem={...item};
+      await ensureDailyPostTravel([{first:reloadedItem,last:reloadedItem}]);
+    });
+    const reusedTravel = await page.evaluate(() => reloadedItem.post_travel);
+    assert.equal(reusedTravel.journey.arrival_at,'2030-10-01T17:00','A matching timeline result should be restored to newly decorated items.');
+    assert.ok(reusedTravel.request_key);
+
+    await page.evaluate(() => {
+      const next=timelineItems[2], from=timelineItems[1];
+      from.post_travel={timeline:true,enabled:true,request_key:todayPostTravelRequestKey(from,next),
+        deadline:next.start_at,destination_name:'Appointment',journey:{leave_at:'2030-10-01T16:30',arrival_at:'2030-10-01T17:00',steps:[]}};
+      next.post_travel={timeline:true,enabled:true,deadline:'',destination_name:'Home',
+        journey:{leave_at:'2030-10-01T18:00',arrival_at:'2030-10-01T18:30',steps:[]}};
+      document.querySelector('#app').innerHTML=renderTodayTimeline(timelineItems);
+    });
+    const schedule=page.locator('#app');
+    assert.equal(await schedule.locator('.today-travel-connector[aria-label="Travel to next event"]').count(),1);
+    assert.equal(await schedule.locator('.today-home-travel').count(),1);
+    assert.match(await schedule.locator('.today-appointment-card .today-home-travel').innerText(),/Travel home/);
+    assert.equal(await schedule.locator(':scope > .today-travel-connector').count(),1);
+    assert.equal(await schedule.locator('.today-travel-connector .journey-compact-strip').first().evaluate(node=>getComputedStyle(node).flexWrap),'wrap');
+    await page.evaluate(() => {
+      const last=timelineItems[1];
+      last.post_travel={enabled:true,deadline:'',destination_name:'Home',
+        journey:{leave_at:'2030-10-01T16:30',arrival_at:'2030-10-01T17:00',steps:[]}};
+      document.querySelector('#app').innerHTML=renderTodayTimeline(timelineItems.slice(0,2));
+    });
+    assert.equal(await schedule.locator('.today-location-block .today-home-travel').count(),1,'Final grouped shift keeps the home journey inside the location');
+    await page.evaluate(() => {
+      timelineItems[2].start_at='2030-10-01T16:00';
+      document.querySelector('#app').innerHTML=renderTodayTimeline(timelineItems);
+    });
+    assert.match(await schedule.locator(':scope > .today-travel-connector').innerText(),/overlap or leave no time/);
+    await page.evaluate(() => {
+      timelineItems[2].start_at='2030-10-01T17:15';
+      document.querySelector('#app').innerHTML=renderTodayTimeline(timelineItems);
+    });
 
     const mobileLayout = await page.evaluate(() => ({
       viewport:document.documentElement.clientWidth,

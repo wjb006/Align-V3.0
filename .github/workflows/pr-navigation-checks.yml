@@ -45,6 +45,8 @@ jobs:
           node test_post_event_travel_ui.js
           node test_weather_timeout.js
           node test_work_calendar_entry.js
+          node test_work_shift_autofill.js
+          node test_work_rota_entry.js
           node test_desktop_shell.js
 
       - name: Set up Python

@@ -56,7 +56,7 @@
         const first=daily[i],key=plannerLocationKey(first),group=[first];let j=i+1;
         while(j<daily.length&&key&&plannerLocationKey(daily[j])===key){group.push(daily[j]);j++;}
         const start=new Date(plannerItemStart(first)),gap=previousEnd?start.getTime()-previousEnd.getTime():Infinity;
-        if(start.getTime()>Date.now()&&(!previousEnd||(key!==previousKey&&gap>3600000))){
+        if(start.getTime()>Date.now()&&i===0){
           try{
             const result=await api('/api/personal/journey',{method:'POST',body:{destination:String(first.location||first.address).trim(),arrival:plannerItemStart(first),mode:data.preferences?.default_travel||undefined}});
             if(result?.notes){const steps=result.steps||[];first.pre_travel={...result,notes:'[Align travel]\\n'+result.notes+'\\n[/Align travel]'+(steps.length?'\\n[Align travel steps]\\n'+JSON.stringify(steps)+'\\n[/Align travel steps]':'')};}
@@ -68,17 +68,20 @@
       }
       // Plan the outbound leg after the final item at each workplace/location.
       // The API chooses the next event within an hour, otherwise the saved home address.
-      const legs=daily.filter((item,index)=>{
-        const key=plannerLocationKey(item);
-        if(key&&daily[index+1]&&plannerLocationKey(daily[index+1])===key)return false;
+      const legs=[];
+      for(let i=0;i<daily.length;){
+        const key=plannerLocationKey(daily[i]),group=[daily[i]];let j=i+1;
+        while(j<daily.length&&key&&plannerLocationKey(daily[j])===key)group.push(daily[j++]);
+        const item=group.reduce((latest,value)=>plannerItemEnd(value)>plannerItemEnd(latest)?value:latest,group[0]);
         const end=plannerItemEnd(item);
-        return !!(item.location&&!item.all_day&&end&&new Date(end).getTime()>Date.now());
-      });
+        if(item.location&&!item.all_day&&end&&new Date(end).getTime()>Date.now())legs.push(item);
+        i=j;
+      }
       await Promise.all(legs.map(async item=>{
         const kind=item._plannerKind==='shift'?'shift':item._plannerKind==='imported'?'calendar':'event';
         try{
           item.post_travel=await api('/api/personal/post-event-travel',{method:'POST',body:{
-            kind,id:Number(item.id),enabled:true,mode:item.post_travel?.mode||data.preferences?.default_travel||'transit',plan:true
+            kind,id:Number(item.id),enabled:true,mode:item.post_travel?.mode||data.preferences?.default_travel||'transit',plan:true,timeline:true
           }});
         }catch(error){item.post_travel_error=error.message||'Outbound journey unavailable';}
       }));
@@ -154,6 +157,12 @@
   function selectedShiftDays(form) {
     return [...form.querySelectorAll('[name="selected_days"]:checked')].map(input=>input.value).sort();
   }
+  function firstEmptyShiftWeek(start, shifts) {
+    const occupied=new Set(shifts.map(shift=>monday(shift.work_date)));
+    let week=monday(start);
+    while(occupied.has(week))week=shiftDay(week,7);
+    return week;
+  }
   function addShiftDaysMarkup(day, selectedDays) {
     const start=monday(day), chosen=new Set(selectedDays||[day]);
     return '<div class="field add-shift-days-field"><span class="field-label">Select days to add shifts</span><p class="helper">Choose every day this shift should be added to. You only need to set the workplace and shift once.</p><div class="add-shift-days-grid">'+Array.from({length:7},(_,i)=>{
@@ -177,9 +186,56 @@
     return '<option value="">'+prompt+'</option>'+
       options.map(t=>'<option value="'+esc(t.id)+'" '+(String(selectedId||'')===String(t.id)?'selected':'')+'>'+esc(t.label+' ('+t.start_time+'–'+t.end_time+')')+'</option>').join('');
   }
+  function matchingPmPattern(form) {
+    const days=selectedShiftDays(form).filter(day=>!weekendDefault(day));
+    const start=form.elements.start_time.value, end=form.elements.end_time.value;
+    if(!form.elements.template_id.value||!days.length||shiftPeriod(start)!=='AM'||
+       !/^([01]\d|2[0-3]):[0-5]\d$/.test(end)||end<=start)return null;
+    const [hour,minute]=end.split(':').map(Number), total=hour*60+minute+30;
+    if(total>=1440)return null;
+    const pmStart=String(Math.floor(total/60)).padStart(2,'0')+':'+String(total%60).padStart(2,'0');
+    if(shiftPeriod(pmStart)!=='PM')return null;
+    const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const matches=(state.shiftPlannerData?.templates||[]).filter(t=>{
+      if(t.active===0||String(t.location_id)!==String(form.elements.location_id.value)||t.start_time!==pmStart)return false;
+      const applicable=Array.isArray(t.applicable_days)?t.applicable_days:JSON.parse(t.applicable_days||'[]');
+      return days.every(day=>!shiftsForDate(day).some(s=>shiftPeriod(s.start_time)==='PM')&&
+        (!applicable.length||applicable.includes(dayNames[new Date(day+'T12:00:00').getDay()])));
+    });
+    return matches.length===1?matches[0]:null;
+  }
+  function autofillPmPattern(form) {
+    if(form.dataset.id||form.dataset.pmManual==='1')return;
+    const toggle=form.querySelector('[data-add-pm-shift]');
+    const panel=form.querySelector('[data-pm-shift-fields]');
+    const type=form.querySelector('[data-pm-shift-type]');
+    const pattern=form.querySelector('[data-pm-template]');
+    if(!toggle||!panel||!type||!pattern)return;
+    const match=matchingPmPattern(form);
+    if(!match){
+      if(form.dataset.pmAuto==='1'){
+        toggle.checked=false; panel.hidden=true;
+        panel.querySelectorAll('input,select').forEach(field=>field.disabled=true);
+        type.value=''; pattern.value='';
+        delete form.dataset.pmAuto;
+      }
+      return;
+    }
+    const days=selectedShiftDays(form).filter(day=>!weekendDefault(day));
+    toggle.disabled=false; toggle.checked=true; panel.hidden=false;
+    panel.querySelectorAll('input,select').forEach(field=>field.disabled=false);
+    type.innerHTML=shiftTypeOptionsMarkup(form.elements.location_id.value,match.shift_type_id,'PM');
+    type.value=String(match.shift_type_id);
+    pattern.innerHTML=templateOptionsMarkup(days[0],null,match.id,form.elements.location_id.value,match.shift_type_id,days,'PM');
+    pattern.value=String(match.id);
+    form.elements.pm_start_time.value=match.start_time;
+    form.elements.pm_end_time.value=match.end_time;
+    form.elements.pm_break_minutes.value=match.break_minutes||0;
+    form.dataset.pmAuto='1';
+  }
   function pmShiftMarkup(day, locationId, typeId, days, startTime) {
     const enabled=!!locationId&&!!typeId&&shiftPeriod(startTime||'09:00')==='AM'&&shiftTypesForLocation(locationId,'PM').length>0;
-    return '<div class="add-pm-shift-wrap"><label class="add-pm-shift-toggle"><input type="checkbox" name="add_pm_shift" value="1" data-add-pm-shift '+(!enabled?'disabled':'')+'><span><strong>Add PM shift as well</strong><small>Choose a separate PM shift type, such as Hub</small></span></label>'+
+    return '<div class="add-pm-shift-wrap"><label class="add-pm-shift-toggle"><input type="checkbox" name="add_pm_shift" value="1" data-add-pm-shift '+(!enabled?'disabled':'')+'><span><strong>Add PM shift as well</strong><small>A unique saved PM pattern at the same workplace, starting 30 minutes after the AM shift, is selected automatically. The area can be different.</small></span></label>'+
       '<div class="add-pm-shift-fields" data-pm-shift-fields hidden>'+
       '<label class="field">PM shift type<select name="pm_shift_type_id" data-pm-shift-type disabled>'+shiftTypeOptionsMarkup(locationId,'','PM')+'</select></label>'+
       '<label class="field">PM shift pattern<select name="pm_template_id" data-pm-template disabled>'+templateOptionsMarkup(day,null,'',locationId,'',days,'PM')+'</select></label>'+
@@ -219,7 +275,7 @@
     return {hours,contracted,overtime,pay:rate>0?hours*rate:0};
   }
   function shiftCard(s, options={}) {
-    const travel=typeof postTravelSummary==='function'?postTravelSummary(s):'';
+    const travel=!options.hidePostTravel&&typeof postTravelSummary==='function'?postTravelSummary(s):'';
     const notes=String(s.notes||'').replace(/\[Align travel(?: steps)?\][\s\S]*?(?:\[\/Align travel(?: steps)?\]|$)/ig,'').replace(/\[Align travel pending\]/ig,'').trim();
     return '<article class="card restored-shift-card" style="--shift-colour:'+esc(s.location_colour||s.colour||'#365CE6')+'">'+
       '<div class="shift-area-panel" style="--area-colour:'+esc(s.shift_type_colour||'#6479D8')+'"><div class="restored-shift-top"><div><h3>'+esc(s.shift_type_name||'Work')+'</h3>'+(options.hideLocation?'':'<p>'+esc(s.location_name||'')+(s.location?' · '+esc(s.location):'')+'</p>')+'</div>'+
@@ -255,8 +311,8 @@
     const category=e.section_name||e.category_name||(imported?'Imported calendar':'Event');
     const packed=encodeURIComponent(JSON.stringify({...e,origin:imported?'Calendar':'Event'}));
     const colour=e.section_colour||e.colour||'#365CE6';
-    const travel=typeof eventTravelMarkup==='function'?eventTravelMarkup({...e,origin:imported?'Calendar':'Event'},{includeInbound:true}):'';
-    return '<article class="card restored-event-card location-bracket-card" style="--location-colour:'+esc(colour)+';--area-colour:'+esc(colour)+'"><button type="button" class="restored-event-open" data-shift-action="view-event" data-event-data="'+esc(packed)+'"><div class="restored-event-top"><span class="restored-event-mark">'+(imported?'▦':'•')+'</span><div><strong>'+esc(e.title||'Event')+'</strong><p>'+esc(category)+(e.location?' · '+esc(e.location):'')+'</p></div></div><p class="restored-event-time">'+esc(when)+'</p>'+(e.location?'<small class="restored-event-address">'+esc(e.location)+'</small>':'')+(plannerCleanEventNotes(e.notes)?'<p class="planner-event-detail">'+esc(plannerCleanEventNotes(e.notes))+'</p>':'<span class="helper">View details</span>')+'</button><div class="button-row">'+(!imported&&e.section_id&&e.id?'<button class="secondary-button" data-shift-action="edit-event" data-event-data="'+esc(packed)+'">Edit event</button>':'')+'<button class="secondary-button" data-nav="sections">Manage events</button></div></article>';
+    const travel=!options.hidePostTravel&&typeof eventTravelMarkup==='function'?eventTravelMarkup({...e,origin:imported?'Calendar':'Event'},{includeInbound:false}):'';
+    return '<article class="card restored-event-card location-bracket-card" style="--location-colour:'+esc(colour)+';--area-colour:'+esc(colour)+'"><button type="button" class="restored-event-open" data-shift-action="view-event" data-event-data="'+esc(packed)+'"><div class="restored-event-top"><span class="restored-event-mark">'+(imported?'▦':'•')+'</span><div><strong>'+esc(e.title||'Event')+'</strong><p>'+esc(category)+(e.location?' · '+esc(e.location):'')+'</p></div></div><p class="restored-event-time">'+esc(when)+'</p>'+(e.location?'<small class="restored-event-address">'+esc(e.location)+'</small>':'')+(plannerCleanEventNotes(e.notes)?'<p class="planner-event-detail">'+esc(plannerCleanEventNotes(e.notes))+'</p>':'<span class="helper">View details</span>')+'</button>'+(travel?'<div class="shift-travel-summary">'+travel+'</div>':'')+'<div class="button-row">'+(!imported&&e.section_id&&e.id?'<button class="secondary-button" data-shift-action="edit-event" data-event-data="'+esc(packed)+'">Edit event</button>':'')+'<button class="secondary-button" data-nav="sections">Manage events</button></div></article>';
   }
   function leaveCard(l) {
     return '<article class="card restored-leave-card"><div><strong>Annual leave</strong><p>'+esc(fmtDay(l.leave_date))+(l.notes?' · '+esc(l.notes):'')+'</p></div><button class="secondary-button" data-shift-action="delete-leave" data-id="'+esc(l.id)+'">Remove</button></article>';
@@ -275,11 +331,12 @@
     const used=shiftsForDate(day,edit.id);
     const usedPeriods=[...new Set(used.map(s=>shiftPeriod(s.start_time)))];
     const periodNote=usedPeriods.length?usedPeriods.map(p=>p+' shift already planned').join(' · ')+'. Only the other period is available.':'Choose an AM or PM pattern. You can add the other period afterwards.';
-    const initialDays=edit.id?[]:[state.shiftPlannerSelectedDay||day];
+    const initialDays=[];
     const initialWeekendOnly=initialDays.length>0&&initialDays.every(weekendDefault);
     const requiredAttr=initialWeekendOnly?'':' required';
     return '<section class="card restored-planner-form" id="shift-planner-form"><div class="section-head"><div><p class="eyebrow">'+(edit.id?'Edit shift':'Plan a shift')+'</p><h2>'+(edit.id?'Update shift':'Add shifts')+'</h2></div><button class="secondary-button" data-shift-action="close-form">Close</button></div>'+
       '<form data-shift-form="shift" data-id="'+esc(edit.id||'')+'" data-period="'+primaryPeriod+'">'+
+      (!edit.id?'<div class="button-row"><button type="button" class="secondary-button" data-shift-action="upload-rota">Upload an image or PDF rota</button></div><p class="helper">Review imported rows before saving, or add shifts manually below.</p>':'')+
       (edit.id?'<label class="field">Work date<input type="date" name="work_date" data-shift-work-date required value="'+esc(day)+'"></label>':addShiftDaysMarkup(day,initialDays))+
       '<label class="field">Choose where<select name="location_id" data-shift-location'+requiredAttr+'><option value="">Choose a workplace</option>'+locations.map(l=>'<option value="'+esc(l.id)+'" '+(String(chosenLocation)===String(l.id)?'selected':'')+'>'+esc(l.name)+'</option>').join('')+'</select></label>'+
       '<label class="field"><span data-shift-type-label>'+primaryPeriod+' shift type</span><select name="shift_type_id" data-shift-type'+requiredAttr+' '+(!chosenLocation?'disabled':'')+'>'+shiftTypeOptionsMarkup(chosenLocation,chosenType,primaryPeriod)+'</select></label>'+
@@ -337,9 +394,9 @@
     return Number.isFinite(start.getTime())&&Number.isFinite(end.getTime())?Math.max(0,(end-start)/3600000):0;
   }
   function plannerItemCard(item,options={}) {
-    if(item._plannerKind==='shift')return shiftCard(item,{hideLocation:true});
-    if(item._plannerKind==='imported')return eventCard(item,true,{hideLocation:true});
-    if(item._plannerKind==='event')return eventCard(item,false,{hideLocation:true});
+    if(item._plannerKind==='shift')return shiftCard(item,{hideLocation:true,...options});
+    if(item._plannerKind==='imported')return eventCard(item,true,{hideLocation:true,...options});
+    if(item._plannerKind==='event')return eventCard(item,false,{hideLocation:true,...options});
     if(item._plannerKind==='finance')return financeCard(item);
     return leaveCard(item);
   }
@@ -351,7 +408,11 @@
       if(!key){chunks.push(plannerItemCard(item));i++;continue;}
       const group=[item];let j=i+1;
       while(j<ordered.length&&plannerLocationKey(ordered[j])===key){group.push(ordered[j]);j++;}
-      const first=group[0],last=group[group.length-1];
+      const first=group[0],last=group.reduce((latest,item)=>plannerItemEnd(item)>plannerItemEnd(latest)?item:latest,first);
+      const next=ordered[j], deadline=last.post_travel?.deadline;
+      const instant=value=>typeof parseAlignDateTime==='function'?parseAlignDateTime(value)?.getTime():new Date(value).getTime();
+      const separate=!!(next&&deadline&&plannerLocationKey(next)!==key&&
+        instant(plannerItemStart(next))===instant(deadline)&&instant(plannerItemStart(next))>instant(plannerItemEnd(last)));
       const title=first.location_name||first.place_name||first.location_label||first.location||first.address||'Location not set';
       const address=first.location||first.address||'';
       const colour=first.location_colour||first.colour||first.section_colour||'#365CE6';
@@ -360,15 +421,21 @@
       const areas=group.map(x=>{
         const area=x.shift_type_name||x.section_name||x.category_name||x.title||x.name||'Event';
         const areaColour=x.shift_type_colour||x.section_colour||x.colour||'#16A99B';
-        return '<div class="location-group-area" style="--area-colour:'+esc(areaColour)+'">'+plannerItemCard(x)+'</div>';
+        return '<div class="location-group-area" style="--area-colour:'+esc(areaColour)+'">'+plannerItemCard(x,{hidePostTravel:x!==last||separate})+'</div>';
       }).join('');
       let travel='';
-      if(typeof eventTravelMarkup==='function'){
+      if(separate && typeof postTravelSummary==='function'){
+        travel=postTravelSummary(last,{detailed:true})||'';
+        if(!travel){
+          const error=last.post_travel_error||last.post_travel?.error;
+          travel='<section class="today-route-unavailable" aria-label="Travel to next event"><strong>Travel to next event</strong><p role="status">'+esc(error?'Route unavailable: '+error:'Route details are not available yet.')+'</p></section>';
+        }
+      }else if(!['shift','event','imported'].includes(last._plannerKind) && typeof eventTravelMarkup==='function'){
         const candidate={...last,origin:last._plannerKind==='shift'?'Shift':last._plannerKind==='imported'?'Calendar':'Event'};
         travel=eventTravelMarkup(candidate,{includeInbound:false})||'';
       }
       const inbound=first.pre_travel?(typeof travelRouteStrip==='function'?'<div class="planner-inbound-travel">'+travelRouteStrip(first.pre_travel)+'</div>':(typeof journeyEventSummary==='function'?'<div class="planner-inbound-travel">'+journeyEventSummary(first.pre_travel.notes)+'</div>':'')):'';
-      chunks.push('<section class="planner-location-group" style="--location-colour:'+esc(colour)+'"><header class="planner-location-header"><div><strong>'+esc(title)+'</strong>'+(address?'<small>'+esc(address)+'</small>':'')+'<small>'+hours.toFixed(Number.isInteger(hours)?0:1)+' hours · '+group.length+' item'+(group.length===1?'':'s')+'</small></div><strong>'+esc(start)+'–'+esc(end)+'</strong></header>'+inbound+'<div class="planner-location-areas">'+areas+'</div></section>'+(travel?'<div class="planner-location-travel">'+travel+'</div>':''));
+      chunks.push('<section class="planner-location-group" style="--location-colour:'+esc(colour)+'"><header class="planner-location-header"><div><strong>'+esc(title)+'</strong>'+(address?'<small>'+esc(address)+'</small>':'')+'<small>'+hours.toFixed(Number.isInteger(hours)?0:1)+' hours · '+group.length+' item'+(group.length===1?'':'s')+'</small></div><strong>'+esc(start)+'–'+esc(end)+'</strong></header>'+inbound+'<div class="planner-location-areas">'+areas+'</div></section>'+(travel?'<div class="planner-location-travel today-travel-connector">'+travel+'</div>':''));
       i=j;
     }
     return chunks.join('');
@@ -449,7 +516,21 @@
   async function reload() {
     state.shiftPlannerData=null; state.shiftPlannerDateShifts=null; state.shiftPlannerError=''; await load();
   }
+  async function openAddShiftForm() {
+    const result=await api('/api/shifts');
+    const currentWeek=monday(getToday()), viewedWeek=monday(state.plannerAnchor||getToday());
+    const start=viewedWeek>currentWeek?viewedWeek:currentWeek;
+    state.shiftPlannerSelectedDay=null;
+    state.plannerAnchor=firstEmptyShiftWeek(start,result.shifts);
+    state.plannerMode='week';state.shiftPlannerModal='add';state.shiftPlannerEdit=null;
+    await reload();
+  }
+  window.openAddShiftForm=openAddShiftForm;
   function formObject(form) { return Object.fromEntries(new FormData(form).entries()); }
+  document.addEventListener('input', event => {
+    const target=event.target, form=target.closest('[data-shift-form="shift"]');
+    if(form && target.matches('[name="pm_start_time"],[name="pm_end_time"],[name="pm_break_minutes"]'))form.dataset.pmManual='1';
+  });
   document.addEventListener('change', async event => {
     const target=event.target;
     if(target.matches('[data-finance-calendar]')){
@@ -461,6 +542,7 @@
     }
     const form=target.closest('[data-shift-form="shift"]');
     if(!form)return;
+    if(target.matches('[data-add-pm-shift],[data-pm-shift-type],[data-pm-template],[name="pm_start_time"],[name="pm_end_time"],[name="pm_break_minutes"]'))form.dataset.pmManual='1';
     if(target.matches('[data-shift-work-date]')){
       const day=target.value;
       if(!day)return;
@@ -510,8 +592,10 @@
       const addPm=form.querySelector('[data-add-pm-shift]');
       if(addPm&&shiftPeriod(target.value)==='AM'&&form.elements.location_id.value&&form.elements.shift_type_id.value)addPm.disabled=false;
       if(addPm&&shiftPeriod(target.value)==='PM'){addPm.checked=false;addPm.disabled=true;const panel=form.querySelector('[data-pm-shift-fields]');if(panel){panel.hidden=true;panel.querySelectorAll('input,select').forEach(field=>field.disabled=true);}}
+      autofillPmPattern(form);
       return;
     }
+    if(target.matches('[name="end_time"]')){autofillPmPattern(form);return;}
     if(target.matches('[name="selected_days"]')){
       const dates=selectedShiftDays(form);
       const weekendOnly=dates.length>0&&dates.every(weekendDefault);
@@ -521,19 +605,23 @@
       const patternSelect=form.querySelector('[name="template_id"]');
       const period=form.dataset.period||'AM';
       if(patternSelect){
-        patternSelect.innerHTML=templateOptionsMarkup(dates[0]||state.shiftPlannerSelectedDay||state.plannerAnchor,form.dataset.id||null,'',form.elements.location_id.value,form.elements.shift_type_id.value,dates,period);
+        const selected=patternSelect.value;
+        patternSelect.innerHTML=templateOptionsMarkup(dates[0]||state.shiftPlannerSelectedDay||state.plannerAnchor,form.dataset.id||null,selected,form.elements.location_id.value,form.elements.shift_type_id.value,dates,period);
         patternSelect.disabled=!dates.length||!form.elements.location_id.value||!form.elements.shift_type_id.value;
-        patternSelect.value='';
+        patternSelect.value=selected;
       }
       const pmPattern=form.querySelector('[data-pm-template]');
-      if(pmPattern)pmPattern.innerHTML=templateOptionsMarkup(dates[0]||state.shiftPlannerSelectedDay||state.plannerAnchor||getToday(),null,'',form.elements.location_id.value,form.elements.shift_type_id.value,dates,'PM');
+      if(pmPattern&&form.dataset.pmManual!=='1')pmPattern.innerHTML=templateOptionsMarkup(dates[0]||state.shiftPlannerSelectedDay||state.plannerAnchor||getToday(),null,'',form.elements.location_id.value,form.elements.pm_shift_type_id.value,dates,'PM');
       if(note)note.textContent=weekendOnly
         ? 'Saturday and Sunday will automatically be added as Arrowe Park Wards, 07:30–11:30.'
         : dates.length?dates.length+' day'+(dates.length===1?'':'s')+' selected. One shift setup will be applied to all selected days.'
         : 'Select at least one day to continue.';
+      autofillPmPattern(form);
       return;
     }
     if(target.matches('[name="location_id"]')){
+      delete form.dataset.pmManual;
+      delete form.dataset.pmAuto;
       const typeSelect=form.querySelector('[name="shift_type_id"]');
       const patternSelect=form.querySelector('[name="template_id"]');
       const period=form.dataset.period||'AM';
@@ -561,22 +649,22 @@
         patternSelect.value='';
       }
       const pmToggle=form.querySelector('[data-add-pm-shift]');
-      if(pmToggle){pmToggle.disabled=!form.elements.location_id.value||!target.value||!shiftTypesForLocation(form.elements.location_id.value,'PM').length;pmToggle.checked=false;const panel=form.querySelector('[data-pm-shift-fields]');if(panel){panel.hidden=true;panel.querySelectorAll('input,select').forEach(field=>field.disabled=true);}}
+      if(pmToggle&&form.dataset.pmManual!=='1'){pmToggle.disabled=!form.elements.location_id.value||!target.value||!shiftTypesForLocation(form.elements.location_id.value,'PM').length;pmToggle.checked=false;const panel=form.querySelector('[data-pm-shift-fields]');if(panel){panel.hidden=true;panel.querySelectorAll('input,select').forEach(field=>field.disabled=true);}delete form.dataset.pmAuto;}
       const pmType=form.querySelector('[data-pm-shift-type]');
-      if(pmType){pmType.innerHTML=shiftTypeOptionsMarkup(form.elements.location_id.value,'','PM');}
+      if(pmType&&form.dataset.pmManual!=='1'){pmType.innerHTML=shiftTypeOptionsMarkup(form.elements.location_id.value,'','PM');}
       const pmPattern=form.querySelector('[data-pm-template]');
-      if(pmPattern){const dates=form.dataset.id?[form.elements.work_date.value]:selectedShiftDays(form);pmPattern.innerHTML=templateOptionsMarkup(dates[0]||state.shiftPlannerSelectedDay||state.plannerAnchor||getToday(),null,'',form.elements.location_id.value,'',dates,'PM');}
+      if(pmPattern&&form.dataset.pmManual!=='1'){const dates=form.dataset.id?[form.elements.work_date.value]:selectedShiftDays(form);pmPattern.innerHTML=templateOptionsMarkup(dates[0]||state.shiftPlannerSelectedDay||state.plannerAnchor||getToday(),null,'',form.elements.location_id.value,'',dates,'PM');}
       return;
     }
     if(target.matches('[name="template_id"]')){
       const selected=(state.shiftPlannerData?.templates||[]).find(t=>String(t.id)===String(target.value));
-      if(!selected)return;
-      const form=target.closest('form');
+      if(!selected){autofillPmPattern(form);return;}
       for(const [name,value] of Object.entries({location_id:selected.location_id,shift_type_id:selected.shift_type_id,start_time:selected.start_time,end_time:selected.end_time,break_minutes:selected.break_minutes||0})){
         const field=form.querySelector('[name="'+name+'"]');if(field)field.value=value;
       }
       const pmToggle=form.querySelector('[data-add-pm-shift]');
       if(pmToggle){pmToggle.disabled=shiftPeriod(selected.start_time)!=='AM';if(pmToggle.disabled){pmToggle.checked=false;const panel=form.querySelector('[data-pm-shift-fields]');if(panel){panel.hidden=true;panel.querySelectorAll('input,select').forEach(field=>field.disabled=true);}}}
+      autofillPmPattern(form);
     }
     if(target.matches('[data-pm-shift-type]')){
       const dates=form.dataset.id?[form.elements.work_date.value]:selectedShiftDays(form);
@@ -632,7 +720,15 @@
       }
       if(action==='week'||action==='month'||action==='list'){state.shiftPlannerSelectedDay=null;state.plannerMode=action;state.plannerAnchor=action==='week'?monday(state.plannerAnchor):state.plannerAnchor.slice(0,7)+'-01';await reload();return;}
       if(action==='today'){state.plannerAnchor=state.plannerMode==='week'?monday(getToday()):getToday().slice(0,7)+'-01';await reload();return;}
-      if(action==='add'){state.shiftPlannerModal='add';state.shiftPlannerEdit=null;paint();return;}
+      if(action==='add'){
+        await openAddShiftForm();return;
+      }
+      if(action==='upload-rota'){
+        if(!window.confirm('Opening rota upload closes this unsaved shift form. Continue?'))return;
+        if(typeof openWorkRota==='function')await openWorkRota();
+        else throw new Error('Rota upload is unavailable.');
+        return;
+      }
       if(action==='work-settings'){if(typeof openWorkSetup==='function')await openWorkSetup();return;}
       if(action==='settings'){state.settingsBranch='alerts';state.tab='settings';if(typeof render==='function')render();return;}
       if(action==='leave'){state.shiftPlannerModal='leave';paint();return;}
@@ -720,7 +816,7 @@
           delete values.work_date;
           const period=shiftPeriod(values.start_time);
           const addPm=form.elements.add_pm_shift?.checked===true;
-          const pmValues=addPm?{location_id:values.location_id,shift_type_id:values.pm_shift_type_id,start_time:values.pm_start_time,end_time:values.pm_end_time,break_minutes:values.pm_break_minutes||0,notes:values.notes||''}:null;
+          const pmValues=addPm?{location_id:values.location_id,shift_type_id:values.pm_shift_type_id,template_id:values.pm_template_id||'',start_time:values.pm_start_time,end_time:values.pm_end_time,break_minutes:values.pm_break_minutes||0,notes:values.notes||''}:null;
           if(addPm&&(!pmValues.shift_type_id||!pmValues.start_time||!pmValues.end_time||shiftPeriod(pmValues.start_time)!=='PM'))throw new Error('Choose a PM shift type and valid PM shift time.');
           const weekendRule=findWeekendDefault();
           const invalidDays=days.filter(work_date=>{
@@ -746,11 +842,11 @@
               const amTimes=shiftRuleTimes(values.location_id,values.shift_type_id,values.start_time,values.end_time,work_date);
               const location=(state.shiftPlannerData?.locations||[]).find(x=>String(x.id)===String(values.location_id));
               const type=(state.shiftPlannerData?.shift_types||[]).find(x=>String(x.id)===String(values.shift_type_id));
-              drafts.push({...values,...amTimes,work_date,_location_name:location?.name||'Workplace',_type_name:type?.name||'AM shift',_automatic:false});
+              drafts.push({...values,start_time:amTimes.start,end_time:amTimes.end,work_date,_location_name:location?.name||'Workplace',_type_name:type?.name||'AM shift',_automatic:false});
               if(addPm){
                 const pmTimes=shiftRuleTimes(pmValues.location_id,pmValues.shift_type_id,pmValues.start_time,pmValues.end_time,work_date);
                 const pmType=(state.shiftPlannerData?.shift_types||[]).find(x=>String(x.id)===String(pmValues.shift_type_id));
-                drafts.push({...pmValues,...pmTimes,work_date,_location_name:location?.name||'Workplace',_type_name:pmType?.name||'PM shift',_automatic:false});
+                drafts.push({...pmValues,start_time:pmTimes.start,end_time:pmTimes.end,work_date,_location_name:location?.name||'Workplace',_type_name:pmType?.name||'PM shift',_automatic:false});
               }
             }
           }

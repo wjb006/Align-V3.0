@@ -6,6 +6,7 @@
   <title>Today weather placement mockup</title>
   <link rel="stylesheet" href="static/styles.css">
   <link rel="stylesheet" href="static/visual-theme.css">
+  <link rel="stylesheet" href="static/events-global.css">
 </head>
 <body>
   <main class="page today-reference-page">
@@ -23,7 +24,54 @@
         <div class="today-weather-empty"><p>Weather unavailable. Allow location or set a fallback town.</p><button type="button" class="icon-button today-weather-refresh" aria-label="Refresh weather">↻</button></div>
       </section>
     </div>
-    <div class="today-event-timeline"><div class="card empty">Your daily timeline appears here.</div></div>
+    <div class="today-event-timeline">
+      <section class="today-inbound-travel" aria-label="Travel from home">
+        <strong>Travel from home</strong>
+        <div id="example-route"></div>
+        <small>Fastest available route arriving by the event start. Illustrative labels only; actual route and times come from the provider.</small>
+      </section>
+      <article class="card"><strong>Example event</strong></article>
+      <section class="today-travel-connector" aria-label="Travel to next event">
+        <strong>Travel to next event</strong>
+        <div id="example-between"></div>
+      </section>
+      <article class="card">
+        <strong>Next example event</strong>
+        <section class="today-travel-connector today-home-travel" aria-label="Travel home">
+          <strong>Travel home</strong>
+          <div id="example-home"></div>
+        </section>
+      </article>
+    </div>
   </main>
+  <script>
+    const state={boot:null},modalRoot={textContent:''};
+    const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+  </script>
+  <script src="static/journey-breakdown.js"></script>
+  <script src="static/post-event-travel.js"></script>
+  <script>
+    document.getElementById('example-route').innerHTML=travelRouteStrip({
+      leave_at:'2030-01-02T08:55',arrival_at:'2030-01-02T09:20',steps:[
+        {mode:'walk',minutes:4,start:'2030-01-02T09:00',end:'2030-01-02T09:04'},
+        {mode:'bus',service:'42',start:'2030-01-02T09:04',end:'2030-01-02T09:17',from:'Example stop',to:'Destination stop'},
+        {mode:'walk',minutes:3,start:'2030-01-02T09:17',end:'2030-01-02T09:20'}
+      ]
+    },{detailed:true,leaveAtFirstWalk:true});
+    document.getElementById('example-between').innerHTML=travelRouteStrip({
+      leave_at:'2030-01-02T12:00',arrival_at:'2030-01-02T12:20',steps:[
+        {mode:'walk',minutes:5,start:'2030-01-02T12:00',end:'2030-01-02T12:05'},
+        {mode:'bus',service:'17',start:'2030-01-02T12:05',end:'2030-01-02T12:17'},
+        {mode:'walk',minutes:3,start:'2030-01-02T12:17',end:'2030-01-02T12:20'}
+      ]
+    },{detailed:true});
+    document.getElementById('example-home').innerHTML=travelRouteStrip({
+      leave_at:'2030-01-02T14:00',arrival_at:'2030-01-02T14:20',steps:[
+        {mode:'walk',minutes:4,start:'2030-01-02T14:00',end:'2030-01-02T14:04'},
+        {mode:'bus',service:'17',start:'2030-01-02T14:04',end:'2030-01-02T14:17'},
+        {mode:'walk',minutes:3,start:'2030-01-02T14:17',end:'2030-01-02T14:20'}
+      ]
+    },{detailed:true});
+  </script>
 </body>
 </html>

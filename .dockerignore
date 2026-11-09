@@ -1,0 +1,12 @@
+*
+!Dockerfile
+!requirements*.txt
+!*.py
+!*.sql
+!merseyside_stops.json
+!desktop/
+!desktop/*.py
+!static/
+!static/**
+!migrations/
+!migrations/**

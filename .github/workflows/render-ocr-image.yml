@@ -1,0 +1,30 @@
+name: Render OCR image
+
+on:
+  pull_request:
+  push:
+    branches:
+      - codex/align-v3-rebuild
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image and run synthetic image and PDF OCR tests
+        run: docker build --tag align-render-ocr .
+      - name: Start disposable app and check health
+        run: |
+          docker run -d --name align-ocr -p 127.0.0.1:10000:10000 \
+            -e ALIGN_HOSTING_MODE=disposable-preview \
+            -e ALIGN_PREVIEW_PASSWORD='Test-password-1234567890' align-render-ocr
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:10000/api/health; then exit 0; fi
+            sleep 2
+          done
+          docker logs align-ocr
+          exit 1
