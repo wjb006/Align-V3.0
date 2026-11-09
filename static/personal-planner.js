@@ -98,20 +98,24 @@ function todayEventStillRelevant(event,today){
 function personalQuickAdd(){
  return `<details class="section quick-add-details"><summary>Quick add</summary><div class="quick-grid"><button class="quick-action" data-personal="note">＋ Note</button><button class="quick-action" data-personal="reminder">＋ Reminder</button><button class="quick-action" data-personal="event">＋ Event</button><button class="quick-action" data-personal="available">Find appointment times</button></div><button class="text-button" data-nav="inbox">Open Inbox</button></details>`;
 }
+function personalWeatherPanel(){
+ if(!homeSectionContent('today','show_weather',true))return '';
+ syncWeatherContext();
+ if(baseWeatherSettings().enabled===false)return '<p class="helper">Weather is disabled by the owner.</p>';
+ if(!weatherLoading&&Date.now()-weatherCheckedAt>=weatherRefreshMs())void loadPersonalWeather();
+ return `<div data-weather-result>${weatherMarkup(personalWeather,weatherError,weatherLoading,weatherLoading?'…':'↻')}</div>`;
+}
 function personalToday({includeQuickAdd=true}={}){
  const data=state.boot.personal;if(!data)return '';const p=data.preferences,e=escapeHtml;
- const showWeather=homeSectionContent('today','show_weather',true);
  const showSchedule=homeSectionContent('today','show_schedule',true);
  const showQuickAdd=homeSectionContent('today','show_quick_add',true);
- syncWeatherContext();
- if(showWeather&&baseWeatherSettings().enabled!==false&&!weatherLoading&&Date.now()-weatherCheckedAt>=weatherRefreshMs())void loadPersonalWeather();
  const items=data.items.filter(i=>!i.done&&i.kind==='reminder'&&i.due_at.slice(0,10)<=data.today&&(p.include_overdue||i.due_at.slice(0,10)===data.today));
  const todayEvents=(data.events||[]).filter(event=>todayEventStillRelevant(event,data.today));
  const schedule=showSchedule?`<section class="today-schedule" aria-labelledby="today-schedule-heading">
        <div class="section-head"><h3 id="today-schedule-heading">Today’s Schedule</h3><button class="text-button" data-action="go-schedule">See calendar</button></div>
        <div class="today-event-list">${todayEvents.length?renderGroupedEventRows(todayEvents,{showDate:false,condensed:true,showLocation:false}):'<div class="card empty">Nothing else scheduled today.</div>'}</div>
      </section>`:'';
- const weather=showWeather?(baseWeatherSettings().enabled===false?'<p class="helper">Weather is disabled by the owner.</p>':`<div data-weather-result>${weatherMarkup(personalWeather,weatherError,weatherLoading,weatherLoading?'…':'↻')}</div>`):'';
+ const weather=personalWeatherPanel();
  return `<section class="section today-glance-section" data-management-banner="today">
    <div class="section-head"><h2>${homeSectionTitle('today','Today at a glance')}</h2><button class="text-button" data-personal="preferences">Personal preferences</button></div>
    <div class="card today-glance-card">

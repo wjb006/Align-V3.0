@@ -38,6 +38,36 @@ def test_arrival_request_and_strict_mode_conversion():
     assert result[0]['legs'][0]['platform'] == ''
 
 
+def test_documented_pedestrian_sections_are_preserved():
+    walking = section('pedestrian', '2030-07-02T10:00:00Z', '2030-07-02T10:10:00Z')
+    walking['type'] = 'pedestrian'
+    del walking['transport']
+    route = {'sections': [walking, section()]}
+    with patch.dict(here.os.environ, {'ALIGN_HERE_TRANSIT_ENABLED': '1', 'ALIGN_HERE_ROUTING_KEY': 'test'}), \
+         patch.object(here, 'request_json', return_value={'routes': [route]}), patch('here_quota.reserve'):
+        result = here.HERETransitProvider().plan((53, -3), (53, -2), datetime.fromisoformat('2030-07-02T12:00:00+01:00'), ['walk', 'bus'])
+        without_walk = here.HERETransitProvider().plan((53, -3), (53, -2), datetime.fromisoformat('2030-07-02T12:00:00+01:00'), ['bus'])
+    assert [leg['mode'] for leg in result[0]['legs']] == ['walk', 'bus']
+    assert without_walk == []
+
+
+def test_documented_walking_sections_reach_personal_journey():
+    walking = section('pedestrian', '2030-07-02T10:00:00Z', '2030-07-02T10:10:00Z')
+    walking['type'] = 'pedestrian'
+    del walking['transport']
+    with patch.dict(personal.os.environ, {'ALIGN_JOURNEY_PROVIDER': 'here', 'ALIGN_HERE_TRANSIT_ENABLED': '1',
+                                          'ALIGN_HERE_ROUTING_KEY': 'test'}), \
+         patch.object(personal, 'preferences', return_value=personal.DEFAULTS), \
+         patch.object(otp, 'resolve_place', return_value=((53., -3.), 'postcode centre')), \
+         patch.object(here, 'request_json', return_value={'routes': [{'sections': [walking, section()]}]}), \
+         patch('here_quota.reserve'), patch.object(personal, 'weather_risk', return_value=(0, {})):
+        result = personal.journey(Connection(), fixtures.PersonalOTPTests().body())
+    assert result['provider'] == 'HERE'
+    assert [step['mode'] for step in result['steps']] == ['walk', 'bus']
+    assert result['steps'][1]['service'] == '42'
+    assert result['scheduled'] is True
+
+
 def test_here_transit_never_calls_google_or_local_otp():
     with patch.dict(personal.os.environ, {'ALIGN_JOURNEY_PROVIDER': 'here'}), patch.object(personal, 'preferences', return_value=personal.DEFAULTS), patch.object(otp, 'resolve_place', return_value=((53., -3.), 'postcode centre')), patch.object(here.HERETransitProvider, 'plan', return_value=fixtures.PersonalOTPTests().routes()), patch.object(personal, 'google_journey') as google, patch.object(otp.OTPProvider, 'plan') as local, patch.object(personal, 'weather_risk', return_value=(0, {})):
         result = personal.journey(Connection(), fixtures.PersonalOTPTests().body())
