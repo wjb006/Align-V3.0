@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Today weather placement mockup</title>
+  <link rel="stylesheet" href="static/styles.css">
+  <link rel="stylesheet" href="static/visual-theme.css">
+</head>
+<body>
+  <main class="page today-reference-page">
+    <p>Illustrative mockup only; not a live forecast or journey.</p>
+    <header class="today-reference-header">
+      <div class="today-reference-date"><h1>Today</h1></div>
+      <div class="today-reference-total"><strong>Daily schedule</strong></div>
+    </header>
+    <div data-weather-result>
+      <section class="today-weather" aria-label="Weather forecast">
+        <div class="weather-view-switch" role="group" aria-label="Forecast view">
+          <button type="button">Today</button><button type="button">Hourly</button>
+          <button type="button" aria-pressed="true">3 days</button><button type="button">7 days</button>
+        </div>
+        <div class="today-weather-empty"><p>Weather unavailable. Allow location or set a fallback town.</p><button type="button" class="icon-button today-weather-refresh" aria-label="Refresh weather">↻</button></div>
+      </section>
+    </div>
+    <div class="today-event-timeline"><div class="card empty">Your daily timeline appears here.</div></div>
+  </main>
+</body>
+</html>

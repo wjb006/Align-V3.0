@@ -41,7 +41,7 @@ class HERETransitProvider:
                 for section in route.get('sections', []):
                     transport = section.get('transport') or {}
                     raw_mode = transport.get('mode')
-                    mode = ('walk' if raw_mode == 'pedestrian' else
+                    mode = ('walk' if section.get('type') == 'pedestrian' or raw_mode == 'pedestrian' else
                             'bus' if raw_mode in BUS else 'rail' if raw_mode in RAIL else None)
                     if mode not in selected:
                         legs = []

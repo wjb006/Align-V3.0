@@ -23,7 +23,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 158;
-const ASSET_VERSION = `${BUILD_VERSION}-v89`;
+const ASSET_VERSION = `${BUILD_VERSION}-v90`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -493,6 +493,7 @@ function renderHome() {
       <div class="today-reference-date"><span class="today-reference-calendar" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 2v3M17 2v3M4 8h16M5 4h14a1 1 0 0 1 1 1v14H4V5a1 1 0 0 1 1-1Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 12h2v2H8zm6 0h2v2h-2zm-6 4h2v2H8z" fill="currentColor"/></svg></span><h1>${escapeHtml(fullDateLabel(dashboard.today))}</h1></div>
       <div class="today-reference-total" role="group" aria-label="Daily schedule summary"><strong>${todayTimelineItemCount(todayItems)} ${todayTimelineItemCount(todayItems) === 1 ? 'Event' : 'Events'}</strong><span aria-hidden="true">·</span><strong>${totalLabel} scheduled</strong></div>
     </header>
+    ${state.boot.personal && homeSection('today') && typeof personalWeatherPanel === 'function' ? personalWeatherPanel() : ''}
     <div class="today-event-timeline">${todayItems.length ? renderTodayTimeline(todayItems) : '<div class="card empty">Nothing scheduled for today. Add a shift or appointment to see it here.</div>'}</div>
     ${state.boot.personal && homeSection('today') && homeSectionContent('today','show_quick_add',true) && typeof personalQuickAdd === 'function' ? `<div class="dashboard-bottom-tools">${personalQuickAdd()}</div>` : ''}
   </section>`;

@@ -676,6 +676,22 @@ async function main() {
     assert(forecastBoxes.every(r => r.left >= 0 && r.right <= viewportWidth + 1));
     assert(new Set(forecastBoxes.map(r => Math.round(r.top))).size === 1);
     assert(forecastBoxes[2].right <= viewportWidth + 1);
+    await todayPage.addScriptTag({content: sourceFunction(appSource, 'renderHome')});
+    await todayPage.evaluate(() => {
+      state.boot.dashboard={today:'2026-10-05',upcoming_events:[]};
+      window.homeSection=()=>true;
+      window.todayTimelineItemCount=()=>0;
+      window.ensureDailyTravel=()=>{};
+      window.fullDateLabel=()=> 'Monday 5 October';
+      window.render=()=>{document.querySelector('#app').innerHTML=renderHome();};
+      render();
+    });
+    assert.equal(await todayPage.locator('.today-weather-location strong').textContent(),'Birkenhead');
+    await todayPage.locator('button[data-personal="weather-view"][data-view="daily"]').click();
+    assert.equal(await todayPage.locator('.today-weather-days .today-weather-day').count(),4);
+    await todayPage.evaluate(() => { personalWeather=null; weatherError='Weather service unavailable'; weatherCheckedAt=Date.now(); render(); });
+    assert.match(await todayPage.locator('[data-weather-result]').innerText(),/Weather service unavailable/);
+    assert.equal(await todayPage.locator('button[data-personal="weather"][aria-label="Refresh weather"]').count(),1);
     await todayPage.close();
 
     await verifyOwnerBuilderMenuScroll(context);
