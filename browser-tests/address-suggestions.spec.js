@@ -48,6 +48,17 @@ const read = file => fs.readFileSync(path.join(root, 'static', file), 'utf8');
     assert.equal(await page.locator('#ordinary').inputValue(), 'Example Hospital, Example Road');
     assert.deepEqual(requests, ['/api/address-search']);
 
+    await page.locator('#ordinary').fill('Example Hospita');
+    await page.clock.runFor(1000);
+    await page.locator('#ordinary-results [data-action="choose-address"]').waitFor();
+    await page.locator('#builder').click({position:{x:1,y:1}});
+    await page.locator('#ordinary').fill('Example Hospital again');
+    await page.clock.runFor(1000);
+    await page.locator('#ordinary-results [data-action="choose-address"]').waitFor({state:'visible'});
+    await page.locator('#ordinary-results [data-action="choose-address"]').click();
+    assert.equal(await page.locator('#ordinary').inputValue(), 'Example Hospital, Example Road');
+    assert.deepEqual(requests, ['/api/address-search', '/api/address-search', '/api/address-search']);
+
     await page.locator('#entry-location').fill('Example Hospital');
     await page.clock.runFor(1000);
     await page.locator('#entry-location-results [data-address-index]').waitFor();
@@ -56,7 +67,7 @@ const read = file => fs.readFileSync(path.join(root, 'static', file), 'utf8');
     const selected = await page.evaluate(() => JSON.parse(document.querySelector('#entry-location').dataset.addressValue));
     assert.equal(selected.place_id, 'first');
     assert.equal(selected.latitude, 53.4);
-    assert.deepEqual(requests, ['/api/address-search', '/api/builder/address-search']);
+    assert.deepEqual(requests, ['/api/address-search', '/api/address-search', '/api/address-search', '/api/builder/address-search']);
 
     await page.locator('#entry-legacy').fill('Example Hospital');
     await page.clock.runFor(1000);
@@ -64,7 +75,7 @@ const read = file => fs.readFileSync(path.join(root, 'static', file), 'utf8');
     await page.locator('#entry-legacy').press('Enter');
     assert.equal(await page.locator('#entry-legacy').inputValue(), 'Example Hospital, Example Road');
     assert.equal(await page.locator('#entry-legacy-results').isHidden(), true);
-    assert.deepEqual(requests, ['/api/address-search', '/api/builder/address-search']);
+    assert.deepEqual(requests, ['/api/address-search', '/api/address-search', '/api/address-search', '/api/builder/address-search']);
   } finally {
     await browser.close();
   }

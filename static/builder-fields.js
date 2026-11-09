@@ -123,7 +123,9 @@ window.AlignFields = {
       return;
     }
     if (!event.target.closest?.('.address-search')) {
-      document.querySelectorAll('[data-address-results]').forEach(list => { list.hidden = true; });
+      document.querySelectorAll('[data-address-results]').forEach(list => {
+        if (document.getElementById(list.dataset.addressResults)?.dataset.addressOwner === 'builder') list.hidden = true;
+      });
     }
   });
   document.addEventListener('keydown', event => {

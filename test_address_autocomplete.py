@@ -133,6 +133,24 @@ class AddressAutocompleteTests(unittest.TestCase):
             "Example Hospital, Example Road, Example", "Example Pharmacy, Example Road, Example"
         ])
 
+    def test_here_place_name_is_not_confused_with_part_of_a_street(self):
+        address = {"label": "10 Park Road, London"}
+        items = [
+            {"title": "Park", "resultType": "place", "address": address,
+             "position": {"lat": 51.5, "lng": -0.1}, "id": "place"},
+            {"title": "10 Park Road", "resultType": "houseNumber", "address": address,
+             "position": {"lat": 51.5, "lng": -0.1}, "id": "address"},
+            {"title": "Park", "resultType": "place", "address": {"label": "Park, 10 Park Road, London"},
+             "position": {"lat": 51.5, "lng": -0.1}, "id": "duplicate"},
+        ]
+        with patch.dict(os.environ, {"ALIGN_HERE_ROUTING_KEY": "test-key"}), patch.object(
+            app.personal_planner, "here_fetch", return_value={"items": items}
+        ):
+            results = app.find_addresses("Park")
+        self.assertEqual([(item["place_id"], item["label"]) for item in results], [
+            ("place", "Park, 10 Park Road, London"), ("address", "10 Park Road, London")
+        ])
+
     def test_photon_preserves_named_places_and_deduplicates_identical_nearby_results(self):
         def feature(name, lat, osm_id):
             return {"properties": {"name": name, "street": "Example Road", "postcode": "CH1 1AA",
