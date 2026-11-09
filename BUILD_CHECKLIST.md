@@ -108,7 +108,7 @@
 - [x] Add Owner-only service status showing configuration presence without exposing secret values; show HERE allowance and iCloud configuration state with privacy notes.
 - [x] Test Owner status endpoint is Owner-only and redacted (focused Owner tests passed).
 - [~] Validate full history/restore and permission behavior in a real hosted Owner session.
-- [ ] Complete direct home-block creation from the phone preview (section/database creation is now direct; custom home-area creation is still outstanding).
+- [x] Complete direct home-block creation from the phone preview: the **+ Home area** button beside the live preview adds a home area and focuses its name (covered by `browser-tests/align.spec.js`).
 - [ ] Review Studio usability/accessibility on desktop and phone after final scope is complete.
 ## 5. Kept features and integrations
 - [x] Retain Python `ThreadingHTTPServer`, vanilla JavaScript PWA, SQLite/PostgreSQL support, account workflows, calendar/planner capabilities, travel/weather, iCloud sync, and Finance template as applicable to the brief.

@@ -315,6 +315,10 @@ async function verifyManagementStudio(browser) {
     assert.equal(await page.locator('[data-management-tab="pages"].is-active').count(),1);
     assert.equal(await page.locator('[data-unified-tab="dashboard"].is-active').count(),0);
     assert.equal(await page.locator('[data-home-title]').count() > 0, true);
+    const homeAreasBefore = await page.locator('[data-home-title]').count();
+    await page.locator('#management-preview-add-area').click();
+    await page.waitForFunction(count => document.querySelectorAll('[data-home-title]').length === count + 1, homeAreasBefore);
+    assert.equal(await page.evaluate(() => document.activeElement?.matches('[data-home-title]')), true);
 
     await page.locator('[data-management-tab="colors"]').click();
     assert.equal(await page.locator('#builder-pane').isHidden(),true);

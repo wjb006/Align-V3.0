@@ -591,21 +591,24 @@
     setStatus('Preview order changed. Save a draft or publish when ready.', 'dirty');
   }
 
+  function addHomeAreaFromPreview() {
+    if (!documentDraft) return;
+    if (!Array.isArray(documentDraft.home_sections)) documentDraft.home_sections = [];
+    documentDraft.home_sections.push(newListSection());
+    activeTab = 'pages';
+    if (window.AlignManagementStudioNav?.activate) window.AlignManagementStudioNav.activate('pages');
+    markStudioDirty('Home area added. Name it, then save a draft or publish when ready.');
+    const titles = document.querySelectorAll('[data-home-title]');
+    const created = titles[titles.length - 1];
+    created?.focus();
+    created?.select?.();
+  }
+  $('#management-preview-add-area')?.addEventListener('click', addHomeAreaFromPreview);
+
   const phone = $('#management-phone');
   let draggedPreviewItem = null;
   phone.addEventListener('click', event => {
-    const addHomeArea = event.target.closest('[data-preview-add-home-area]');
-    if (addHomeArea) {
-      if (!Array.isArray(documentDraft.home_sections)) documentDraft.home_sections = [];
-      documentDraft.home_sections.push(newListSection());
-      activeTab = 'pages';
-      if (window.AlignManagementStudioNav?.activate) window.AlignManagementStudioNav.activate('pages');
-      markStudioDirty('Home area added from the phone preview. Name it, then save a draft or publish when ready.');
-      const titles = document.querySelectorAll('[data-home-title]');
-      const created = titles[titles.length - 1];
-      created?.focus();
-      return;
-    }
+    if (event.target.closest('[data-preview-add-home-area]')) { addHomeAreaFromPreview(); return; }
     const sectionEntry = event.target.closest('[data-preview-edit-layout]');
     const createSection = event.target.closest('[data-preview-create-layout]');
     if (sectionEntry || createSection) {
