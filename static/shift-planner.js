@@ -23,33 +23,40 @@
     if (!state.plannerAnchor) state.plannerAnchor=monday(getToday());
     if (!state.shiftPlannerData) state.shiftPlannerData=null;
     if (!state.shiftPlannerLoading) state.shiftPlannerLoading=false;
+    if (!state.shiftPlannerToken) state.shiftPlannerToken=0;
     if (!state.shiftPlannerError) state.shiftPlannerError='';
     if (!state.shiftPlannerModal) state.shiftPlannerModal='';
   }
   async function load() {
     init();
-    if (state.shiftPlannerLoading) return;
+    const token=++state.shiftPlannerToken;
     state.shiftPlannerLoading=true; state.shiftPlannerError='';
     try {
       const path=state.plannerMode==='week'
         ? '/api/week?start='+encodeURIComponent(state.plannerAnchor)
         : '/api/month?month='+encodeURIComponent(state.plannerAnchor.slice(0,7));
-      state.shiftPlannerData=await api(path);
-      await loadInboundPlannerJourneys(state.shiftPlannerData);
+      const data=await api(path);
+      if(token!==state.shiftPlannerToken)return;
+      state.shiftPlannerData=data;
+      state.shiftPlannerLoading=false;
+      paint();
+      await loadInboundPlannerJourneys(data);
     } catch(e) {
+      if(token!==state.shiftPlannerToken)return;
       state.shiftPlannerError=e.message||'Could not load your shift planner.';
-    } finally {
       state.shiftPlannerLoading=false;
       paint();
     }
   }
   async function loadInboundPlannerJourneys(data) {
+    const token=state.shiftPlannerToken;
     const all=[...(data.shifts||[]).map(x=>Object.assign(x,{_plannerKind:'shift'})),...(data.events||[]).map(x=>Object.assign(x,{_plannerKind:'event'})),...(data.imported_events||[]).map(x=>Object.assign(x,{_plannerKind:'imported'}))]
       .filter(x=>String(x.location||x.address||'').trim()&&!x.all_day&&plannerItemStart(x));
     const byDay=new Map();
     for(const item of all){const day=plannerItemStart(item).slice(0,10);if(day)byDay.set(day,true);}
-    const days=[...byDay.keys()].filter(day=>day>=getToday()).sort().slice(0,state.plannerMode==='month'?35:7);
+    const days=[...byDay.keys()].filter(day=>day>=getToday()).sort().slice(0,7);
     await Promise.all(days.map(async day=>{
+      if(token!==state.shiftPlannerToken)return;
       const daily=all.filter(item=>plannerItemStart(item).slice(0,10)===day).sort((a,b)=>plannerItemStart(a).localeCompare(plannerItemStart(b)));
       let previousEnd=null,previousKey='';
       for(let i=0;i<daily.length;){
@@ -86,6 +93,7 @@
         }catch(error){item.post_travel_error=error.message||'Outbound journey unavailable';}
       }));
     }));
+    if(token===state.shiftPlannerToken&&typeof paint==='function')paint();
   }
   function selectedShifts() {
     const data=state.shiftPlannerData||{};

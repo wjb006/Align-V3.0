@@ -86,6 +86,8 @@ plannerContext.state.shiftPlannerData.events[0].start_at='2026-11-09T16:00';
 const overlappingHtml=plannerContext.window.renderShiftPlanner();
 assert(!overlappingHtml.includes('planner-location-travel'),'An overlapping event must not produce a misleading inter-event block');
 console.log('AM/PM filtering, combined calendar totals and shift travel UI passed');
+const loadSource=plannerSource.slice(plannerSource.indexOf('async function load()'),plannerSource.indexOf('async function loadInboundPlannerJourneys'));
+assert(loadSource.indexOf('paint()')>=0&&loadSource.indexOf('paint()')<loadSource.indexOf('await loadInboundPlannerJourneys'),'The calendar must draw before journey lookups start');
 
 (async()=>{
   const start=plannerSource.indexOf('async function loadInboundPlannerJourneys(data) {');
