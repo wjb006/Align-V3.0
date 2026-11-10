@@ -144,6 +144,36 @@ assert.equal(firstEmptyShiftWeek('2026-11-23', [{work_date: '2026-11-10'}]), '20
   assert.equal(state.shiftPlannerReview.shifts[1].start_time, '13:00');
   assert.equal(state.shiftPlannerReview.shifts[1].end_time, '17:00', 'Friday finish rule applies to the reviewed PM shift');
   assert.equal(state.shiftPlannerReview.shifts[1].template_id, '2');
+
+  function dayPanel(day, values) {
+    const fields = {};
+    for (const [name, value] of Object.entries(values)) fields[name] = {value: value == null ? '' : String(value), disabled: false};
+    fields.add_pm_shift = {value: '1', checked: values.add_pm_shift === true, disabled: false};
+    return {dataset: {dayPanel: day}, querySelector: selector => fields[(selector.match(/^\[name="(.+)"\]$/) || [])[1]] || null};
+  }
+  state.shiftPlannerData.shifts = [];
+  const panels = [
+    dayPanel('2026-11-10', {location_id: '2', shift_type_id: '3', template_id: '3', start_time: '09:00', end_time: '13:00', break_minutes: '0', notes: 'Other site'}),
+    dayPanel('2026-11-09', {location_id: '1', shift_type_id: '1', template_id: '1', start_time: '08:30', end_time: '12:30', break_minutes: '0', notes: 'Clinic day'}),
+    dayPanel('2026-11-13', {location_id: '1', shift_type_id: '1', template_id: '1', start_time: '08:30', end_time: '12:30', break_minutes: '0', notes: 'Friday', add_pm_shift: true, pm_shift_type_id: '2', pm_template_id: '2', pm_start_time: '13:00', pm_end_time: '17:30', pm_break_minutes: '10'})
+  ];
+  const perDay = makeForm();
+  const host = {querySelectorAll: selector => selector === '[data-day-panel]' ? panels : []};
+  const baseQuery = perDay.querySelector;
+  perDay.querySelector = selector => selector === '[data-day-shift-panels]' ? host : baseQuery(selector);
+  await dispatch('submit', {target: perDay, preventDefault() {}});
+  const saved = state.shiftPlannerReview.shifts;
+  assert.deepEqual(saved.map(shift => shift.work_date), ['2026-11-09', '2026-11-10', '2026-11-13', '2026-11-13']);
+  assert.equal(saved[0].location_id, '1');
+  assert.equal(saved[0].notes, 'Clinic day');
+  assert.equal(saved[1].location_id, '2');
+  assert.equal(saved[1].start_time, '09:00');
+  assert.equal(saved[1].notes, 'Other site');
+  assert.equal(saved[2].notes, 'Friday');
+  assert.equal(saved[3].end_time, '17:00', 'Friday finish rule still applies to that day only');
+  assert.equal(saved[3].shift_type_id, '2');
+  assert.notEqual(saved[0].location_id, saved[1].location_id, 'Selected days can be saved with different shifts');
+
   state.plannerAnchor = '2040-01-02';
   state.plannerMode = 'month';
   state.shiftPlannerData.shifts = [];
