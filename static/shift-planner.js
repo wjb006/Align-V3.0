@@ -693,9 +693,24 @@
       '<p class="helper">Shifts are checked for overlaps and clashes with your existing Align and imported calendar events.</p></section>';
   }
   function paint() { const root=document.querySelector('#app'); if(root && ['planner','calendar'].includes(state.tab)) root.innerHTML=render(); }
-  function revealShiftEditor() {
-    const form=typeof document.getElementById==='function'?document.getElementById('shift-planner-form'):null;
-    if(form&&typeof form.scrollIntoView==='function')form.scrollIntoView({block:'nearest',inline:'nearest'});
+  function revealShiftEditor(previousTop) {
+    const align=()=>{
+      const form=typeof document.getElementById==='function'?document.getElementById('shift-planner-form'):null;
+      if(!form)return;
+      const target=typeof form.closest==='function'?form.closest('.restored-planner-day')||form:form;
+      if(typeof previousTop==='number'&&target.getBoundingClientRect&&typeof window.scrollBy==='function'){
+        const delta=target.getBoundingClientRect().top-previousTop;
+        if(Math.abs(delta)>2)window.scrollBy(0,delta);
+      }else if(typeof target.scrollIntoView==='function')target.scrollIntoView({block:'nearest',inline:'nearest'});
+      if(typeof form.focus==='function'){
+        if(!form.hasAttribute('tabindex'))form.setAttribute('tabindex','-1');
+        form.focus({preventScroll:true});
+      }
+    };
+    if(typeof requestAnimationFrame==='function'){
+      requestAnimationFrame(()=>requestAnimationFrame(align));
+      if(typeof setTimeout==='function')setTimeout(align,60);
+    }else align();
   }
   async function reload() {
     state.shiftPlannerData=null; state.shiftPlannerDateShifts=null; state.shiftPlannerError=''; await load();
@@ -959,11 +974,13 @@
           const day=shift.work_date||button.dataset.workDate;
           if(day&&state.plannerMode==='week')state.plannerAnchor=monday(day);
           else if(day&&String(state.plannerAnchor||'').slice(0,7)!==day.slice(0,7))state.plannerAnchor=day.slice(0,7)+'-01';
+          const place=button.closest('.restored-planner-day')||button.closest('article')||button;
+          const previousTop=place.getBoundingClientRect?place.getBoundingClientRect().top:null;
           state.tab='planner';
           state.shiftPlannerEdit={...shift};
           state.shiftPlannerModal='edit';
           paint();
-          revealShiftEditor();
+          revealShiftEditor(previousTop);
         }
         return;
       }
