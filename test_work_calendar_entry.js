@@ -53,12 +53,42 @@ const plannerContext={
 vm.createContext(plannerContext);
 vm.runInContext(plannerSource,plannerContext);
 const plannerHtml=plannerContext.window.renderShiftPlanner();
-assert(plannerHtml.includes('data-period="PM"'),'An AM shift already booked must default the form to PM');
-assert(plannerHtml.includes('data-shift-type-label>PM shift type')&&plannerHtml.includes('data-shift-template-label>PM shift pattern'),'The form must offer PM controls when AM is already booked');
+assert(plannerHtml.includes('data-day-shift-panels'),'Add shifts shows day editors only after days are selected');
+assert(plannerHtml.includes('each day has its own shifts'),'Add shifts explains that each day can be different');
+assert(!plannerHtml.includes('data-day-panel='),'Shift fields stay hidden until a day is selected');
+assert(!plannerHtml.includes('You only need to set the workplace and shift once'),'Add shifts must not reuse one setup for every day');
 assert(plannerHtml.includes('data-shift-action="upload-rota"'),'Manual shift entry must offer the existing rota reader');
 const dayInputs=plannerHtml.match(/<input type="checkbox" name="selected_days"[^>]*>/g)||[];
 assert.equal(dayInputs.length,7,'Add shifts must display all seven days');
 assert(dayInputs.every(input=>!input.includes('checked')),'Add shifts must not preselect a day');
+plannerContext.state.shiftPlannerAddDraft={days:['2026-11-09','2026-11-10'],byDay:{
+  '2026-11-09':{location_id:'1',shift_type_id:'1',template_id:'2',start_time:'13:00',end_time:'17:00'},
+  '2026-11-10':{location_id:'1',shift_type_id:'1',template_id:'1',start_time:'08:30',end_time:'12:30'}
+}};
+const perDayHtml=plannerContext.window.renderShiftPlanner();
+const mondayAt=perDayHtml.indexOf('data-day-panel="2026-11-09"');
+const tuesdayAt=perDayHtml.indexOf('data-day-panel="2026-11-10"');
+assert(mondayAt>=0&&tuesdayAt>mondayAt,'Each selected day gets its own shift editor');
+const mondayPanel=perDayHtml.slice(mondayAt,tuesdayAt);
+const tuesdayPanel=perDayHtml.slice(tuesdayAt);
+assert(mondayPanel.includes('data-period="PM"')&&mondayPanel.includes('PM shift type')&&mondayPanel.includes('PM shift pattern'),'A day that already has an AM shift defaults to PM');
+assert(mondayPanel.includes('value="13:00"')&&!mondayPanel.includes('value="08:30"'),'Monday keeps its own times');
+assert(tuesdayPanel.includes('data-period="AM"')&&tuesdayPanel.includes('value="08:30"'),'Tuesday can use a different shift from Monday');
+assert(!mondayPanel.includes('Add PM shift as well')&&tuesdayPanel.includes('Add PM shift as well'),'The optional PM shift belongs to the day that is still on an AM pattern');
+assert(perDayHtml.includes('Set this day on its own'),'Each day editor says it does not copy the other days');
+plannerContext.state.shiftPlannerAddDraft=null;
+plannerContext.state.shiftPlannerModal='edit';
+plannerContext.state.shiftPlannerEdit={id:11,work_date:'2026-11-09',start_time:'08:30',end_time:'12:30',location_id:1,shift_type_id:1,location_name:'Arrowe Park',shift_type_name:'Clinic'};
+const editHtml=plannerContext.window.renderShiftPlanner();
+const editCard=editHtml.indexOf('data-shift-action="edit" data-id="11"');
+const editForm=editHtml.indexOf('id="shift-planner-form"');
+const editActions=editHtml.indexOf('restored-planner-actions');
+const editCalendar=editHtml.indexOf('restored-month-grid');
+assert(editCard>=0&&editForm>editCard,'The edit form opens with the shift being edited');
+assert(editActions<editCalendar&&editCalendar<editForm,'The edit form stays out of the top of the planner');
+assert(editHtml.includes('Update shift'),'The inline form is the shift editor');
+plannerContext.state.shiftPlannerModal='add';
+plannerContext.state.shiftPlannerEdit=null;
 assert(plannerHtml.includes('2 total items'),'The month cell must count the shift and calendar event together');
 assert(plannerHtml.includes('Travel to Clatterbridge'),'Saved onward travel must appear on the shift card');
 assert.equal((plannerHtml.match(/Travel to Clatterbridge/g)||[]).length,1,'Shift travel must not be repeated underneath its location group');

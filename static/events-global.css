@@ -87,6 +87,12 @@
 .add-shift-day-option input:checked+span small{color:#e0efff}
 .add-shift-day-option input:focus-visible+span{outline:2px solid #fff;outline-offset:3px}
 @media(min-width:520px){.add-shift-days-grid{grid-template-columns:repeat(7,minmax(0,1fr))}}
+.add-shift-day-panels{display:grid;gap:14px;margin:0 0 8px}
+.add-shift-day-panel{display:grid;gap:12px;padding:14px;border:1px solid #27618b;border-radius:16px;background:rgba(8,34,61,.45)}
+.add-shift-day-panel-head h3{margin:0}
+.add-shift-day-panel-head .helper{margin:4px 0 0}
+.add-shift-day-panel[data-weekend="1"]{background:rgba(12,48,36,.45);border-color:#1f7a62}
+.planner-location-areas>.restored-planner-form,.restored-planner-day>.restored-planner-form{margin-top:8px}
 
 
 /* Optional PM companion shift */
