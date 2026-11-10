@@ -575,12 +575,17 @@
     if(item._plannerKind==='finance')return financeCard(item);
     return leaveCard(item);
   }
+  function editFormBeside(item) {
+    if(state.shiftPlannerModal!=='edit'||item?._plannerKind!=='shift')return '';
+    if(String(state.shiftPlannerEdit?.id)!==String(item.id))return '';
+    return formMarkup(state.shiftPlannerEdit||item);
+  }
   function locationGroupsMarkup(items) {
     const ordered=[...(items||[])].sort((a,b)=>plannerItemStart(a).localeCompare(plannerItemStart(b)));
     const chunks=[];
     for(let i=0;i<ordered.length;){
       const item=ordered[i],key=plannerLocationKey(item);
-      if(!key){chunks.push(plannerItemCard(item));i++;continue;}
+      if(!key){chunks.push(plannerItemCard(item)+editFormBeside(item));i++;continue;}
       const group=[item];let j=i+1;
       while(j<ordered.length&&plannerLocationKey(ordered[j])===key){group.push(ordered[j]);j++;}
       const first=group[0],last=group.reduce((latest,item)=>plannerItemEnd(item)>plannerItemEnd(latest)?item:latest,first);
@@ -596,7 +601,7 @@
       const areas=group.map(x=>{
         const area=x.shift_type_name||x.section_name||x.category_name||x.title||x.name||'Event';
         const areaColour=x.shift_type_colour||x.section_colour||x.colour||'#16A99B';
-        return '<div class="location-group-area" style="--area-colour:'+esc(areaColour)+'">'+plannerItemCard(x,{hidePostTravel:x!==last||separate})+'</div>';
+        return '<div class="location-group-area" style="--area-colour:'+esc(areaColour)+'">'+plannerItemCard(x,{hidePostTravel:x!==last||separate})+'</div>'+editFormBeside(x);
       }).join('');
       let travel='';
       if(separate && typeof postTravelSummary==='function'){
@@ -683,11 +688,15 @@
       (state.shiftPlannerError?'<div class="card planner-error" role="alert">'+esc(state.shiftPlannerError)+'<button class="secondary-button" data-shift-action="retry">Retry</button></div>':'')+
       (state.shiftPlannerLoading?'<p class="empty" role="status">Loading planner…</p>':'')+
       '<div class="button-row restored-planner-actions"><button class="primary-button" data-shift-action="add">＋ Add shift</button><button class="secondary-button" data-shift-action="leave">Book annual leave</button><button class="secondary-button" data-shift-action="patterns">Manage patterns</button><button class="secondary-button" data-shift-action="work-settings">Work settings</button><button class="secondary-button" data-shift-action="settings">Planner settings</button><button class="secondary-button" data-nav="sections">Manage events</button></div>'+
-      (state.shiftPlannerModal==='add'?formMarkup():state.shiftPlannerModal==='edit'?formMarkup(state.shiftPlannerEdit||{}):state.shiftPlannerModal==='leave'?leaveForm():state.shiftPlannerModal==='patterns'?patternManager():state.shiftPlannerModal==='review'?reviewMarkup():'')+
+      (state.shiftPlannerModal==='add'?formMarkup():state.shiftPlannerModal==='leave'?leaveForm():state.shiftPlannerModal==='patterns'?patternManager():state.shiftPlannerModal==='review'?reviewMarkup():'')+
       (state.plannerMode==='week'?'<div class="restored-week-list">'+list+'</div>':list)+
       '<p class="helper">Shifts are checked for overlaps and clashes with your existing Align and imported calendar events.</p></section>';
   }
   function paint() { const root=document.querySelector('#app'); if(root && ['planner','calendar'].includes(state.tab)) root.innerHTML=render(); }
+  function revealShiftEditor() {
+    const form=typeof document.getElementById==='function'?document.getElementById('shift-planner-form'):null;
+    if(form&&typeof form.scrollIntoView==='function')form.scrollIntoView({block:'nearest',inline:'nearest'});
+  }
   async function reload() {
     state.shiftPlannerData=null; state.shiftPlannerDateShifts=null; state.shiftPlannerError=''; await load();
   }
@@ -947,11 +956,14 @@
           shift=selectedShifts().find(item=>String(item.id)===String(button.dataset.id));
         }
         if(shift){
+          const day=shift.work_date||button.dataset.workDate;
+          if(day&&state.plannerMode==='week')state.plannerAnchor=monday(day);
+          else if(day&&String(state.plannerAnchor||'').slice(0,7)!==day.slice(0,7))state.plannerAnchor=day.slice(0,7)+'-01';
           state.tab='planner';
           state.shiftPlannerEdit={...shift};
           state.shiftPlannerModal='edit';
-          if(typeof render==='function')render();
           paint();
+          revealShiftEditor();
         }
         return;
       }

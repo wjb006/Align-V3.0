@@ -77,6 +77,18 @@ assert(tuesdayPanel.includes('data-period="AM"')&&tuesdayPanel.includes('value="
 assert(!mondayPanel.includes('Add PM shift as well')&&tuesdayPanel.includes('Add PM shift as well'),'The optional PM shift belongs to the day that is still on an AM pattern');
 assert(perDayHtml.includes('Set this day on its own'),'Each day editor says it does not copy the other days');
 plannerContext.state.shiftPlannerAddDraft=null;
+plannerContext.state.shiftPlannerModal='edit';
+plannerContext.state.shiftPlannerEdit={id:11,work_date:'2026-11-09',start_time:'08:30',end_time:'12:30',location_id:1,shift_type_id:1,location_name:'Arrowe Park',shift_type_name:'Clinic'};
+const editHtml=plannerContext.window.renderShiftPlanner();
+const editCard=editHtml.indexOf('data-shift-action="edit" data-id="11"');
+const editForm=editHtml.indexOf('id="shift-planner-form"');
+const editActions=editHtml.indexOf('restored-planner-actions');
+const editCalendar=editHtml.indexOf('restored-month-grid');
+assert(editCard>=0&&editForm>editCard,'The edit form opens with the shift being edited');
+assert(editActions<editCalendar&&editCalendar<editForm,'The edit form stays out of the top of the planner');
+assert(editHtml.includes('Update shift'),'The inline form is the shift editor');
+plannerContext.state.shiftPlannerModal='add';
+plannerContext.state.shiftPlannerEdit=null;
 assert(plannerHtml.includes('2 total items'),'The month cell must count the shift and calendar event together');
 assert(plannerHtml.includes('Travel to Clatterbridge'),'Saved onward travel must appear on the shift card');
 assert.equal((plannerHtml.match(/Travel to Clatterbridge/g)||[]).length,1,'Shift travel must not be repeated underneath its location group');

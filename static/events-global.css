@@ -92,6 +92,7 @@
 .add-shift-day-panel-head h3{margin:0}
 .add-shift-day-panel-head .helper{margin:4px 0 0}
 .add-shift-day-panel[data-weekend="1"]{background:rgba(12,48,36,.45);border-color:#1f7a62}
+.planner-location-areas>.restored-planner-form,.restored-planner-day>.restored-planner-form{margin-top:8px}
 
 
 /* Optional PM companion shift */
