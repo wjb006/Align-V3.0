@@ -87,18 +87,23 @@ const editCalendar=editHtml.indexOf('restored-month-grid');
 assert(editCard>=0&&editForm>editCard,'The edit form opens with the shift being edited');
 assert(editActions<editCalendar&&editCalendar<editForm,'The edit form stays out of the top of the planner');
 assert(editHtml.includes('Update shift'),'The inline form is the shift editor');
+assert(editHtml.includes('location-areas-toggle" open')&&editHtml.indexOf('location-areas-toggle" open')<editForm,'The edited location opens its areas');
+assert(plannerHtml.includes('location-areas-toggle'),'Calendar locations keep their areas behind a dropdown');
+assert(plannerHtml.includes('Show area'),'The location banner offers a control to show its areas');
+assert(!plannerHtml.includes('location-areas-toggle" open'),'Areas stay collapsed until they are opened');
 plannerContext.state.shiftPlannerModal='add';
 plannerContext.state.shiftPlannerEdit=null;
 assert(plannerHtml.includes('2 total items'),'The month cell must count the shift and calendar event together');
-assert(plannerHtml.includes('Travel to Clatterbridge'),'Saved onward travel must appear on the shift card');
-assert.equal((plannerHtml.match(/Travel to Clatterbridge/g)||[]).length,1,'Shift travel must not be repeated underneath its location group');
-assert(!plannerHtml.includes('planner-location-travel'),'Shift travel stays inside the shift card');
+assert(plannerHtml.includes('Travel to Clatterbridge'),'Saved onward travel must appear with the location');
+assert.equal((plannerHtml.match(/Travel to Clatterbridge/g)||[]).length,1,'Shift travel must appear once');
+assert(!plannerHtml.includes('planner-location-travel'),'Travel home stays with the location rather than between groups');
+assert(plannerHtml.indexOf('Travel to Clatterbridge')>plannerHtml.indexOf('</div></details>'),'Travel stays visible outside the areas dropdown');
 plannerContext.state.shiftPlannerData.shifts=[];
 plannerContext.state.shiftPlannerData.events=[{id:21,title:'Appointment',section_name:'Health',section_id:1,location:'Clinic Road',
   start_at:'2026-11-09T18:00',end_at:'2026-11-09T18:30',post_travel:{enabled:true,journey:{notes:'Travel home'}}}];
 const eventHtml=plannerContext.window.renderShiftPlanner();
-assert.equal((eventHtml.match(/Travel to Clatterbridge/g)||[]).length,1,'Event travel must appear once inside the event card');
-assert(eventHtml.indexOf('Travel to Clatterbridge')<eventHtml.indexOf('</article>'),'Event travel must be inside its card');
+assert.equal((eventHtml.match(/Travel to Clatterbridge/g)||[]).length,1,'Event travel must appear once');
+assert(eventHtml.indexOf('Travel to Clatterbridge')>eventHtml.indexOf('</div></details>'),'Event travel stays visible outside the areas dropdown');
 assert(!eventHtml.includes('planner-location-travel'),'Event travel must not repeat underneath the location group');
 plannerContext.state.shiftPlannerData.shifts=[
   {id:11,work_date:'2026-11-09',start_time:'08:00',end_time:'12:00',location_name:'Work',location:'Work Road',location_id:1,shift_type_name:'AM',hours:4},
@@ -115,6 +120,23 @@ assert(scheduleHtml.lastIndexOf('Travel to Clatterbridge')>scheduleHtml.indexOf(
 plannerContext.state.shiftPlannerData.events[0].start_at='2026-11-09T16:00';
 const overlappingHtml=plannerContext.window.renderShiftPlanner();
 assert(!overlappingHtml.includes('planner-location-travel'),'An overlapping event must not produce a misleading inter-event block');
+const travelContext={
+  state:{plannerMode:'week',plannerAnchor:'2026-11-09',tab:'planner',shiftPlannerModal:'',
+    shiftPlannerData:{start:'2026-11-09',end:'2026-11-15',shifts:[{id:3,work_date:'2026-11-09',start_time:'08:30',end_time:'12:30',location_name:'Arrowe Park',location:'Arrowe Park Road',location_id:1,shift_type_name:'Wards',hours:4,
+      pre_travel:{leave_at:'2026-11-09T08:00',arrival_at:'2026-11-09T08:20',steps:[{mode:'bus',service:'1'}]},
+      post_travel:{enabled:true,destination_name:'Home',journey:{leave_at:'2026-11-09T12:30',arrival_at:'2026-11-09T12:50',steps:[{mode:'bus',service:'1'}]}}}],
+      templates:[],locations:[{id:1,name:'Arrowe Park'}],shift_types:[],annual_leave:[],events:[],imported_events:[],finance_events:[],work_settings:{}}},
+  escapeHtml:v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])),
+  document:{addEventListener(){}},setInterval(){},modalRoot:{textContent:''},api:async()=>({}),window:{},setTimeout(){}
+};
+vm.createContext(travelContext);
+vm.runInContext(fs.readFileSync('static/post-event-travel.js','utf8')+'\n'+plannerSource,travelContext);
+const condensedHtml=travelContext.window.renderShiftPlanner();
+assert(condensedHtml.includes('location-areas-toggle'),'Week view condenses areas under the location banner');
+assert(condensedHtml.includes('travel-condensed'),'Planner travel uses the condensed line');
+assert(condensedHtml.includes('Leave 08:00 · Bus 1 · Arrive 08:20'),'Travel from home uses the same condensed line');
+assert(condensedHtml.includes('Leave 12:30 · Bus 1 · Arrive 12:50'),'Travel home uses the same condensed line');
+assert(!condensedHtml.includes('journey-itinerary-strip'),'Planner travel does not use the detailed route strip');
 console.log('AM/PM filtering, combined calendar totals and shift travel UI passed');
 const loadSource=plannerSource.slice(plannerSource.indexOf('async function load()'),plannerSource.indexOf('async function loadInboundPlannerJourneys'));
 assert(loadSource.indexOf('paint()')>=0&&loadSource.indexOf('paint()')<loadSource.indexOf('await loadInboundPlannerJourneys'),'The calendar must draw before journey lookups start');
