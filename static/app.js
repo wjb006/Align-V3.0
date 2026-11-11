@@ -749,7 +749,7 @@ function todayHomeTravelMarkup(item) {
     const summary=postTravelSummary(item,{condensed:true});
     return summary?`<div class="today-travel-connector today-home-travel">${summary}</div>`:'';
   }
-  if(info.timeline && info.error) return `<section class="today-route-unavailable" aria-label="Travel home"><strong>Travel home</strong><p role="status">Route unavailable: ${escapeHtml(info.error)}</p></section>`;
+  if(info.timeline && info.error) return `<section class="today-route-unavailable travel-condensed" aria-label="Travel home"><strong>Travel home</strong><p role="status">Route unavailable: ${escapeHtml(info.error)}</p></section>`;
   return '';
 }
 function todayInboundMarkup(item, firstItem = false) {
@@ -762,12 +762,12 @@ function todayInboundMarkup(item, firstItem = false) {
     if(line)return `<section class="today-inbound-travel travel-condensed" aria-label="Travel from home to ${escapeHtml(title)}"><strong>Travel from home</strong><p>${escapeHtml(line)}</p></section>`;
   }
   if (!item.start_at || !location) {
-    return `<section class="today-inbound-travel is-unavailable" aria-label="Travel from home"><strong>Travel from home</strong><p role="status">${item.start_at?'Add this event’s address to plan a route.':'Set an event time and address to plan a route.'}</p></section>`;
+    return `<section class="today-inbound-travel travel-condensed is-unavailable" aria-label="Travel from home"><strong>Travel from home</strong><p role="status">${item.start_at?'Add this event’s address to plan a route.':'Set an event time and address to plan a route.'}</p></section>`;
   }
   const error=state.dailyInboundErrors[key];
   const loading=state.dailyInboundLoading[key];
   if (!error && !loading && eventStartAt(item)?.getTime()<=Date.now()) return '';
-  return `<section class="today-inbound-travel ${error?'is-unavailable':''}" aria-label="Travel from home to ${escapeHtml(title)}"><strong>Travel from home</strong><small>${escapeHtml(title)}</small><p role="status">${loading?'Checking available route details…':error?`Route unavailable: ${escapeHtml(error)}`:'Route details are not available yet.'}</p></section>`;
+  return `<section class="today-inbound-travel travel-condensed ${error?'is-unavailable':''}" aria-label="Travel from home to ${escapeHtml(title)}"><strong>Travel from home</strong><small>${escapeHtml(title)}</small><p role="status">${loading?'Checking available route details…':error?`Route unavailable: ${escapeHtml(error)}`:'Route details are not available yet.'}</p></section>`;
 }
 function todayTravelConnector(fromGroup, toGroup) {
   const from=fromGroup?.last, to=toGroup?.first;
@@ -795,7 +795,7 @@ function todayTravelConnector(fromGroup, toGroup) {
   }else if(end.getTime()<=Date.now()){
     message='This departure time has passed; no new route was requested.';
   }
-  return `<div class="today-travel-connector"><section class="today-route-unavailable" aria-label="Travel to next event"><strong>Travel to next event</strong><small>${escapeHtml(to.title||to.location_name||'Next event')}</small><p role="status">${message}</p></section></div>`;
+  return `<div class="today-travel-connector"><section class="today-route-unavailable travel-condensed" aria-label="Travel to next event"><strong>Travel to next event</strong><small>${escapeHtml(to.title||to.location_name||'Next event')}</small><p role="status">${message}</p></section></div>`;
 }
 function renderTodayTimeline(events) {
   const groups=todayTimelineGroups(events);
@@ -826,9 +826,10 @@ function renderTodayTimeline(events) {
     }).join('');
     const locationIcon='<svg viewBox="0 0 56 56" aria-hidden="true"><path d="M9 49V17h38v32M5 49h46M20 17V8h16v9M20 27h5v5h-5zM32 27h5v5h-5zM20 38h5v5h-5zM32 38h5v11h-5z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg>';
     const span=startTime&&endTime?`${startTime}–${endTime}`:'Time not set';
+    const noun=items.length===1?'area':'areas';
     output.push(`<section class="today-location-block" style="--location-colour:${escapeHtml(colour)}">
       <header class="today-location-header"><span class="today-location-icon">${locationIcon}</span><div><strong>${escapeHtml(title)}</strong>${address?`<small>⌖ ${appleDestinationLink(address)}</small>`:''}<small>${total.toFixed(Number.isInteger(total)?0:1)} hours total · ${items.length} shift${items.length===1?'':'s'}</small></div><strong class="today-location-span" aria-label="Workplace span ${escapeHtml(span)}">${escapeHtml(span)}</strong></header>
-      ${inbound}<div class="today-location-areas">${areas}</div>${next?'':todayHomeTravelMarkup(last)}
+      ${inbound}<details class="location-areas-toggle"><summary><span class="location-areas-show">Show ${noun}</span><span class="location-areas-hide">Hide ${noun}</span><small>${items.length}</small></summary><div class="today-location-areas">${areas}</div></details>${next?'':todayHomeTravelMarkup(last)}
     </section>`);
     const connector=todayTravelConnector(group,next);if(connector)output.push(connector);
   }

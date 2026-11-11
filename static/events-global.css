@@ -53,6 +53,16 @@
 .week-event-row small{color:#b4c9df}
 .event-travel-button{margin-top:8px}
 .restored-event-open{width:100%;text-align:left;color:inherit;background:transparent;border:0}
+.location-areas-toggle{min-width:0}
+.location-areas-toggle>summary{display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none;padding:10px 12px;border:2px solid #477da7;border-radius:16px;background:#07172d;color:#e7f1ff;font-weight:750}
+.location-areas-toggle>summary::-webkit-details-marker{display:none}
+.location-areas-toggle>summary::before{content:'';width:8px;height:8px;margin:0 2px 2px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg)}
+.location-areas-toggle[open]>summary::before{transform:rotate(45deg);margin-bottom:0}
+.location-areas-toggle>summary small{margin-left:auto;color:#d5e6f6;font-weight:650}
+.location-areas-hide{display:none}
+.location-areas-toggle[open] .location-areas-show{display:none}
+.location-areas-toggle[open] .location-areas-hide{display:inline}
+.location-areas-toggle[open]>summary{margin-bottom:10px}
 .planner-location-group{margin:8px 0 14px}
 .planner-location-header{padding:14px 16px}
 .planner-location-header>div>strong{display:block}

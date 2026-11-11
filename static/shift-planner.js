@@ -444,7 +444,7 @@
     return {hours,contracted,overtime,pay:rate>0?hours*rate:0};
   }
   function shiftCard(s, options={}) {
-    const travel=!options.hidePostTravel&&typeof postTravelSummary==='function'?postTravelSummary(s):'';
+    const travel=!options.hidePostTravel&&typeof postTravelSummary==='function'?postTravelSummary(s,{condensed:true}):'';
     const notes=String(s.notes||'').replace(/\[Align travel(?: steps)?\][\s\S]*?(?:\[\/Align travel(?: steps)?\]|$)/ig,'').replace(/\[Align travel pending\]/ig,'').trim();
     return '<article class="card restored-shift-card" style="--shift-colour:'+esc(s.location_colour||s.colour||'#365CE6')+'">'+
       '<div class="shift-area-panel" style="--area-colour:'+esc(s.shift_type_colour||'#6479D8')+'"><div class="restored-shift-top"><div><h3>'+esc(s.shift_type_name||'Work')+'</h3>'+(options.hideLocation?'':'<p>'+esc(s.location_name||'')+(s.location?' · '+esc(s.location):'')+'</p>')+'</div>'+
@@ -601,21 +601,27 @@
       const areas=group.map(x=>{
         const area=x.shift_type_name||x.section_name||x.category_name||x.title||x.name||'Event';
         const areaColour=x.shift_type_colour||x.section_colour||x.colour||'#16A99B';
-        return '<div class="location-group-area" style="--area-colour:'+esc(areaColour)+'">'+plannerItemCard(x,{hidePostTravel:x!==last||separate})+'</div>'+editFormBeside(x);
+        return '<div class="location-group-area" style="--area-colour:'+esc(areaColour)+'">'+plannerItemCard(x,{hidePostTravel:true})+'</div>'+editFormBeside(x);
       }).join('');
+      const noun=group.length===1?'area':'areas';
+      const editing=state.shiftPlannerModal==='edit'&&group.some(item=>item._plannerKind==='shift'&&String(state.shiftPlannerEdit?.id)===String(item.id));
       let travel='';
+      let groupTravel='';
       if(separate && typeof postTravelSummary==='function'){
-        travel=postTravelSummary(last,{detailed:true})||'';
+        travel=postTravelSummary(last,{condensed:true})||'';
         if(!travel){
           const error=last.post_travel_error||last.post_travel?.error;
-          travel='<section class="today-route-unavailable" aria-label="Travel to next event"><strong>Travel to next event</strong><p role="status">'+esc(error?'Route unavailable: '+error:'Route details are not available yet.')+'</p></section>';
+          travel='<section class="today-route-unavailable travel-condensed" aria-label="Travel to next event"><strong>Travel to next event</strong><p role="status">'+esc(error?'Route unavailable: '+error:'Route details are not available yet.')+'</p></section>';
         }
-      }else if(!['shift','event','imported'].includes(last._plannerKind) && typeof eventTravelMarkup==='function'){
+      }else if(['shift','event','imported'].includes(last._plannerKind) && typeof postTravelSummary==='function'){
+        groupTravel=postTravelSummary(last,{condensed:true})||'';
+      }else if(typeof eventTravelMarkup==='function'){
         const candidate={...last,origin:last._plannerKind==='shift'?'Shift':last._plannerKind==='imported'?'Calendar':'Event'};
-        travel=eventTravelMarkup(candidate,{includeInbound:false})||'';
+        groupTravel=eventTravelMarkup(candidate,{includeInbound:false})||'';
       }
-      const inbound=first.pre_travel?(typeof travelRouteStrip==='function'?'<div class="planner-inbound-travel">'+travelRouteStrip(first.pre_travel)+'</div>':(typeof journeyEventSummary==='function'?'<div class="planner-inbound-travel">'+journeyEventSummary(first.pre_travel.notes)+'</div>':'')):'';
-      chunks.push('<section class="planner-location-group" style="--location-colour:'+esc(colour)+'"><header class="planner-location-header"><div><strong>'+esc(title)+'</strong>'+(address?'<small>'+esc(address)+'</small>':'')+'<small>'+hours.toFixed(Number.isInteger(hours)?0:1)+' hours · '+group.length+' item'+(group.length===1?'':'s')+'</small></div><strong>'+esc(start)+'–'+esc(end)+'</strong></header>'+inbound+'<div class="planner-location-areas">'+areas+'</div></section>'+(travel?'<div class="planner-location-travel today-travel-connector">'+travel+'</div>':''));
+      const inboundLine=first.pre_travel&&typeof condensedJourneyText==='function'?condensedJourneyText(first.pre_travel):'';
+      const inbound=inboundLine?'<section class="planner-inbound-travel travel-condensed" aria-label="Travel from home"><strong>Travel from home</strong><p>'+esc(inboundLine)+'</p></section>':'';
+      chunks.push('<section class="planner-location-group" style="--location-colour:'+esc(colour)+'"><header class="planner-location-header"><div><strong>'+esc(title)+'</strong>'+(address?'<small>'+esc(address)+'</small>':'')+'<small>'+hours.toFixed(Number.isInteger(hours)?0:1)+' hours · '+group.length+' item'+(group.length===1?'':'s')+'</small></div><strong>'+esc(start)+'–'+esc(end)+'</strong></header>'+inbound+'<details class="location-areas-toggle"'+(editing?' open':'')+'><summary><span class="location-areas-show">Show '+noun+'</span><span class="location-areas-hide">Hide '+noun+'</span><small>'+group.length+'</small></summary><div class="planner-location-areas">'+areas+'</div></details>'+groupTravel+'</section>'+(travel?'<div class="planner-location-travel today-travel-connector">'+travel+'</div>':''));
       i=j;
     }
     return chunks.join('');

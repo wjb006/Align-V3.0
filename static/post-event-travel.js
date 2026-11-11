@@ -68,8 +68,9 @@ function postTravelSummary(item,options={}) {
   const from=String(info.origin||item.location||'').trim(),to=String(info.destination_name||info.destination||'').trim();
   const routeLine=to?'<small>'+(from?e(from)+' → ':'')+e(to)+'</small>':'';
   if (options.condensed) {
-    const text=condensedJourneyText(journey);
+    const text=condensedJourneyText(journey)||String(journey.notes||'').replace(/\s+/g,' ').trim();
     if (text) return '<section class="shift-travel-itinerary-wrap travel-condensed" aria-label="'+heading+' journey"><strong>'+heading+'</strong>'+routeLine+'<p>'+e(text)+'</p></section>';
+    return '';
   }
   let itinerary=travelRouteStrip(journey,{detailed:options.detailed===true});
   if(!itinerary&&journey?.notes&&typeof journeyEventSummary==='function'){
@@ -175,7 +176,7 @@ function eventHasFinished(item) {
 }
 function eventTravelMarkup(item,{includeInbound=true}={}) {
   if(!item||eventIsUnderway(item))return '';
-  const post=postTravelSummary(item);
+  const post=postTravelSummary(item,{condensed:true});
   if(eventHasFinished(item))return post;
   if(!includeInbound)return post;
   const notes=item.notes||'';
