@@ -77,16 +77,22 @@ def subscribe(c, subscription, now=None):
     return key
 
 
-def send(subscription, tag, test=False):
+def send(subscription, tag, test=False, body=None):
     from pywebpush import webpush
     import requests
     class NoRedirectSession(requests.Session):
         def request(self, *args, **kwargs):
             kwargs['allow_redirects'] = False
             return super().request(*args, **kwargs)
+    if test:
+        message = 'Phone notifications are connected.'
+    elif body:
+        message = ' '.join(str(body).split())[:180]
+    else:
+        message = 'You have a reminder. Open Align to see the details.'
     with NoRedirectSession() as session:
         response = webpush(subscription_info=validate_subscription(subscription),
-            data=json.dumps({'title': 'Align', 'body': 'Phone notifications are connected.' if test else 'You have a reminder. Open Align to see the details.', 'tag': tag}),
+            data=json.dumps({'title': 'Align', 'body': message, 'tag': tag}),
             vapid_private_key=os.environ['ALIGN_PUSH_PRIVATE_KEY'],
             vapid_claims={'sub': 'https://beta.getalign.co.uk'},
             ttl=3600, timeout=4, requests_session=session)
@@ -106,15 +112,18 @@ def due_items(c, now):
                 at = at.replace(tzinfo=ZONE)
             at = at.astimezone(timezone.utc)
             if now - timedelta(hours=24) <= at <= now:
-                yield digest(f'{kind}:{rid}:{value}'), at
+                yield digest(f'{kind}:{rid}:{value}'), at, None
         except ValueError:
             continue
     try:
         import finance_db
         for event_id, at in finance_db.push_reminders(c, now):
-            yield digest(event_id), at
+            yield digest(event_id), at, None
     except Exception:
-        return
+        pass
+    from leave_alerts import due as due_leave, settings as leave_settings
+    for event_id, at, body in due_leave(c, now, leave_settings(setting(c, 'leave_alerts', {}))):
+        yield digest(event_id), at, body
 
 
 def dispatch(c, now=None, sender=send, deadline=None):
@@ -130,7 +139,7 @@ def dispatch(c, now=None, sender=send, deadline=None):
     c.commit()
     for key, device in devices:
         since = datetime.fromisoformat(device['since'])
-        for event_id, at in items:
+        for event_id, at, body in items:
             if time.monotonic() >= deadline:
                 return counts
             if at < since:
@@ -139,7 +148,7 @@ def dispatch(c, now=None, sender=send, deadline=None):
             if setting(c, receipt):
                 continue
             try:
-                sender(device['subscription'], 'align-' + event_id)
+                sender(device['subscription'], 'align-' + event_id, False, body)
             except Exception as exc:
                 response = getattr(exc, 'response', None)
                 status = getattr(response, 'status_code', None)
@@ -212,7 +221,13 @@ def handle(handler, app, method):
         body = handler.read_json() if method == 'POST' else {}
         with app.db_connection() as c:
             if path == '/api/phone-push/status' and method == 'GET':
-                result = {'configured': configured(), 'public_key': os.environ.get('ALIGN_PUSH_PUBLIC_KEY', ''), 'last_check': setting(c, 'phone_push_last_check')}
+                from leave_alerts import settings as leave_settings
+                result = {'configured': configured(), 'public_key': os.environ.get('ALIGN_PUSH_PUBLIC_KEY', ''), 'last_check': setting(c, 'phone_push_last_check'), 'leave_alerts': leave_settings(setting(c, 'leave_alerts', {}))}
+            elif path == '/api/phone-push/leave-alerts' and method == 'POST':
+                from leave_alerts import save_settings
+                saved = save_settings(body)
+                save(c, 'leave_alerts', saved)
+                result = {'saved': True, 'leave_alerts': saved}
             elif path == '/api/phone-push/subscribe' and method == 'POST':
                 if not configured():
                     raise ValueError('The server notification setup is not finished yet.')

@@ -1,0 +1,17 @@
+# Prepared Render cron for leave-now and reminder push.
+# Not referenced by the live render.yaml blueprint.
+# Create it only after Will approves, with ALIGN_PUSH_CRON_SECRET set on both this job and the web service.
+services:
+  - type: cron
+    name: align-leave-alerts
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    schedule: "* * * * *"
+    dockerCommand: >-
+      python -c "import os,urllib.request; urllib.request.urlopen(urllib.request.Request(os.environ['ALIGN_PUBLIC_URL'].rstrip('/')+'/api/phone-push/dispatch', method='POST', headers={'Authorization':'Bearer '+os.environ['ALIGN_PUSH_CRON_SECRET']}))"
+    envVars:
+      - key: ALIGN_PUBLIC_URL
+        value: https://www.getalign.co.uk
+      - key: ALIGN_PUSH_CRON_SECRET
+        sync: false
