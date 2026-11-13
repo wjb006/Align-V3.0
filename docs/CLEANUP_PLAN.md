@@ -116,8 +116,8 @@ This token can see only `wjb006/Align-V3.0`. `https://github.com/wjb006/Align-ap
 
 - Root `149_asset_studio.sql` (10,164 bytes) and `149_asset_studio_rollback.sql` (1,218 bytes) differ from `migrations/`. The migration runner reads `migrations/` only. The root asset-studio script still wraps itself in `BEGIN IMMEDIATE` / `COMMIT` and has weaker checks than the migrations copy. See S3.
 - `scripts/` (`Build-Align-V3-Test.ps1`, `Configure-Align-Render.ps1`) and `Scripts/` (`Clean-Align.ps1`, `Update-AlignFolders.ps1`) are two directories that differ only by case. Nothing in the repo references the `Scripts/` path. On a case-insensitive Windows checkout one directory can hide the other. See S2.
-- Unreferenced HTML mockups, safe to keep or drop (D10): `daily-timeline-mockup.html`, `today-weather-mockup.html`, `work-shift-autofill-mockup.html`. No non-HTML file mentions them.
-- Asset query strings are not all `158-v92`. Thirteen pages under `static/` still reference older tokens (`141`, `156-v57`, `158-v91`, and `161-builder-menu-scroll` on `static/owner-builder.html`). The shell and service worker are on `158-v92`. See D6.
+- The three unreferenced HTML mockups named in D10 have been deleted.
+- Beta, desktop, Management Studio, owner-builder, widget and phone-notification pages now use the shell token `158-v94`. See D6.
 - `.github/workflows/live-health.yml` still requests `https://align-beta-preview.onrender.com/api/health`. That URL returned HTTP 404 on 9 November 2026. See D7.
 - `.github/workflows/build-158-windows.yml` only runs on push to `test/align-v3-build-158`, which no longer exists, plus a manual dispatch. It can stay as a manual archive builder or be folded into the current Windows workflow later.
 - `docs/FULL_REPAIR_AUDIT.md` (4 November) is partly out of date: rota OCR is now implemented and the Docker image runs the real OCR test. `BUILD_CHECKLIST.md` still describes an 11 October CI baseline and says the Render service is not created. The live health check shows build 158 on getalign.co.uk. `programme/README.md` contradicts the root README. See D7.
@@ -136,8 +136,8 @@ Other version notes, none of which produced an advisory:
 
 | Item | Here | Current check on 9 November 2026 |
 | --- | --- | --- |
-| Playwright | pinned `1.63.0` in `browser-tests/package.json` | npm latest `1.65.0` |
-| Go module | `go 1.22` in `studio-launcher/go.mod` | `go.dev` reports `go1.27.3` (19 October 2026). This VM's toolchain is Go 1.22.2. Go 1.22 left support in February 2025. |
+| Playwright | pinned `1.65.0` in `browser-tests/package.json` | Was `1.63.0`. npm latest on 9 November 2026 was `1.65.0`. |
+| Go module | `go 1.27.4` in `studio-launcher/go.mod` | Was `go 1.22`. Stable `go1.27.4` was published on 2 November 2026. |
 | Python | 3.12, Docker `python:3.12-slim-bookworm` | Still the version the repo and CI request. |
 | Other Python pins | ranges such as `cryptography>=45,<51`, `psycopg[binary]>=3.2,<4`, `caldav==3.2.1` | Resolved install was clean under `pip-audit`. There is no lockfile, so a future install can still float inside the ranges. |
 
@@ -215,15 +215,15 @@ These do not change planner behaviour. They were not done in this pull request.
 
 **D5. Make journey clocks use London wall time, then put `timeline.spec.js` in the browser workflow.** `journeyClock` should treat offset-less timestamps the way `parseAlignDateTime` does, then the spec should expect `08:00` on a UTC runner. Until that lands, the spec fails on UTC and is invisible to CI.
 
-**D6. Cache-busting strings.** Bring beta, desktop, Management Studio, owner-builder, widget, and phone-notification pages onto one asset token with the service worker, or document why some pages intentionally stay behind. `static/owner-builder.html` already contains `161-builder-menu-scroll` while `BUILD_VERSION` is 158. Tests such as `test_ui_polish.py` pin `158-v92`, so this is a small coordinated edit, not a drive-by replace.
+**D6. Cache-busting strings.** Done. Beta, desktop, Management Studio, owner-builder, widget, and phone-notification pages use `158-v94`, the same token as `static/index.html` and the service worker. Per-record image versions (`?v=${a.version}`) are unchanged.
 
 **D7. Docs and the dead health URL.** Rewrite the release-gate section of `BUILD_CHECKLIST.md` so it matches build 158 on getalign.co.uk, and mark `docs/FULL_REPAIR_AUDIT.md` as historical or update the OCR and hosting gaps. Retarget `live-health.yml` from `align-beta-preview.onrender.com` (HTTP 404) to `https://www.getalign.co.uk/api/health`, or delete the workflow. The check should keep printing only version, mode, and database availability.
 
-**D8. Go toolchain.** If `studio-launcher/` stays, raise `go 1.22` to a supported release (1.27.3 was current on 19 October 2026) and rerun `go test ./...`. Skip this if D3 removes the launcher.
+**D8. Go toolchain.** Done. `studio-launcher/go.mod` asks for Go 1.27.4, the stable release published on 2 November 2026. The launcher stays until D3 is decided.
 
-**D9. Playwright.** Bump the pin from 1.63.0 to 1.65.0 when the browser workflow is next edited. No advisory is open. Low priority.
+**D9. Playwright.** Done. `browser-tests/package.json` pins Playwright 1.65.0.
 
-**D10. Mockups.** Keep `daily-timeline-mockup.html`, `today-weather-mockup.html`, and `work-shift-autofill-mockup.html` as design notes, or delete them. Nothing else references them.
+**D10. Mockups.** Done. `daily-timeline-mockup.html`, `today-weather-mockup.html`, and `work-shift-autofill-mockup.html` are deleted. Nothing else referenced them.
 
 ### Explicitly leave alone
 
