@@ -61,6 +61,36 @@ function condensedJourneyText(journey={}) {
   const arrive=clock(journey.arrival_at||journey.arrival||journey.arrive_at);
   return [leave?`Leave ${leave}`:'', services.join(', '), arrive?`Arrive ${arrive}`:''].filter(Boolean).join(' · ');
 }
+function designTravelStrip(journey={}, options={}) {
+  const e=typeof escapeHtml==='function'?escapeHtml:value=>String(value??'');
+  const clock=value=>typeof journeyClock==='function'?journeyClock(value):String(value||'').slice(11,16);
+  const steps=Array.isArray(journey.steps)?journey.steps:[];
+  const parts=[];
+  const leave=clock(journey.leave_at||journey.departure||journey.depart_at);
+  const arrive=clock(journey.arrival_at||journey.arrival||journey.arrive_at);
+  const leg=(icon, small, strong, extra='')=>`<span class="design-leg">${icon}<span><small>${e(small)}</small><strong>${e(strong)}</strong></span>${extra}</span>`;
+  if(leave) parts.push(leg('<span class="design-leg-icon" aria-hidden="true">⌖</span>','Leave',leave));
+  for(const step of steps){
+    const mode=String(step.mode||'').toLowerCase();
+    if(mode==='wait') continue;
+    const minutes=Number(step.minutes);
+    const minuteText=Number.isFinite(minutes)&&minutes>0?`${minutes} min`:'';
+    const service=String(step.service_number||step.service||'').trim();
+    if(mode==='bus'||mode==='train'||mode==='rail'){
+      const label=mode==='bus'?'Bus':'Train';
+      parts.push(`<span class="design-leg design-leg-ride"><span class="design-leg-icon" aria-hidden="true">${mode==='bus'?'🚌':'🚆'}</span><span><small>${e(label)}</small><strong class="design-service">${e(service||'—')}</strong></span>${minuteText?`<b>${e(minuteText)}</b>`:''}</span>`);
+    } else {
+      parts.push(leg('<span class="design-leg-icon" aria-hidden="true">🚶</span>', mode==='drive'?'Drive':'Walk', minuteText||'—'));
+    }
+  }
+  if(arrive) parts.push(leg('<span class="design-leg-icon" aria-hidden="true">⚑</span>','Arrive',arrive));
+  if(!parts.length) return '';
+  const total=steps.reduce((sum,step)=>sum+(Number(step.minutes)||0),0);
+  const label=options.label||'Travel';
+  const route=options.route?`<small class="design-travel-route">${e(options.route)}</small>`:'';
+  const pill=options.showTotal&&total?`<span class="design-duration-pill">${e(String(total))} min</span>`:'';
+  return `<section class="design-travel" aria-label="${e(label)}"><div class="design-travel-copy"><strong>${e(label)}</strong>${route}</div><div class="design-travel-steps">${parts.join('<span class="design-arrow" aria-hidden="true">›</span>')}</div>${pill}</section>`;
+}
 function postTravelSummary(item,options={}) {
   const info=item.post_travel;if(!info?.enabled||!info?.journey)return '';
   const e=escapeHtml, journey=info.journey||null;

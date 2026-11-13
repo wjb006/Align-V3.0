@@ -40,6 +40,21 @@ class PersonalOTPTests(unittest.TestCase):
             otp.resolve_place('123 Private Road CH41 6AZ')
             self.assertNotIn('Private',request.call_args.args[0])
             self.assertIn('CH41%206AZ',request.call_args.args[0])
+    def test_nearer_stop_beats_a_long_access_walk(self):
+        long_walk=[
+            dict(mode='walk',start='2030-07-02T10:00:00+01:00',end='2030-07-02T10:20:00+01:00',service='',**{'from':'Home','to':'Far stop'}),
+            dict(mode='bus',start='2030-07-02T10:20:00+01:00',end='2030-07-02T10:30:00+01:00',service='441',**{'from':'Far stop','to':'Hospital'}),
+        ]
+        near_stop=[
+            dict(mode='walk',start='2030-07-02T10:00:00+01:00',end='2030-07-02T10:04:00+01:00',service='',**{'from':'Home','to':'Near stop'}),
+            dict(mode='bus',start='2030-07-02T10:05:00+01:00',end='2030-07-02T10:35:00+01:00',service='410',**{'from':'Near stop','to':'Hospital'}),
+        ]
+        with patch.object(otp,'resolve_place',return_value=((53.,-3.),'postcode centre')), patch.object(otp.OTPProvider,'plan',return_value=[dict(legs=long_walk), dict(legs=near_stop)]):
+            result=otp.plan(Connection(),self.body(),personal.DEFAULTS)
+        self.assertEqual(result['steps'][0]['minutes'],4)
+        self.assertEqual(result['steps'][2]['service'],'410')
+        self.assertNotEqual(result['access_walk_minutes'],20)
+
     def test_invalid_phone_location(self):
         with self.assertRaisesRegex(ValueError,'valid phone'):
             otp.plan(Connection(),{**self.body(),'latitude':float('nan'),'longitude':0},personal.DEFAULTS)

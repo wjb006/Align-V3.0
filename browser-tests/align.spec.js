@@ -688,9 +688,9 @@ async function main() {
       window.render=()=>{document.querySelector('#app').innerHTML=renderHome();};
       render();
     });
-    assert.equal(await todayPage.locator('.today-weather-location strong').textContent(),'Birkenhead');
-    await todayPage.locator('button[data-personal="weather-view"][data-view="daily"]').click();
-    assert.equal(await todayPage.locator('.today-weather-days .today-weather-day').count(),4);
+    assert.match(await todayPage.locator('.design-weather').innerText(),/birkenhead/i);
+    assert.match(await todayPage.locator('.design-weather').innerText(),/14°C/);
+    assert.equal(await todayPage.locator('.design-weather button[data-personal="weather"][aria-label="Refresh weather"]').count(),1);
     await todayPage.evaluate(() => { personalWeather=null; weatherError='Weather service unavailable'; weatherCheckedAt=Date.now(); render(); });
     assert.match(await todayPage.locator('[data-weather-result]').innerText(),/Weather service unavailable/);
     assert.equal(await todayPage.locator('button[data-personal="weather"][aria-label="Refresh weather"]').count(),1);

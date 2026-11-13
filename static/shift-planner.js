@@ -601,17 +601,23 @@
       const areas=group.map(x=>{
         const area=x.shift_type_name||x.section_name||x.category_name||x.title||x.name||'Event';
         const areaColour=x.shift_type_colour||x.section_colour||x.colour||'#16A99B';
-        return '<div class="location-group-area" style="--area-colour:'+esc(areaColour)+'">'+plannerItemCard(x,{hidePostTravel:true})+'</div>'+editFormBeside(x);
+        const forecast=typeof eventForecastChip==='function'?eventForecastChip(plannerItemStart(x)):'';
+        return '<div class="location-group-area" style="--area-colour:'+esc(areaColour)+'">'+plannerItemCard(x,{hidePostTravel:true})+forecast+'</div>'+editFormBeside(x);
       }).join('');
-      const noun=group.length===1?'area':'areas';
       const editing=state.shiftPlannerModal==='edit'&&group.some(item=>item._plannerKind==='shift'&&String(state.shiftPlannerEdit?.id)===String(item.id));
       let travel='';
       let groupTravel='';
-      if(separate && typeof postTravelSummary==='function'){
-        travel=postTravelSummary(last,{condensed:true})||'';
-        if(!travel){
-          const error=last.post_travel_error||last.post_travel?.error;
-          travel='<section class="today-route-unavailable travel-condensed" aria-label="Travel to next event"><strong>Travel to next event</strong><p role="status">'+esc(error?'Route unavailable: '+error:'Route details are not available yet.')+'</p></section>';
+      if(separate){
+        if(last.post_travel?.journey && typeof designTravelStrip==='function' && (last.post_travel.journey.steps?.length||last.post_travel.journey.leave_at||last.post_travel.journey.arrival_at)){
+          const nextName=next.location_name||next.title||next.location||'';
+          travel=designTravelStrip(last.post_travel.journey,{label:'Travel to next event',route:[title,nextName].filter(Boolean).join(' → '),showTotal:true})||'';
+        }
+        if(!travel && typeof postTravelSummary==='function'){
+          travel=postTravelSummary(last,{condensed:true})||'';
+          if(!travel){
+            const error=last.post_travel_error||last.post_travel?.error;
+            travel='<section class="today-route-unavailable travel-condensed" aria-label="Travel to next event"><strong>Travel to next event</strong><p role="status">'+esc(error?'Route unavailable: '+error:'Route details are not available yet.')+'</p></section>';
+          }
         }
       }else if(['shift','event','imported'].includes(last._plannerKind) && typeof postTravelSummary==='function'){
         groupTravel=postTravelSummary(last,{condensed:true})||'';
@@ -619,9 +625,8 @@
         const candidate={...last,origin:last._plannerKind==='shift'?'Shift':last._plannerKind==='imported'?'Calendar':'Event'};
         groupTravel=eventTravelMarkup(candidate,{includeInbound:false})||'';
       }
-      const inboundLine=first.pre_travel&&typeof condensedJourneyText==='function'?condensedJourneyText(first.pre_travel):'';
-      const inbound=inboundLine?'<section class="planner-inbound-travel travel-condensed" aria-label="Travel from home"><strong>Travel from home</strong><p>'+esc(inboundLine)+'</p></section>':'';
-      chunks.push('<section class="planner-location-group" style="--location-colour:'+esc(colour)+'"><header class="planner-location-header"><div><strong>'+esc(title)+'</strong>'+(address?'<small>'+esc(address)+'</small>':'')+'<small>'+hours.toFixed(Number.isInteger(hours)?0:1)+' hours · '+group.length+' item'+(group.length===1?'':'s')+'</small></div><strong>'+esc(start)+'–'+esc(end)+'</strong></header>'+inbound+'<details class="location-areas-toggle"'+(editing?' open':'')+'><summary><span class="location-areas-show">Show '+noun+'</span><span class="location-areas-hide">Hide '+noun+'</span><small>'+group.length+'</small></summary><div class="planner-location-areas">'+areas+'</div></details>'+groupTravel+'</section>'+(travel?'<div class="planner-location-travel today-travel-connector">'+travel+'</div>':''));
+      const inbound=first.pre_travel&&typeof designTravelStrip==='function'?designTravelStrip(first.pre_travel,{label:'Travel to '+(first.location_name||title)}):'';
+      chunks.push('<section class="planner-location-group today-location-block" style="--location-colour:'+esc(colour)+'"><header class="planner-location-header today-location-header"><div><strong>'+esc(title)+'</strong>'+(address?'<small>'+esc(address)+'</small>':'')+'<small>'+hours.toFixed(Number.isInteger(hours)?0:1)+' hours total · '+group.length+' shift'+(group.length===1?'':'s')+'</small></div><strong>'+esc(start)+'–'+esc(end)+'</strong></header>'+inbound+'<div class="planner-location-areas today-location-areas"'+(editing?' data-editing="true"':'')+'>'+areas+'</div>'+groupTravel+'</section>'+(travel?'<div class="planner-location-travel today-travel-connector design-connector">'+travel+'</div>':''));
       i=j;
     }
     return chunks.join('');
@@ -646,10 +651,12 @@
     for(let i=1;i<=count;i++){
       const day=month+'-'+String(i).padStart(2,'0');
       const ds=shifts.filter(s=>s.work_date===day), ls=leaves.filter(l=>l.leave_date===day);
-      const es=events.filter(e=>e.origin!=='Finance'&&String(e.start_at||'')<day+'T23:59:59'&&String(e.end_at||'')>day+'T00:00');
+      const onDay=e=>String(e.start_at||'').slice(0,10)<=day&&String(e.end_at||e.start_at||'').slice(0,10)>=day;
+      const es=events.filter(e=>e.origin!=='Finance'&&onDay(e));
       const fes=visibleFinance(data).filter(e=>String(e.start_at||'').slice(0,10)===day);
-      if(!ds.length&&!ls.length&&!es.length&&!fes.length)continue;
-      rows.push('<section class="restored-planner-day"><h3>'+esc(fmtDay(day))+' · '+(ds.length+es.length+fes.length+ls.length)+' total item'+(ds.length+es.length+fes.length+ls.length===1?'':'s')+'</h3>'+plannerDayMarkup(ds,es.filter(e=>!(e.origin==='Calendar')&&!!e.section_name),es.filter(e=>(e.origin==='Calendar')||(!e.section_name&&!!e.category_name)),fes,ls)+'</section>');
+      const total=ds.length+es.length+fes.length+ls.length;
+      if(!total)continue;
+      rows.push('<section class="restored-planner-day"><h3>'+esc(fmtDay(day))+' · '+total+' total item'+(total===1?'':'s')+'</h3>'+plannerDayMarkup(ds,es.filter(e=>e.origin!=='Calendar'),es.filter(e=>e.origin==='Calendar'),fes,ls)+'</section>');
     }
     return rows.length?'<div class="restored-week-list">'+rows.join('')+'</div>':'<p class="empty">Nothing planned this month.</p>';
   }
@@ -678,8 +685,9 @@
     const list=state.plannerMode==='week'
       ? Array.from({length:7},(_,i)=>shiftDay(monday(state.plannerAnchor),i)).map(day=>{
         const ds=shifts.filter(s=>s.work_date===day), ls=leaves.filter(l=>l.leave_date===day);
-        const es=(d.events||[]).filter(e=>String(e.start_at||'')<day+'T23:59:59'&&String(e.end_at||'')>day+'T00:00');
-        const ies=(d.imported_events||[]).filter(e=>String(e.start_at||'')<day+'T23:59:59'&&String(e.end_at||'')>day+'T00:00');
+        const covers=e=>String(e.start_at||'').slice(0,10)<=day&&String(e.end_at||e.start_at||'').slice(0,10)>=day;
+        const es=(d.events||[]).filter(covers);
+        const ies=(d.imported_events||[]).filter(covers);
         const fes=visibleFinance(d).filter(e=>String(e.start_at||'').slice(0,10)===day);
         const total=ds.length+es.length+ies.length+fes.length+ls.length;
         return '<section class="restored-planner-day"><h3>'+esc(fmtDay(day))+' · '+total+' total item'+(total===1?'':'s')+'</h3>'+plannerDayMarkup(ds,es,ies,fes,ls)+(!total?'<p class="restored-rest-day">Nothing planned</p>':'')+'</section>';

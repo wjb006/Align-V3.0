@@ -164,6 +164,13 @@ def plan(c, body, prefs, provider=None, provider_name='OpenTripPlanner'):
             previous_end = b
         elapsed = end.timestamp()-start.timestamp()
         minutes = math.ceil(elapsed/60)
+        access = 0
+        for step in steps:
+            if step['mode'] == 'wait':
+                continue
+            if step['mode'] != 'walk':
+                break
+            access += int(step.get('minutes') or 0)
         notes = [f"Leave {origin_name}: {format_display_datetime(leave)}", f"Arrive: {end:%H:%M}" + (f" · Event ends: {arrival:%H:%M}" if depart_after else f" · Event: {arrival:%H:%M}"), f"{minutes} minutes including walking and connections", f"Allowance: {departure_buffer} minutes before leaving", f"Start: {origin_note}; destination: {dest_note}"]
         for step in steps:
             a = datetime.fromisoformat(step['start']).astimezone(ZONE)
@@ -176,12 +183,14 @@ def plan(c, body, prefs, provider=None, provider_name='OpenTripPlanner'):
             notes[0] = f"Leave {origin_name}: {format_display_datetime(leave)}"
         notes.append(provider_name + ' · ' + live_note + ' · checked '+format_display_datetime(now))
         notes.extend(candidate.get('attributions', []))
-        plan = dict(minutes=minutes,leave_at=leave.isoformat(timespec='minutes'),arrival_at=end.isoformat(timespec='minutes'),steps=steps,notes='\n'.join(notes),mode=mode,provider=provider_name,scheduled=not delay,live=bool(delay))
-        plans.append((plan, elapsed, leave))
+        plan = dict(minutes=minutes,leave_at=leave.isoformat(timespec='minutes'),arrival_at=end.isoformat(timespec='minutes'),steps=steps,notes='\n'.join(notes),mode=mode,provider=provider_name,scheduled=not delay,live=bool(delay),access_walk_minutes=access)
+        # A long walk to the first vehicle loses to a nearer stop that still arrives on time.
+        walk_burden = access + max(0, access - 8) * 3
+        plans.append((plan, walk_burden, elapsed, leave))
     if depart_after and not deadline:
-        plans.sort(key=lambda p: (datetime.fromisoformat(p[0]['arrival_at']).timestamp(), p[0]['minutes']))
+        plans.sort(key=lambda p: (datetime.fromisoformat(p[0]['arrival_at']).timestamp(), p[1], p[0]['minutes']))
     else:
-        plans.sort(key=lambda p: (p[1], -p[2].timestamp()))
+        plans.sort(key=lambda p: (p[1], p[2], -p[3].timestamp()))
     if not plans: raise ValueError('No scheduled journey reaches this event in time. Try another time or travel mode; check that the timetable covers this date.')
-    plans = [plan for plan, _, _ in plans[:MAX_JOURNEYS]]
+    plans = [plan for plan, *_rest in plans[:MAX_JOURNEYS]]
     return {**plans[0], 'journeys':plans}
