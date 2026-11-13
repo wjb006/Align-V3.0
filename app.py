@@ -1179,10 +1179,24 @@ class AlignHandler(SimpleHTTPRequestHandler):
         return self.headers.get("X-Align-Admin", "") in ADMIN_SESSIONS
 
     def require_admin(self) -> bool:
-        if self.is_admin():
+        if not self.is_admin():
+            self.send_json(HTTPStatus.FORBIDDEN, {"error": "Admin sign-in is required for this change."})
+            return False
+        if os.environ.get('ALIGN_OWNER_TOTP') == 'optional' or not BETA_MODE:
             return True
-        self.send_json(HTTPStatus.FORBIDDEN, {"error": "Admin sign-in is required for this change."})
-        return False
+        row = self.beta_user()
+        path = urlparse(self.path).path
+        if path in {'/api/beta/totp/start', '/api/beta/totp/confirm', '/api/beta/me'}:
+            return True
+        try:
+            enabled = bool(row and row['is_owner'] and row['totp_enabled'])
+            missing = bool(row and row['is_owner'] and not row['totp_enabled'])
+        except (KeyError, IndexError):
+            return True
+        if missing and not enabled:
+            self.send_json(HTTPStatus.FORBIDDEN, {'error': 'Turn on two-step sign-in before using Management Studio.', 'code': 'totp_required'})
+            return False
+        return True
 
     def require_local_backup_admin(self) -> bool:
         if BETA_MODE or postgres_enabled():
@@ -1363,14 +1377,21 @@ class AlignHandler(SimpleHTTPRequestHandler):
         value='' if clear else token
         age=0 if clear else 30*24*60*60
         forwarded=self.headers.get('X-Forwarded-Proto','').split(',')[0].strip().lower()
-        is_https = forwarded == 'https' or isinstance(self.connection, ssl.SSLSocket)
+        public = os.environ.get('ALIGN_PUBLIC_URL', '')
+        is_https = public.startswith('https://') or forwarded == 'https' or isinstance(self.connection, ssl.SSLSocket)
         secure = '; Secure' if is_https else ''
-        # Hosted tester access runs behind Cloudflare HTTPS. SameSite=None keeps the
-        # session usable in Safari and embedded iPhone browsers opened from
-        # another app; Secure is mandatory for None. Local HTTP diagnostics
-        # deliberately stay Lax.
-        same_site = 'None' if is_https else 'Lax'
-        self.send_header('Set-Cookie',f'align_beta={value}; Path=/; Max-Age={age}; HttpOnly{secure}; SameSite={same_site}; Priority=High')
+        # First-party session cookie. Lax is sent on the installed PWA and on
+        # normal navigation, and is not sent on cross-site form posts.
+        self.send_header('Set-Cookie',f'align_beta={value}; Path=/; Max-Age={age}; HttpOnly{secure}; SameSite=Lax; Priority=High')
+
+    def send_totp_cookie(self, token: str, clear: bool=False):
+        value = '' if clear else token
+        age = 0 if clear else 300
+        forwarded=self.headers.get('X-Forwarded-Proto','').split(',')[0].strip().lower()
+        public = os.environ.get('ALIGN_PUBLIC_URL', '')
+        is_https = public.startswith('https://') or forwarded == 'https' or isinstance(self.connection, ssl.SSLSocket)
+        secure = '; Secure' if is_https else ''
+        self.send_header('Set-Cookie', f'align_totp={value}; Path=/; Max-Age={age}; HttpOnly{secure}; SameSite=Lax')
 
     def request_icloud_manager(self, row=None, restore=True):
         if BETA_MODE:

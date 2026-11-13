@@ -298,13 +298,20 @@ def route_plan(route, mode, event_time, departure_buffer):
 
 def journey(c, body):
     mode = body.get('mode', preferences(c)['default_travel'])
-    if mode == 'drive' and os.environ.get('ALIGN_JOURNEY_PROVIDER', 'otp') == 'here':
+    provider_name = os.environ.get('ALIGN_JOURNEY_PROVIDER', 'otp')
+    from transport_access import hosted_otp_url
+    if mode == 'drive' and provider_name == 'here':
         return here_journey(c, body)
-    if os.environ.get('ALIGN_JOURNEY_PROVIDER', 'otp') == 'here' or (mode != 'drive' and os.environ.get('ALIGN_HERE_TRANSIT_ENABLED') == '1'):
+    # A hosted OTP graph is the timetable. Loopback OTP is local-only and does
+    # not replace HERE on the hosted service until ALIGN_OTP_URL is a real endpoint.
+    if mode != 'drive' and hosted_otp_url():
+        from personal_otp import plan
+        result = plan(c, body, preferences(c))
+    elif provider_name == 'here' or (mode != 'drive' and os.environ.get('ALIGN_HERE_TRANSIT_ENABLED') == '1'):
         from personal_otp import plan
         from here_transit import HERETransitProvider
         result = plan(c, body, preferences(c), HERETransitProvider(), 'HERE')
-    elif os.environ.get('ALIGN_JOURNEY_PROVIDER', 'otp') == 'otp':
+    elif provider_name == 'otp':
         from personal_otp import plan
         result = plan(c, body, preferences(c))
     else:
@@ -494,7 +501,10 @@ def handle(handler,app,method):
         if not isinstance(body,dict): raise ValueError('Send an object containing the event details.')
         with app.db_connection() as c:
             ensure(c)
-            if path=='/api/personal/preferences' and method=='PUT': result=save_preferences(c,body)
+            if path=='/api/personal/offline-pack' and method=='GET':
+                from offline_pack import pack
+                result=pack(c)
+            elif path=='/api/personal/preferences' and method=='PUT': result=save_preferences(c,body)
             elif path=='/api/personal/availability' and method=='POST': result=availability(c,body)
             elif path=='/api/personal/weather' and method=='POST':
                 try:

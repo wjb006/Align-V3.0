@@ -6,6 +6,6 @@
     "test": "node align.spec.js"
   },
   "devDependencies": {
-    "playwright": "1.63.0"
+    "playwright": "1.65.0"
   }
 }

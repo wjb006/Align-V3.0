@@ -19,6 +19,16 @@ services:
         value: "1"
       - key: ALIGN_HERE_ROUTING_KEY
         sync: false
+      # Public NaPTAN stop data. No key. Caps access walks using published stops.
+      - key: ALIGN_NAPTAN_LIVE
+        value: "1"
+      # Set these on the hosted service when the feeds exist. Empty until then.
+      - key: ALIGN_OTP_URL
+        sync: false
+      - key: ALIGN_BODS_API_KEY
+        sync: false
+      - key: ALIGN_DARWIN_TOKEN
+        sync: false
       - key: DATABASE_URL
         sync: false
       - key: AWS_ENDPOINT_URL_S3

@@ -274,7 +274,7 @@ self.addEventListener('fetch', event => {
   if (url.origin !== self.location.origin) return;
 
   if (url.pathname.startsWith('/api/')) {
-    const offlineSafe = url.pathname === '/api/bootstrap' || url.pathname === '/api/month' || url.pathname === '/api/sections/definitions' || /^\/api\/sections\/\d+$/.test(url.pathname);
+    const offlineSafe = url.pathname === '/api/bootstrap' || url.pathname === '/api/month' || url.pathname === '/api/personal/offline-pack' || url.pathname === '/api/sections/definitions' || /^\/api\/sections\/\d+$/.test(url.pathname);
     if (offlineSafe) event.respondWith(networkFirstApi(request));
     else event.respondWith(fetch(request, { cache: 'no-store' }));
     return;
