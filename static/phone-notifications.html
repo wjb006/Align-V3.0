@@ -11,6 +11,13 @@
 <p id="status" role="status" aria-live="polite">Checking setup…</p>
 <button id="enable" disabled>Enable on this device</button><button id="test" disabled>Send test notification</button><button id="disable" disabled>Disable on this device</button>
 <p id="check"></p></section>
-<section><h2>What is included</h2><p>Saved personal reminders and existing work alerts. Other appointment and category reminder features are still to be added.</p>
-<p>Lock-screen messages hide your reminder details. Open Align to read them.</p><small>The scheduler checks every minute once activated. Network outages, Focus settings and free-hosting restarts may delay alerts. Do not rely on these as your only time-critical or medication reminder.</small></section>
+<section><h2>Time to leave</h2>
+<p>When a saved journey has a leave time, Align can notify this phone. A reported bus or train delay moves the alert later. Rain or a storm, using your weather settings, moves it earlier. The message names the event and does not include your address.</p>
+<label><input id="leave-enabled" type="checkbox"> Tell me when to leave</label>
+<label>Check window (minutes) <input id="leave-window" type="number" min="1" max="30" value="8"></label>
+<button id="leave-save" type="button">Save leave alerts</button>
+<p id="leave-status"></p>
+</section>
+<section><h2>What is included</h2><p>Saved personal reminders, leave-now alerts you opt into, and existing work alerts.</p>
+<p>Ordinary reminders stay generic on the lock screen. A leave-now alert says which event it is for, without the address. Open Align for the full journey.</p><small>The scheduler checks every minute once activated. On iPhone this works from the installed Home Screen app, not from a Safari tab. Network outages, Focus settings and hosting restarts may delay alerts.</small></section>
 </main><script src="/dates.js?v=156-v25"></script><script src="/phone-notifications.js?v=1"></script></body></html>

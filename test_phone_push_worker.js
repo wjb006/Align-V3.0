@@ -22,5 +22,9 @@ async function push(data) {
   assert.equal(shown.length, 2);
   await push({json: () => ({tag: 'align-test'})});
   assert.equal(shown[2].options.body, 'Phone notifications are connected.');
-  console.log('PASS: background push, private text, malformed payload fallback and test notification');
+  await push({json: () => ({tag: 'align-leave', body: 'Time to leave for Clinic. The service is 4 minutes later.'})});
+  assert.equal(shown[3].options.body, 'Time to leave for Clinic. The service is 4 minutes later.');
+  await push({json: () => ({tag: 'align-leave', body: 'Time to leave for Home CH41 6AZ.'})});
+  assert.equal(shown[4].options.body, 'You have a reminder. Open Align to see the details.');
+  console.log('PASS: background push, private text, malformed payload fallback, test notification and leave-now text');
 })().catch(error => {console.error(error); process.exitCode = 1;});

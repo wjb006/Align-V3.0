@@ -238,8 +238,12 @@ self.addEventListener('message', event => {
 self.addEventListener('push', event => {
   let data = {};
   try { data = event.data?.json() || {}; } catch (_) { /* Always display a safe fallback. */ }
+  const offered = String(data.body || '').replace(/\s+/g, ' ').trim().slice(0, 180);
+  // Only the leave-now sentence is shown on the lock screen. Other reminder
+  // text stays generic so a payload cannot surface private notes or an address.
+  const leave = /^Time to leave for \S.{0,160}$/.test(offered) && !/\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/i.test(offered);
   event.waitUntil(self.registration.showNotification('Align', {
-    body: data.tag === 'align-test' ? 'Phone notifications are connected.' : 'You have a reminder. Open Align to see the details.',
+    body: leave ? offered : (data.tag === 'align-test' ? 'Phone notifications are connected.' : 'You have a reminder. Open Align to see the details.'),
     tag: String(data.tag || 'align-reminder').slice(0, 100),
     icon: '/icons/align-192.png', badge: '/icons/align-192.png',
     data: { url: '/#home' },

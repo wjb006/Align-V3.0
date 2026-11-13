@@ -45,6 +45,9 @@
   async function start() {
     config = await api('status');
     el('check').textContent = config.last_check ? 'Last scheduler check: ' + formatDisplayDateTime(config.last_check) : 'The scheduler has not checked this account yet.';
+    const leave = config.leave_alerts || {enabled: false, window_minutes: 8};
+    el('leave-enabled').checked = Boolean(leave.enabled);
+    el('leave-window').value = leave.window_minutes || 8;
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) throw new Error('On iPhone, open the installed Align Home Screen app to enable notifications. This browser does not currently support push notifications.');
     const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     if (ios && !navigator.standalone && !matchMedia('(display-mode: standalone)').matches) throw new Error('Open Align from your Home Screen icon, then tap the bell. Notifications cannot be enabled from an ordinary iPhone browser tab.');
@@ -55,5 +58,9 @@
     el('status').textContent = !config.configured ? 'The server setup is not finished yet. Nothing has been enabled.' : subscription ? 'This browser has a subscription. Tap Enable to register it with your signed-in Align account, then send a test.' : 'Ready to enable phone notifications.';
     buttons();
   }
+  el('leave-save').onclick = () => action(async () => {
+    const saved = await api('leave-alerts', {enabled: el('leave-enabled').checked, window_minutes: Number(el('leave-window').value)});
+    el('leave-status').textContent = saved.leave_alerts.enabled ? 'Leave alerts are on for this account.' : 'Leave alerts are off for this account.';
+  });
   start().catch(error => { el('status').textContent = error.message; });
 })();
