@@ -173,6 +173,55 @@ class RotaImportTests(unittest.TestCase):
         self.assertIn(f'/work-rota.js?v={version.group(1)}', index)
         self.assertIn('/work-rota.js?v=${ASSET_VERSION}', Path('static/service-worker.js').read_text(encoding='utf-8'))
 
+    def test_photo_review_assigns_workplace_and_shift_type_before_save(self):
+        with app.db_connection() as connection:
+            connection.execute("INSERT INTO shift_types(name,colour) VALUES('Wards','#0EA5E9')")
+            connection.execute("INSERT INTO shift_types(name,colour) VALUES('Clinic','#16A34A')")
+            connection.commit()
+
+        class FakeProvider:
+            def extract_text(self, path, media_type):
+                return '2026-12-01 08:00-16:00 Wards\n2026-12-02 09:00-17:00 Clinic\n'
+
+        with mock.patch.object(rota_ocr_provider, 'get_provider', return_value=FakeProvider()):
+            uploaded = self.upload('wards.png', png(800, 400), 'image/png')
+        by_date = {entry['work_date']: entry for entry in uploaded['entries']}
+        self.assertEqual(uploaded['import']['status'], 'review')
+        self.assertEqual(by_date['2026-12-01']['shift_type_id'], self._shift_type('Wards'))
+        self.assertEqual(by_date['2026-12-02']['shift_type_id'], self._shift_type('Clinic'))
+        self.assertEqual(by_date['2026-12-01']['location_id'], self.location_id)
+        self.assertEqual(by_date['2026-12-01']['location_text'], 'Main Hospital')
+        with app.db_connection() as connection:
+            self.assertEqual(connection.execute('SELECT COUNT(*) FROM shifts').fetchone()[0], 0)
+        approved = self.json_request(
+            'POST',
+            f"/api/work/rota/imports/{uploaded['import']['id']}/approve",
+            {'idempotency_key': 'photo-wards-clinic-01', 'entries': [
+                {'id': by_date['2026-12-01']['id'], 'revision': by_date['2026-12-01']['revision']},
+                {'id': by_date['2026-12-02']['id'], 'revision': by_date['2026-12-02']['revision']},
+            ]},
+            expected=200,
+        )
+        self.assertEqual(len(approved['created']), 2)
+        with app.db_connection() as connection:
+            rows = connection.execute(
+                'SELECT work_date, location_id, shift_type_name FROM shifts ORDER BY work_date'
+            ).fetchall()
+            self.assertEqual([row['work_date'] for row in rows], ['2026-12-01', '2026-12-02'])
+            self.assertEqual({row['location_id'] for row in rows}, {self.location_id})
+            self.assertEqual([row['shift_type_name'] for row in rows], ['Wards', 'Clinic'])
+        ambiguous = rota_parser.match_catalog(rota_parser.interpret_pdf_text('2026-12-03 08:00-16:00 Wards Clinic')[0], {
+            'locations': [{'id': 1, 'name': 'Main Hospital', 'active': 1}, {'id': 2, 'name': 'Other Site', 'active': 1}],
+            'shift_types': [{'id': 3, 'name': 'Wards', 'active': 1}, {'id': 4, 'name': 'Clinic', 'active': 1}],
+            'templates': [],
+        })
+        self.assertIsNone(ambiguous['shift_type_id'])
+        self.assertIsNone(ambiguous['location_id'])
+
+    def _shift_type(self, name):
+        with app.db_connection() as connection:
+            return connection.execute('SELECT id FROM shift_types WHERE name=?', (name,)).fetchone()['id']
+
     def test_photo_ocr_creates_review_rows_without_retaining_source(self):
         class FakeProvider:
             def extract_text(self, path, media_type):

@@ -350,6 +350,14 @@ def _one_match(needle, rows, field):
     return None
 
 
+def _named_shift_type(draft, shift_types):
+    """Match one shift-type name that appears as its own word, such as Wards or Clinic."""
+    text = ' '.join(part for part in (draft.get('shift_label'), draft.get('department')) if part)
+    words = set(re.findall(r'[a-z0-9]{3,}', clean_text(text, 160).casefold()))
+    hits = [row for row in shift_types if clean_text(row.get('name', ''), 80).casefold() in words]
+    return hits[0] if len(hits) == 1 else None
+
+
 def match_catalog(draft, catalog):
     """Link a location, shift type or template only on one clear match."""
     matched = dict(draft)
@@ -360,6 +368,9 @@ def match_catalog(draft, catalog):
     if location:
         matched['location_id'] = location['id']
         matched['location_text'] = location['name']
+    elif not clean_text(matched.get('location_text', ''), 120) and len(locations) == 1:
+        matched['location_id'] = locations[0]['id']
+        matched['location_text'] = locations[0]['name']
     pool = templates
     if matched.get('location_id'):
         pool = [row for row in templates if row.get('location_id') == matched['location_id']] or templates
@@ -379,7 +390,11 @@ def match_catalog(draft, catalog):
         matched['location_id'] = template['location_id']
         matched['shift_type_id'] = template['shift_type_id']
     if not matched.get('shift_type_id'):
-        shift_type = _one_match(matched.get('department', ''), shift_types, 'name') or _one_match(matched.get('shift_label', ''), shift_types, 'name')
+        shift_type = (
+            _one_match(matched.get('department', ''), shift_types, 'name')
+            or _one_match(matched.get('shift_label', ''), shift_types, 'name')
+            or _named_shift_type(matched, shift_types)
+        )
         if shift_type:
             matched['shift_type_id'] = shift_type['id']
     return score_entry(matched)
