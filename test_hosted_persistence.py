@@ -296,6 +296,21 @@ class PostgresIntegrationTests(unittest.TestCase):
                     self.assertEqual(c.execute('SHOW timezone').fetchone()[0], 'UTC')
                     c.execute(f'SELECT COUNT(*) FROM {table}').fetchone()
 
+    def test_fresh_auth_schema_includes_two_step_sign_in(self):
+        with pg.psycopg.connect(self.dsn) as raw:
+            columns = {row[0] for row in raw.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema='align_auth' AND table_name='beta_users'")}
+            tables = {row[0] for row in raw.execute(
+                "SELECT table_name FROM information_schema.tables "
+                "WHERE table_schema='align_auth'")}
+            self.assertTrue({'totp_secret', 'totp_enabled'} <= columns)
+            self.assertIn('beta_login_challenges', tables)
+            with sqlite_support.connect('align.sqlite3') as owner:
+                self.assertEqual(owner.execute(
+                    "SELECT COUNT(*) FROM schema_migrations WHERE migration_id=?",
+                    ('159_account_security',)).fetchone()[0], 1)
+
     def test_owner_restart_inbox_and_adapter_contract(self):
         import transport_places
         import transport_service
