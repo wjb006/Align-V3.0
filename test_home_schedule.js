@@ -9,6 +9,7 @@ const start = app.indexOf('function homeScheduleItems(');
 const end = app.indexOf('\nfunction renderHome(', start);
 assert(start >= 0 && end > start);
 const now = new Date();
+now.setHours(12, 0, 0, 0);
 const iso = date => date.toISOString();
 const today = iso(now).slice(0, 10);
 const finished = {title:'Clinic', start_at:iso(new Date(now.getTime() - 2 * 3600000)), end_at:iso(new Date(now.getTime() - 3600000))};
@@ -16,6 +17,10 @@ const nextToday = {title:'Dentist', start_at:iso(new Date(now.getTime() + 360000
 const tomorrow = new Date(now.getTime() + 24 * 3600000);
 const later = {title:'Tomorrow visit', start_at:iso(tomorrow), end_at:iso(new Date(tomorrow.getTime() + 3600000))};
 const context = {
+  Date: class FixedDate extends Date {
+    constructor(...args) { super(...(args.length ? args : [now.getTime()])); }
+    static now() { return now.getTime(); }
+  },
   escapeHtml:value => String(value ?? ''),
   document:{addEventListener(){}},
   setInterval(){ return 0; },

@@ -4,10 +4,10 @@
 .today-location-header>div,.planner-location-header>div{min-width:0}
 .today-location-header strong,.planner-location-header strong{font-size:clamp(17px,4.5vw,23px);line-height:1.2}
 .today-location-header small,.planner-location-header small{display:block;margin-top:5px;color:#e1edff;font-size:13px;line-height:1.35;overflow-wrap:anywhere}
-.today-location-header{grid-template-columns:56px minmax(0,1fr) auto}
+.today-location-header:has(.today-location-icon){grid-template-columns:56px minmax(0,1fr) auto}
 .today-location-icon{width:54px;height:54px;display:grid;place-items:center;color:#fff;border-right:2px solid #ffffff55;padding-right:12px}
 .today-location-icon svg{width:44px;height:44px}
-.today-location-span,.planner-location-header>strong:last-child{white-space:nowrap;font-size:clamp(16px,4.2vw,22px)}
+.today-location-span,.planner-location-header>strong.today-location-span{justify-self:end;background:transparent;padding:0;border-radius:0;white-space:nowrap;font-size:clamp(16px,4.6vw,22px);font-weight:800;letter-spacing:-.02em}
 .today-location-areas,.planner-location-areas{display:grid;gap:10px;min-width:0}
 .today-shift-area,.location-group-area{min-width:0;border:2px solid var(--area-colour,#16a99b);border-radius:21px;background:color-mix(in srgb,var(--area-colour,#16a99b) 9%,#06172b)}
 .today-shift-area{display:grid;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:12px;width:100%;padding:13px 15px;color:var(--ink);text-align:left}
@@ -16,7 +16,7 @@
 .today-area-copy{min-width:0;display:grid;gap:3px}
 .today-area-name{font-size:18px;color:var(--area-colour,#16a99b)}
 .today-area-time{font-size:15px;color:#b4c9df}
-.today-area-duration{font-size:19px;white-space:nowrap}
+.today-area-duration{position:static;transform:none;font-size:19px;font-weight:800;white-space:nowrap}
 .location-group-area{padding:0;overflow:hidden}
 .location-group-area>.card,.location-group-area>.restored-event-card{border:0!important;border-radius:18px!important;background:transparent!important;box-shadow:none!important}
 .today-inbound-travel,.planner-inbound-travel,.today-travel-connector,.planner-location-travel,.shift-travel-itinerary-wrap{min-width:0;border:2px solid #477da7;border-radius:20px;padding:12px 14px;background:#07172d;color:var(--ink)}
@@ -36,7 +36,7 @@
 .journey-time-copy strong{font-size:15px;color:#f1f5ff;white-space:nowrap}
 .shift-travel-arrow{color:#c8d7f5;font-size:20px;line-height:1}
 .today-appointment-card,.week-event-row,.upcoming-event,.restored-event-card{border:1px solid #477da7!important;border-radius:20px!important;background:linear-gradient(145deg,#0a2340,#07172b)!important;color:var(--ink);box-shadow:0 8px 22px #0003!important}
-.today-appointment-card{padding:15px}
+.today-appointment-card{padding:15px;border:2px solid var(--appointment-colour,#a76aff)!important;border-radius:22px!important;background:linear-gradient(160deg,#241445,#140d2c)!important;box-shadow:0 0 18px color-mix(in srgb,var(--appointment-colour,#a76aff) 40%,transparent)!important}
 .today-appointment-heading{display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:10px;align-items:center}
 .today-appointment-heading>div{min-width:0}
 .today-appointment-heading>div>strong{font-size:18px}
@@ -110,25 +110,45 @@
 .design-hour{display:grid;justify-items:center;min-width:0;gap:2px;color:#d7e8f8;font-size:.72rem}
 .design-hour strong{font-size:.9rem;color:#fff}
 .design-forecast{display:inline-flex;gap:4px;margin-top:4px;color:#d5e8ff;font-size:.75rem}
-.design-travel{display:grid;grid-template-columns:minmax(88px,auto) minmax(0,1fr) auto;gap:8px;align-items:center;margin:8px 0;padding:8px 10px;border:1px solid #3d7eae;border-radius:14px;background:#07182e;color:#e7f3ff}
-.design-travel-copy{display:grid;min-width:0}
-.design-travel-copy strong{font-size:.78rem}
+.today-reference-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:nowrap;gap:8px}
+.today-reference-date{display:flex;align-items:center;gap:8px;min-width:0}
+.today-reference-date h1{margin:0;font-size:clamp(.84rem,3.5vw,1.2rem);line-height:1.15;white-space:nowrap}
+.today-reference-calendar{width:28px;height:28px;display:grid;place-items:center;flex:0 0 auto;color:#9fd0ff}
+.today-reference-calendar svg{width:22px;height:22px}
+.today-reference-side{display:flex;align-items:center;flex:0 0 auto}
+.today-reference-total{white-space:nowrap}
+.today-event-timeline{display:grid;gap:12px}
+.today-inbound-travel:has(.design-travel),.today-home-travel:has(.design-travel),.planner-location-travel:has(.design-travel){border:0;padding:0;background:transparent}
+.design-travel{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:0;padding:8px 10px;border:1px solid #3d7eae;border-radius:14px;background:#07182e;color:#e7f3ff}
+.design-travel-copy{display:grid;flex:1 1 7.5rem;min-width:0}
+.design-travel-copy strong{font-size:.78rem;line-height:1.2}
 .design-travel-route{color:#b7cfe4;font-size:.68rem;overflow-wrap:anywhere}
-.design-travel-steps{display:flex;flex-wrap:wrap;align-items:center;gap:4px 2px;min-width:0}
-.design-leg{display:inline-flex;align-items:center;gap:4px;min-width:0}
-.design-leg small{display:block;color:#b7cfe4;font-size:.62rem;line-height:1.1}
-.design-leg strong{font-size:.78rem;line-height:1.1}
-.design-service{display:inline-block;padding:1px 6px;border-radius:999px;background:#6d4dff;color:#fff}
-.design-leg-ride b{font-size:.68rem;font-weight:650}
-.design-arrow{color:#9fb6cc}
-.design-duration-pill{justify-self:end;padding:4px 8px;border-radius:999px;border:1px solid #3d7eae;font-size:.72rem;white-space:nowrap}
-.design-connector{position:relative;margin-left:18px}
-.design-connector::before{content:"";position:absolute;left:-14px;top:-12px;bottom:-12px;border-left:2px dotted #3d7eae}
+.design-travel-steps{display:flex;flex:1 1 12rem;flex-wrap:wrap;align-items:center;gap:4px;min-width:0}
+.design-leg{display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;white-space:nowrap;font-size:.78rem}
+.design-leg-icon{font-size:.85rem;line-height:1}
+.design-service{display:inline-block;padding:1px 6px;border-radius:999px;background:#6d4dff;color:#fff;font-size:.75rem}
+.design-leg-ride b{font-size:.72rem;font-weight:650}
+.design-arrow{flex:0 0 auto;color:#9fb6cc}
+.design-duration-pill{display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;padding:4px 8px;border-radius:999px;border:1px solid #3d7eae;background:#102844;font-size:.72rem;white-space:nowrap}
+.design-connector{position:relative;box-sizing:border-box;width:100%;max-width:100%;margin-left:0;padding:0 0 0 18px;border:0;background:transparent}
+.design-connector::before{content:"";position:absolute;left:6px;top:-16px;bottom:-16px;border-left:2px dotted #6eb6e4}
+.design-connector::after{content:"";position:absolute;left:3px;top:50%;width:8px;height:8px;border-radius:50%;background:#8fd0ff;transform:translateY(-50%)}
 .today-location-areas{display:grid;gap:8px}
-.today-appointment-notes{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.today-appointment-heading time{font-size:clamp(1rem,4.2vw,1.25rem);font-weight:800}
+.today-appointment-notes{display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 10px;border:1px solid #35557a;border-radius:14px;background:#0c1c33;color:#d5e6f6}
+.today-note-icon{width:18px;height:18px;flex:0 0 auto;color:#9fd0ff}
+.today-note-icon svg{width:18px;height:18px}
+.today-appointment-notes .design-duration-pill{margin-left:auto}
+@media(max-width:520px){
+ .design-travel{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start}
+ .design-travel-steps{grid-column:1 / -1}
+ .design-duration-pill{justify-self:end}
+}
 @media(max-width:420px){
- .design-travel{grid-template-columns:1fr;align-items:start}
- .design-duration-pill{justify-self:start}
+ .today-location-header:has(.today-location-icon){grid-template-columns:40px minmax(0,1fr) auto}
+ .today-location-span,.planner-location-header>strong.today-location-span{font-size:clamp(.95rem,4.4vw,1.15rem);background:transparent;padding:0}
+ .today-appointment-heading time{font-size:1rem}
+ .today-reference-header{display:flex;align-items:center}
 }
 .add-shift-day-panels{display:grid;gap:14px;margin:0 0 8px}
 .add-shift-day-panel{display:grid;gap:12px;padding:14px;border:1px solid #27618b;border-radius:16px;background:rgba(8,34,61,.45)}
