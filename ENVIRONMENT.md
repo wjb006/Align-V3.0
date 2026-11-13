@@ -23,10 +23,14 @@ Set deployment secrets in the service environment. `.env.example` lists setting 
 | `ALIGN_JOURNEY_PROVIDER` | Journey provider selection. |
 | `ALIGN_HERE_ROUTING_KEY`, `ALIGN_HERE_TRANSIT_ENABLED` | Optional HERE address suggestions and routing; live address search falls back to OpenStreetMap Photon without a key, with postcode matches from Postcodes.io. HERE transit requires its enable flag. |
 | `ALIGN_GOOGLE_ROUTES_KEY` | Optional Google Routes credential. |
-| `ALIGN_OTP_URL` | OpenTripPlanner base URL. |
-| `ALIGN_NAPTAN_CSV` | NaPTAN stops data path. |
-| `ALIGN_BODS_LIVE_URL`, `ALIGN_BODS_TOKEN` | Bus Open Data Service endpoint and token. |
-| `ALIGN_DARWIN_LIVE_URL`, `ALIGN_DARWIN_TOKEN` | Darwin rail endpoint and token. |
+| `ALIGN_OTP_URL` | OpenTripPlanner GraphQL URL, for example `https://otp.example/otp/gtfs/v1`. A loopback URL is local only and does not replace hosted HERE transit. When this is a public HTTPS endpoint, bus and rail routes come from that graph. |
+| `ALIGN_NAPTAN_LIVE` | Set to `1` to download published NaPTAN stops for the area around the journey. No API key. Used to reject a long walk when a closer stop exists. |
+| `ALIGN_NAPTAN_CSV` | Optional local NaPTAN CSV instead of the live download. |
+| `ALIGN_NAPTAN_API_URL` | Optional override of `https://naptan.api.dft.gov.uk/v1/access-nodes`. |
+| `ALIGN_BODS_API_KEY` | Bus Open Data Service API key. Live bus delay for a matched line and stop. No bus number is invented when the key is missing or the feed does not match. |
+| `ALIGN_BODS_LIVE_URL`, `ALIGN_BODS_TOKEN` | Optional JSON bridge. Used instead of the official datafeed when both are set. |
+| `ALIGN_DARWIN_TOKEN` | National Rail OpenLDBWS token. Used when the departure stop name ends with a CRS code such as `(LIV)`. |
+| `ALIGN_DARWIN_LIVE_URL` | Optional JSON bridge. Used with `ALIGN_DARWIN_TOKEN` instead of OpenLDBWS when set. |
 
 Local databases, credential files, `.env` files, built executables and the OTP JDK runtime are excluded from Git. Get the OTP runtime from a trusted JDK 21 distribution and keep the generated `dist` executables as release artifacts.
 

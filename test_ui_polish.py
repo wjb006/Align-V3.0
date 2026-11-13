@@ -86,7 +86,7 @@ class UiPolishTests(unittest.TestCase):
         self.assertIn("/section-guide.js?v=158-v95", self.index)
 
     def test_local_owner_screen_explains_hosted_only_features(self):
-        self.assertIn("/beta-admin.js?v=158-v72", self.studio)
+        self.assertIn("/beta-admin.js?v=158-v94", self.studio)
         self.assertIn("Not available in this local test installation.", self.owner_admin)
         self.assertIn("does not indicate a fault with Build 158 or your Microsoft account.", self.owner_admin)
         self.assertIn("https://getalign.co.uk/studio", self.owner_admin)

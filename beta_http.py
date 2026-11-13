@@ -33,6 +33,14 @@ def _password_change_notice(store_factory, mailer_factory, email):
     return result
 
 
+def _cookie(handler, name):
+    for part in (handler.headers.get('Cookie') or '').split(';'):
+        key, sep, value = part.strip().partition('=')
+        if sep and key == name:
+            return value.strip()
+    return ''
+
+
 def handle_get(handler, app, parsed) -> bool:
     self = handler
     APP_VERSION = app.APP_VERSION
@@ -68,7 +76,7 @@ def handle_form(handler, app, path) -> bool:
     # v1.3 keeps the proven Safari-safe browser-navigation handoff for
     # login, invite completion and password reset. Cookies are committed
     # before the 303 redirect is followed.
-    if BETA_MODE and path in {'/beta-login-submit','/beta-invite-complete','/beta-reset-submit'}:
+    if BETA_MODE and path in {'/beta-login-submit','/beta-login-totp','/beta-invite-complete','/beta-reset-submit'}:
         if not self.beta_same_origin(): return True
         length=int(self.headers.get('Content-Length','0') or '0')
         if length>64_000: raise BetaError('Authentication request is too large.')
@@ -76,11 +84,25 @@ def handle_form(handler, app, path) -> bool:
         if path=='/beta-login-submit':
             email=(form.get('email') or [''])[0]
             credential=(form.get('password') or form.get('code') or [''])[0]
-            row,token=beta_store().login(email,credential,self.client_address[0])
+            try:
+                row,token=beta_store().login(email,credential,self.client_address[0])
+            except BetaError as error:
+                label='throttled' if error.status==429 else 'invalid'
+                self.send_response(303); self.send_header('Location',f'/login?error={label}'); self.send_header('Cache-Control','no-store'); self.end_headers(); return True
+            if isinstance(row, dict) and row.get('totp_required'):
+                self.send_response(303); self.send_header('Location','/login?step=totp'); self.send_header('Cache-Control','no-store'); self.send_totp_cookie(row['challenge']); self.end_headers(); return True
             if not row:
                 self.send_response(303); self.send_header('Location','/login?error=invalid'); self.send_header('Cache-Control','no-store'); self.end_headers(); return True
             target='/terms' if not beta_store().terms_current(row) else ('/welcome' if not row['welcome_seen_at'] else '/')
             self.send_response(303); self.send_header('Location',target); self.send_header('Cache-Control','no-store'); self.send_beta_cookie(token); self.end_headers(); return True
+        if path=='/beta-login-totp':
+            code=(form.get('code') or [''])[0]
+            challenge=_cookie(self, 'align_totp')
+            row,token=beta_store().complete_totp_login(challenge, code)
+            if not row:
+                self.send_response(303); self.send_header('Location','/login?step=totp&error=code'); self.send_header('Cache-Control','no-store'); self.end_headers(); return True
+            target='/terms' if not beta_store().terms_current(row) else ('/welcome' if not row['welcome_seen_at'] else '/')
+            self.send_response(303); self.send_header('Location',target); self.send_header('Cache-Control','no-store'); self.send_beta_cookie(token); self.send_totp_cookie('', True); self.end_headers(); return True
         if path=='/beta-invite-complete':
             email=(form.get('email') or [''])[0]; code=(form.get('invite_code') or [''])[0]
             password=(form.get('password') or [''])[0]; confirm=(form.get('confirm_password') or [''])[0]
@@ -116,10 +138,28 @@ def handle_post(handler, app, path, payload) -> bool:
     if BETA_MODE and path == '/api/beta/login':
         if not self.beta_same_origin(): return True
         row,token=beta_store().login(payload.get('email'),payload.get('password',payload.get('code')),self.client_address[0])
+        if isinstance(row, dict) and row.get('totp_required'):
+            body=json.dumps({'totp_required': True}).encode('utf-8')
+            self.send_response(200); self.send_header('Content-Type','application/json; charset=utf-8'); self.send_header('Content-Length',str(len(body))); self.send_header('Cache-Control','no-store'); self.send_totp_cookie(row['challenge']); self.end_headers(); self.wfile.write(body); return True
         if not row:
             self.send_json(401,{'error':'sign_in_failed','message':"We couldn't sign you in with those details."}); return True
         body=json.dumps(self.beta_me_payload(row)).encode('utf-8')
         self.send_response(200); self.send_header('Content-Type','application/json; charset=utf-8'); self.send_header('Content-Length',str(len(body))); self.send_header('Cache-Control','no-store'); self.send_beta_cookie(token); self.end_headers(); self.wfile.write(body); return True
+    if BETA_MODE and path == '/api/beta/login/totp':
+        if not self.beta_same_origin(): return True
+        row,token=beta_store().complete_totp_login(_cookie(self, 'align_totp'), payload.get('code'))
+        if not row:
+            self.send_json(401,{'error':'invalid_totp','message':'That code did not match.'}); return True
+        body=json.dumps(self.beta_me_payload(row)).encode('utf-8')
+        self.send_response(200); self.send_header('Content-Type','application/json; charset=utf-8'); self.send_header('Content-Length',str(len(body))); self.send_header('Cache-Control','no-store'); self.send_beta_cookie(token); self.send_totp_cookie('', True); self.end_headers(); self.wfile.write(body); return True
+    if BETA_MODE and path in {'/api/beta/totp/start', '/api/beta/totp/confirm'}:
+        if not self.beta_same_origin(): return True
+        row=self.require_beta_user()
+        if not row: return True
+        if path.endswith('/start'):
+            self.send_json(200, beta_store().begin_totp(row)); return True
+        beta_store().confirm_totp(row, payload.get('code'))
+        self.send_json(200, {'enabled': True, 'signed_out': True}); return True
     if BETA_MODE and path == '/api/beta/invites/redeem':
         if not self.beta_same_origin(): return True
         invite=beta_store().validate_invite(payload.get('email'),payload.get('invite_code'))

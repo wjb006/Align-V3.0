@@ -111,7 +111,7 @@ function postTravelSummary(item,options={}) {
   if(!itinerary)return '';
   let source='';
   if(options.detailed){
-    const label=journey.scheduled===true?'Timetable-based · live delay updates unavailable':
+    const label=journey.live?'Timetable plus a reported live delay':journey.scheduled===true?'Timetable time · live feed not configured':
       (journey.live===true||journey.traffic_adjustment?.status==='applied'?'Live route estimate':
         journey.mode==='drive'?'Driving estimate':'Provider route details');
     source='<small class="today-route-source">'+e(label)+(journey.provider?' · '+e(journey.provider):'')+'</small>';

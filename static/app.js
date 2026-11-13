@@ -1659,7 +1659,7 @@ async function prepareOfflineRuntime() {
 }
 
 function requiredOfflineKeys() {
-  return [`/api/bootstrap`, `/api/sections/definitions`];
+  return [`/api/bootstrap`, `/api/sections/definitions`, `/api/personal/offline-pack`];
 }
 
 async function requestWorkerDiagnostics() {
@@ -1762,7 +1762,7 @@ async function showOfflineDiagnostics() {
     ...required.map(item => diagnosticRow(`Local data · ${item.key.replace('/api/', '')}`, item.ready, item.ready ? 'Saved in the phone database.' : 'Not saved yet.')),
     ...apiRequired.map(item => diagnosticRow(`Offline response · ${item.key.replace('/api/', '')}`, item.ready, item.ready ? 'Saved in the service-worker cache.' : 'Not cached by the service worker yet.')),
   ].join('');
-  modal('Offline status', `<div class="offline-diagnostics"><p class="helper">Build ${BUILD_VERSION} checks every layer instead of guessing. All checks must pass before Align says <strong>Offline Ready</strong>.</p>${rows}<div class="modal-actions"><button type="button" class="secondary-button" data-action="close-modal">Close</button><button type="button" class="primary-button" data-action="retry-offline-setup">Retry setup</button></div></div>`);
+  modal('Offline status', `<div class="offline-diagnostics"><p class="helper">Build ${BUILD_VERSION} checks every layer instead of guessing. All checks must pass before Align says <strong>Offline Ready</strong>. The saved pack is today's plan, the next three days, stored travel notes and the last weather forecast. Changes made offline sync when the connection returns.</p>${rows}<div class="modal-actions"><button type="button" class="secondary-button" data-action="close-modal">Close</button><button type="button" class="primary-button" data-action="retry-offline-setup">Retry setup</button></div></div>`);
 }
 
 async function start() {
@@ -1790,7 +1790,10 @@ if (connectionStatusButton) {
 }
 
 window.addEventListener('online', () => { if (!isAdmin) void (async () => { await flushOfflineChanges({ refreshAfter: true }); await completeOfflineSetup(); })(); });
-window.addEventListener('offline', async () => { if (!isAdmin && typeof AlignOffline !== 'undefined') setConnectionStatus('offline', await AlignOffline.pendingCount()); });
+window.addEventListener('offline', async () => {
+  if (isAdmin || typeof AlignOffline === 'undefined') return;
+  setConnectionStatus('offline', await AlignOffline.pendingCount());
+});
 window.addEventListener('focus', () => { if (!isAdmin) void flushOfflineChanges({ refreshAfter: true }); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden && !isAdmin) void flushOfflineChanges({ refreshAfter: true }); });
 

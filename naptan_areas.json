@@ -1,0 +1,1298 @@
+[
+  {
+    "atco": "010",
+    "name": "Bristol",
+    "localities": 88,
+    "south": 51.3881,
+    "west": -2.7261,
+    "north": 51.544,
+    "east": -2.4891
+  },
+  {
+    "atco": "017",
+    "name": "South Gloucestershire",
+    "localities": 163,
+    "south": 51.4002,
+    "west": -2.6892,
+    "north": 51.6835,
+    "east": -2.2495
+  },
+  {
+    "atco": "018",
+    "name": "Bath & North East Somerset",
+    "localities": 225,
+    "south": 51.2594,
+    "west": -2.7205,
+    "north": 51.4514,
+    "east": -2.2562
+  },
+  {
+    "atco": "019",
+    "name": "North Somerset",
+    "localities": 160,
+    "south": 51.2775,
+    "west": -3.0267,
+    "north": 51.5109,
+    "east": -2.6108
+  },
+  {
+    "atco": "020",
+    "name": "Bedford",
+    "localities": 91,
+    "south": 52.0532,
+    "west": -0.6778,
+    "north": 52.3235,
+    "east": -0.2388
+  },
+  {
+    "atco": "021",
+    "name": "Central Bedfordshire",
+    "localities": 146,
+    "south": 51.8108,
+    "west": -0.7051,
+    "north": 52.186,
+    "east": -0.1264
+  },
+  {
+    "atco": "029",
+    "name": "Luton",
+    "localities": 39,
+    "south": 51.8488,
+    "west": -0.5171,
+    "north": 51.9386,
+    "east": -0.3413
+  },
+  {
+    "atco": "030",
+    "name": "West Berkshire",
+    "localities": 212,
+    "south": 51.3288,
+    "west": -1.5931,
+    "north": 51.5586,
+    "east": -0.9657
+  },
+  {
+    "atco": "035",
+    "name": "Wokingham",
+    "localities": 92,
+    "south": 51.3444,
+    "west": -1.0334,
+    "north": 51.5682,
+    "east": -0.7691
+  },
+  {
+    "atco": "036",
+    "name": "Windsor & Maidenhead",
+    "localities": 79,
+    "south": 51.3827,
+    "west": -0.8635,
+    "north": 51.575,
+    "east": -0.5013
+  },
+  {
+    "atco": "037",
+    "name": "Slough",
+    "localities": 17,
+    "south": 51.4604,
+    "west": -0.6797,
+    "north": 51.552,
+    "east": -0.4853
+  },
+  {
+    "atco": "038",
+    "name": "Bracknell Forest",
+    "localities": 58,
+    "south": 51.3251,
+    "west": -0.8372,
+    "north": 51.4689,
+    "east": -0.6287
+  },
+  {
+    "atco": "039",
+    "name": "Reading",
+    "localities": 44,
+    "south": 51.3979,
+    "west": -1.0674,
+    "north": 51.5004,
+    "east": -0.9105
+  },
+  {
+    "atco": "040",
+    "name": "Buckinghamshire",
+    "localities": 384,
+    "south": 51.49,
+    "west": -1.1648,
+    "north": 52.0703,
+    "east": -0.4433
+  },
+  {
+    "atco": "049",
+    "name": "Milton Keynes",
+    "localities": 164,
+    "south": 51.9562,
+    "west": -0.8823,
+    "north": 52.1932,
+    "east": -0.5788
+  },
+  {
+    "atco": "050",
+    "name": "Cambridgeshire",
+    "localities": 449,
+    "south": 52.004,
+    "west": -0.5102,
+    "north": 52.7493,
+    "east": 0.5472
+  },
+  {
+    "atco": "059",
+    "name": "Peterborough",
+    "localities": 83,
+    "south": 52.5027,
+    "west": -0.5121,
+    "north": 52.6841,
+    "east": -0.0014
+  },
+  {
+    "atco": "060",
+    "name": "Cheshire East",
+    "localities": 330,
+    "south": 52.9465,
+    "west": -2.7599,
+    "north": 53.3932,
+    "east": -1.9695
+  },
+  {
+    "atco": "061",
+    "name": "Cheshire West & Chester",
+    "localities": 295,
+    "south": 52.9666,
+    "west": -3.1035,
+    "north": 53.3395,
+    "east": -2.3361
+  },
+  {
+    "atco": "068",
+    "name": "Halton",
+    "localities": 60,
+    "south": 53.2904,
+    "west": -2.828,
+    "north": 53.4063,
+    "east": -2.5906
+  },
+  {
+    "atco": "069",
+    "name": "Warrington",
+    "localities": 94,
+    "south": 53.3072,
+    "west": -2.7192,
+    "north": 53.485,
+    "east": -2.4044
+  },
+  {
+    "atco": "075",
+    "name": "Hartlepool",
+    "localities": 26,
+    "south": 54.6158,
+    "west": -1.3683,
+    "north": 54.7339,
+    "east": -1.1486
+  },
+  {
+    "atco": "076",
+    "name": "Darlington",
+    "localities": 70,
+    "south": 54.4659,
+    "west": -1.7211,
+    "north": 54.625,
+    "east": -1.3967
+  },
+  {
+    "atco": "077",
+    "name": "Stockton-on-Tees",
+    "localities": 59,
+    "south": 54.4655,
+    "west": -1.4711,
+    "north": 54.654,
+    "east": -1.185
+  },
+  {
+    "atco": "078",
+    "name": "Redcar & Cleveland",
+    "localities": 59,
+    "south": 54.4858,
+    "west": -1.2165,
+    "north": 54.6326,
+    "east": -0.7862
+  },
+  {
+    "atco": "079",
+    "name": "Middlesbrough",
+    "localities": 34,
+    "south": 54.4985,
+    "west": -1.2977,
+    "north": 54.5956,
+    "east": -1.1425
+  },
+  {
+    "atco": "080",
+    "name": "Cornwall",
+    "localities": 1431,
+    "south": 49.871,
+    "west": -6.3985,
+    "north": 50.952,
+    "east": -4.1738
+  },
+  {
+    "atco": "090",
+    "name": "Cumbria",
+    "localities": 900,
+    "south": 54.0411,
+    "west": -3.6184,
+    "north": 55.1566,
+    "east": -2.2198
+  },
+  {
+    "atco": "100",
+    "name": "Derbyshire",
+    "localities": 601,
+    "south": 52.6964,
+    "west": -2.0516,
+    "north": 53.5099,
+    "east": -1.1488
+  },
+  {
+    "atco": "109",
+    "name": "Derby",
+    "localities": 35,
+    "south": 52.8511,
+    "west": -1.573,
+    "north": 52.9621,
+    "east": -1.3733
+  },
+  {
+    "atco": "110",
+    "name": "Devon",
+    "localities": 865,
+    "south": 50.1793,
+    "west": -4.6359,
+    "north": 51.2612,
+    "east": -2.9149
+  },
+  {
+    "atco": "118",
+    "name": "Plymouth",
+    "localities": 82,
+    "south": 50.3227,
+    "west": -4.2261,
+    "north": 50.4643,
+    "east": -3.8844
+  },
+  {
+    "atco": "119",
+    "name": "Torbay",
+    "localities": 35,
+    "south": 50.3744,
+    "west": -3.6373,
+    "north": 50.5251,
+    "east": -3.4594
+  },
+  {
+    "atco": "120",
+    "name": "Dorset",
+    "localities": 859,
+    "south": 50.4936,
+    "west": -2.9781,
+    "north": 51.0911,
+    "east": -1.6576
+  },
+  {
+    "atco": "128",
+    "name": "Poole",
+    "localities": 36,
+    "south": 50.6697,
+    "west": -2.0604,
+    "north": 50.8047,
+    "east": -1.867
+  },
+  {
+    "atco": "129",
+    "name": "Bournemouth",
+    "localities": 32,
+    "south": 50.698,
+    "west": -1.9541,
+    "north": 50.7868,
+    "east": -1.7537
+  },
+  {
+    "atco": "130",
+    "name": "Durham",
+    "localities": 367,
+    "south": 54.4698,
+    "west": -2.3093,
+    "north": 54.9221,
+    "east": -1.2285
+  },
+  {
+    "atco": "140",
+    "name": "East Sussex",
+    "localities": 474,
+    "south": 50.7285,
+    "west": -0.1504,
+    "north": 51.1409,
+    "east": 0.8697
+  },
+  {
+    "atco": "149",
+    "name": "Brighton and Hove",
+    "localities": 24,
+    "south": 50.7906,
+    "west": -0.2627,
+    "north": 50.8871,
+    "east": -0.0097
+  },
+  {
+    "atco": "150",
+    "name": "Essex",
+    "localities": 499,
+    "south": 51.5172,
+    "west": -0.0377,
+    "north": 52.0734,
+    "east": 1.3267
+  },
+  {
+    "atco": "158",
+    "name": "Southend-on-Sea",
+    "localities": 17,
+    "south": 51.5158,
+    "west": 0.6167,
+    "north": 51.5817,
+    "east": 0.8271
+  },
+  {
+    "atco": "159",
+    "name": "Thurrock",
+    "localities": 35,
+    "south": 51.4476,
+    "west": 0.2075,
+    "north": 51.5631,
+    "east": 0.5508
+  },
+  {
+    "atco": "160",
+    "name": "Gloucestershire",
+    "localities": 751,
+    "south": 51.5654,
+    "west": -2.6994,
+    "north": 56.9668,
+    "east": -1.566
+  },
+  {
+    "atco": "180",
+    "name": "Greater Manchester",
+    "localities": 809,
+    "south": 53.3213,
+    "west": -2.7428,
+    "north": 53.6835,
+    "east": -1.9515
+  },
+  {
+    "atco": "190",
+    "name": "Hampshire",
+    "localities": 1197,
+    "south": 50.7058,
+    "west": -1.9566,
+    "north": 51.3843,
+    "east": -0.7089
+  },
+  {
+    "atco": "198",
+    "name": "Southampton",
+    "localities": 72,
+    "south": 50.868,
+    "west": -1.4952,
+    "north": 50.9637,
+    "east": -1.2901
+  },
+  {
+    "atco": "199",
+    "name": "Portsmouth",
+    "localities": 38,
+    "south": 50.7664,
+    "west": -1.1476,
+    "north": 50.8684,
+    "east": -1.0022
+  },
+  {
+    "atco": "200",
+    "name": "Worcestershire",
+    "localities": 784,
+    "south": 51.9528,
+    "west": -2.6639,
+    "north": 52.4536,
+    "east": -1.7672
+  },
+  {
+    "atco": "209",
+    "name": "Herefordshire",
+    "localities": 413,
+    "south": 51.8173,
+    "west": -3.1403,
+    "north": 52.3871,
+    "east": -2.3146
+  },
+  {
+    "atco": "210",
+    "name": "Hertfordshire",
+    "localities": 607,
+    "south": 51.5976,
+    "west": -0.7507,
+    "north": 52.0598,
+    "east": 0.2113
+  },
+  {
+    "atco": "220",
+    "name": "East Riding of Yorkshire",
+    "localities": 301,
+    "south": 53.5717,
+    "west": -1.1056,
+    "north": 54.1583,
+    "east": 0.2
+  },
+  {
+    "atco": "227",
+    "name": "North Lincolnshire",
+    "localities": 140,
+    "south": 53.4389,
+    "west": -0.961,
+    "north": 53.7188,
+    "east": -0.1994
+  },
+  {
+    "atco": "228",
+    "name": "North East Lincolnshire",
+    "localities": 44,
+    "south": 53.4399,
+    "west": -0.3034,
+    "north": 53.6442,
+    "east": 0.0419
+  },
+  {
+    "atco": "229",
+    "name": "Kingston upon Hull",
+    "localities": 50,
+    "south": 53.7105,
+    "west": -0.447,
+    "north": 53.8241,
+    "east": -0.2222
+  },
+  {
+    "atco": "230",
+    "name": "Isle of Wight",
+    "localities": 162,
+    "south": 50.5591,
+    "west": -1.5949,
+    "north": 50.7753,
+    "east": -1.0426
+  },
+  {
+    "atco": "240",
+    "name": "Kent",
+    "localities": 792,
+    "south": 50.9169,
+    "west": 0.0055,
+    "north": 51.4419,
+    "east": 1.4744
+  },
+  {
+    "atco": "249",
+    "name": "Medway",
+    "localities": 69,
+    "south": 51.3216,
+    "west": 0.3973,
+    "north": 51.4831,
+    "east": 0.7434
+  },
+  {
+    "atco": "250",
+    "name": "Lancashire",
+    "localities": 1002,
+    "south": 53.4843,
+    "west": -3.0623,
+    "north": 54.2132,
+    "east": -2.0726
+  },
+  {
+    "atco": "258",
+    "name": "Blackburn with Darwen",
+    "localities": 93,
+    "south": 53.6118,
+    "west": -2.5718,
+    "north": 53.7891,
+    "east": -2.3368
+  },
+  {
+    "atco": "259",
+    "name": "Blackpool",
+    "localities": 58,
+    "south": 53.7568,
+    "west": -3.0867,
+    "north": 53.8883,
+    "east": -2.965
+  },
+  {
+    "atco": "260",
+    "name": "Leicestershire",
+    "localities": 379,
+    "south": 52.3825,
+    "west": -1.61,
+    "north": 52.9734,
+    "east": -0.6455
+  },
+  {
+    "atco": "268",
+    "name": "Rutland",
+    "localities": 65,
+    "south": 52.5159,
+    "west": -0.8284,
+    "north": 52.7666,
+    "east": -0.4203
+  },
+  {
+    "atco": "269",
+    "name": "Leicester",
+    "localities": 36,
+    "south": 52.5697,
+    "west": -1.2074,
+    "north": 52.6848,
+    "east": -1.0222
+  },
+  {
+    "atco": "270",
+    "name": "Lincolnshire",
+    "localities": 904,
+    "south": 52.6385,
+    "west": -0.8674,
+    "north": 53.5911,
+    "east": 0.3983
+  },
+  {
+    "atco": "280",
+    "name": "Merseyside",
+    "localities": 364,
+    "south": 53.2862,
+    "west": -3.2118,
+    "north": 53.6904,
+    "east": -2.5888
+  },
+  {
+    "atco": "290",
+    "name": "Norfolk",
+    "localities": 772,
+    "south": 52.3687,
+    "west": 0.1288,
+    "north": 52.9534,
+    "east": 1.7945
+  },
+  {
+    "atco": "300",
+    "name": "West Northamptonshire",
+    "localities": 292,
+    "south": 51.9775,
+    "west": -1.3297,
+    "north": 52.4813,
+    "east": -0.6975
+  },
+  {
+    "atco": "305",
+    "name": "North Northamptonshire",
+    "localities": 152,
+    "south": 52.2044,
+    "west": -0.9094,
+    "north": 52.6408,
+    "east": -0.3278
+  },
+  {
+    "atco": "310",
+    "name": "Northumberland",
+    "localities": 674,
+    "south": 54.7802,
+    "west": -2.6483,
+    "north": 55.8173,
+    "east": -1.4303
+  },
+  {
+    "atco": "320",
+    "name": "North Yorkshire",
+    "localities": 1088,
+    "south": 53.6263,
+    "west": -2.5612,
+    "north": 54.5695,
+    "east": -0.1933
+  },
+  {
+    "atco": "329",
+    "name": "York",
+    "localities": 73,
+    "south": 53.8732,
+    "west": -1.2359,
+    "north": 54.056,
+    "east": -0.8998
+  },
+  {
+    "atco": "330",
+    "name": "Nottinghamshire",
+    "localities": 402,
+    "south": 52.7772,
+    "west": -1.3749,
+    "north": 53.493,
+    "east": -0.6455
+  },
+  {
+    "atco": "339",
+    "name": "Nottingham",
+    "localities": 67,
+    "south": 52.8853,
+    "west": -1.2684,
+    "north": 53.0315,
+    "east": -1.0715
+  },
+  {
+    "atco": "340",
+    "name": "Oxfordshire",
+    "localities": 559,
+    "south": 51.4662,
+    "west": -1.7061,
+    "north": 52.1629,
+    "east": -0.8451
+  },
+  {
+    "atco": "350",
+    "name": "Shropshire",
+    "localities": 746,
+    "south": 52.2902,
+    "west": -3.2398,
+    "north": 53.0119,
+    "east": -2.2491
+  },
+  {
+    "atco": "359",
+    "name": "Telford & Wrekin",
+    "localities": 95,
+    "south": 52.6002,
+    "west": -2.6694,
+    "north": 52.8365,
+    "east": -2.2914
+  },
+  {
+    "atco": "360",
+    "name": "Somerset",
+    "localities": 1437,
+    "south": 50.809,
+    "west": -3.7704,
+    "north": 51.3485,
+    "east": -2.2185
+  },
+  {
+    "atco": "370",
+    "name": "South Yorkshire",
+    "localities": 533,
+    "south": 53.2968,
+    "west": -1.8252,
+    "north": 53.6664,
+    "east": -0.9201
+  },
+  {
+    "atco": "380",
+    "name": "Staffordshire",
+    "localities": 816,
+    "south": 52.4118,
+    "west": -2.4691,
+    "north": 53.2275,
+    "east": -1.3756
+  },
+  {
+    "atco": "389",
+    "name": "Stoke-on-Trent",
+    "localities": 94,
+    "south": 52.9338,
+    "west": -2.2582,
+    "north": 53.1072,
+    "east": -2.0629
+  },
+  {
+    "atco": "390",
+    "name": "Suffolk",
+    "localities": 939,
+    "south": 51.9542,
+    "west": 0.324,
+    "north": 52.5521,
+    "east": 1.7877
+  },
+  {
+    "atco": "400",
+    "name": "Surrey",
+    "localities": 512,
+    "south": 51.0672,
+    "west": -0.8663,
+    "north": 51.47,
+    "east": 0.0861
+  },
+  {
+    "atco": "410",
+    "name": "Tyne & Wear",
+    "localities": 306,
+    "south": 54.789,
+    "west": -1.8507,
+    "north": 55.0767,
+    "east": -1.3232
+  },
+  {
+    "atco": "420",
+    "name": "Warwickshire",
+    "localities": 333,
+    "south": 51.953,
+    "west": -1.9578,
+    "north": 52.6935,
+    "east": -1.1863
+  },
+  {
+    "atco": "430",
+    "name": "West Midlands",
+    "localities": 568,
+    "south": 52.3355,
+    "west": -2.2288,
+    "north": 52.6743,
+    "east": -1.3779
+  },
+  {
+    "atco": "440",
+    "name": "West Sussex",
+    "localities": 484,
+    "south": 50.7188,
+    "west": -0.9814,
+    "north": 51.1705,
+    "east": 0.054
+  },
+  {
+    "atco": "450",
+    "name": "West Yorkshire",
+    "localities": 656,
+    "south": 53.5255,
+    "west": -2.179,
+    "north": 53.9608,
+    "east": -1.2173
+  },
+  {
+    "atco": "460",
+    "name": "Wiltshire",
+    "localities": 798,
+    "south": 50.9367,
+    "west": -2.5493,
+    "north": 51.7148,
+    "east": -1.482
+  },
+  {
+    "atco": "468",
+    "name": "Swindon",
+    "localities": 117,
+    "south": 51.4805,
+    "west": -1.8765,
+    "north": 51.7016,
+    "east": -1.6175
+  },
+  {
+    "atco": "490",
+    "name": "Greater London",
+    "localities": 822,
+    "south": 51.2876,
+    "west": -0.5287,
+    "north": 51.692,
+    "east": 0.325
+  },
+  {
+    "atco": "511",
+    "name": "Denbighshire",
+    "localities": 177,
+    "south": 52.8527,
+    "west": -3.5264,
+    "north": 53.359,
+    "east": -3.0675
+  },
+  {
+    "atco": "512",
+    "name": "Flintshire",
+    "localities": 244,
+    "south": 53.0463,
+    "west": -3.4105,
+    "north": 53.3715,
+    "east": -2.906
+  },
+  {
+    "atco": "513",
+    "name": "Conwy",
+    "localities": 181,
+    "south": 52.9632,
+    "west": -4.0412,
+    "north": 53.3598,
+    "east": -3.4488
+  },
+  {
+    "atco": "514",
+    "name": "Wrexham",
+    "localities": 226,
+    "south": 52.868,
+    "west": -3.2831,
+    "north": 53.146,
+    "east": -2.7062
+  },
+  {
+    "atco": "521",
+    "name": "Pembrokeshire",
+    "localities": 429,
+    "south": 51.5851,
+    "west": -5.3152,
+    "north": 52.1324,
+    "east": -4.4853
+  },
+  {
+    "atco": "522",
+    "name": "Carmarthenshire",
+    "localities": 498,
+    "south": 51.6355,
+    "west": -4.7548,
+    "north": 52.1279,
+    "east": -3.6799
+  },
+  {
+    "atco": "523",
+    "name": "Ceredigion",
+    "localities": 362,
+    "south": 52.0112,
+    "west": -4.7208,
+    "north": 52.5864,
+    "east": -3.6391
+  },
+  {
+    "atco": "531",
+    "name": "Newport",
+    "localities": 109,
+    "south": 51.4969,
+    "west": -3.1424,
+    "north": 51.6479,
+    "east": -2.7904
+  },
+  {
+    "atco": "532",
+    "name": "Blaenau Gwent",
+    "localities": 58,
+    "south": 51.6632,
+    "west": -3.3022,
+    "north": 51.8292,
+    "east": -3.1009
+  },
+  {
+    "atco": "533",
+    "name": "Monmouthshire",
+    "localities": 330,
+    "south": 51.5525,
+    "west": -3.1796,
+    "north": 51.964,
+    "east": -2.6439
+  },
+  {
+    "atco": "534",
+    "name": "Torfaen",
+    "localities": 98,
+    "south": 51.6056,
+    "west": -3.1342,
+    "north": 51.8017,
+    "east": -2.9484
+  },
+  {
+    "atco": "540",
+    "name": "Gwynedd",
+    "localities": 478,
+    "south": 52.5102,
+    "west": -4.8024,
+    "north": 53.3263,
+    "east": -3.4334
+  },
+  {
+    "atco": "541",
+    "name": "Isle of Anglesey",
+    "localities": 229,
+    "south": 53.1116,
+    "west": -4.7102,
+    "north": 53.4526,
+    "east": -4.0043
+  },
+  {
+    "atco": "551",
+    "name": "Bridgend",
+    "localities": 123,
+    "south": 51.4605,
+    "west": -3.7539,
+    "north": 51.6674,
+    "east": -3.4521
+  },
+  {
+    "atco": "552",
+    "name": "Rhondda Cynon Taff",
+    "localities": 165,
+    "south": 51.4896,
+    "west": -3.5937,
+    "north": 51.8454,
+    "east": -3.2392
+  },
+  {
+    "atco": "553",
+    "name": "Merthyr Tydfil",
+    "localities": 59,
+    "south": 51.6346,
+    "west": -3.456,
+    "north": 51.8123,
+    "east": -3.2686
+  },
+  {
+    "atco": "554",
+    "name": "Caerphilly",
+    "localities": 187,
+    "south": 51.5332,
+    "west": -3.3427,
+    "north": 51.8018,
+    "east": -3.0496
+  },
+  {
+    "atco": "561",
+    "name": "Powys",
+    "localities": 891,
+    "south": 51.7352,
+    "west": -3.8828,
+    "north": 52.9006,
+    "east": -2.9525
+  },
+  {
+    "atco": "571",
+    "name": "Cardiff",
+    "localities": 88,
+    "south": 51.3569,
+    "west": -3.3484,
+    "north": 51.5667,
+    "east": -3.0559
+  },
+  {
+    "atco": "572",
+    "name": "Vale of Glamorgan",
+    "localities": 209,
+    "south": 51.3624,
+    "west": -3.6569,
+    "north": 51.531,
+    "east": -3.1478
+  },
+  {
+    "atco": "581",
+    "name": "Swansea",
+    "localities": 248,
+    "south": 51.5242,
+    "west": -4.3594,
+    "north": 51.7897,
+    "east": -3.8416
+  },
+  {
+    "atco": "582",
+    "name": "Neath Port Talbot",
+    "localities": 151,
+    "south": 51.5073,
+    "west": -3.9048,
+    "north": 51.8352,
+    "east": -3.5667
+  },
+  {
+    "atco": "601",
+    "name": "Western Isles",
+    "localities": 727,
+    "south": 56.8992,
+    "west": -7.5718,
+    "north": 58.5243,
+    "east": -6.1552
+  },
+  {
+    "atco": "602",
+    "name": "Orkney Islands",
+    "localities": 76,
+    "south": 58.7197,
+    "west": -3.4175,
+    "north": 59.387,
+    "east": -2.3934
+  },
+  {
+    "atco": "603",
+    "name": "Shetland Islands",
+    "localities": 207,
+    "south": 59.5202,
+    "west": -2.0915,
+    "north": 60.8341,
+    "east": -0.7035
+  },
+  {
+    "atco": "607",
+    "name": "Argyll & Bute",
+    "localities": 605,
+    "south": 55.2523,
+    "west": -6.8494,
+    "north": 56.7503,
+    "east": -4.646
+  },
+  {
+    "atco": "608",
+    "name": "West Dunbartonshire",
+    "localities": 41,
+    "south": 55.875,
+    "west": -4.6301,
+    "north": 56.0663,
+    "east": -4.3627
+  },
+  {
+    "atco": "609",
+    "name": "Glasgow",
+    "localities": 173,
+    "south": 55.7687,
+    "west": -4.4401,
+    "north": 55.9393,
+    "east": -4.079
+  },
+  {
+    "atco": "611",
+    "name": "East Dunbartonshire",
+    "localities": 35,
+    "south": 55.8776,
+    "west": -4.3805,
+    "north": 56.0098,
+    "east": -4.061
+  },
+  {
+    "atco": "612",
+    "name": "East Renfrewshire",
+    "localities": 26,
+    "south": 55.7158,
+    "west": -4.6467,
+    "north": 55.8263,
+    "east": -4.238
+  },
+  {
+    "atco": "613",
+    "name": "Inverclyde",
+    "localities": 43,
+    "south": 55.8223,
+    "west": -4.9174,
+    "north": 55.9845,
+    "east": -4.5932
+  },
+  {
+    "atco": "614",
+    "name": "Renfrewshire",
+    "localities": 65,
+    "south": 55.7766,
+    "west": -4.661,
+    "north": 55.9468,
+    "east": -4.335
+  },
+  {
+    "atco": "615",
+    "name": "South Lanarkshire",
+    "localities": 172,
+    "south": 55.3694,
+    "west": -4.2554,
+    "north": 55.8665,
+    "east": -3.3983
+  },
+  {
+    "atco": "616",
+    "name": "North Lanarkshire",
+    "localities": 147,
+    "south": 55.7331,
+    "west": -4.1754,
+    "north": 56.019,
+    "east": -3.7274
+  },
+  {
+    "atco": "617",
+    "name": "North Ayrshire",
+    "localities": 88,
+    "south": 55.417,
+    "west": -5.4064,
+    "north": 55.8948,
+    "east": -4.5536
+  },
+  {
+    "atco": "618",
+    "name": "East Ayrshire",
+    "localities": 95,
+    "south": 55.2019,
+    "west": -4.6104,
+    "north": 55.7728,
+    "east": -3.9651
+  },
+  {
+    "atco": "619",
+    "name": "South Ayrshire",
+    "localities": 105,
+    "south": 55.0297,
+    "west": -5.0307,
+    "north": 55.5983,
+    "east": -4.402
+  },
+  {
+    "atco": "620",
+    "name": "Edinburgh",
+    "localities": 139,
+    "south": 55.8644,
+    "west": -3.4375,
+    "north": 56.0108,
+    "east": -3.0607
+  },
+  {
+    "atco": "627",
+    "name": "East Lothian",
+    "localities": 60,
+    "south": 55.8349,
+    "west": -3.0968,
+    "north": 56.0778,
+    "east": -2.3705
+  },
+  {
+    "atco": "628",
+    "name": "Midlothian",
+    "localities": 67,
+    "south": 55.7679,
+    "west": -3.3407,
+    "north": 55.9483,
+    "east": -2.8458
+  },
+  {
+    "atco": "629",
+    "name": "West Lothian",
+    "localities": 58,
+    "south": 55.8082,
+    "west": -3.7982,
+    "north": 56.0019,
+    "east": -3.3786
+  },
+  {
+    "atco": "630",
+    "name": "Aberdeenshire",
+    "localities": 354,
+    "south": 56.7466,
+    "west": -3.5249,
+    "north": 57.716,
+    "east": -1.7449
+  },
+  {
+    "atco": "638",
+    "name": "Moray",
+    "localities": 122,
+    "south": 57.2292,
+    "west": -3.729,
+    "north": 57.745,
+    "east": -2.4426
+  },
+  {
+    "atco": "639",
+    "name": "Aberdeen",
+    "localities": 70,
+    "south": 57.0781,
+    "west": -2.2995,
+    "north": 57.2233,
+    "east": -2.0432
+  },
+  {
+    "atco": "640",
+    "name": "Dundee",
+    "localities": 39,
+    "south": 56.4358,
+    "west": -3.0864,
+    "north": 56.5196,
+    "east": -2.8207
+  },
+  {
+    "atco": "648",
+    "name": "Perth & Kinross",
+    "localities": 256,
+    "south": 56.1066,
+    "west": -4.5702,
+    "north": 56.8722,
+    "east": -3.0404
+  },
+  {
+    "atco": "649",
+    "name": "Angus",
+    "localities": 240,
+    "south": 56.4593,
+    "west": -3.3851,
+    "north": 56.9335,
+    "east": -2.4348
+  },
+  {
+    "atco": "650",
+    "name": "Fife",
+    "localities": 312,
+    "south": 55.987,
+    "west": -3.7454,
+    "north": 56.4667,
+    "east": -2.5778
+  },
+  {
+    "atco": "660",
+    "name": "Stirling",
+    "localities": 98,
+    "south": 55.9364,
+    "west": -4.7265,
+    "north": 56.5186,
+    "east": -3.8333
+  },
+  {
+    "atco": "668",
+    "name": "Clackmannanshire",
+    "localities": 24,
+    "south": 56.0714,
+    "west": -3.8795,
+    "north": 56.214,
+    "east": -3.5736
+  },
+  {
+    "atco": "669",
+    "name": "Falkirk",
+    "localities": 63,
+    "south": 55.8966,
+    "west": -3.9851,
+    "north": 56.1243,
+    "east": -3.4947
+  },
+  {
+    "atco": "670",
+    "name": "Highland",
+    "localities": 1139,
+    "south": 56.4868,
+    "west": -6.692,
+    "north": 58.6946,
+    "east": -3.0283
+  },
+  {
+    "atco": "680",
+    "name": "Dumfries & Galloway",
+    "localities": 227,
+    "south": 54.6643,
+    "west": -5.1592,
+    "north": 55.4395,
+    "east": -2.8694
+  },
+  {
+    "atco": "690",
+    "name": "Scottish Borders",
+    "localities": 209,
+    "south": 55.1548,
+    "west": -3.4817,
+    "north": 55.9642,
+    "east": -2.0211
+  }
+]

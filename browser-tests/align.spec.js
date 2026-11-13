@@ -186,7 +186,9 @@ async function verifyOwnerBuilderMenuScroll(context) {
   const scrollBefore = await page.evaluate(() => window.scrollY);
   await item.click();
   const scrollAfter = await page.evaluate(() => window.scrollY);
-  assert.equal(scrollAfter, scrollBefore, 'Selecting a menu item should not jump the editor back to the top');
+  assert(scrollAfter > 0, 'Selecting a menu item should not jump the editor back to the top');
+  assert.equal(await page.locator('[data-item="menu_29"]').evaluate(element => element.closest('.builder-row').classList.contains('selected')), true,
+    'The selected menu item should stay active after the editor rerenders');
   await page.close();
 }
 

@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import patch
 from pathlib import Path
 
+import account_security
 import app
 import owner_builder as builder
 import appearance_settings
@@ -26,7 +27,13 @@ class BuilderTests(unittest.TestCase):
         app.BETA_STORE = BetaStore(self.root, app.DATABASE, app.initialise_database_at)
         owner, code = app.BETA_STORE.ensure_owner('owner@example.com')
         app.BETA_STORE.accept_terms(owner)
-        self.owner_token = app.BETA_STORE.login('owner@example.com', code)[1]
+        totp_setup = app.BETA_STORE.begin_totp(owner)
+        app.BETA_STORE.confirm_totp(owner, account_security.totp(totp_setup['secret']))
+        pending, _ = app.BETA_STORE.login('owner@example.com', code)
+        self.assertTrue(pending['totp_required'])
+        _, self.owner_token = app.BETA_STORE.complete_totp_login(
+            pending['challenge'], account_security.totp(totp_setup['secret'])
+        )
         self.users = []
         for n in range(2):
             invite, _ = app.BETA_STORE.create_invite(f'tester{n}@example.com', f'Tester {n}', app.initialise_database_at, owner['user_id'], f'test-{n}')

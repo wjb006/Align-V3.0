@@ -4,6 +4,7 @@
 !*.py
 !*.sql
 !merseyside_stops.json
+!naptan_areas.json
 !desktop/
 !desktop/*.py
 !static/

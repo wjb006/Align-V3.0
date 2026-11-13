@@ -41,7 +41,7 @@ jobs:
             echo "Fresh V3 schema is missing a restored shift-planner table."
             exit 1
           fi
-          for marker in 149_asset_studio 149_transport 150_calendar_links 151_sections 152_personal_item_calendars 153_hosted_travel_and_calendar_location 154_user_favourites_contacts 155_here_transit_usage 156_shift_planner; do
+          for marker in 149_asset_studio 149_transport 150_calendar_links 151_sections 152_personal_item_calendars 153_hosted_travel_and_calendar_location 154_user_favourites_contacts 155_here_transit_usage 156_shift_planner 157_work_rota_import 158_section_guides 159_account_security; do
             if ! grep -Fxq "${marker}|1" /tmp/align-schema-preflight.txt; then
               echo "Expected exactly one migration marker for ${marker}."
               exit 1
