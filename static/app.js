@@ -23,7 +23,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 158;
-const ASSET_VERSION = `${BUILD_VERSION}-v95`;
+const ASSET_VERSION = `${BUILD_VERSION}-v96`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -69,6 +69,13 @@ function fullDateLabel(value) {
   return fromIso(String(value).slice(0, 10)).toLocaleDateString('en-GB', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
+}
+function timelineDateLabel(value) {
+  const date = fromIso(String(value || '').slice(0, 10));
+  if (Number.isNaN(date.getTime())) return fullDateLabel(value);
+  const weekday = date.toLocaleDateString('en-GB', { weekday: 'short' });
+  const month = date.toLocaleDateString('en-GB', { month: 'short' });
+  return `${weekday} ${date.getDate()} ${month} ${date.getFullYear()}`;
 }
 function safeColour(value, fallback = '#365CE6') { return /^#[0-9a-f]{6}$/i.test(value || '') ? value : fallback; }
 function number(value) { return Number(value || 0).toLocaleString('en-GB', { maximumFractionDigits: 2 }); }
@@ -496,12 +503,13 @@ function renderHome() {
   const totalLabel = `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
   ensureDailyTravel(todayItems);
 
-  const weatherChip = typeof homeWeatherChip === 'function' ? homeWeatherChip() : '';
-  const nextHeading = focus.later ? `<p class="home-next-label">Next · ${escapeHtml(fullDateLabel(String(todayItems[0].start_at || todayItems[0].work_date || '').slice(0, 10)))}</p>` : '';
+  const labelDate = value => (typeof timelineDateLabel === 'function' ? timelineDateLabel(value) : fullDateLabel(value));
+  const nextHeading = focus.later ? `<p class="home-next-label">Next · ${escapeHtml(labelDate(String(todayItems[0].start_at || todayItems[0].work_date || '').slice(0, 10)))}</p>` : '';
+  const dayLabel = labelDate(focus.later ? String(todayItems[0].start_at || todayItems[0].work_date || '').slice(0, 10) : dashboard.today);
   return `<section class="page today-reference-page">
     <header class="today-reference-header">
-      <div class="today-reference-date"><span class="today-reference-calendar" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 2v3M17 2v3M4 8h16M5 4h14a1 1 0 0 1 1 1v14H4V5a1 1 0 0 1 1-1Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 12h2v2H8zm6 0h2v2h-2zm-6 4h2v2H8z" fill="currentColor"/></svg></span><h1>${escapeHtml(fullDateLabel(focus.later ? String(todayItems[0].start_at || todayItems[0].work_date || '').slice(0, 10) : dashboard.today))}</h1></div>
-      <div class="today-reference-side">${weatherChip}<div class="today-reference-total" role="group" aria-label="Daily schedule summary"><strong>${todayTimelineItemCount(todayItems)} ${todayTimelineItemCount(todayItems) === 1 ? 'Event' : 'Events'}</strong><span aria-hidden="true">•</span><strong>${totalLabel} Total</strong></div></div>
+      <div class="today-reference-date"><span class="today-reference-calendar" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 2v3M17 2v3M4 8h16M5 4h14a1 1 0 0 1 1 1v14H4V5a1 1 0 0 1 1-1Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 12h2v2H8zm6 0h2v2h-2zm-6 4h2v2H8z" fill="currentColor"/></svg></span><h1>${escapeHtml(dayLabel)}</h1></div>
+      <div class="today-reference-side"><div class="today-reference-total" role="group" aria-label="Daily schedule summary"><strong>${todayTimelineItemCount(todayItems)} ${todayTimelineItemCount(todayItems) === 1 ? 'Event' : 'Events'}</strong><span aria-hidden="true">•</span><strong>${totalLabel} Total</strong></div></div>
     </header>
     ${state.boot.personal && homeSection('today') && typeof homeWeatherCard === 'function' ? homeWeatherCard() : (state.boot.personal && homeSection('today') && typeof personalWeatherPanel === 'function' ? personalWeatherPanel() : '')}
     ${nextHeading}
@@ -739,7 +747,7 @@ function renderTodayAppointment(event, homeTravel='', hero=false) {
   return `<article class="today-appointment-card${hero?' design-hero':''}" style="--appointment-colour:${escapeHtml(colour)}" ${attrs}>
     <header class="today-appointment-heading"><span class="today-appointment-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M13 7v10a8 8 0 0 0 16 0V7M9 7h8M25 7h8M29 25v3a8 8 0 0 0 16 0v-2M41 26a4 4 0 1 0 8 0 4 4 0 0 0-8 0" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" transform="translate(-3 0)"/></svg></span><div><strong>${escapeHtml(event.title||'Event')}</strong>${location?`<small>⌖ ${appleDestinationLink(location)}</small>`:''}</div><time>${escapeHtml(time)}</time></header>
     ${typeof eventForecastChip==='function'?eventForecastChip(event.start_at):''}
-    <div class="today-appointment-notes"><span aria-hidden="true">▣</span><span>${notes?escapeHtml(notes):'Appointment'}</span><span class="design-duration-pill">${escapeHtml(todayEventDurationLabel(event))}</span></div>
+    <div class="today-appointment-notes"><span class="today-note-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 2v3M17 2v3M4 8h16M5 4h14a1 1 0 0 1 1 1v14H4V5a1 1 0 0 1 1-1Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><span>${notes?escapeHtml(notes):'Appointment'}</span><span class="design-duration-pill"><span aria-hidden="true">⏱</span> ${escapeHtml(todayEventDurationLabel(event))}</span></div>
     ${homeTravel}
   </article>`;
 }
