@@ -129,7 +129,7 @@ CREATE TABLE align_auth.beta_users (
 );
 CREATE TABLE align_auth.beta_login_challenges (
   "challenge_hash" text NOT NULL,
-  "user_id" text NOT NULL REFERENCES align_auth.beta_users(user_id) ON DELETE CASCADE,
+  "user_id" text NOT NULL,
   "expires" bigint NOT NULL,
   "created_at" bigint NOT NULL,
   PRIMARY KEY (challenge_hash)
