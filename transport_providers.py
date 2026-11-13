@@ -44,15 +44,22 @@ class OTPProvider:
           from { name } to { name } route { shortName longName } } }
       }
     }'''
-    def plan(self, origin, destination, target, modes, depart_after=False):
-        endpoint=os.environ.get('ALIGN_OTP_URL','http://127.0.0.1:8080/otp/gtfs/v1')
+    def plan(self, origin, destination, target, modes, depart_after=False, max_walk_metres=None):
+        endpoint=os.environ.get('ALIGN_OTP_URL','').strip()
         if not endpoint: raise ProviderUnavailable('Journey provider setup required')
         from zoneinfo import ZoneInfo
         local=target.astimezone(ZoneInfo('Europe/London'))
         mapping={'walk':'WALK','bus':'BUS','rail':'RAIL'}
         variables={'from':{'lat':origin[0],'lon':origin[1]},'to':{'lat':destination[0],'lon':destination[1]},'date':local.strftime('%Y-%m-%d'),'time':local.strftime('%H:%M:%S'),'modes':[{'mode':mapping[m]} for m in modes]}
         query = self.query.replace('arriveBy:true','arriveBy:false') if depart_after else self.query
+        if max_walk_metres:
+            query = query.replace('searchWindow:7200', f'searchWindow:7200,maxWalkDistance:{int(max_walk_metres)}')
         result=request_json(endpoint,{'query':query,'variables':variables})
+        if result.get('errors') and max_walk_metres:
+            # A pinned OTP build may not accept maxWalkDistance. Ask again
+            # without it; closer-stop filtering still uses the published stops.
+            query = self.query.replace('arriveBy:true','arriveBy:false') if depart_after else self.query
+            result=request_json(endpoint,{'query':query,'variables':variables})
         if result.get('errors'):
             # Older pinned OTP schemas may not expose Place.stop.platformCode.
             # Fall back without platform data instead of breaking journey planning.
@@ -72,6 +79,17 @@ class OTPProvider:
                 legs.append({'mode':mode,'start':start.isoformat(),'end':end.isoformat(),'from':from_place.get('name') or '','to':(leg.get('to') or {}).get('name') or '','service':route.get('shortName') or route.get('longName') or '', 'service_number':route.get('shortName') or '', 'platform':platform, 'live':bool(leg.get('realTime'))})
             journeys.append({'legs':legs,'live':any(l['live'] for l in legs),'updated_at':datetime.now(timezone.utc).isoformat(),'provider':'OpenTripPlanner','disruption':'none'})
         return journeys
+
+def _shift_iso(value, minutes):
+    if not value or not minutes:
+        return value
+    try:
+        start = datetime.fromisoformat(str(value))
+    except ValueError:
+        return value
+    from datetime import timedelta
+    return (start + timedelta(minutes=int(minutes))).isoformat()
+
 
 def distance(a,b):
     lat1,lon1,lat2,lon2=map(math.radians,(*a,*b))
@@ -104,7 +122,25 @@ class StatusHook:
         prefix='ALIGN_'+self.name.upper()
         endpoint=os.environ.get(prefix+'_LIVE_URL','')
         token=os.environ.get(prefix+'_TOKEN','')
-        if not endpoint or not token: return None
+        if endpoint and token:
+            return self._bridge(legs, endpoint, token)
+        from transport_access import service_delay
+        updates = []
+        for leg in legs:
+            if leg.get('mode') != ('bus' if self.name == 'bods' else 'rail'):
+                continue
+            delay = service_delay(leg)
+            if delay is None:
+                continue
+            expected = _shift_iso(leg.get('start'), delay)
+            updates.append({
+                'service': leg.get('service'), 'from': leg.get('from'), 'to': leg.get('to'),
+                'start': leg.get('start'), 'end': leg.get('end'),
+                'expected_start': expected, 'delay_minutes': delay,
+            })
+        return {'legs': updates} if updates else None
+
+    def _bridge(self, legs, endpoint, token):
         # Transit identifiers only, no home address or current coordinates.
         services=[{k:l.get(k) for k in ('service','from','to','start','end')} for l in legs if l['mode']==('bus' if self.name=='bods' else 'rail')]
         return request_json(endpoint,{'services':services},{'Authorization':'Bearer '+token})

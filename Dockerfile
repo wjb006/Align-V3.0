@@ -10,7 +10,7 @@ RUN apt-get update \
 COPY requirements*.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY *.py *.sql merseyside_stops.json ./
+COPY *.py *.sql merseyside_stops.json naptan_areas.json ./
 COPY desktop/*.py ./desktop/
 COPY static ./static
 COPY migrations ./migrations
