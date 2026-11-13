@@ -494,7 +494,10 @@ def handle(handler,app,method):
         if not isinstance(body,dict): raise ValueError('Send an object containing the event details.')
         with app.db_connection() as c:
             ensure(c)
-            if path=='/api/personal/preferences' and method=='PUT': result=save_preferences(c,body)
+            if path=='/api/personal/offline-pack' and method=='GET':
+                from offline_pack import pack
+                result=pack(c)
+            elif path=='/api/personal/preferences' and method=='PUT': result=save_preferences(c,body)
             elif path=='/api/personal/availability' and method=='POST': result=availability(c,body)
             elif path=='/api/personal/weather' and method=='POST':
                 try:
