@@ -11,7 +11,7 @@ BUS = ('bus', 'privateBus', 'busRapid')
 
 
 class HERETransitProvider:
-    def plan(self, origin, destination, target, modes, depart_after=False):
+    def plan(self, origin, destination, target, modes, depart_after=False, max_walk_metres=None):
         if os.environ.get('ALIGN_HERE_TRANSIT_ENABLED') != '1':
             raise ValueError('HERE bus/train routing is awaiting account and free-plan verification.')
         key = os.environ.get('ALIGN_HERE_ROUTING_KEY')
@@ -24,10 +24,14 @@ class HERETransitProvider:
         # the modes filter. Walking access/egress is configured separately.
         if not allowed:
             raise ValueError('Select bus or train travel for HERE transit routing.')
+        if max_walk_metres is None and 'walk' in selected:
+            from transport_access import access_cap_metres, nearby_stops
+            max_walk_metres = access_cap_metres(nearby_stops(origin), selected)
+        walk_cap = int(max_walk_metres) if max_walk_metres else (2000 if 'walk' in selected else 0)
         params = dict(origin=','.join(map(str, origin)),
                       destination=','.join(map(str, destination)),
                       arrivalTime=target.isoformat(), modes=','.join(allowed),
-                      **{'pedestrian[maxDistance]': 2000 if 'walk' in selected else 0},
+                      **{'pedestrian[maxDistance]': walk_cap},
                       alternatives=6, lang='en-GB', apiKey=key)
         if depart_after: params['departureTime'] = params.pop('arrivalTime')
         from here_quota import reserve
