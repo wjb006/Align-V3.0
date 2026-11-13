@@ -6,6 +6,7 @@
 WITH required_tables(schema_name, table_name) AS (
     VALUES
       ('align_auth','beta_users'),
+      ('align_auth','beta_login_challenges'),
       ('align_auth','beta_sessions'),
       ('align_auth','beta_invites'),
       ('align_auth','beta_password_resets'),
@@ -59,7 +60,8 @@ WHERE NOT EXISTS (
 )
 UNION ALL
 SELECT 'missing required column: align_auth.beta_users.' || c.column_name, 1
-FROM (VALUES ('user_id'), ('is_owner'), ('password_hash'), ('password_set_at'), ('created_at')) AS c(column_name)
+FROM (VALUES ('user_id'), ('is_owner'), ('password_hash'), ('password_set_at'), ('created_at'),
+             ('totp_secret'), ('totp_enabled')) AS c(column_name)
 WHERE NOT EXISTS (
     SELECT 1 FROM information_schema.columns i
     WHERE i.table_schema='align_auth' AND i.table_name='beta_users' AND i.column_name=c.column_name
@@ -77,7 +79,8 @@ WHERE NOT EXISTS (
 -- schema_migrations table has already passed the metadata check above.
 SELECT m.migration_id, COUNT(sm.migration_id)::bigint AS applied_count
 FROM (VALUES ('149_asset_studio'), ('149_transport'), ('150_calendar_links'),
-             ('151_sections'), ('152_personal_item_calendars'), ('156_shift_planner')) AS m(migration_id)
+             ('151_sections'), ('152_personal_item_calendars'), ('156_shift_planner'),
+             ('159_account_security')) AS m(migration_id)
 LEFT JOIN align_owner.schema_migrations sm ON sm.migration_id=m.migration_id
 GROUP BY m.migration_id
 ORDER BY m.migration_id;
