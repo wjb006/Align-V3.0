@@ -28,7 +28,7 @@ class HERETransitProvider:
                       destination=','.join(map(str, destination)),
                       arrivalTime=target.isoformat(), modes=','.join(allowed),
                       **{'pedestrian[maxDistance]': 2000 if 'walk' in selected else 0},
-                      alternatives=3, lang='en-GB', apiKey=key)
+                      alternatives=6, lang='en-GB', apiKey=key)
         if depart_after: params['departureTime'] = params.pop('arrivalTime')
         from here_quota import reserve
         reserve()

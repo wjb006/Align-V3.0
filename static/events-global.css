@@ -97,6 +97,39 @@
 .add-shift-day-option input:checked+span small{color:#e0efff}
 .add-shift-day-option input:focus-visible+span{outline:2px solid #fff;outline-offset:3px}
 @media(min-width:520px){.add-shift-days-grid{grid-template-columns:repeat(7,minmax(0,1fr))}}
+
+.design-day,.today-reference-page{background:transparent}
+.design-hero{box-shadow:0 0 22px #168ff544,0 12px 28px #0005}
+.today-reference-header{background:#07182c;border:1px solid #1d4e78;box-shadow:0 0 0 1px #168ff533}
+.today-reference-total{border-radius:999px;background:#102844}
+.design-weather{display:grid;gap:10px;margin:0 0 14px;padding:12px;border:1px solid #2a6ea8;border-radius:18px;background:linear-gradient(160deg,#0c2744,#071526);box-shadow:0 0 18px #168ff522;color:#e8f3ff}
+.design-weather-main{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center}
+.design-weather-main strong{display:block;font-size:1.05rem}
+.design-weather-main span{color:#c5daf0;font-size:.82rem}
+.design-hours{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:2px;padding-bottom:2px}
+.design-hour{display:grid;justify-items:center;min-width:0;gap:2px;color:#d7e8f8;font-size:.72rem}
+.design-hour strong{font-size:.9rem;color:#fff}
+.design-forecast{display:inline-flex;gap:4px;margin-top:4px;color:#d5e8ff;font-size:.75rem}
+.design-travel{display:grid;grid-template-columns:minmax(88px,auto) minmax(0,1fr) auto;gap:8px;align-items:center;margin:8px 0;padding:8px 10px;border:1px solid #3d7eae;border-radius:14px;background:#07182e;color:#e7f3ff}
+.design-travel-copy{display:grid;min-width:0}
+.design-travel-copy strong{font-size:.78rem}
+.design-travel-route{color:#b7cfe4;font-size:.68rem;overflow-wrap:anywhere}
+.design-travel-steps{display:flex;flex-wrap:wrap;align-items:center;gap:4px 2px;min-width:0}
+.design-leg{display:inline-flex;align-items:center;gap:4px;min-width:0}
+.design-leg small{display:block;color:#b7cfe4;font-size:.62rem;line-height:1.1}
+.design-leg strong{font-size:.78rem;line-height:1.1}
+.design-service{display:inline-block;padding:1px 6px;border-radius:999px;background:#6d4dff;color:#fff}
+.design-leg-ride b{font-size:.68rem;font-weight:650}
+.design-arrow{color:#9fb6cc}
+.design-duration-pill{justify-self:end;padding:4px 8px;border-radius:999px;border:1px solid #3d7eae;font-size:.72rem;white-space:nowrap}
+.design-connector{position:relative;margin-left:18px}
+.design-connector::before{content:"";position:absolute;left:-14px;top:-12px;bottom:-12px;border-left:2px dotted #3d7eae}
+.today-location-areas{display:grid;gap:8px}
+.today-appointment-notes{display:flex;align-items:center;justify-content:space-between;gap:8px}
+@media(max-width:420px){
+ .design-travel{grid-template-columns:1fr;align-items:start}
+ .design-duration-pill{justify-self:start}
+}
 .add-shift-day-panels{display:grid;gap:14px;margin:0 0 8px}
 .add-shift-day-panel{display:grid;gap:12px;padding:14px;border:1px solid #27618b;border-radius:16px;background:rgba(8,34,61,.45)}
 .add-shift-day-panel-head h3{margin:0}

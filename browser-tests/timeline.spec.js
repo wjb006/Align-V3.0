@@ -113,9 +113,12 @@ async function main() {
       state.dailyInboundJourneys[todayInboundKey(timelineItems[0])]={leave_at:'2030-10-01T07:40',arrival_at:'2030-10-01T08:00',steps:[{mode:'bus',service:'414'}]};
       return todayInboundMarkup(timelineItems[0],true);
     });
-    assert.match(inboundMarkup,/travel-condensed/,'Home travel stays on one line.');
-    assert.match(inboundMarkup,/Leave 07:40/);
-    assert.match(inboundMarkup,/Bus 414/);
+    assert.match(inboundMarkup,/design-travel/,'Home travel uses the route strip.');
+    assert.match(inboundMarkup,/Travel to/);
+    assert.match(inboundMarkup,/Leave/);
+    assert.match(inboundMarkup,/07:40/);
+    assert.match(inboundMarkup,/Bus/);
+    assert.match(inboundMarkup,/414/);
     assert.doesNotMatch(inboundMarkup,/journey-compact-item/);
 
     await page.addScriptTag({content:journeySource+'\n'+postTravelSource});
@@ -205,9 +208,11 @@ async function main() {
     assert.match(await schedule.locator('.today-appointment-card .today-home-travel').innerText(),/Travel home/);
     assert.equal(await schedule.locator(':scope > .today-travel-connector').count(),1);
     const nextTravel=schedule.locator('.today-travel-connector[aria-label="Travel to next event"]');
-    assert.match(await nextTravel.innerText(),/Leave 16:30/);
-    assert.match(await nextTravel.innerText(),/Arrive 17:00/);
-    assert.equal(await nextTravel.locator('.journey-compact-strip').count(),0,'Home timeline travel stays condensed.');
+    assert.match(await nextTravel.innerText(),/Leave/);
+    assert.match(await nextTravel.innerText(),/16:30/);
+    assert.match(await nextTravel.innerText(),/Arrive/);
+    assert.match(await nextTravel.innerText(),/17:00/);
+    assert.equal(await nextTravel.locator('.journey-compact-strip').count(),0,'The next-event strip uses the design route, not the compact itinerary.');
     await page.evaluate(() => {
       const last=timelineItems[1];
       last.post_travel={enabled:true,deadline:'',destination_name:'Home',

@@ -10,8 +10,9 @@ assert(start >= 0 && end > start);
 const forecast = {
   place: 'Test town', checked_at: '2030-01-01T10:00:00Z', source: 'Open-Meteo',
   current: {time: '2030-01-01T10:00', weather_code: 3, temperature_2m: 12},
+  hourly: {time: ['2030-01-01T10:00'], temperature_2m: [12], precipitation_probability: [20], weather_code: [3]},
   daily: {time: ['2030-01-01', '2030-01-02'], weather_code: [3, 0],
-    temperature_2m_min: [8, 7], temperature_2m_max: [13, 14]},
+    temperature_2m_min: [8, 7], temperature_2m_max: [13, 14], precipitation_probability_max: [20, 10]},
 };
 let requests = 0;
 const context = {
@@ -34,8 +35,15 @@ vm.runInContext(personal + '\n' + app.slice(start, end), context);
   assert.equal(requests, 1);
   assert.match(html, /Test town/);
   assert.match(html, /12°C/);
-  assert.match(html, /7 days/);
+  assert.match(html, /Rain /);
+  assert.match(html, /High /);
+  assert.match(html, /Low /);
+  assert.match(html, /design-hour/);
   assert.match(html, /data-personal="weather"/);
+  const chip = context.eventForecastChip('2030-01-01T10:00');
+  assert.match(chip, /12°/);
+  assert.match(chip, /rain 20%/);
+  assert.equal(context.eventForecastChip('2030-01-01T11:00'), '', 'Hours missing from the forecast stay blank');
   context.homeSectionContent = (_, key) => key !== 'show_weather';
   assert.doesNotMatch(context.renderHome(), /data-weather-result/);
   context.homeSectionContent = () => true;
