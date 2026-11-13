@@ -118,6 +118,8 @@ class BetaStore:
                 'password_hash': "ALTER TABLE beta_users ADD COLUMN password_hash TEXT NOT NULL DEFAULT ''",
                 'password_set_at': "ALTER TABLE beta_users ADD COLUMN password_set_at TEXT NOT NULL DEFAULT ''",
                 'account_status': "ALTER TABLE beta_users ADD COLUMN account_status TEXT NOT NULL DEFAULT 'active'",
+                'totp_secret': "ALTER TABLE beta_users ADD COLUMN totp_secret TEXT NOT NULL DEFAULT ''",
+                'totp_enabled': "ALTER TABLE beta_users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0",
             }
             for col, sql in migrations.items():
                 if col not in cols:
@@ -125,6 +127,12 @@ class BetaStore:
             # Existing Build 137-140 users are established accounts. Newly-created
             # V3.0 testers are explicitly marked pending until invite completion.
             c.execute("UPDATE beta_users SET account_status='active' WHERE account_status='' OR account_status IS NULL")
+            c.execute('''CREATE TABLE IF NOT EXISTS beta_login_challenges (
+              challenge_hash TEXT PRIMARY KEY,
+              user_id TEXT NOT NULL,
+              expires INTEGER NOT NULL,
+              created_at INTEGER NOT NULL
+            )''')
             c.executescript("""
             CREATE TABLE IF NOT EXISTS beta_invites (
               invite_id TEXT PRIMARY KEY,
@@ -272,6 +280,13 @@ class BetaStore:
 
     def hash_password(self, password: str) -> str:
         self.validate_password(password)
+        from account_security import password_breached
+        try:
+            breached = password_breached(password)
+        except RuntimeError as error:
+            raise BetaError(str(error), 'breach_check_unavailable', 503) from None
+        if breached:
+            raise BetaError('This password has appeared in a public breach. Choose a different one.', 'breached_password')
         return self._password_hasher().hash(password)
 
     def verify_password(self, stored: str, password: str) -> bool:
@@ -392,6 +407,7 @@ class BetaStore:
         credential = str(credential or '')
         key = self._attempt_key(email, remote)
         self._attempt_check(self.login_attempts, key)
+        challenge = None
         with self._connect() as c:
             row = c.execute("SELECT * FROM beta_users WHERE email=? AND active=1 AND account_status='active'", (email,)).fetchone()
             ok = False
@@ -402,12 +418,63 @@ class BetaStore:
                 elif row['is_owner']:
                     legacy_owner = secrets.compare_digest(row['invite_hash'], self.digest(self.canonical_code(credential)))
                     ok = legacy_owner
-            if not ok:
-                self._attempt_fail(self.login_attempts, key)
-                return None, None
-            token = self._new_session(c, row)
+            if ok and self._totp_column(c) and row['totp_enabled']:
+                challenge = self._new_challenge(c, row)
+            elif ok:
+                token = self._new_session(c, row)
+        if not ok:
+            self._attempt_fail(self.login_attempts, key)
+            self.rate_check_and_record('login_failure', key, 8, 900, 'Too many unsuccessful attempts. Please wait before trying again.')
+            return None, None
+        if challenge:
+            return {'totp_required': True, 'challenge': challenge}, None
         self._attempt_success(self.login_attempts, key)
         return self.by_session(token), token
+
+    def _totp_column(self, c) -> bool:
+        try:
+            c.execute('SELECT totp_enabled, totp_secret FROM beta_users LIMIT 0')
+            c.execute('SELECT challenge_hash FROM beta_login_challenges LIMIT 0')
+        except Exception:
+            return False
+        return True
+
+    def _new_challenge(self, c, row) -> str:
+        token = secrets.token_urlsafe(32)
+        c.execute('DELETE FROM beta_login_challenges WHERE expires<=?', (self.now(),))
+        c.execute('INSERT INTO beta_login_challenges(challenge_hash,user_id,expires,created_at) VALUES(?,?,?,?)',
+                  (self.digest(token), row['user_id'], self.now() + 300, self.now()))
+        return token
+
+    def complete_totp_login(self, challenge, code):
+        from account_security import verify_totp
+        digest = self.digest(str(challenge or ''))
+        with self._connect() as c:
+            row = c.execute('''SELECT u.* FROM beta_login_challenges ch
+                JOIN beta_users u ON u.user_id=ch.user_id
+                WHERE ch.challenge_hash=? AND ch.expires>?''', (digest, self.now())).fetchone()
+            if not row or not verify_totp(row['totp_secret'], code):
+                return None, None
+            c.execute('DELETE FROM beta_login_challenges WHERE challenge_hash=?', (digest,))
+            token = self._new_session(c, row)
+        return self.by_session(token), token
+
+    def begin_totp(self, row):
+        from account_security import generate_secret, provisioning_uri
+        secret = generate_secret()
+        with self._connect() as c:
+            c.execute('UPDATE beta_users SET totp_secret=?, totp_enabled=0 WHERE user_id=?', (secret, row['user_id']))
+        return {'secret': secret, 'uri': provisioning_uri(secret, row['email'])}
+
+    def confirm_totp(self, row, code):
+        from account_security import verify_totp
+        with self._connect() as c:
+            current = c.execute('SELECT totp_secret FROM beta_users WHERE user_id=?', (row['user_id'],)).fetchone()
+            if not current or not verify_totp(current['totp_secret'], code):
+                raise BetaError('That code did not match. Check the authenticator time and try again.', 'invalid_totp', 401)
+            c.execute('UPDATE beta_users SET totp_enabled=1 WHERE user_id=?', (row['user_id'],))
+        self.revoke_sessions(row['user_id'])
+        return {'enabled': True, 'signed_out': True}
 
     def logout(self,row, token: str=''):
         if not row: return
