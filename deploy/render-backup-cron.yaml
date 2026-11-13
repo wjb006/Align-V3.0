@@ -1,0 +1,24 @@
+# Prepared nightly backup. Not part of the live render.yaml blueprint.
+# Create this service only after Will approves, with DATABASE_URL and
+# ALIGN_BACKUP_BUCKET credentials set in the dashboard. Do not commit those values.
+services:
+  - type: cron
+    name: align-postgres-backup
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    schedule: "0 2 * * *"
+    dockerCommand: python backup_neon.py --out /tmp/align-backups --keep 7 --upload
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: ALIGN_BACKUP_BUCKET
+        sync: false
+      - key: AWS_ENDPOINT_URL_S3
+        sync: false
+      - key: AWS_REGION
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
