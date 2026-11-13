@@ -142,11 +142,11 @@ def plan(c, body, prefs, provider=None, provider_name='OpenTripPlanner'):
         plan = dict(minutes=minutes,leave_at=leave.isoformat(timespec='minutes'),arrival_at=end.isoformat(timespec='minutes'),steps=steps,notes='\n'.join(notes),mode=mode,provider=provider_name,scheduled=True,access_walk_minutes=access)
         # A long walk to the first vehicle loses to a nearer stop that still arrives on time.
         walk_burden = access + max(0, access - 8) * 3
-        plans.append((plan, walk_burden + minutes, elapsed, leave))
+        plans.append((plan, walk_burden, elapsed, leave))
     if depart_after and not deadline:
         plans.sort(key=lambda p: (datetime.fromisoformat(p[0]['arrival_at']).timestamp(), p[1], p[0]['minutes']))
     else:
-        plans.sort(key=lambda p: (p[1], p[0]['minutes'], -p[3].timestamp()))
+        plans.sort(key=lambda p: (p[1], p[2], -p[3].timestamp()))
     if not plans: raise ValueError('No scheduled journey reaches this event in time. Try another time or travel mode; check that the timetable covers this date.')
     plans = [plan for plan, *_rest in plans[:MAX_JOURNEYS]]
     return {**plans[0], 'journeys':plans}
