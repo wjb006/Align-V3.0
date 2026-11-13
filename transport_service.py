@@ -19,17 +19,19 @@ def validate_hosted_storage(c):
 def enabled(): return os.environ.get('ALIGN_TRANSPORT_ENABLED','0')=='1'
 
 def routing_status():
+    from transport_access import hosted_otp_url
     here = os.environ.get('ALIGN_JOURNEY_PROVIDER') == 'here'
     here_key = bool(os.environ.get('ALIGN_HERE_ROUTING_KEY'))
     here_transit = here_key and os.environ.get('ALIGN_HERE_TRANSIT_ENABLED') == '1'
-    otp = bool(os.environ.get('ALIGN_OTP_URL'))
+    hosted_otp = bool(hosted_otp_url())
+    otp = hosted_otp or bool(os.environ.get('ALIGN_OTP_URL'))
     # Driving and address lookup use HERE Routing/Geocoding independently of
     # the optional public-transport switch. Keep the two capabilities explicit.
     return {
         'provider': 'HERE' if here else 'OpenTripPlanner',
         'routing_configured': bool(here_transit if here else otp),
         'driving_configured': bool(here_key if here else otp),
-        'transit_configured': bool(here_transit if here else otp),
+        'transit_configured': bool((here_transit or hosted_otp) if here else otp),
         'geocoding_configured': bool(here_key if here else otp),
     }
 
@@ -133,7 +135,10 @@ def plan(c,body,provider=None):
     origin=place(body.get('origin') or (prefs['home'] if not body.get('origin_address') else None),body.get('origin_address'))
     dest=place(body.get('destination'),body.get('destination_address'))
     if provider is None:
-        if os.environ.get('ALIGN_JOURNEY_PROVIDER') == 'here':
+        from transport_access import hosted_otp_url
+        if hosted_otp_url():
+            provider = OTPProvider()
+        elif os.environ.get('ALIGN_JOURNEY_PROVIDER') == 'here':
             from here_transit import HERETransitProvider
             provider = HERETransitProvider()
         else:
@@ -194,14 +199,18 @@ def handle(handler,app,method):
             elif handler.headers.get('Origin') not in (None,'http://'+handler.headers.get('Host',''),'https://'+handler.headers.get('Host','')):
                 handler.send_json(403,{'error':'Use the current Align site'}); return True
         if path=='/api/transport/status':
-            handler.send_json(200,{'enabled':enabled(),**routing_status(),'live_configured':{name:bool(os.environ.get('ALIGN_'+name+'_LIVE_URL') and os.environ.get('ALIGN_'+name+'_TOKEN')) for name in ('BODS','DARWIN')}}); return True
+            from transport_access import live_sources
+            sources = live_sources()
+            handler.send_json(200,{'enabled':enabled(),**routing_status(),'live_configured':{'BODS':sources['bods'],'DARWIN':sources['darwin'],'NAPTAN':sources['naptan'],'OTP':sources['otp']}}); return True
         if not enabled():
             handler.send_json(404,{'error':'Transport is disabled'}); return True
         with app.db_connection() as c:
             if path=='/api/transport/items' and method=='GET': result=transport_places.items(c)
             elif path=='/api/transport/places' and method=='POST': result=transport_places.lookup(body)
             elif path=='/api/transport/preferences': result=save_preferences(c,body) if method=='POST' else preferences(c)
-            elif path=='/api/transport/nearby' and method=='POST': result={'stops':NaptanProvider().nearby(coordinates(body['origin']))}
+            elif path=='/api/transport/nearby' and method=='POST':
+                from transport_access import nearby_stops
+                result={'stops':nearby_stops(coordinates(body['origin']))}
             elif path=='/api/transport/journeys' and method=='POST': result=plan(c,body)
             elif path=='/api/transport/cached' and method=='POST': result=cached(c,body['event_key'])
             elif path=='/api/transport/live' and method=='POST': result=live(c,body)

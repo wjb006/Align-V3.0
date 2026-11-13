@@ -298,13 +298,20 @@ def route_plan(route, mode, event_time, departure_buffer):
 
 def journey(c, body):
     mode = body.get('mode', preferences(c)['default_travel'])
-    if mode == 'drive' and os.environ.get('ALIGN_JOURNEY_PROVIDER', 'otp') == 'here':
+    provider_name = os.environ.get('ALIGN_JOURNEY_PROVIDER', 'otp')
+    from transport_access import hosted_otp_url
+    if mode == 'drive' and provider_name == 'here':
         return here_journey(c, body)
-    if os.environ.get('ALIGN_JOURNEY_PROVIDER', 'otp') == 'here' or (mode != 'drive' and os.environ.get('ALIGN_HERE_TRANSIT_ENABLED') == '1'):
+    # A hosted OTP graph is the timetable. Loopback OTP is local-only and does
+    # not replace HERE on the hosted service until ALIGN_OTP_URL is a real endpoint.
+    if mode != 'drive' and hosted_otp_url():
+        from personal_otp import plan
+        result = plan(c, body, preferences(c))
+    elif provider_name == 'here' or (mode != 'drive' and os.environ.get('ALIGN_HERE_TRANSIT_ENABLED') == '1'):
         from personal_otp import plan
         from here_transit import HERETransitProvider
         result = plan(c, body, preferences(c), HERETransitProvider(), 'HERE')
-    elif os.environ.get('ALIGN_JOURNEY_PROVIDER', 'otp') == 'otp':
+    elif provider_name == 'otp':
         from personal_otp import plan
         result = plan(c, body, preferences(c))
     else:

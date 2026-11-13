@@ -114,3 +114,22 @@ Before enabling: verify the actual account plan and enforce its no-charge limit 
 Align additionally reserves at most 1,000 transit requests across a rolling 32-day window in the shared Neon auth schema. Reservations commit before upstream requests and remain counted on failures. Database outages fail closed. This limit covers Align only: other use of the HERE account can still consume the 5,000/month provider allowance. The account observed on 25 Sep 2026 is Base Plan Self Serve v6.0, not the legacy Limited Plan.
 
 Driving selection: set ALIGN_JOURNEY_PROVIDER=here. Hosted HERE driving and address lookups reserve from the same 1,000-call allowance before each request (a driving calculation can consume three calls). The verified account has 30,000 free monthly driving transactions and 30,000 geocoding transactions. No paid plan change is required.
+
+## Hosted timetable feeds
+
+Align does not store a route, a bus number or a walking time of its own. Those come from OpenTripPlanner or HERE. NaPTAN only limits how far the first walk may go. BODS and Darwin only add a delay when a returned service matches one vehicle at the named stop.
+
+Set these on the hosted service. Leave them empty until the key or endpoint exists; the planner still runs and says that live data is not configured.
+
+| Setting | Where to get it |
+|---|---|
+| `ALIGN_OTP_URL` | GraphQL URL of the OTP service after its graph is built, such as `https://<otp-host>/otp/gtfs/v1`. A `localhost` URL does not take over hosted routing. |
+| `ALIGN_NAPTAN_LIVE` | Set to `1`. The stop file is public and needs no key. |
+| `ALIGN_BODS_API_KEY` | Free API key from the Bus Open Data Service registration at https://data.bus-data.dft.gov.uk/ |
+| `ALIGN_DARWIN_TOKEN` | OpenLDBWS token from the Rail Data Marketplace Darwin / Live Departure Board product. The departure stop must include its CRS code, for example `Liverpool Central (LVC)`. |
+| `ALIGN_BODS_LIVE_URL` and `ALIGN_BODS_TOKEN` | Optional private JSON bridge. When both are set, that bridge is used instead of the official datafeed. |
+| `ALIGN_DARWIN_LIVE_URL` and `ALIGN_DARWIN_TOKEN` | Optional private JSON bridge. When the URL is set, it is used instead of OpenLDBWS. |
+
+The bridge request body is `{ "services": [{ "service", "from", "to", "start", "end" }] }`. The response is `{ "legs": [{ "service", "from", "to", "start", "expected_start" }] }`. Home addresses and coordinates are not sent.
+
+When `ALIGN_NAPTAN_LIVE=1`, the walk to the first stop is limited to the nearest published bus or rail stop in that area, plus a short margin. If the only itinerary walks much further than that stop, Align does not offer it.
