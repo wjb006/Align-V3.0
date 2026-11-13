@@ -63,6 +63,37 @@ def resolve_journey_place(address, provider_name):
     return (lat, lon), 'HERE address lookup'
 
 
+def _live_leave_adjustment(steps):
+    """Shift the leave time only by a delay a configured feed reported."""
+    from transport_access import live_sources
+    from transport_providers import StatusHook
+    transit = next((step for step in steps if step.get('mode') in ('bus', 'train', 'rail')), None)
+    if transit is None:
+        return 0, 'scheduled times; no bus or rail service on this journey'
+    hook = 'bods' if transit.get('mode') == 'bus' else 'darwin'
+    configured = live_sources()[hook]
+    leg = {**transit, 'mode': 'rail' if transit.get('mode') == 'train' else transit.get('mode')}
+    delay = None
+    try:
+        payload = StatusHook(hook).refresh([leg]) or {}
+        for update in payload.get('legs') or []:
+            if update.get('service') != transit.get('service') or update.get('from') != transit.get('from'):
+                continue
+            if update.get('delay_minutes') is not None:
+                delay = int(update['delay_minutes'])
+                break
+    except Exception:
+        delay = None
+        configured = True
+    if not configured:
+        return 0, 'scheduled times; live delays are not configured'
+    if delay is None:
+        return 0, 'scheduled times; live data did not match this service'
+    if delay <= 0:
+        return 0, 'scheduled times; live check shows the first service is on time'
+    return delay, f'scheduled times; live delay {delay} minutes on the first service'
+
+
 def plan(c, body, prefs, provider=None, provider_name='OpenTripPlanner'):
     mode = body.get('mode', prefs['default_travel'])
     if mode not in MODE_MAP:
@@ -100,12 +131,19 @@ def plan(c, body, prefs, provider=None, provider_name='OpenTripPlanner'):
             origin, origin_note = resolve_journey_place(home, provider_name)
             origin_name = 'home'
         dest, dest_note = resolve_journey_place(destination, provider_name)
+        from transport_access import access_cap_metres, nearby_stops, prefer_closer_boarding
+        stops = nearby_stops(origin)
+        cap = access_cap_metres(stops, MODE_MAP[mode])
         planner = provider or OTPProvider()
-        candidates = planner.plan(origin, dest, target, MODE_MAP[mode], depart_after=True) if depart_after else planner.plan(origin, dest, target, MODE_MAP[mode])
+        plan_args = dict(max_walk_metres=cap)
+        candidates = planner.plan(origin, dest, target, MODE_MAP[mode], depart_after=True, **plan_args) if depart_after else planner.plan(origin, dest, target, MODE_MAP[mode], **plan_args)
+        candidates, dropped = prefer_closer_boarding(candidates, stops, MODE_MAP[mode])
+        if not candidates and (dropped or stops):
+            raise ValueError('Closer stops were found, but no scheduled service from them arrives in time. Align will not suggest a longer walk to a different stop.')
     except ProviderUnavailable:
         if provider_name == 'HERE':
             raise ValueError('HERE transit is unavailable or its quota has been reached. Try again later or enter travel details manually.') from None
-        raise ValueError('OpenTripPlanner or postcode lookup is unavailable. Start Align with Start Align Merseyside.bat and retry.') from None
+        raise ValueError('The journey provider or stop lookup is unavailable. Check ALIGN_OTP_URL, or the configured HERE transit key, and try again.') from None
     plans = []
     for candidate in candidates:
         legs = candidate.get('legs', [])
@@ -137,9 +175,15 @@ def plan(c, body, prefs, provider=None, provider_name='OpenTripPlanner'):
         for step in steps:
             a = datetime.fromisoformat(step['start']).astimezone(ZONE)
             notes.append(f"{step['mode'].title()} {step.get('service','')} · {step['minutes']} min · {a:%H:%M} · {step.get('from','')} → {step.get('to','')}")
-        notes.append(provider_name + ' · scheduled times; live delay updates unavailable · checked '+format_display_datetime(now))
+        delay, live_note = _live_leave_adjustment(steps)
+        if delay:
+            leave = leave + timedelta(minutes=delay)
+            end = end + timedelta(minutes=delay)
+            minutes = math.ceil((end.timestamp()-start.timestamp())/60)
+            notes[0] = f"Leave {origin_name}: {format_display_datetime(leave)}"
+        notes.append(provider_name + ' · ' + live_note + ' · checked '+format_display_datetime(now))
         notes.extend(candidate.get('attributions', []))
-        plan = dict(minutes=minutes,leave_at=leave.isoformat(timespec='minutes'),arrival_at=end.isoformat(timespec='minutes'),steps=steps,notes='\n'.join(notes),mode=mode,provider=provider_name,scheduled=True,access_walk_minutes=access)
+        plan = dict(minutes=minutes,leave_at=leave.isoformat(timespec='minutes'),arrival_at=end.isoformat(timespec='minutes'),steps=steps,notes='\n'.join(notes),mode=mode,provider=provider_name,scheduled=not delay,live=bool(delay),access_walk_minutes=access)
         # A long walk to the first vehicle loses to a nearer stop that still arrives on time.
         walk_burden = access + max(0, access - 8) * 3
         plans.append((plan, walk_burden, elapsed, leave))
