@@ -9,10 +9,11 @@ const end = app.indexOf('\nfunction todayInboundKey(', start);
 assert(start >= 0 && end > start);
 const forecast = {
   place: 'Test town', checked_at: '2030-01-01T10:00:00Z', source: 'Open-Meteo',
-  current: {time: '2030-01-01T10:00', weather_code: 3, temperature_2m: 12},
-  hourly: {time: ['2030-01-01T10:00'], temperature_2m: [12], precipitation_probability: [20], weather_code: [3]},
+  current: {time: '2030-01-01T10:00', weather_code: 3, temperature_2m: 12, apparent_temperature: 10, wind_speed_10m: 18},
+  hourly: {time: ['2030-01-01T10:00', '2030-01-01T11:00'], temperature_2m: [12, 13], precipitation_probability: [20, 30], weather_code: [3, 3]},
   daily: {time: ['2030-01-01', '2030-01-02'], weather_code: [3, 0],
-    temperature_2m_min: [8, 7], temperature_2m_max: [13, 14], precipitation_probability_max: [20, 10]},
+    temperature_2m_min: [8, 7], temperature_2m_max: [13, 14], precipitation_probability_max: [20, 10],
+    sunrise: ['2030-01-01T08:05'], sunset: ['2030-01-01T16:10']},
 };
 let requests = 0;
 const context = {
@@ -39,11 +40,19 @@ vm.runInContext(personal + '\n' + app.slice(start, end), context);
   assert.match(html, /High /);
   assert.match(html, /Low /);
   assert.match(html, /design-hour/);
+  assert.match(html, /Feels 10°/);
+  assert.match(html, /Wind 18 km\/h/);
+  assert.match(html, /08:05–16:10/);
+  assert.match(html, /aria-label="[^"]*Sunrise 08:05/);
+  assert.match(html, /Sunset 16:10/);
+  assert.match(html, /weather-curve/);
+  assert.match(html, /data-sky="cloud"/);
+  assert.match(html, /weather-art-hero/);
   assert.match(html, /data-personal="weather"/);
   const chip = context.eventForecastChip('2030-01-01T10:00');
   assert.match(chip, /12°/);
   assert.match(chip, /rain 20%/);
-  assert.equal(context.eventForecastChip('2030-01-01T11:00'), '', 'Hours missing from the forecast stay blank');
+  assert.equal(context.eventForecastChip('2030-01-01T12:00'), '', 'Hours missing from the forecast stay blank');
   context.homeSectionContent = (_, key) => key !== 'show_weather';
   assert.doesNotMatch(context.renderHome(), /data-weather-result/);
   context.homeSectionContent = () => true;

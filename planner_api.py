@@ -18,6 +18,16 @@ def _work_calendar_status(connection) -> dict:
     return work_calendar.status(connection)
 
 
+def _home_status(connection) -> dict:
+    """Leave-now opt-in for the signed-in account. Missing settings stay off."""
+    try:
+        import phone_push
+        value = phone_push.setting(connection, 'leave_alerts', {}) or {}
+    except Exception:
+        value = {}
+    return {'leave_alerts_enabled': bool(isinstance(value, dict) and value.get('enabled'))}
+
+
 def _wake_icloud(handler, app, row) -> None:
     try:
         import organiser_api
@@ -277,6 +287,7 @@ def handle_get(handler, app, connection, parsed, row) -> bool:
             "icloud_public": app.public_icloud_data(self.request_icloud_manager(row) if app.BETA_MODE else None),
             "icloud_event_calendars": app.icloud_event_calendars(connection),
             "work_calendar": _work_calendar_status(connection),
+            "home_status": _home_status(connection),
             "beta": ({"email": row["email"], "is_owner": bool(row["is_owner"])} if row else None),
         })
         return True

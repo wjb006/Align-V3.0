@@ -1,5 +1,5 @@
 const BUILD = 158;
-const ASSET_VERSION = `${BUILD}-v96`;
+const ASSET_VERSION = `${BUILD}-v99`;
 
 const SHELL_CACHE = `align-v13-shell-${ASSET_VERSION}`;
 const API_CACHE = `align-v13-api-${ASSET_VERSION}`;
@@ -41,6 +41,20 @@ const SHELL_ASSETS = [
   '/icons/align-192.png',
   '/icons/align-512.png',
   '/icons/align-maskable-512.png',
+
+  '/weather/clear-day.svg',
+  '/weather/clear-night.svg',
+  '/weather/partly-day.svg',
+  '/weather/partly-night.svg',
+  '/weather/cloud.svg',
+  '/weather/drizzle.svg',
+  '/weather/rain.svg',
+  '/weather/heavy-rain.svg',
+  '/weather/thunder.svg',
+  '/weather/snow.svg',
+  '/weather/sleet.svg',
+  '/weather/fog.svg',
+  '/weather/wind.svg',
 
   '/journey-icons/arrival.png',
   '/journey-icons/walking.png',

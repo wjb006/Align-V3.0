@@ -23,7 +23,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 158;
-const ASSET_VERSION = `${BUILD_VERSION}-v96`;
+const ASSET_VERSION = `${BUILD_VERSION}-v99`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -284,13 +284,47 @@ function render() {
   else if (!content) content = renderHome();
   const cloud = state.boot?.icloud_public || {};
   const cloudNotice = cloud.reconnect_required
-    ? `<div class="card" role="alert"><strong>iCloud needs reconnecting</strong><p>${escapeHtml(cloud.message || 'Open Calendar settings and connect iCloud again.')}</p><button class="small-button" data-nav="settings">Open settings</button></div>`
+    ? `<div class="card home-alert" role="alert"><p><strong>iCloud needs reconnecting.</strong> ${escapeHtml(cloud.message || 'Open Calendar settings and connect iCloud again.')}</p><button class="small-button" data-nav="settings">Open settings</button></div>`
     : cloud.last_error
-    ? `<div class="card" role="alert"><strong>iCloud sync failed</strong><p>${escapeHtml(cloud.last_error)}</p><button class="small-button" data-nav="settings">Open settings</button></div>`
+    ? `<div class="card home-alert" role="alert"><p><strong>iCloud sync failed.</strong> ${escapeHtml(cloud.last_error)}</p><button class="small-button" data-nav="settings">Open settings</button></div>`
     : '';
   app.innerHTML = cloudNotice + content;
   app.focus({ preventScroll: true });
+  bindHomePull();
   window.AlignProgrammeUpdate?.refresh();
+}
+let homePullBound = false;
+function bindHomePull() {
+  if (homePullBound || typeof document === 'undefined') return;
+  homePullBound = true;
+  let startY = 0;
+  let pulling = false;
+  const indicator = () => document.querySelector('.home-pull');
+  document.addEventListener('touchstart', event => {
+    if (!['home', 'today'].includes(state.tab)) return;
+    if ((document.scrollingElement?.scrollTop || 0) > 0) return;
+    startY = event.touches[0]?.clientY || 0;
+    pulling = true;
+  }, { passive: true });
+  document.addEventListener('touchmove', event => {
+    if (!pulling) return;
+    const delta = (event.touches[0]?.clientY || 0) - startY;
+    const pull = indicator();
+    if (!pull) return;
+    pull.classList.toggle('is-armed', delta > 12);
+    pull.classList.toggle('is-ready', delta > 72);
+    pull.style.setProperty('--pull', `${Math.max(0, Math.min(delta, 88))}px`);
+  }, { passive: true });
+  document.addEventListener('touchend', () => {
+    const pull = indicator();
+    const ready = Boolean(pull?.classList.contains('is-ready'));
+    pulling = false;
+    if (pull) {
+      pull.classList.remove('is-armed', 'is-ready');
+      pull.style.removeProperty('--pull');
+    }
+    if (ready && typeof loadPersonalWeather === 'function') void loadPersonalWeather(true);
+  });
 }
 
 function renderPlannerCalendar() {
@@ -501,8 +535,130 @@ function homeScheduleItems(events, today) {
   const next = upcoming[0];
   return {items: next ? [next] : [], later: !!next};
 }
+function homeFocusItem(items) {
+  const timed = (items || []).filter(item => !item.all_day && typeof eventStartAt === 'function' && eventStartAt(item));
+  const now = Date.now();
+  const current = timed.find(item => {
+    const start = eventStartAt(item).getTime();
+    const end = eventEndAt(item)?.getTime();
+    return start <= now && end > now;
+  });
+  return current || timed.find(item => eventStartAt(item).getTime() > now) || null;
+}
+function homeCountdown(item) {
+  const start = eventStartAt(item);
+  const end = eventEndAt(item);
+  const now = Date.now();
+  if (!start || !Number.isFinite(start.getTime())) return { label: 'Next', detail: 'Time not set' };
+  if (end && start.getTime() <= now && end.getTime() > now) return { label: 'Now', detail: 'Happening now' };
+  const minutes = Math.max(0, Math.round((start.getTime() - now) / 60000));
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  const detail = days >= 1 ? `In ${days}d ${hours % 24}h` : hours >= 1 ? `In ${hours}h ${minutes % 60}m` : `In ${minutes}m`;
+  return { label: minutes === 0 && !(end && end.getTime() > now) ? 'Now' : 'Next', detail: minutes === 0 ? 'Starting now' : detail };
+}
+function homeLeaveBy(item) {
+  const key = typeof todayInboundKey === 'function' ? todayInboundKey(item) : '';
+  const journey = key ? state.dailyInboundJourneys?.[key] : null;
+  const leave = journey && (journey.leave_at || journey.departure || journey.depart_at);
+  const clock = leave ? String(leave).slice(11, 16) : '';
+  const steps = Array.isArray(journey?.steps) ? journey.steps : [];
+  const ride = steps.find(step => step && step.mode && step.mode !== 'walk');
+  const mode = ride?.mode || journey?.mode || (typeof personalPrefs === 'function' ? personalPrefs().default_travel : '') || 'transit';
+  if (/^\d{2}:\d{2}$/.test(clock)) return { text: `Leave by ${clock}`, mode };
+  if (key && state.dailyInboundLoading?.[key]) return { text: 'Checking leave time…', mode };
+  if (key && state.dailyInboundErrors?.[key]) return { text: 'Leave time unavailable', mode };
+  return null;
+}
+function homeAccent(item) {
+  if (item?.origin === 'Shift') return safeColour(item.shift_type_colour || item.location_colour, '#16d5d0');
+  return safeColour(item?.section_colour || item?.colour, '#7c9cff');
+}
+function homeProgress(item) {
+  const start = typeof eventStartAt === 'function' ? eventStartAt(item)?.getTime() : NaN;
+  const end = typeof eventEndAt === 'function' ? eventEndAt(item)?.getTime() : NaN;
+  const now = Date.now();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return { ratio: 0, label: 'Schedule progress' };
+  if (now >= start && now < end) {
+    const ratio = (now - start) / (end - start);
+    return { ratio, label: `${Math.round(ratio * 100)}% through this event` };
+  }
+  if (now < start) {
+    const ratio = Math.max(0, Math.min(1, 1 - (start - now) / (12 * 3600000)));
+    return { ratio, label: 'Time until this event' };
+  }
+  return { ratio: 1, label: 'This event has finished' };
+}
+function homeProgressRing(item) {
+  const progress = homeProgress(item);
+  const length = 113;
+  const dash = Math.max(0, Math.min(length, progress.ratio * length)).toFixed(1);
+  return `<svg class="home-progress" viewBox="0 0 44 44" role="img" aria-label="${escapeHtml(progress.label)}"><circle class="home-progress-track" cx="22" cy="22" r="18"/><circle class="home-progress-value" cx="22" cy="22" r="18" stroke-dasharray="${dash} ${length}"/></svg>`;
+}
+function renderHomeNowCard(items) {
+  const item = homeFocusItem(items);
+  if (!item) return '';
+  const countdown = homeCountdown(item);
+  const name = item.origin === 'Shift'
+    ? (item.shift_type_name || item.location_name || item.title || 'Shift')
+    : (item.title || 'Next event');
+  const place = item.location_name || item.location || '';
+  const calendar = item.origin === 'Shift' ? 'Work' : (item.category_name || item.calendar_name || 'Calendar');
+  const leave = homeLeaveBy(item);
+  const icon = leave?.mode && typeof journeyModeArtwork === 'function' ? journeyModeArtwork({ mode: leave.mode }, 28) : '';
+  return `<section class="home-now-card" style="--home-accent:${homeAccent(item)}" aria-label="${escapeHtml(countdown.label)}: ${escapeHtml(name)}">
+    <div class="home-now-top">
+      ${homeProgressRing(item)}
+      <div>
+        <p class="eyebrow">${escapeHtml(countdown.label)} · ${escapeHtml(calendar)}</p>
+        <h2>${escapeHtml(name)}</h2>
+        ${place ? `<p class="home-now-place">${escapeHtml(place)}</p>` : ''}
+        <p class="home-countdown" aria-live="polite">${escapeHtml(countdown.detail)}</p>
+      </div>
+    </div>
+    ${leave?.text ? `<p class="home-leave">${icon}<span>${escapeHtml(leave.text)}</span></p>` : ''}
+  </section>`;
+}
+function renderHomeStatus() {
+  const cloud = state.boot?.icloud_public || {};
+  const leaveOn = Boolean(state.boot?.home_status?.leave_alerts_enabled);
+  const sync = cloud.last_error ? 'iCloud needs attention' : cloud.connected ? 'iCloud connected' : 'iCloud not connected';
+  return `<ul class="home-status" aria-label="Sync and alerts">
+    <li>${escapeHtml(sync)}</li>
+    <li>${leaveOn ? 'Leave alerts on' : 'Leave alerts off'}</li>
+  </ul>`;
+}
+function homeWeekBars() {
+  const today = String(state.boot?.dashboard?.today || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(today) || typeof fromIso !== 'function') return '';
+  const anchor = fromIso(today);
+  const monday = new Date(anchor);
+  monday.setDate(anchor.getDate() - ((anchor.getDay() + 6) % 7));
+  const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  const days = labels.map((label, index) => {
+    const day = new Date(monday);
+    day.setDate(monday.getDate() + index);
+    const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+    const hours = (state.boot.dashboard.upcoming_events || [])
+      .filter(item => item.origin === 'Shift' && String(item.work_date || item.start_at || '').slice(0, 10) === key)
+      .reduce((sum, item) => sum + (Number(item.hours) || 0), 0);
+    return { label, hours, today: key === today };
+  });
+  const peak = Math.max(1, ...days.map(day => day.hours));
+  return `<span class="home-week-bars" aria-hidden="true">${days.map(day => `<span class="${day.today ? 'is-today' : ''}" style="--level:${Math.round((day.hours / peak) * 100)}"><i></i><b>${day.label}</b></span>`).join('')}</span>`;
+}
+function renderHomeWeek(summary) {
+  if (!summary || summary.shift_count == null) return '';
+  const shifts = Number(summary.shift_count) || 0;
+  const hours = Number(summary.week_hours);
+  const hourLabel = Number.isFinite(hours) ? `${hours}h` : '—';
+  return `<div class="home-week" role="status"><span class="home-pill">This week · ${shifts} shift${shifts === 1 ? '' : 's'} · ${escapeHtml(hourLabel)}</span>${homeWeekBars()}</div>`;
+}
 function renderHome() {
   const { dashboard } = state.boot;
+  if (!dashboard) {
+    return '<section class="page today-reference-page" aria-busy="true"><div class="home-skeleton" role="status">Loading your day…<span></span><span></span><span></span></div></section>';
+  }
   // Finished events drop off Home. What is left today stays; otherwise the next event is shown with the weather.
   const focus = homeScheduleItems(dashboard.upcoming_events || [], dashboard.today);
   const todayItems = focus.items;
@@ -514,14 +670,22 @@ function renderHome() {
   const labelDate = value => (typeof timelineDateLabel === 'function' ? timelineDateLabel(value) : fullDateLabel(value));
   const nextHeading = focus.later ? `<p class="home-next-label">Next · ${escapeHtml(labelDate(String(todayItems[0].start_at || todayItems[0].work_date || '').slice(0, 10)))}</p>` : '';
   const dayLabel = labelDate(focus.later ? String(todayItems[0].start_at || todayItems[0].work_date || '').slice(0, 10) : dashboard.today);
+  const person = String(state.boot.settings?.user_name || '').trim();
+  const helloBase = typeof greeting === 'function' ? greeting() : 'Hello';
+  const hello = `${helloBase}${person ? `, ${person}` : ''}`;
   return `<section class="page today-reference-page">
-    <header class="today-reference-header">
-      <div class="today-reference-date"><span class="today-reference-calendar" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 2v3M17 2v3M4 8h16M5 4h14a1 1 0 0 1 1 1v14H4V5a1 1 0 0 1 1-1Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 12h2v2H8zm6 0h2v2h-2zm-6 4h2v2H8z" fill="currentColor"/></svg></span><h1>${escapeHtml(dayLabel)}</h1></div>
-      <div class="today-reference-side"><div class="today-reference-total" role="group" aria-label="Daily schedule summary"><strong>${todayTimelineItemCount(todayItems)} ${todayTimelineItemCount(todayItems) === 1 ? 'Event' : 'Events'}</strong><span aria-hidden="true">•</span><strong>${totalLabel} Total</strong></div></div>
+    <div class="home-pull" aria-hidden="true"><span>Release to refresh</span></div>
+    <header class="home-hello">
+      <div class="home-hello-copy"><p class="eyebrow">${escapeHtml(dayLabel)}</p><h1>${escapeHtml(hello)}</h1></div>
+      <div class="today-reference-total" role="group" aria-label="Daily schedule summary"><strong>${todayTimelineItemCount(todayItems)} ${todayTimelineItemCount(todayItems) === 1 ? 'Event' : 'Events'}</strong><span aria-hidden="true">•</span><strong>${totalLabel} Total</strong></div>
     </header>
+    ${renderHomeWeek(dashboard.summary)}
+    ${renderHomeStatus()}
     ${state.boot.personal && homeSection('today') && typeof homeWeatherCard === 'function' ? homeWeatherCard() : (state.boot.personal && homeSection('today') && typeof personalWeatherPanel === 'function' ? personalWeatherPanel() : '')}
+    ${renderHomeNowCard(todayItems)}
+    ${state.boot.personal ? '<button type="button" class="primary-button home-quick-add" data-personal="event">Quick add</button>' : ''}
     ${nextHeading}
-    <div class="today-event-timeline">${todayItems.length ? renderTodayTimeline(todayItems) : '<div class="card empty">Nothing coming up. Add a shift or appointment to see it here.</div>'}</div>
+    <div class="today-event-timeline">${todayItems.length ? renderTodayTimeline(todayItems) : '<div class="card empty home-empty" role="status"><p>Nothing coming up. Add a shift or appointment to see it here.</p><button type="button" class="primary-button" data-personal="event">Quick add</button></div>'}</div>
     ${state.boot.personal && homeSection('today') && homeSectionContent('today','show_quick_add',true) && typeof personalQuickAdd === 'function' ? `<div class="dashboard-bottom-tools">${personalQuickAdd()}</div>` : ''}
   </section>`;
 }
