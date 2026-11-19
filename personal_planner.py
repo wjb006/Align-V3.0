@@ -230,9 +230,9 @@ def weather(c, body=None):
             write(c, 'weather_town_location_v1', {'town': town.casefold(), 'place': place})
     forecast = cached_forecast(c, place, lambda: fetch_json('https://api.open-meteo.com/v1/forecast?' + urlencode(dict(
         latitude=place['latitude'], longitude=place['longitude'],
-        current='temperature_2m,weather_code',
-        hourly='temperature_2m,weather_code,precipitation_probability,wind_speed_10m',
-        daily='temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,weather_code',
+        current='temperature_2m,apparent_temperature,weather_code,wind_speed_10m',
+        hourly='temperature_2m,apparent_temperature,weather_code,precipitation_probability,wind_speed_10m',
+        daily='temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,weather_code,sunrise,sunset',
         timezone='auto', forecast_days=7,
     ))))
     return dict(

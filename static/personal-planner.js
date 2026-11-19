@@ -62,8 +62,9 @@ function weatherKind(code,when,wind){
 }
 function weatherArt(code,when,wind,size){
  const kind=weatherKind(code,when,wind);
- const px=size==='large'?56:size==='small'?28:18;
- return `<img class="weather-art weather-art-${size}" src="/weather/${kind.file}.svg" alt="${escapeHtml(kind.label)}" width="${px}" height="${px}">`;
+ const px=size==='hero'?76:size==='large'?56:size==='small'?28:18;
+ const motion=size==='hero'?` weather-motion weather-motion-${kind.file}`:'';
+ return `<img class="weather-art weather-art-${size}${motion}" src="/weather/${kind.file}.svg" alt="${escapeHtml(kind.label)}" width="${px}" height="${px}">`;
 }
 function weatherCondition(code,when,wind,size){
  const kind=weatherKind(code,when,wind);
@@ -83,6 +84,37 @@ function eventForecastChip(iso){
  const icon=weatherArt(point.code,point.time||iso,point.wind,'chip');
  return `<span class="design-forecast" role="status">${icon} ${escapeHtml(point.temp??'—')}° · rain ${point.rain==null?'—':escapeHtml(point.rain)+'%'}</span>`;
 }
+function weatherHourIndex(w){
+ const hours=w?.hourly?.time||[];
+ const key=String(w?.current?.time||'').slice(0,13);
+ const index=hours.findIndex(time=>String(time).slice(0,13)===key);
+ return index<0?0:index;
+}
+function weatherFacts(w){
+ const bits=[];
+ const feel=w.current?.apparent_temperature;
+ if(feel!=null&&feel!=='')bits.push(`Feels like ${feel}°`);
+ const wind=w.current?.wind_speed_10m??w.hourly?.wind_speed_10m?.[weatherHourIndex(w)];
+ if(wind!=null&&wind!=='')bits.push(`Wind ${wind} km/h`);
+ const rise=String(w.daily?.sunrise?.[0]||'').slice(11,16);
+ const set=String(w.daily?.sunset?.[0]||'').slice(11,16);
+ if(/^\d{2}:\d{2}$/.test(rise))bits.push(`Sunrise ${rise}`);
+ if(/^\d{2}:\d{2}$/.test(set))bits.push(`Sunset ${set}`);
+ return bits;
+}
+function weatherCurve(points){
+ const temps=points.map(point=>Number(point.temp)).filter(Number.isFinite);
+ if(temps.length<2)return '';
+ const low=Math.min(...temps);
+ const span=Math.max(1,Math.max(...temps)-low);
+ const coords=points.map((point,index)=>{
+  const x=points.length===1?50:(index/(points.length-1))*100;
+  const temp=Number(point.temp);
+  const y=Number.isFinite(temp)?36-((temp-low)/span)*28-4:18;
+  return `${x.toFixed(1)},${y.toFixed(1)}`;
+ });
+ return `<svg class="weather-curve" viewBox="0 0 100 36" preserveAspectRatio="none" aria-hidden="true"><polyline points="${coords.join(' ')}" fill="none" stroke="currentColor" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
 function homeWeatherCard(){
  if(!homeSectionContent('today','show_weather',true))return '';
  syncWeatherContext();
@@ -90,20 +122,30 @@ function homeWeatherCard(){
  if(!weatherLoading&&Date.now()-weatherCheckedAt>=weatherRefreshMs())void loadPersonalWeather();
  const w=personalWeather;
  const refresh=`<button type="button" class="icon-button today-weather-refresh" data-personal="weather" aria-label="Refresh weather" title="Refresh weather" ${weatherLoading?'disabled':''}>↻</button>`;
- if(!w)return `<section class="design-weather" data-weather-result><p>${escapeHtml(weatherError||(weatherLoading?'Getting weather for your location…':'Weather is not available yet.'))}</p>${refresh}</section>`;
- const currentWind=(w.hourly?.wind_speed_10m||[])[Math.max(0,(w.hourly?.time||[]).findIndex(time=>String(time).slice(0,13)===String(w.current?.time||'').slice(0,13)))];
- const [icon,label]=weatherCondition(w.current?.weather_code,w.current?.time,currentWind);
+ if(!w){
+  const message=escapeHtml(weatherError||(weatherLoading?'Getting weather for your location…':'Weather is not available yet.'));
+  return `<section class="design-weather weather-pending" data-weather-result aria-busy="${weatherLoading?'true':'false'}"><div class="home-skeleton" aria-hidden="true"><span></span><span></span><span></span></div><p>${message}</p>${refresh}</section>`;
+ }
+ const windNow=w.current?.wind_speed_10m??w.hourly?.wind_speed_10m?.[weatherHourIndex(w)];
+ const kind=weatherKind(w.current?.weather_code,w.current?.time,windNow);
+ const icon=weatherArt(w.current?.weather_code,w.current?.time,windNow,'hero');
  const rain=w.daily?.precipitation_probability_max?.[0];
  const hours=w.hourly?.time||[];
  const currentHour=String(w.current?.time||'').slice(0,13);
  let start=hours.findIndex(time=>String(time).slice(0,13)>=currentHour);
  if(start<0)start=0;
- const strip=hours.slice(start,start+8).map((time,offset)=>{
+ const points=hours.slice(start,start+8).map((time,offset)=>{
   const index=start+offset;
-  const art=weatherArt(w.hourly?.weather_code?.[index],time,w.hourly?.wind_speed_10m?.[index],'small');
-  return `<span class="design-hour">${art}<b>${escapeHtml(String(time).slice(11,16))}</b><strong>${escapeHtml(w.hourly?.temperature_2m?.[index]??'—')}°</strong><small>${w.hourly?.precipitation_probability?.[index]==null?'—':escapeHtml(w.hourly.precipitation_probability[index])+'%'}</small></span>`;
+  return {time,temp:w.hourly?.temperature_2m?.[index],rain:w.hourly?.precipitation_probability?.[index],code:w.hourly?.weather_code?.[index],wind:w.hourly?.wind_speed_10m?.[index]};
+ });
+ const strip=points.map(point=>{
+  const art=weatherArt(point.code,point.time,point.wind,'small');
+  const chance=point.rain==null?'—':escapeHtml(point.rain)+'%';
+  const level=point.rain==null?0:Math.max(0,Math.min(100,Number(point.rain)||0));
+  return `<span class="design-hour">${art}<b>${escapeHtml(String(point.time).slice(11,16))}</b><strong>${escapeHtml(point.temp??'—')}°</strong><i class="rain-meter" style="--rain:${level}%"><span></span></i><small>${chance}</small></span>`;
  }).join('');
- return `<section class="design-weather" data-weather-result aria-label="Weather"><div class="design-weather-main"><span class="weather-icon">${icon}</span><div><span class="eyebrow">${escapeHtml(w.place||'Weather')}</span><strong>${escapeHtml(label)} · ${escapeHtml(w.current?.temperature_2m??'—')}°C</strong><span>Rain ${rain==null?'—':escapeHtml(rain)+'%'} · High ${escapeHtml(w.daily?.temperature_2m_max?.[0]??'—')}° · Low ${escapeHtml(w.daily?.temperature_2m_min?.[0]??'—')}°</span></div>${refresh}</div><div class="design-hours" aria-label="Hourly forecast">${strip}</div></section>`;
+ const facts=weatherFacts(w).map(item=>`<span>${escapeHtml(item)}</span>`).join('');
+ return `<section class="design-weather" data-weather-result data-sky="${kind.file}" aria-label="Weather"><div class="design-weather-main"><span class="weather-icon">${icon}</span><div><span class="eyebrow">${escapeHtml(w.place||'Weather')}</span><strong class="weather-temp">${escapeHtml(w.current?.temperature_2m??'—')}°C</strong><span class="weather-label">${escapeHtml(kind.label)}</span></div>${refresh}</div><p class="weather-meta">Rain ${rain==null?'—':escapeHtml(rain)+'%'} · High ${escapeHtml(w.daily?.temperature_2m_max?.[0]??'—')}° · Low ${escapeHtml(w.daily?.temperature_2m_min?.[0]??'—')}°</p>${facts?`<div class="weather-facts">${facts}</div>`:''}${weatherCurve(points)}<div class="design-hours" aria-label="Hourly forecast">${strip}</div></section>`;
 }
 let weatherView='three', weatherDay='';
 
