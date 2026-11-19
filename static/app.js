@@ -23,7 +23,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 158;
-const ASSET_VERSION = `${BUILD_VERSION}-v98`;
+const ASSET_VERSION = `${BUILD_VERSION}-v99`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -284,9 +284,9 @@ function render() {
   else if (!content) content = renderHome();
   const cloud = state.boot?.icloud_public || {};
   const cloudNotice = cloud.reconnect_required
-    ? `<div class="card" role="alert"><strong>iCloud needs reconnecting</strong><p>${escapeHtml(cloud.message || 'Open Calendar settings and connect iCloud again.')}</p><button class="small-button" data-nav="settings">Open settings</button></div>`
+    ? `<div class="card home-alert" role="alert"><p><strong>iCloud needs reconnecting.</strong> ${escapeHtml(cloud.message || 'Open Calendar settings and connect iCloud again.')}</p><button class="small-button" data-nav="settings">Open settings</button></div>`
     : cloud.last_error
-    ? `<div class="card" role="alert"><strong>iCloud sync failed</strong><p>${escapeHtml(cloud.last_error)}</p><button class="small-button" data-nav="settings">Open settings</button></div>`
+    ? `<div class="card home-alert" role="alert"><p><strong>iCloud sync failed.</strong> ${escapeHtml(cloud.last_error)}</p><button class="small-button" data-nav="settings">Open settings</button></div>`
     : '';
   app.innerHTML = cloudNotice + content;
   app.focus({ preventScroll: true });
