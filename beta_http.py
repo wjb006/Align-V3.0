@@ -76,7 +76,7 @@ def handle_form(handler, app, path) -> bool:
     # v1.3 keeps the proven Safari-safe browser-navigation handoff for
     # login, invite completion and password reset. Cookies are committed
     # before the 303 redirect is followed.
-    if BETA_MODE and path in {'/beta-login-submit','/beta-login-totp','/beta-invite-complete','/beta-reset-submit'}:
+    if BETA_MODE and path in {'/beta-login-submit','/beta-login-totp','/beta-password-change','/beta-invite-complete','/beta-reset-submit'}:
         if not self.beta_same_origin(): return True
         length=int(self.headers.get('Content-Length','0') or '0')
         if length>64_000: raise BetaError('Authentication request is too large.')
@@ -89,12 +89,27 @@ def handle_form(handler, app, path) -> bool:
             except BetaError as error:
                 label='throttled' if error.status==429 else 'invalid'
                 self.send_response(303); self.send_header('Location',f'/login?error={label}'); self.send_header('Cache-Control','no-store'); self.end_headers(); return True
+            if isinstance(row, dict) and row.get('password_change_required'):
+                self.send_response(303); self.send_header('Location','/login?step=password'); self.send_header('Cache-Control','no-store'); self.send_totp_cookie(row['challenge']); self.end_headers(); return True
             if isinstance(row, dict) and row.get('totp_required'):
                 self.send_response(303); self.send_header('Location','/login?step=totp'); self.send_header('Cache-Control','no-store'); self.send_totp_cookie(row['challenge']); self.end_headers(); return True
             if not row:
                 self.send_response(303); self.send_header('Location','/login?error=invalid'); self.send_header('Cache-Control','no-store'); self.end_headers(); return True
             target='/terms' if not beta_store().terms_current(row) else ('/welcome' if not row['welcome_seen_at'] else '/')
             self.send_response(303); self.send_header('Location',target); self.send_header('Cache-Control','no-store'); self.send_beta_cookie(token); self.end_headers(); return True
+        if path=='/beta-password-change':
+            password=(form.get('password') or [''])[0]
+            confirm=(form.get('confirm_password') or [''])[0]
+            if password!=confirm:
+                self.send_response(303); self.send_header('Location','/login?step=password&error=match'); self.send_header('Cache-Control','no-store'); self.end_headers(); return True
+            try:
+                row,token=beta_store().complete_password_change(_cookie(self, 'align_totp'), password)
+            except BetaError as error:
+                label='breached' if error.code=='breached_password' else 'password'
+                self.send_response(303); self.send_header('Location',f'/login?step=password&error={label}'); self.send_header('Cache-Control','no-store'); self.end_headers(); return True
+            if not row:
+                self.send_response(303); self.send_header('Location','/login?error=invalid'); self.send_header('Cache-Control','no-store'); self.end_headers(); return True
+            self.send_response(303); self.send_header('Location','/'); self.send_header('Cache-Control','no-store'); self.send_beta_cookie(token); self.send_totp_cookie('', True); self.end_headers(); return True
         if path=='/beta-login-totp':
             code=(form.get('code') or [''])[0]
             challenge=_cookie(self, 'align_totp')

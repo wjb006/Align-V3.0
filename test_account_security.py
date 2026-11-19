@@ -70,6 +70,25 @@ class SecurityTests(unittest.TestCase):
         with mock.patch.dict(os.environ, {'ALIGN_BREACH_CHECK': '0'}):
             self.assertTrue(self.store.hash_password('AnotherPhrase2026'))
 
+    def test_breached_password_must_change_before_a_session(self):
+        digest = __import__('hashlib').sha1(self.password.encode()).hexdigest().upper()
+
+        def hit(prefix):
+            self.assertEqual(prefix, digest[:5])
+            return digest[5:] + ':4'
+
+        with mock.patch.dict(os.environ, {'ALIGN_BREACH_CHECK': '1'}):
+            with mock.patch('account_security._hibp_fetch', side_effect=hit):
+                pending, token = self.store.login('tester@example.com', self.password, 'breach')
+        self.assertTrue(pending['password_change_required'])
+        self.assertIsNone(token)
+        self.assertIsNone(self.store.by_session('no-session'))
+        with mock.patch.dict(os.environ, {'ALIGN_BREACH_CHECK': '0'}):
+            row, session = self.store.complete_password_change(pending['challenge'], 'ReplacementPhrase2026')
+        self.assertEqual(row['email'], 'tester@example.com')
+        self.assertTrue(session)
+        self.assertIsNone(self.store.complete_password_change(pending['challenge'], 'ReplacementPhrase2026')[0])
+
     def test_session_cookie_is_first_party(self):
         source = Path('app.py').read_text(encoding='utf-8')
         self.assertIn('SameSite=Lax', source)

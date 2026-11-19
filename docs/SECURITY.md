@@ -24,6 +24,10 @@ Eight wrong passwords for the same email and client within 15 minutes return HTT
 
 Setting or changing a password checks the SHA-1 range API at `https://api.pwnedpasswords.com/range/`. Only the first five characters of the hash are sent. A listed password is rejected. If the service cannot be reached, the password is not saved.
 
+Signing in with a password that is already on that list does not open the app. Align asks for a new password first. If the breach list cannot be reached during sign-in, the existing password is still accepted so an outage does not lock the account.
+
+Apply `migrations/postgres/160_password_change_challenge.postgres.sql` after migration 159 so hosted sign-in can store that password-change step. The rollback file drops the column. The running app does not apply either file.
+
 `ALIGN_BREACH_CHECK=0` skips the lookup. Leave it unset on the hosted service.
 
 ## Cookies
