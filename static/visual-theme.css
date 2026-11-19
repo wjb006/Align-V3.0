@@ -263,3 +263,35 @@ html:has(body[data-management-theme="light"]) { background: #f4f6fb; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* Shared polish for the dark release. Keeps the navy palette and the compact Home. */
+html { background: #061326; scroll-padding-top: env(safe-area-inset-top); scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+body { overflow-x: clip; }
+.brand, .brand-wordmark { color: #f4f8ff; }
+.secondary-button, .small-button { color: #f4fbff; }
+.primary-button, .secondary-button, .danger-button, .small-button, .text-button, .quick-action, .nav-item, .settings-branch {
+  transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease, color .18s ease;
+}
+.primary-button:active, .secondary-button:active, .nav-item:active, .settings-branch:active { transform: scale(.99); }
+.hero, .card, .settings-form, .quick-action { border-radius: var(--radius); }
+.field input:not([type="checkbox"]):not([type="radio"]), .field select, .field textarea {
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible {
+  border-color: #16d9f2;
+  box-shadow: 0 0 0 3px #16d9f233;
+}
+.today-weather-refresh, .icon-button { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
+.settings-branch { border-radius: var(--radius); }
+.settings-branch-list { gap: var(--space-2); }
+@media (max-width: 899px) {
+  .app-shell { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
+}
+@media (min-width: 900px) {
+  .app-header { flex-direction: column; align-items: stretch; gap: 12px; width: 100%; min-width: 0; overflow: hidden; }
+  .header-tools { flex-direction: column; align-items: stretch; justify-content: flex-start; width: 100%; min-width: 0; }
+  .app-shell > .app-header .connection-status { max-width: 100%; white-space: normal; text-align: left; overflow-wrap: anywhere; }
+  .header-tools .header-install { width: 100%; min-width: 0; height: auto; min-height: 44px; white-space: nowrap; }
+  .header-tools .header-action:not(.header-install) { align-self: flex-start; }
+  .app-shell > main { padding-top: 8px; }
+}

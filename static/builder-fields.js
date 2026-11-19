@@ -156,7 +156,8 @@ window.AlignFormatting = {
   defaults: {accent:'#365ce6',background:'#f5f7fb',surface:'#ffffff',text:'#1c2940',font:'system',size:'16',spacing:'comfortable',radius:'16',columns:'1',heading:'bold',align:'left'},
   apply(root, config) {
     if(!root)return;
-    const f={...this.defaults,...config};
+    // Empty formatting keeps the dark release. A saved colour still wins.
+    const f={...this.defaults,accent:'#0878f9',background:'#061326',surface:'#0b203b',text:'#f4f8ff',...(config||{})};
     root.classList.add('align-formatted');
     for(const key of ['accent','background','surface','text'])root.style.setProperty('--edit-'+key,/^#[0-9a-f]{6}$/i.test(f[key])?f[key]:this.defaults[key]);
     const values={font:{system:'system-ui, sans-serif',serif:'Georgia, serif',mono:'Consolas, monospace'},size:{14:'14px',16:'16px',18:'18px',20:'20px'},spacing:{compact:'10px',comfortable:'18px',roomy:'26px'},radius:{0:'0px',8:'8px',16:'16px',24:'24px'},columns:{1:'1',2:'2'},heading:{normal:'400',bold:'700'},align:{left:'left',center:'center'}};

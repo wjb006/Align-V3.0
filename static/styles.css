@@ -48,7 +48,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 main { min-height: calc(100vh - 156px); }
 .page { animation: page-in .22s ease-out; }
-@keyframes page-in { from { opacity: .3; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+@keyframes page-in { from { opacity: 0; } to { opacity: 1; } }
 .eyebrow { color: var(--blue); text-transform: uppercase; letter-spacing: .12em; font-size: 11px; font-weight: 750; margin: 0 0 7px; }
 h1, h2, h3, p { margin-top: 0; }
 h1 { font-size: clamp(28px, 7vw, 38px); letter-spacing: -1.2px; line-height: 1.03; margin-bottom: 9px; }
