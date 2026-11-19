@@ -131,8 +131,12 @@ class BetaStore:
               challenge_hash TEXT PRIMARY KEY,
               user_id TEXT NOT NULL,
               expires INTEGER NOT NULL,
-              created_at INTEGER NOT NULL
+              created_at INTEGER NOT NULL,
+              purpose TEXT NOT NULL DEFAULT 'totp'
             )''')
+            challenge_cols = {r[1] for r in c.execute('PRAGMA table_info(beta_login_challenges)')}
+            if 'purpose' not in challenge_cols:
+                c.execute("ALTER TABLE beta_login_challenges ADD COLUMN purpose TEXT NOT NULL DEFAULT 'totp'")
             c.executescript("""
             CREATE TABLE IF NOT EXISTS beta_invites (
               invite_id TEXT PRIMARY KEY,
@@ -408,6 +412,7 @@ class BetaStore:
         key = self._attempt_key(email, remote)
         self._attempt_check(self.login_attempts, key)
         challenge = None
+        challenge_reason = ''
         with self._connect() as c:
             row = c.execute("SELECT * FROM beta_users WHERE email=? AND active=1 AND account_status='active'", (email,)).fetchone()
             ok = False
@@ -418,14 +423,21 @@ class BetaStore:
                 elif row['is_owner']:
                     legacy_owner = secrets.compare_digest(row['invite_hash'], self.digest(self.canonical_code(credential)))
                     ok = legacy_owner
-            if ok and self._totp_column(c) and row['totp_enabled']:
-                challenge = self._new_challenge(c, row)
+            must_change = ok and bool(row['password_hash']) and self._password_must_change(credential)
+            if ok and must_change and self._totp_column(c):
+                challenge = self._new_challenge(c, row, 'password')
+                challenge_reason = 'password'
+            elif ok and self._totp_column(c) and row['totp_enabled']:
+                challenge = self._new_challenge(c, row, 'totp')
+                challenge_reason = 'totp'
             elif ok:
                 token = self._new_session(c, row)
         if not ok:
             self._attempt_fail(self.login_attempts, key)
             self.rate_check_and_record('login_failure', key, 8, 900, 'Too many unsuccessful attempts. Please wait before trying again.')
             return None, None
+        if challenge_reason == 'password':
+            return {'password_change_required': True, 'challenge': challenge}, None
         if challenge:
             return {'totp_required': True, 'challenge': challenge}, None
         self._attempt_success(self.login_attempts, key)
@@ -439,24 +451,51 @@ class BetaStore:
             return False
         return True
 
-    def _new_challenge(self, c, row) -> str:
+    def _password_must_change(self, password) -> bool:
+        """True only when the breach list confirms this password. A lookup failure does not block sign-in."""
+        from account_security import password_breached
+        try:
+            return password_breached(password)
+        except RuntimeError:
+            return False
+
+    def _new_challenge(self, c, row, purpose='totp') -> str:
         token = secrets.token_urlsafe(32)
         c.execute('DELETE FROM beta_login_challenges WHERE expires<=?', (self.now(),))
-        c.execute('INSERT INTO beta_login_challenges(challenge_hash,user_id,expires,created_at) VALUES(?,?,?,?)',
-                  (self.digest(token), row['user_id'], self.now() + 300, self.now()))
+        c.execute('INSERT INTO beta_login_challenges(challenge_hash,user_id,expires,created_at,purpose) VALUES(?,?,?,?,?)',
+                  (self.digest(token), row['user_id'], self.now() + 300, self.now(), purpose))
         return token
 
     def complete_totp_login(self, challenge, code):
         from account_security import verify_totp
         digest = self.digest(str(challenge or ''))
         with self._connect() as c:
-            row = c.execute('''SELECT u.* FROM beta_login_challenges ch
+            row = c.execute('''SELECT u.*, ch.purpose FROM beta_login_challenges ch
                 JOIN beta_users u ON u.user_id=ch.user_id
                 WHERE ch.challenge_hash=? AND ch.expires>?''', (digest, self.now())).fetchone()
-            if not row or not verify_totp(row['totp_secret'], code):
+            if not row or row['purpose'] not in ('totp', '') or not verify_totp(row['totp_secret'], code):
                 return None, None
             c.execute('DELETE FROM beta_login_challenges WHERE challenge_hash=?', (digest,))
             token = self._new_session(c, row)
+        return self.by_session(token), token
+
+    def complete_password_change(self, challenge, password):
+        """Replace a breached password and only then open a session."""
+        digest = self.digest(str(challenge or ''))
+        pw_hash = self.hash_password(password)
+        with self._connect() as c:
+            row = c.execute('''SELECT u.*, ch.purpose FROM beta_login_challenges ch
+                JOIN beta_users u ON u.user_id=ch.user_id
+                WHERE ch.challenge_hash=? AND ch.expires>? AND ch.purpose='password' ''',
+                (digest, self.now())).fetchone()
+            if not row:
+                return None, None
+            c.execute('UPDATE beta_users SET password_hash=?,password_set_at=CURRENT_TIMESTAMP WHERE user_id=?',
+                      (pw_hash, row['user_id']))
+            c.execute('DELETE FROM beta_login_challenges WHERE challenge_hash=?', (digest,))
+            c.execute('DELETE FROM beta_sessions WHERE user_id=?', (row['user_id'],))
+            token = self._new_session(c, row)
+        self.audit('password_change_required', 'success', row['user_id'], reason='breach_list')
         return self.by_session(token), token
 
     def begin_totp(self, row):
