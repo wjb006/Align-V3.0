@@ -588,7 +588,7 @@
       const item=ordered[i],key=plannerLocationKey(item);
       if(!key){chunks.push(plannerItemCard(item)+editFormBeside(item));i++;continue;}
       const group=[item];let j=i+1;
-      while(j<ordered.length&&plannerLocationKey(ordered[j])===key){group.push(ordered[j]);j++;}
+      while(j<ordered.length&&(plannerLocationKey(ordered[j])===key||(typeof sameTodayLocation==='function'&&sameTodayLocation(item,ordered[j])))){group.push(ordered[j]);j++;}
       const first=group[0],last=group.reduce((latest,item)=>plannerItemEnd(item)>plannerItemEnd(latest)?item:latest,first);
       const next=ordered[j], deadline=last.post_travel?.deadline;
       const instant=value=>typeof parseAlignDateTime==='function'?parseAlignDateTime(value)?.getTime():new Date(value).getTime();

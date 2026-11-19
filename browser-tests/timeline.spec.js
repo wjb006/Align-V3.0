@@ -280,6 +280,76 @@ async function main() {
     await page.screenshot({path:path.join(__dirname,'test-results','daily-timeline-mobile.png'),fullPage:true});
     await page.setViewportSize({width:1440,height:1000});
     await page.screenshot({path:path.join(__dirname,'test-results','daily-timeline-desktop.png'),fullPage:true});
+
+    const locationGroup = await page.evaluate(() => {
+      window.eventForecastChip = iso => `<span class="design-forecast">Weather ${String(iso).slice(11,16)}</span>`;
+      const wards = {id:11,origin:'Shift',location_id:3,location_name:'Riverside Health Centre',location:'1 Example Lane, Test Town',
+        latitude:53.1,longitude:-3.1,start_at:'2030-10-02T08:00',end_at:'2030-10-02T12:00',hours:4,
+        shift_type_name:'Wards',shift_type_colour:'#2f9e8f',location_colour:'#078ef0'};
+      const clinic = {id:12,origin:'Shift',location_id:9,location_name:'Riverside Health Centre',location:'Example Lane entrance, Test Town',
+        latitude:53.4,longitude:-3.4,start_at:'2030-10-02T12:30',end_at:'2030-10-02T16:30',hours:4,
+        shift_type_name:'Clinic',shift_type_colour:'#d17a32',location_colour:'#078ef0',
+        post_travel:{timeline:true,enabled:true,deadline:'',destination_name:'Home',
+          journey:{leave_at:'2030-10-02T16:30',arrival_at:'2030-10-02T17:00',steps:[{mode:'walk',minutes:12}]}}};
+      const elsewhere = {id:13,origin:'Event',title:'Dentist',location:'4 Other Street, Test Town',location_name:'North Practice',
+        start_at:'2030-10-02T18:00',end_at:'2030-10-02T18:30',section_colour:'#a76aff'};
+      state.dailyInboundJourneys[todayInboundKey(wards)] = {leave_at:'2030-10-02T07:40',arrival_at:'2030-10-02T08:00',steps:[{mode:'walk',minutes:8}]};
+      const samePlace = [wards, clinic];
+      document.querySelector('#app').innerHTML = renderTodayTimeline(samePlace);
+      const block = document.querySelector('.today-location-block');
+      const areas = [...block.querySelectorAll('.today-shift-area')];
+      const split = todayTimelineGroups([
+        {...wards,id:21,end_at:'2030-10-02T10:00',hours:2,post_travel:undefined},
+        {...elsewhere,id:22,start_at:'2030-10-02T11:00',end_at:'2030-10-02T12:00'},
+        {...clinic,id:23,start_at:'2030-10-02T13:00',end_at:'2030-10-02T16:00',hours:3}
+      ]);
+      const nextDay = todayTimelineGroups([wards,{...clinic,id:24,start_at:'2030-10-03T09:00',end_at:'2030-10-03T12:00'}]);
+      const calendarPair = todayTimelineGroups([
+        {id:31,origin:'Calendar',title:'Wards',location:'1 Example Lane, Test Town',start_at:'2030-10-04T08:00',end_at:'2030-10-04T12:00',section_colour:'#2f9e8f',hours:4},
+        {id:32,origin:'Calendar',title:'Clinic',location:'1 Example Lane, Test Town',start_at:'2030-10-04T13:00',end_at:'2030-10-04T16:30',section_colour:'#d17a32',hours:3.5}
+      ]);
+      return {
+        groups:todayTimelineGroups(samePlace).length,
+        names:areas.map(node=>node.querySelector('.today-area-name').textContent),
+        colours:areas.map(node=>node.style.getPropertyValue('--area-colour')),
+        times:areas.map(node=>node.querySelector('.today-area-time').textContent),
+        durations:areas.map(node=>node.querySelector('.today-area-duration').textContent),
+        weather:areas.map(node=>node.querySelector('.design-forecast')?.textContent||''),
+        icons:areas.map(node=>node.querySelector('.today-area-icon svg')?.outerHTML||''),
+        inbound:block.querySelectorAll('.today-inbound-travel').length,
+        inboundLabel:block.querySelector('.today-inbound-travel')?.innerText||'',
+        home:block.querySelectorAll('.today-home-travel').length,
+        homeLabel:block.querySelector('.today-home-travel')?.innerText||'',
+        travelInsideAreas:block.querySelectorAll('.today-location-areas .today-travel-connector, .today-location-areas .today-inbound-travel').length,
+        header:block.querySelector('.today-location-header').innerText,
+        splitCounts:split.map(group=>group.items.length),
+        nextDayGroups:nextDay.length,
+        calendarGroups:calendarPair.length,
+        calendarItems:calendarPair[0]?.items.length||0
+      };
+    });
+    assert.equal(locationGroup.groups,1,'Contiguous shifts at the same named place form one location block.');
+    assert.deepEqual(locationGroup.names,['Wards','Clinic']);
+    assert.notEqual(locationGroup.colours[0],locationGroup.colours[1]);
+    assert.deepEqual(locationGroup.times,['08:00–12:00','12:30–16:30']);
+    assert.deepEqual(locationGroup.durations,['4h','4h']);
+    assert.deepEqual(locationGroup.weather,['Weather 08:00','Weather 12:30']);
+    assert.notEqual(locationGroup.icons[0],locationGroup.icons[1],'Each area keeps its own icon.');
+    assert.equal(locationGroup.inbound,1);
+    assert.match(locationGroup.inboundLabel,/Travel to Riverside Health Centre/);
+    assert.match(locationGroup.inboundLabel,/8 min/);
+    assert.equal(locationGroup.home,1);
+    assert.match(locationGroup.homeLabel,/Travel home/);
+    assert.match(locationGroup.homeLabel,/12 min/);
+    assert.equal(locationGroup.travelInsideAreas,0,'Items in one location block do not get a journey between them.');
+    assert.match(locationGroup.header,/Riverside Health Centre/);
+    assert.match(locationGroup.header,/1 Example Lane, Test Town/);
+    assert.match(locationGroup.header,/08:00–16:30/);
+    assert.match(locationGroup.header,/8 hours total · 2 shifts/);
+    assert.deepEqual(locationGroup.splitCounts,[1,1,1],'A different place between two visits keeps them separate.');
+    assert.equal(locationGroup.nextDayGroups,2,'The same place on another day stays a separate block.');
+    assert.equal(locationGroup.calendarGroups,1);
+    assert.equal(locationGroup.calendarItems,2,'Calendar items at the same address use the same location block.');
     console.log('Timeline UI regression passed at 390px mobile and 1440px desktop widths.');
   } finally {
     await context.close();

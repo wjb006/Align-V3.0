@@ -23,7 +23,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 158;
-const ASSET_VERSION = `${BUILD_VERSION}-v102`;
+const ASSET_VERSION = `${BUILD_VERSION}-v103`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -509,12 +509,14 @@ function sameTodayLocation(first, second) {
   const firstLongitude = Number(first?.longitude ?? first?.location_longitude);
   const secondLatitude = Number(second?.latitude ?? second?.location_latitude);
   const secondLongitude = Number(second?.longitude ?? second?.location_longitude);
-  if (hasCoordinates(first) && hasCoordinates(second) && [firstLatitude, firstLongitude, secondLatitude, secondLongitude].every(Number.isFinite)) {
-    return firstLatitude.toFixed(5) === secondLatitude.toFixed(5) && firstLongitude.toFixed(5) === secondLongitude.toFixed(5);
-  }
+  if (hasCoordinates(first) && hasCoordinates(second) && [firstLatitude, firstLongitude, secondLatitude, secondLongitude].every(Number.isFinite) &&
+      firstLatitude.toFixed(5) === secondLatitude.toFixed(5) && firstLongitude.toFixed(5) === secondLongitude.toFixed(5)) return true;
   const address = item => String(item?.location_address || item?.address || item?.location || '').trim().toLowerCase().replace(/\s+/g, ' ');
   const firstAddress = address(first), secondAddress = address(second);
-  return !!firstAddress && firstAddress === secondAddress;
+  if (firstAddress && firstAddress === secondAddress) return true;
+  const place = item => String(item?.location_name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const firstPlace = place(first), secondPlace = place(second);
+  return !!firstPlace && firstPlace === secondPlace;
 }
 function todayTimelineGroups(events) {
   const ordered = [...(events || [])].sort((a, b) => String(a.start_at || '').localeCompare(String(b.start_at || '')));
@@ -522,8 +524,9 @@ function todayTimelineGroups(events) {
   for (let i = 0; i < ordered.length;) {
     const first = ordered[i], items = [first];
     let j = i + 1;
-    if (first.origin === 'Shift') {
-      while (j < ordered.length && ordered[j].origin === 'Shift' && sameTodayLocation(first, ordered[j])) items.push(ordered[j++]);
+    const sameDay = item => String(item?.start_at || item?.work_date || '').slice(0, 10) === String(first.start_at || first.work_date || '').slice(0, 10);
+    if (todayLocationIdentity(first) || String(first.location_name || '').trim()) {
+      while (j < ordered.length && sameDay(ordered[j]) && sameTodayLocation(first, ordered[j])) items.push(ordered[j++]);
     }
     const last = items.reduce((latest, item) =>
       (eventEndAt(item)?.getTime() ?? -Infinity) > (eventEndAt(latest)?.getTime() ?? -Infinity) ? item : latest, first);
@@ -996,33 +999,38 @@ function renderTodayTimeline(events) {
   const groups=todayTimelineGroups(events);
   const output=[];
   for(let i=0;i<groups.length;i++){
-    const group=groups[i],first=group.first,next=groups[i+1];
-    if(first.origin!=='Shift'){
+    const group=groups[i],first=group.first,next=groups[i+1],items=group.items;
+    if(first.origin!=='Shift' && items.length===1){
       const inbound=todayInboundMarkup(first,i===0);if(inbound)output.push(inbound);
       output.push(renderTodayAppointment(first,next?'':todayHomeTravelMarkup(group.last),i===0));
       const connector=todayTravelConnector(group,next);if(connector)output.push(connector);
       continue;
     }
-    const items=group.items,last=group.last,title=first.location_name||eventPlaceName(first),address=first.location||first.address||'';
+    const last=group.last,address=first.location||first.address||'';
+    const named=String(first.location_name||'').trim();
+    const title=named||(items.length>1&&address?address:eventPlaceName(first));
     const colour=safeColour(first.location_colour||first.colour||first.section_colour,'#078ef0');
     const startTime=String(first.start_at||'').slice(11,16),endTime=String(last.end_at||'').slice(11,16);
     const total=items.reduce((sum,item)=>sum+todayDurationHours(item),0);
+    const shiftCount=items.filter(item=>item.origin==='Shift').length;
+    const countLabel=shiftCount===items.length?(items.length===1?'1 shift':`${items.length} shifts`):(items.length===1?'1 item':`${items.length} items`);
     const inbound=todayInboundMarkup(first,i===0);
     const areas=items.map(item=>{
-      const area=item.shift_type_name||item.category_name||'Work';
+      const area=item.shift_type_name||item.title||item.category_name||'Work';
       const areaColour=safeColour(item.shift_type_colour||item.section_colour||item.colour,'#16d5d0');
       const areaStart=String(item.start_at||'').slice(11,16),areaEnd=String(item.end_at||'').slice(11,16);
       const areaHours=todayDurationHours(item);
       const time=areaStart&&areaEnd?`${areaStart}–${areaEnd}`:'Time not set';
       const duration=areaHours>0?(Number.isInteger(areaHours)?areaHours+'h':areaHours.toFixed(1)+'h'):'Duration unavailable';
-      return `<button type="button" class="today-location-area today-shift-area" style="--area-colour:${escapeHtml(areaColour)}" data-shift-action="edit" data-id="${Number(item.id)}" data-work-date="${escapeHtml(item.work_date||String(item.start_at||'').slice(0,10))}" aria-label="Edit ${escapeHtml(area)} shift, ${escapeHtml(time)}, ${escapeHtml(duration)}">
+      const shiftAttrs=item.origin==='Shift'?` data-shift-action="edit" data-id="${Number(item.id)}" data-work-date="${escapeHtml(item.work_date||String(item.start_at||'').slice(0,10))}"`:'';
+      return `<button type="button" class="today-location-area today-shift-area" style="--area-colour:${escapeHtml(areaColour)}"${shiftAttrs} aria-label="${escapeHtml(area)}, ${escapeHtml(time)}, ${escapeHtml(duration)}">
         <span class="today-area-icon">${todayAreaIcon(area)}</span><span class="today-area-copy"><strong class="today-area-name">${escapeHtml(area)}</strong><time class="today-area-time">${escapeHtml(time)}</time>${typeof eventForecastChip==='function'?eventForecastChip(item.start_at):''}</span><strong class="today-area-duration">${escapeHtml(duration)}</strong>
       </button>`;
     }).join('');
     const locationIcon='<svg viewBox="0 0 56 56" aria-hidden="true"><path d="M9 49V17h38v32M5 49h46M20 17V8h16v9M20 27h5v5h-5zM32 27h5v5h-5zM20 38h5v5h-5zM32 38h5v11h-5z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg>';
     const span=startTime&&endTime?`${startTime}–${endTime}`:'Time not set';
     output.push(`<section class="today-location-block${i===0?' design-hero':''}" style="--location-colour:${escapeHtml(colour)}">
-      <header class="today-location-header"><span class="today-location-icon">${locationIcon}</span><div><strong>${escapeHtml(title)}</strong>${address?`<small>⌖ ${appleDestinationLink(address)}</small>`:''}<small>${total.toFixed(Number.isInteger(total)?0:1)} hours total · ${items.length} shift${items.length===1?'':'s'}</small></div><strong class="today-location-span" aria-label="Workplace span ${escapeHtml(span)}">${escapeHtml(span)}</strong></header>
+      <header class="today-location-header"><span class="today-location-icon">${locationIcon}</span><div><strong>${escapeHtml(title)}</strong>${address&&address.trim().toLowerCase()!==String(title).trim().toLowerCase()?`<small>⌖ ${appleDestinationLink(address)}</small>`:''}<small>${total.toFixed(Number.isInteger(total)?0:1)} hours total · ${countLabel}</small></div><strong class="today-location-span" aria-label="Workplace span ${escapeHtml(span)}">${escapeHtml(span)}</strong></header>
       ${inbound}<div class="today-location-areas">${areas}</div>${next?'':todayHomeTravelMarkup(last)}
     </section>`);
     const connector=todayTravelConnector(group,next);if(connector)output.push(connector);
