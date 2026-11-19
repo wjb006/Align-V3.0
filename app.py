@@ -1707,7 +1707,7 @@ def main() -> None:
         print(f"Align V3.0 is ready locally at {scheme}://{host}:{port}")
     else:
         print(f"Align V3.0 is ready at {scheme}://{host}:{port}")
-    LOG.info("Align server started mode=%s port=%s", "beta" if beta_mode else "normal", port)
+    LOG.info("Align server started mode=%s port=%s", "hosted" if beta_mode else "normal", port)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
