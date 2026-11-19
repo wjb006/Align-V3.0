@@ -23,7 +23,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 158;
-const ASSET_VERSION = `${BUILD_VERSION}-v103`;
+const ASSET_VERSION = `${BUILD_VERSION}-v104`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -516,7 +516,15 @@ function sameTodayLocation(first, second) {
   if (firstAddress && firstAddress === secondAddress) return true;
   const place = item => String(item?.location_name || '').trim().toLowerCase().replace(/\s+/g, ' ');
   const firstPlace = place(first), secondPlace = place(second);
-  return !!firstPlace && firstPlace === secondPlace;
+  if (firstPlace && firstPlace === secondPlace) return true;
+  const mentions = (item, name) => {
+    if (!name || name.length < 8) return false;
+    const haystack = [item?.title, item?.location, item?.address, item?.location_address]
+      .map(value => String(value || '').toLowerCase().replace(/\s+/g, ' '))
+      .join(' ');
+    return haystack.includes(name);
+  };
+  return mentions(second, firstPlace) || mentions(first, secondPlace);
 }
 function todayTimelineGroups(events) {
   const ordered = [...(events || [])].sort((a, b) => String(a.start_at || '').localeCompare(String(b.start_at || '')));
@@ -544,7 +552,9 @@ function homeScheduleItems(events, today) {
   const todayUpcoming = upcoming.filter(onToday);
   if (todayUpcoming.length) return {items: todayUpcoming, later: false};
   const next = upcoming[0];
-  return {items: next ? [next] : [], later: !!next};
+  if (!next) return {items: [], later: false};
+  const day = dayOf(next);
+  return {items: upcoming.filter(item => dayOf(item) === day), later: true};
 }
 function homeFocusItem(items) {
   const timed = (items || []).filter(item => !item.all_day && typeof eventStartAt === 'function' && eventStartAt(item));
@@ -670,7 +680,7 @@ function renderHome() {
   if (!dashboard) {
     return '<section class="page today-reference-page" aria-busy="true"><div class="home-skeleton" role="status">Loading your day…<span></span><span></span><span></span></div></section>';
   }
-  // Finished events drop off Home. What is left today stays; otherwise the next event is shown with the weather.
+  // Finished events drop off Home. What is left today stays; otherwise the whole next day is shown so same-place work stays together.
   const focus = homeScheduleItems(dashboard.upcoming_events || [], dashboard.today);
   const todayItems = focus.items;
   const totalHours = todayItems.reduce((sum, item) => sum + (item.all_day ? 0 : todayDurationHours(item)), 0);
@@ -1013,7 +1023,10 @@ function renderTodayTimeline(events) {
     const startTime=String(first.start_at||'').slice(11,16),endTime=String(last.end_at||'').slice(11,16);
     const total=items.reduce((sum,item)=>sum+todayDurationHours(item),0);
     const shiftCount=items.filter(item=>item.origin==='Shift').length;
-    const countLabel=shiftCount===items.length?(items.length===1?'1 shift':`${items.length} shifts`):(items.length===1?'1 item':`${items.length} items`);
+    const others=items.length-shiftCount;
+    const countLabel=shiftCount
+      ? `${shiftCount} shift${shiftCount===1?'':'s'}${others?` · ${others} other${others===1?'':'s'}`:''}`
+      : (items.length===1?'1 item':`${items.length} items`);
     const inbound=todayInboundMarkup(first,i===0);
     const areas=items.map(item=>{
       const area=item.shift_type_name||item.title||item.category_name||'Work';

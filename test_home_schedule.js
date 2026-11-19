@@ -16,6 +16,7 @@ const finished = {title:'Clinic', start_at:iso(new Date(now.getTime() - 2 * 3600
 const nextToday = {title:'Dentist', start_at:iso(new Date(now.getTime() + 3600000)), end_at:iso(new Date(now.getTime() + 2 * 3600000))};
 const tomorrow = new Date(now.getTime() + 24 * 3600000);
 const later = {title:'Tomorrow visit', start_at:iso(tomorrow), end_at:iso(new Date(tomorrow.getTime() + 3600000))};
+const laterSameDay = {title:'Tomorrow follow-up', start_at:iso(new Date(tomorrow.getTime() + 4 * 3600000)), end_at:iso(new Date(tomorrow.getTime() + 5 * 3600000))};
 const context = {
   Date: class FixedDate extends Date {
     constructor(...args) { super(...(args.length ? args : [now.getTime()])); }
@@ -37,9 +38,9 @@ assert.equal(sameDay.later, false);
 const afterToday = context.homeScheduleItems([finished], today);
 assert.equal(afterToday.items.length, 0);
 
-const nextDay = context.homeScheduleItems([finished, later], today);
+const nextDay = context.homeScheduleItems([finished, later, laterSameDay], today);
 assert.equal(nextDay.later, true);
-assert.equal(nextDay.items[0].title, 'Tomorrow visit');
+assert.equal(nextDay.items.map(item => item.title).join('|'), 'Tomorrow visit|Tomorrow follow-up');
 
 const line = context.condensedJourneyText({
   leave_at:'2030-01-02T08:04', arrival_at:'2030-01-02T08:44',

@@ -682,6 +682,11 @@ async function main() {
     await todayPage.evaluate(() => {
       state.boot.dashboard={today:'2026-10-05',upcoming_events:[]};
       window.homeSection=()=>true;
+      window.renderHomeWeek=()=> '';
+      window.renderHomeStatus=()=> '';
+      window.renderHomeNowCard=()=> '';
+      window.todayDurationHours=()=> 0;
+      window.greeting=()=> 'Hello';
       window.todayTimelineItemCount=()=>0;
       window.ensureDailyTravel=()=>{};
       window.fullDateLabel=()=> 'Monday 5 October';
