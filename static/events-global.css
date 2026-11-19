@@ -98,6 +98,14 @@
 .add-shift-day-option input:focus-visible+span{outline:2px solid #fff;outline-offset:3px}
 @media(min-width:520px){.add-shift-days-grid{grid-template-columns:repeat(7,minmax(0,1fr))}}
 
+.home-now-card{display:grid;gap:4px;margin:0 0 14px;padding:14px 16px;border:1px solid #2a6ea8;border-radius:18px;background:linear-gradient(160deg,#12345a,#071526);color:#f7fbff}
+.home-now-card h2{margin:0;font-size:1.35rem;line-height:1.2;letter-spacing:-.02em}
+.home-now-place,.home-leave{margin:0;color:#d7e7ff;font-size:.95rem}
+.home-countdown{margin:2px 0 0;font-size:1.15rem;font-weight:750}
+.home-week{margin:0 0 10px;color:#f7fbff;font-weight:700}
+.home-status{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px;padding:0;list-style:none}
+.home-status li{min-height:44px;display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;background:#102844;color:#f7fbff;border:1px solid #365b7b}
+.home-quick-add,.home-empty .primary-button{min-height:44px;min-width:44px;margin:0 0 14px}
 .design-day,.today-reference-page{background:transparent}
 .design-hero{box-shadow:0 0 22px #168ff544,0 12px 28px #0005}
 .today-reference-header{background:#07182c;border:1px solid #1d4e78;box-shadow:0 0 0 1px #168ff533}
