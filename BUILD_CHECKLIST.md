@@ -290,3 +290,50 @@ Read this before the older notes below.
 - [x] Contacts and favourites now rely on explicit SQLite/PostgreSQL migration 154 rather than request-time `CREATE TABLE`/`CREATE INDEX`; installer verifies the migration is packaged.
 - [x] HERE transit quota now requires the explicitly provisioned shared `align_auth.align_here_transit_usage` table; added PostgreSQL migration 155, fresh-schema DDL, startup validation, read-only preflight, fixture coverage, and CI marker checks.
 - [ ] Runtime test acceptance remains blocked by GitHub Actions jobs failing before runner assignment (runner ID 0, no steps or logs). Keep release blocked until a runner executes the full checks.
+
+## 2026-11-19 — Production-readiness audit (read-only)
+
+**Audit scope:** GitHub default-branch source and documentation, latest commit history, workflow definitions, migration documentation, and Render workspace discovery. No application code, deployment, DNS, database, secrets, or user data were changed during this audit.
+
+### Repository and recent development
+- [x] Confirmed repository: `wjb006/Align-V3.0`; active development branch documented as `codex/align-v3-rebuild`.
+- [x] Latest observed commit: `e4a2661917bc7602a06fb8abc91fa759f6439cfa` (19 November 2026), merge of PR #166, “Keep a whole workplace together on Home”.
+- [x] Recent merged work includes PR #165 “Group same-location work into one timeline block”, PR #164 “Show the Home forecast and correct Calendar spelling”, and PR #163 “Polish the dark Home, sign-in and desktop layout”.
+- [x] Confirmed current branch listing includes `codex/align-v3-rebuild`, `cursor/per-day-shifts-6015`, and `wjb006-fix-travel-and-weather`. The historical checklist's branch/test-build notes should not be treated as proof that those older branches are deployed.
+- [x] Reviewed `ENVIRONMENT.md`, `render.yaml`, `.env.example`, `migrations/postgres/README.md`, `fresh_v3_schema.sql`, migration 159, migration 160, `docs/management-studio-releases.md`, and `docs/BACKUP_RESTORE.md`.
+
+### CI and release gates
+- [ ] **GitHub Actions acceptance remains unverified.** The latest commit has no associated workflow runs returned by GitHub. This is not a passing test result.
+- [ ] The historical green CI baseline recorded in this checklist is 11 October 2026; it is not evidence that the 19 November source has passed.
+- [ ] The production release workflow `.github/workflows/deploy-align-v3.yml` is manual-dispatch and pins the selected source commit before tests/deployment. Its configured test stages include Python release-control tests, desktop/mobile browser tests (Chromium, Pixel 7 and iPhone 13), and Windows launcher tests/build. No successful current run was found.
+- [ ] The regular browser workflow `.github/workflows/build-browser.yml` covers desktop/mobile browser regressions and creates a source ZIP only after its browser job succeeds. Current-head success has not been established.
+- [ ] The isolated Windows test-build workflow is tied to `test/align-v3-ready-20261106`; the checklist's earlier note says no test ZIP was available because Actions jobs failed before runner steps. Recheck before relying on a Windows installer.
+
+### Hosted Render and domain
+- [ ] **Render service status not inspected in this audit.** Render listed workspace `Align-App` (`tea-dagsdf6k1f9s73dof7i0`), but the service-list request requires the user to select the workspace first. No service, deploy, environment variable, or log state is claimed here.
+- [ ] Confirm the intended production service is named `align-v3` and is connected to `wjb006/Align-V3.0`, as required by the release workflow documentation.
+- [ ] Confirm the production runtime matches the release image. The release documentation says the Docker image includes Tesseract and OCR dependencies, while it also records that the existing production service was configured separately as native Python. Do not switch runtime or deploy until this discrepancy is checked against the live service and its environment.
+- [ ] Verify `https://getalign.co.uk/api/health` and the reported build/commit against the intended release. The last historical health evidence in this checklist is build 158 on 9 November 2026; it is not current deployment evidence.
+- [ ] Do not change IONOS DNS or the existing Align service as part of this audit.
+
+### PostgreSQL, migrations and persistent storage
+- [ ] Verify the dedicated Neon production database connection and schema without exposing or copying credentials. The repository docs require a dedicated V3 database and explicit schema/migration provisioning; application startup does not apply hosted schema changes.
+- [ ] **Migration documentation discrepancy:** `migrations/postgres/README.md` says the fresh schema records migrations through `159_account_security`, while migration `160_password_change_challenge.postgres.sql` exists and adds a `purpose` column to `align_auth.beta_login_challenges`. Confirm whether migration 160 is required by the current application and update the fresh schema/README or deployment procedure accordingly before release.
+- [ ] **Fresh-schema description discrepancy:** the opening comment in `fresh_v3_schema.sql` says “No legacy shift-planner tables”, while the migration README describes the fresh schema as including the restored shift planner. Reconcile this wording and inspect the actual DDL against the current product requirements before provisioning or migrating.
+- [ ] Apply/reconcile numbered migrations only against the correct dedicated database and tenant schemas. Do not run a fresh-install schema against an existing database.
+- [ ] Configure and verify S3-compatible persistent storage for Management Studio uploads. `render.yaml` declares the bucket and credential settings as externally supplied; `ENVIRONMENT.md` says hosted uploads remain disabled until the bucket is configured.
+- [ ] Configure and verify the persistent `ALIGN_CREDENTIAL_KEY` before relying on encrypted saved credentials or Outlook token persistence.
+- [ ] Backup documentation describes Neon point-in-time history and a prepared Render cron, but explicitly says the cron is not included in live `render.yaml`. Verify retention and rehearse a restore on a disposable Neon branch; do not assume nightly JSON backups are running.
+
+### Transport and end-to-end acceptance
+- [ ] Verify the live HERE routing key and transit flag, and confirm transport is enabled only when the supported provider and required server-side configuration are present.
+- [ ] Verify optional OTP, NaPTAN, BODS and Darwin feeds independently. Empty optional settings in `render.yaml` are not proof that live bus/rail data is configured.
+- [ ] Test address suggestions, journey options, stop matching, live departure/delay information, and failure/fallback behaviour using real journeys.
+- [ ] Test sign-in, two-step sign-in, password-change challenge, invitations/recovery email, tenant isolation, and session persistence against the hosted database.
+- [ ] Test Work/shift creation and review, same-workplace grouping, one journey to/from a grouped workplace, intervening different workplaces, calendar/iCloud synchronisation, offline behaviour, and mobile/desktop layouts on real devices.
+- [ ] Verify Management Studio Owner authentication, section/database builder, Flowchart Builder, image uploads, history/restore, and owner controls against the hosted service.
+
+### Audit conclusion
+**Release status: NOT YET VERIFIED / DO NOT DECLARE PRODUCTION-READY.** The repository contains substantial recent implementation and a defined release workflow, but current-head CI evidence, live Render service/deploy state, Neon schema/migration state, persistent object storage, backup schedule, and end-to-end hosted/device acceptance remain unverified. This is a verification hold, not a claim that those systems are necessarily broken.
+
+**Next safe actions:** obtain confirmation to inspect the `Align-App` Render workspace; then read the live service/deploy configuration, compare its commit and health response with GitHub, and perform read-only Neon/schema checks. Only after those checks should any migration, secret/configuration change, runtime switch, or deployment be proposed.
