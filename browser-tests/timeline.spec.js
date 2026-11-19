@@ -350,6 +350,43 @@ async function main() {
     assert.equal(locationGroup.nextDayGroups,2,'The same place on another day stays a separate block.');
     assert.equal(locationGroup.calendarGroups,1);
     assert.equal(locationGroup.calendarItems,2,'Calendar items at the same address use the same location block.');
+
+    const overlap = await page.evaluate(() => {
+      const place='Riverside Health Centre';
+      const calendar={id:41,origin:'Calendar',title:place,location:'A different entrance, Test Town',
+        start_at:'2030-10-05T08:00',end_at:'2030-10-05T12:00',hours:4,section_colour:'#740072'};
+      const wards={id:42,origin:'Shift',location_id:1,location_name:place,location:'1 Example Lane, Test Town',
+        start_at:'2030-10-05T08:00',end_at:'2030-10-05T12:00',hours:4,shift_type_name:'Wards',
+        shift_type_colour:'#009488',location_colour:'#740072'};
+      const clinic={id:43,origin:'Shift',location_id:1,location_name:place,location:'1 Example Lane, Test Town',
+        start_at:'2030-10-05T12:30',end_at:'2030-10-05T17:00',hours:4.5,shift_type_name:'Clinic',
+        shift_type_colour:'#D20200',location_colour:'#740072',
+        post_travel:{timeline:true,enabled:true,deadline:'',destination_name:'Home',
+          journey:{leave_at:'2030-10-05T17:00',arrival_at:'2030-10-05T17:20',steps:[{mode:'walk',minutes:9}]}}};
+      state.dailyInboundJourneys[todayInboundKey(calendar)]={leave_at:'2030-10-05T07:40',arrival_at:'2030-10-05T08:00',steps:[{mode:'walk',minutes:6}]};
+      const items=[calendar,wards,clinic];
+      document.querySelector('#app').innerHTML=renderTodayTimeline(items);
+      const block=document.querySelector('.today-location-block');
+      return {
+        groups:todayTimelineGroups(items).length,
+        blocks:document.querySelectorAll('.today-location-block').length,
+        appointments:document.querySelectorAll('.today-appointment-card').length,
+        names:[...document.querySelectorAll('.today-area-name')].map(node=>node.textContent),
+        header:block?.querySelector('.today-location-header')?.innerText||'',
+        inbound:document.querySelectorAll('.today-inbound-travel').length,
+        home:document.querySelectorAll('.today-home-travel').length,
+        between:document.querySelectorAll('.today-location-areas .today-travel-connector, .today-location-areas .today-inbound-travel').length
+      };
+    });
+    assert.equal(overlap.groups,1,'A same-time calendar item and later shift at that place are one block.');
+    assert.equal(overlap.blocks,1);
+    assert.equal(overlap.appointments,0);
+    assert.deepEqual(overlap.names,['Riverside Health Centre','Wards','Clinic']);
+    assert.match(overlap.header,/08:00–17:00/);
+    assert.match(overlap.header,/2 shifts/);
+    assert.equal(overlap.inbound,1);
+    assert.equal(overlap.home,1);
+    assert.equal(overlap.between,0);
     console.log('Timeline UI regression passed at 390px mobile and 1440px desktop widths.');
   } finally {
     await context.close();

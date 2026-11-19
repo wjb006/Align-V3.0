@@ -1,5 +1,5 @@
 const BUILD = 158;
-const ASSET_VERSION = `${BUILD}-v103`;
+const ASSET_VERSION = `${BUILD}-v104`;
 
 const SHELL_CACHE = `align-v13-shell-${ASSET_VERSION}`;
 const API_CACHE = `align-v13-api-${ASSET_VERSION}`;
@@ -86,6 +86,10 @@ async function precacheShell() {
       const request = new Request(asset, { cache: 'reload' });
       const response = await fetchWithTimeout(request, 5000);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if ((asset === '/' || asset === '/index.html')) {
+        const markup = await response.clone().text();
+        if (!markup.includes(`/app.js?v=${ASSET_VERSION}`)) continue;
+      }
       await cache.put(request, response.clone());
       if (asset === '/index.html') await cache.put('/', response.clone());
     } catch (error) {
@@ -112,6 +116,10 @@ self.addEventListener('activate', event => {
       .filter(key => key.startsWith('align-') && !keep.has(key))
       .map(key => caches.delete(key)));
     await self.clients.claim();
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    await Promise.all(windows.map(async client => {
+      try { await client.navigate(client.url); } catch (_) { /* Keep the updated worker even if this window cannot reload. */ }
+    }));
   })());
 });
 
@@ -152,10 +160,15 @@ async function navigationResponse(request, event) {
     const networkRequest = new Request(request, { cache: 'no-store' });
     const response = await fetchWithTimeout(networkRequest, isBetaGate ? 8000 : 5000);
     if (response.ok) {
-      await cache.put(request, response.clone());
+      const stored = response.clone();
       if (isRoot) {
-        await cache.put('/', response.clone());
-        await cache.put('/index.html', response.clone());
+        const markup = await response.clone().text();
+        if (markup.includes(`/app.js?v=${ASSET_VERSION}`)) {
+          await cache.put('/', stored);
+          await cache.put('/index.html', stored.clone());
+        }
+      } else {
+        await cache.put(request, stored);
       }
     }
     return response;
