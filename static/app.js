@@ -23,7 +23,7 @@ const toastElement = document.querySelector('#toast');
 const addressSearchTimers = new WeakMap();
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BUILD_VERSION = 158;
-const ASSET_VERSION = `${BUILD_VERSION}-v101`;
+const ASSET_VERSION = `${BUILD_VERSION}-v102`;
 const ALERT_OFFSETS = [
   [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [45, '45 minutes'],
   [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [2880, '2 days'], [7200, '5 days'], [10080, '1 week'],
@@ -95,11 +95,11 @@ function setConnectionStatus(mode, pending = 0) {
   element.hidden = false;
   element.dataset.mode = mode;
   const suffix = pending ? ` · ${pending} to sync` : '';
-  if (mode === 'offline') element.textContent = `Offline${suffix}`;
-  else if (mode === 'caching') element.textContent = 'Caching…';
-  else if (mode === 'ready') element.textContent = `Offline Ready${suffix}`;
-  else if (mode === 'warning') element.textContent = `Offline setup issue${suffix}`;
-  else element.textContent = pending ? `${pending} to sync` : 'Online';
+  const full = mode === 'offline' ? `Offline${suffix}` : mode === 'caching' ? 'Caching…' : mode === 'ready' ? `Offline ready${suffix}` : mode === 'warning' ? `Offline setup issue${suffix}` : (pending ? `${pending} to sync` : 'Online');
+  const short = mode === 'offline' ? 'Offline' : mode === 'caching' ? 'Syncing' : mode === 'ready' ? 'Ready' : mode === 'warning' ? 'Check' : 'Online';
+  element.textContent = short;
+  element.setAttribute('aria-label', full);
+  element.title = full;
 }
 
 async function rawApi(path, options = {}) {
@@ -290,6 +290,7 @@ function render() {
     : '';
   app.innerHTML = cloudNotice + content;
   app.focus({ preventScroll: true });
+  if (typeof syncHeaderWeather === 'function') syncHeaderWeather();
   bindHomePull();
   window.AlignProgrammeUpdate?.refresh();
 }
@@ -386,6 +387,13 @@ function coreNavDestination(tab = state.tab) {
   return 'more';
 }
 
+function ukFacing(text) {
+  return String(text ?? '')
+    .replace(/\bCalenders\b/g, 'Calendars')
+    .replace(/\bCalender\b/g, 'Calendar')
+    .replace(/\bcalenders\b/g, 'calendars')
+    .replace(/\bcalender\b/g, 'calendar');
+}
 function renderBottomNavigation() {
   const root = document.querySelector('#bottom-navigation');
   if (!root) return;
@@ -393,7 +401,7 @@ function renderBottomNavigation() {
   const hasCoreNavigation = configured.some(item => ['today','inbox','sections','more'].includes(item.destination));
   const items = hasCoreNavigation ? configured : CORE_NAVIGATION;
   const active = coreNavDestination();
-  root.innerHTML = items.filter(item => item.active).map(item => `<button type="button" data-nav="${escapeHtml(item.destination)}" aria-current="${active===item.destination?'page':'false'}" class="nav-item ${active===item.destination?'active':''}"><span class="nav-icon">${escapeHtml(item.icon)}</span><span>${escapeHtml(item.title)}</span></button>`).join('');
+  root.innerHTML = items.filter(item => item.active).map(item => `<button type="button" data-nav="${escapeHtml(item.destination)}" aria-current="${active===item.destination?'page':'false'}" class="nav-item ${active===item.destination?'active':''}"><span class="nav-icon">${escapeHtml(item.icon)}</span><span>${escapeHtml(ukFacing(item.title))}</span></button>`).join('');
   root.style.gridTemplateColumns = `repeat(${Math.max(1,root.querySelectorAll('[data-nav]').length)}, 1fr)`;
 }
 
@@ -543,7 +551,7 @@ function homeFocusItem(items) {
     const end = eventEndAt(item)?.getTime();
     return start <= now && end > now;
   });
-  return current || timed.find(item => eventStartAt(item).getTime() > now) || null;
+  return current || timed.find(item => eventStartAt(item).getTime() > now) || (items || [])[0] || null;
 }
 function homeCountdown(item) {
   const start = eventStartAt(item);
@@ -681,7 +689,7 @@ function renderHome() {
     </header>
     ${renderHomeWeek(dashboard.summary)}
     ${renderHomeStatus()}
-    ${state.boot.personal && homeSection('today') && typeof homeWeatherCard === 'function' ? homeWeatherCard() : (state.boot.personal && homeSection('today') && typeof personalWeatherPanel === 'function' ? personalWeatherPanel() : '')}
+    ${state.boot.personal && typeof homeWeatherCard === 'function' ? homeWeatherCard() : ''}
     ${renderHomeNowCard(todayItems)}
     ${state.boot.personal ? '<button type="button" class="primary-button home-quick-add" data-personal="event">Quick add</button>' : ''}
     ${nextHeading}

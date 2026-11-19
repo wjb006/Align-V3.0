@@ -215,9 +215,8 @@ input:not([type="checkbox"]):not([type="radio"]), select, textarea,
   .month-day { min-height: 70px; padding: 4px 2px; }
   .month-event { font-size: 9px; }
   .header-install { display: none; }
-  .header-tools .connection-status:not([hidden]) { width: 44px; height: 44px; min-height: 44px; max-width: 44px; padding: 0; font-size: 0; border: 1px solid #1a3858; border-radius: 14px; background: #0b203b; }
-  .header-tools .connection-status:not([hidden])::before { content: "●"; color: #22d6c4; font-size: 12px; }
-  .header-tools .connection-status[data-mode="offline"]::before,.header-tools .connection-status[data-mode="warning"]::before { content: "!"; display: grid; place-items: center; width: 19px; height: 19px; margin: auto; border-radius: 50%; color: #ffda87; background: #3b3020; font-size: 12px; font-weight: 800; }
+  .header-tools .connection-status:not([hidden]) { width: auto; min-width: 44px; max-width: 88px; height: 44px; padding: 0 8px; font-size: 12px; color: #f4fbff; border: 1px solid #1a3858; border-radius: 14px; background: #0b203b; }
+  .header-tools .connection-status[data-mode="ready"],.header-tools .connection-status[data-mode="online"] { display: none; }
 }
 /* Keep the existing explicit Light / system appearance choices functional. */
 body[data-management-theme="light"] {

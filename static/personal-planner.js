@@ -35,9 +35,19 @@ function homeWeatherChip(){
   if(weatherError)return `<div class="home-weather-unavailable"><p class="home-weather-chip" role="status">Weather unavailable</p><button type="button" class="text-button" data-personal="weather" aria-label="Retry weather">Retry</button></div>`;
   return '';
  }
- const label=({0:'Clear',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',45:'Fog',51:'Drizzle',61:'Light rain',63:'Rain',65:'Heavy rain',71:'Snow',80:'Showers',95:'Thunderstorm'}[Number(current.weather_code)])||'Weather';
+ const kind=weatherKind(current.weather_code,current.time,current.wind_speed_10m);
+ const icon=weatherArt(current.weather_code,current.time,current.wind_speed_10m,'strip');
  const status=weatherError?' · saved forecast':'';
- return `<p class="home-weather-chip" role="status">${escapeHtml(label)} ${escapeHtml(current.temperature_2m??'—')}°${status}</p>`;
+ return `<p class="home-weather-chip" role="status">${icon}<span>${escapeHtml(kind.label)} ${escapeHtml(current.temperature_2m??'—')}°${status}</span></p>`;
+}
+function syncHeaderWeather(){
+ const slot=document.querySelector?.('#header-weather');
+ if(!slot||typeof homeWeatherChip!=='function')return;
+ const tab=state?.tab;
+ if(tab&&!['home','today'].includes(tab)){slot.hidden=true;return;}
+ const markup=homeWeatherChip();
+ slot.hidden=!markup;
+ slot.innerHTML=markup||'';
 }
 function weatherIsNight(when){
  const hour=Number(String(when||'').slice(11,13));
@@ -157,8 +167,9 @@ let weatherView='three', weatherDay='';
 function baseWeatherSettings(){return state.boot?.builder?.document?.base_structure?.weather||{};}
 function weatherRefreshMs(){const minutes=Number(baseWeatherSettings().refresh_minutes)||15;return minutes*60*1000;}
 const PHONE_LOCATION_TIMEOUT_MS = 10000;
+const PHONE_LOCATION_WITH_TOWN_MS = 2000;
 let weatherCheckedAt=0, weatherLoading=false, weatherError='', weatherContext='', weatherRefreshTimer=0;
-function phoneLocation(){
+function phoneLocation(timeoutMs=PHONE_LOCATION_TIMEOUT_MS){
  return new Promise((resolve,reject)=>{
   if(!window.isSecureContext || !navigator.geolocation){reject(new Error('Phone location needs the secure HTTPS app address.'));return;}
   // Some browsers do not count a pending permission prompt towards their
@@ -166,7 +177,7 @@ function phoneLocation(){
   let settled=false;
   const finish=(callback,value)=>{if(settled)return;settled=true;clearTimeout(timer);callback(value);};
   const unavailable=()=>finish(reject,new Error('Location unavailable. Allow location access or set a fallback weather town in Personal preferences.'));
-  const timer=setTimeout(unavailable,PHONE_LOCATION_TIMEOUT_MS);
+  const timer=setTimeout(unavailable,timeoutMs);
   try{
    navigator.geolocation.getCurrentPosition(p=>finish(resolve,{latitude:p.coords.latitude,longitude:p.coords.longitude}),unavailable,{enableHighAccuracy:false,timeout:PHONE_LOCATION_TIMEOUT_MS,maximumAge:60000});
   }catch(_){unavailable();}
@@ -177,13 +188,18 @@ async function loadPersonalWeather(force=false){
  if(weatherLoading || (!force && Date.now()-weatherCheckedAt<weatherRefreshMs()))return;
  weatherLoading=true;weatherCheckedAt=Date.now();weatherError='';
  const context=weatherContext;
+ const hasTown=Boolean(personalPrefs().weather_town);
+ const controller=typeof AbortController==='function'?new AbortController():null;
+ const abortTimer=setTimeout(()=>controller?.abort(),12000);
  try{
-  let body;
-  try{body=await phoneLocation();}catch(err){if(!personalPrefs().weather_town)throw err;body={};}
-  const data=await api('/api/personal/weather',{method:'POST',body});
+  let body={};
+  try{body=await phoneLocation(hasTown?PHONE_LOCATION_WITH_TOWN_MS:PHONE_LOCATION_TIMEOUT_MS);}catch(err){if(!hasTown)throw err;}
+  const data=await api('/api/personal/weather',{method:'POST',body,signal:controller?.signal});
   if(context===weatherContext)personalWeather=data;
- }catch(err){if(context===weatherContext)weatherError=err.message;}
- finally{
+ }catch(err){
+  if(context===weatherContext)weatherError=err?.name==='AbortError'?'Weather is taking too long. Try again.':err.message;
+ }finally{
+  clearTimeout(abortTimer);
   weatherLoading=false;
   if(context===weatherContext){
    window.clearTimeout(weatherRefreshTimer);
