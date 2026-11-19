@@ -38,5 +38,5 @@ for (const file of ['clear-day','clear-night','partly-day','partly-night','cloud
 }
 const worker = fs.readFileSync('static/service-worker.js', 'utf8');
 assert.match(worker, /\/weather\/clear-night\.svg/);
-assert.match(worker, /\$\{BUILD\}-v101/);
+assert.match(worker, /\$\{BUILD\}-v102/);
 console.log('PASS: weather icons map day, night and conditions');

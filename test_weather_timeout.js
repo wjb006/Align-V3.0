@@ -16,7 +16,7 @@ function harness(town, getCurrentPosition) {
  const h=harness('Birkenhead',success=>{late=success;});
  const pending=h.run('loadPersonalWeather(true)');
  assert.equal(h.requests.length,0);
- [...h.timers.values()].find(t=>t.ms===10000).fn();
+ [...h.timers.values()].find(t=>t.ms===2000).fn();
  await pending;
  assert.equal(h.requests.length,1);
  assert.equal(JSON.stringify(h.requests[0].options.body),'{}');

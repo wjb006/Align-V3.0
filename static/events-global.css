@@ -201,7 +201,13 @@ body:has(.today-reference-page) .header-action{width:44px;height:44px}
 .today-reference-calendar svg{width:22px;height:22px}
 .today-reference-side{display:flex;align-items:center;flex:0 0 auto}
 .today-reference-total{white-space:nowrap}
-.today-event-timeline{display:grid;gap:8px;margin-top:72px}
+.today-event-timeline{display:grid;gap:8px;margin-top:0}
+.home-next-label{margin:0 0 8px}
+.header-weather{display:inline-flex;align-items:center;gap:4px;min-height:44px;min-width:44px;padding:0 8px;border:1px solid #1a3858;border-radius:14px;background:#0b203b;color:#f7fbff;font-size:14px;font-weight:750}
+.header-weather[hidden]{display:none}
+.header-weather .home-weather-chip{display:inline-flex;align-items:center;gap:4px;margin:0;color:#f7fbff;font-size:14px;text-align:left}
+.header-weather .weather-art{width:22px;height:22px}
+.brand-wordmark small{letter-spacing:.08em}
 .today-reference-total{font-size:.68rem;padding:3px 8px}
 .today-inbound-travel:has(.design-travel),.today-home-travel:has(.design-travel),.planner-location-travel:has(.design-travel){border:0;padding:0;background:transparent}
 .design-travel{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:0;padding:8px 10px;border:1px solid #3d7eae;border-radius:14px;background:#07182e;color:#e7f3ff}
