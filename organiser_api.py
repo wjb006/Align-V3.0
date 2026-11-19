@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
 import sqlite3
 from datetime import datetime, timedelta
@@ -31,6 +32,18 @@ def organiser_sections(connection: sqlite3.Connection, include_inactive: bool = 
     for row in rows:
         row["calendar_id"] = hashlib.sha256(row["calendar_url"].encode()).hexdigest() if row.get("calendar_url") else ""
         row.pop("calendar_url", None)
+        row["shift_count"] = 0
+    try:
+        import planner_api
+        import work_calendar
+        link = work_calendar.find_work_link(connection)
+        if link and planner_api._has_table(connection, "shifts"):
+            count = int(connection.execute("SELECT COUNT(*) FROM shifts").fetchone()[0])
+            for row in rows:
+                if int(row["id"]) == int(link["section_id"]):
+                    row["shift_count"] = count
+    except Exception as error:
+        logging.getLogger("align.icloud").error("Work calendar count failed: %s", type(error).__name__)
     return rows
 
 
@@ -58,7 +71,12 @@ def organiser_section(connection: sqlite3.Connection, section_id: int) -> dict:
         (section_id, now),
     ))
     from post_event_travel import decorate
-    section["events"] = decorate(connection, sorted(align_events + imported, key=lambda item: (item["start_at"], item.get("title", ""))))
+    import work_calendar
+    shifts = decorate(connection, work_calendar.section_shifts(connection, section_id, now[:10]), kind='shift')
+    section["events"] = sorted(
+        decorate(connection, align_events + imported) + shifts,
+        key=lambda item: (item["start_at"], item.get("title", "")),
+    )
     import section_guide
     return section_guide.attach(connection, section)
 

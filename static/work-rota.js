@@ -238,7 +238,7 @@ document.addEventListener('click', async event => {
       await refreshRota(importId);
       const conflicts = (result.conflicts || []).map(item => item.message).filter(Boolean);
       workRota.error = conflicts.join(' ');
-      if (result.created?.length) toast('Approved rows are now in the planner.');
+      if (result.created?.length) toast('Approved rows are now in the planner.' + (result.calendar?.message ? ' ' + result.calendar.message : ''));
     }
     if (action === 'undo') {
       workRota.busy = true;

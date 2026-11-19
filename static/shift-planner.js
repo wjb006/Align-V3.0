@@ -15,6 +15,7 @@
     return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   };
   const esc = value => typeof escapeHtml === 'function' ? escapeHtml(value == null ? '' : String(value)) : String(value ?? '').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const shiftCalendarNote = result => result && result.calendar && result.calendar.message ? ' ' + result.calendar.message : '';
   const fmtDay = iso => new Date(iso+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'short'});
   const fmtMonth = iso => new Date(iso+'T12:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'});
   const fmtHours = n => Number(n||0).toLocaleString('en-GB',{maximumFractionDigits:2})+'h';
@@ -928,7 +929,7 @@
         }});
         const saved=Array.isArray(result.shifts)?result.shifts.length:drafts.length;
         state.shiftPlannerReview=null;state.shiftPlannerModal='';state.shiftPlannerAddDraft=null;
-        if(typeof toast==='function')toast(saved+' shifts saved after review. Weekend defaults and Friday finish times applied.');
+        if(typeof toast==='function')toast(saved+' shifts saved after review. Weekend defaults and Friday finish times applied.'+shiftCalendarNote(result));
         await reload();return;
       }
       if(action==='previous'||action==='next'){state.shiftPlannerSelectedDay=null;
@@ -1038,8 +1039,8 @@
       if(kind==='shift'){
         const id=form.dataset.id;
         if(id) {
-          await api('/api/shifts/'+id,{method:'PUT',body:values});
-          if(typeof toast==='function')toast('Shift updated.');
+          const updated=await api('/api/shifts/'+id,{method:'PUT',body:values});
+          if(typeof toast==='function')toast('Shift updated.'+shiftCalendarNote(updated));
         } else {
           const host=form.querySelector('[data-day-shift-panels]');
           if(host){

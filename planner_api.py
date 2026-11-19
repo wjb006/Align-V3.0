@@ -13,6 +13,20 @@ def _rows(connection, sql, args=()):
     return [dict(row) for row in connection.execute(sql, args).fetchall()]
 
 
+def _work_calendar_status(connection) -> dict:
+    import work_calendar
+    return work_calendar.status(connection)
+
+
+def _wake_icloud(handler, app, row) -> None:
+    try:
+        import organiser_api
+        organiser_api._wake(handler, app, row)
+    except Exception as error:
+        import logging
+        logging.getLogger('align.icloud').error('Could not queue iCloud sync: %s', type(error).__name__)
+
+
 def _has_table(connection, name: str) -> bool:
     """Check table existence without poisoning a hosted PostgreSQL transaction."""
     if hasattr(connection, "schema"):
@@ -262,6 +276,7 @@ def handle_get(handler, app, connection, parsed, row) -> bool:
             "navigation": app.navigation_data(connection),
             "icloud_public": app.public_icloud_data(self.request_icloud_manager(row) if app.BETA_MODE else None),
             "icloud_event_calendars": app.icloud_event_calendars(connection),
+            "work_calendar": _work_calendar_status(connection),
             "beta": ({"email": row["email"], "is_owner": bool(row["is_owner"])} if row else None),
         })
         return True
@@ -346,7 +361,8 @@ def handle_post(handler, app, connection, path, payload, row) -> bool:
         if request_id:
             connection.execute("INSERT INTO shift_batches(request_id,payload_hash,result_json) VALUES(?,?,?)",(request_id,"",json.dumps(saved)))
         connection.commit()
-        self.send_json(201,{"shifts":saved})
+        _wake_icloud(self, app, row)
+        self.send_json(201,{"shifts":saved,"calendar":_work_calendar_status(connection)})
         return True
     if path == "/api/annual-leave":
         start=date.fromisoformat(_iso_date(payload.get("start_date") or payload.get("leave_date")))
@@ -406,7 +422,10 @@ def handle_put(handler, app, connection, path, payload, row) -> bool:
         _check_shift(connection,values[0],values[7],values[8],item_id)
         connection.execute("""UPDATE shifts SET work_date=?,template_id=?,location_id=?,shift_type_id=?,location_name=?,shift_type_name=?,colour=?,start_time=?,end_time=?,break_minutes=?,hours=?,notes=? WHERE id=?""",(*values,item_id))
         _create_shift_alerts(connection,item_id,values[0],values[7],values[4]+" – "+values[5])
-        connection.commit(); self.send_json(200,{"id":item_id}); return True
+        connection.commit()
+        _wake_icloud(self, app, row)
+        self.send_json(200,{"id":item_id,"calendar":_work_calendar_status(connection)})
+        return True
     if path.startswith("/api/alert-rules/"):
         _require_alert_rules(connection)
         item_id=int(path.rsplit("/",1)[1]); title=str(payload.get("title","")).strip()[:80]; minutes=int(payload.get("minutes_before",60))
@@ -432,7 +451,11 @@ def handle_put(handler, app, connection, path, payload, row) -> bool:
 def handle_delete(handler, app, connection, path, row) -> bool:
     self=handler
     if path.startswith("/api/shifts/"):
-        connection.execute("DELETE FROM shifts WHERE id=?",(int(path.rsplit("/",1)[1]),)); connection.commit(); self.send_json(200,{"ok":True}); return True
+        connection.execute("DELETE FROM shifts WHERE id=?",(int(path.rsplit("/",1)[1]),))
+        connection.commit()
+        _wake_icloud(self, app, row)
+        self.send_json(200,{"ok":True,"calendar":_work_calendar_status(connection)})
+        return True
     if path.startswith("/api/annual-leave/"):
         connection.execute("DELETE FROM annual_leave WHERE id=?",(int(path.rsplit("/",1)[1]),)); connection.commit(); self.send_json(200,{"ok":True}); return True
     if path.startswith("/api/alert-rules/"):
