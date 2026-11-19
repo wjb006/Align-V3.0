@@ -110,6 +110,12 @@
 .design-hero{box-shadow:0 0 22px #168ff544,0 12px 28px #0005}
 .today-reference-header{background:#07182c;border:1px solid #1d4e78;box-shadow:0 0 0 1px #168ff533}
 .today-reference-total{border-radius:999px;background:#102844}
+.weather-art{display:block;flex:0 0 auto}
+.weather-art-large{width:56px;height:56px}
+.weather-art-small{width:28px;height:28px}
+.weather-art-chip{width:18px;height:18px}
+.design-hour .weather-art{margin:0 auto}
+.design-forecast{display:inline-flex;align-items:center;gap:4px}
 .design-weather{display:grid;gap:10px;margin:0 0 14px;padding:12px;border:1px solid #2a6ea8;border-radius:18px;background:linear-gradient(160deg,#0c2744,#071526);box-shadow:0 0 18px #168ff522;color:#e8f3ff}
 .design-weather-main{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center}
 .design-weather-main strong{display:block;font-size:1.05rem}

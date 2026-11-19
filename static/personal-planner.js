@@ -39,8 +39,35 @@ function homeWeatherChip(){
  const status=weatherError?' · saved forecast':'';
  return `<p class="home-weather-chip" role="status">${escapeHtml(label)} ${escapeHtml(current.temperature_2m??'—')}°${status}</p>`;
 }
-function weatherCondition(code){
- return ({0:['☀️','Clear'],1:['🌤️','Mainly clear'],2:['⛅','Partly cloudy'],3:['☁️','Overcast'],45:['🌫️','Fog'],51:['🌦️','Drizzle'],61:['🌦️','Light rain'],63:['🌧️','Rain'],65:['🌧️','Heavy rain'],71:['🌨️','Snow'],80:['🌦️','Showers'],95:['⛈️','Thunderstorm']}[Number(code)])||['🌡️','Weather'];
+function weatherIsNight(when){
+ const hour=Number(String(when||'').slice(11,13));
+ return Number.isFinite(hour)&&(hour>=20||hour<6);
+}
+function weatherKind(code,when,wind){
+ const n=Number(code);
+ const night=weatherIsNight(when);
+ const gust=Number(wind);
+ if(n===95||n===96||n===99)return {file:'thunder',label:'Thunderstorm'};
+ if(n===56||n===57||n===66||n===67)return {file:'sleet',label:'Sleet'};
+ if(n===51||n===53||n===55)return {file:'drizzle',label:'Drizzle'};
+ if(n===65||n===82)return {file:'heavy-rain',label:'Heavy rain'};
+ if(n===61||n===63||n===80||n===81)return {file:'rain',label:n===61||n===80?'Light rain':'Rain'};
+ if(n===71||n===73||n===75||n===77||n===85||n===86)return {file:'snow',label:'Snow'};
+ if(n===45||n===48)return {file:'fog',label:n===48?'Freezing fog':'Fog'};
+ if(Number.isFinite(gust)&&gust>=40&&n>=0&&n<=3)return {file:'wind',label:'Windy'};
+ if(n===0||n===1)return night?{file:'clear-night',label:'Clear night'}:{file:'clear-day',label:n===1?'Mainly clear':'Clear'};
+ if(n===2)return night?{file:'partly-night',label:'Partly cloudy'}:{file:'partly-day',label:'Partly cloudy'};
+ if(n===3)return {file:'cloud',label:'Overcast'};
+ return {file:night?'clear-night':'cloud',label:'Weather'};
+}
+function weatherArt(code,when,wind,size){
+ const kind=weatherKind(code,when,wind);
+ const px=size==='large'?56:size==='small'?28:18;
+ return `<img class="weather-art weather-art-${size}" src="/weather/${kind.file}.svg" alt="${escapeHtml(kind.label)}" width="${px}" height="${px}">`;
+}
+function weatherCondition(code,when,wind,size){
+ const kind=weatherKind(code,when,wind);
+ return [weatherArt(code,when,wind,size||'large'),kind.label];
 }
 function forecastAt(iso){
  const hourly=personalWeather?.hourly;
@@ -48,12 +75,12 @@ function forecastAt(iso){
  const key=String(iso||'').slice(0,13);
  const index=hourly.time.findIndex(time=>String(time).slice(0,13)===key);
  if(index<0)return null;
- return {temp:hourly.temperature_2m?.[index],rain:hourly.precipitation_probability?.[index],code:hourly.weather_code?.[index]};
+ return {temp:hourly.temperature_2m?.[index],rain:hourly.precipitation_probability?.[index],code:hourly.weather_code?.[index],wind:hourly.wind_speed_10m?.[index],time:hourly.time[index]};
 }
 function eventForecastChip(iso){
  const point=forecastAt(iso);
  if(!point||(point.temp==null&&point.rain==null))return '';
- const [icon]=weatherCondition(point.code);
+ const icon=weatherArt(point.code,point.time||iso,point.wind,'chip');
  return `<span class="design-forecast" role="status">${icon} ${escapeHtml(point.temp??'—')}° · rain ${point.rain==null?'—':escapeHtml(point.rain)+'%'}</span>`;
 }
 function homeWeatherCard(){
@@ -64,7 +91,8 @@ function homeWeatherCard(){
  const w=personalWeather;
  const refresh=`<button type="button" class="icon-button today-weather-refresh" data-personal="weather" aria-label="Refresh weather" title="Refresh weather" ${weatherLoading?'disabled':''}>↻</button>`;
  if(!w)return `<section class="design-weather" data-weather-result><p>${escapeHtml(weatherError||(weatherLoading?'Getting weather for your location…':'Weather is not available yet.'))}</p>${refresh}</section>`;
- const [icon,label]=weatherCondition(w.current?.weather_code);
+ const currentWind=(w.hourly?.wind_speed_10m||[])[Math.max(0,(w.hourly?.time||[]).findIndex(time=>String(time).slice(0,13)===String(w.current?.time||'').slice(0,13)))];
+ const [icon,label]=weatherCondition(w.current?.weather_code,w.current?.time,currentWind);
  const rain=w.daily?.precipitation_probability_max?.[0];
  const hours=w.hourly?.time||[];
  const currentHour=String(w.current?.time||'').slice(0,13);
@@ -72,9 +100,10 @@ function homeWeatherCard(){
  if(start<0)start=0;
  const strip=hours.slice(start,start+8).map((time,offset)=>{
   const index=start+offset;
-  return `<span class="design-hour"><b>${escapeHtml(String(time).slice(11,16))}</b><strong>${escapeHtml(w.hourly?.temperature_2m?.[index]??'—')}°</strong><small>${w.hourly?.precipitation_probability?.[index]==null?'—':escapeHtml(w.hourly.precipitation_probability[index])+'%'}</small></span>`;
+  const art=weatherArt(w.hourly?.weather_code?.[index],time,w.hourly?.wind_speed_10m?.[index],'small');
+  return `<span class="design-hour">${art}<b>${escapeHtml(String(time).slice(11,16))}</b><strong>${escapeHtml(w.hourly?.temperature_2m?.[index]??'—')}°</strong><small>${w.hourly?.precipitation_probability?.[index]==null?'—':escapeHtml(w.hourly.precipitation_probability[index])+'%'}</small></span>`;
  }).join('');
- return `<section class="design-weather" data-weather-result aria-label="Weather"><div class="design-weather-main"><span class="weather-icon" aria-hidden="true">${icon}</span><div><span class="eyebrow">${escapeHtml(w.place||'Weather')}</span><strong>${escapeHtml(label)} · ${escapeHtml(w.current?.temperature_2m??'—')}°C</strong><span>Rain ${rain==null?'—':escapeHtml(rain)+'%'} · High ${escapeHtml(w.daily?.temperature_2m_max?.[0]??'—')}° · Low ${escapeHtml(w.daily?.temperature_2m_min?.[0]??'—')}°</span></div>${refresh}</div><div class="design-hours" aria-label="Hourly forecast">${strip}</div></section>`;
+ return `<section class="design-weather" data-weather-result aria-label="Weather"><div class="design-weather-main"><span class="weather-icon">${icon}</span><div><span class="eyebrow">${escapeHtml(w.place||'Weather')}</span><strong>${escapeHtml(label)} · ${escapeHtml(w.current?.temperature_2m??'—')}°C</strong><span>Rain ${rain==null?'—':escapeHtml(rain)+'%'} · High ${escapeHtml(w.daily?.temperature_2m_max?.[0]??'—')}° · Low ${escapeHtml(w.daily?.temperature_2m_min?.[0]??'—')}°</span></div>${refresh}</div><div class="design-hours" aria-label="Hourly forecast">${strip}</div></section>`;
 }
 let weatherView='three', weatherDay='';
 
@@ -171,17 +200,17 @@ function weatherMarkup(w,error='',loading=false,refreshIcon='↻'){
   :w.stale?'<p class="weather-status" role="status">Showing a saved forecast while weather services recover. Align will retry automatically.</p>':'';
  const attribution=w.source==='MET Norway'?'<a href="https://www.met.no/en" target="_blank" rel="noopener">MET Norway</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>':'<a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>';
  const updated=`<small class="today-weather-updated">${w.stale?'Saved forecast':'Updated'} ${e(formatDisplayDateTime(w.checked_at,'Europe/London'))} · ${attribution}</small>`;
- const condition=code=>({0:['☀️','Clear'],1:['🌤️','Mainly clear'],2:['⛅','Partly cloudy'],3:['☁️','Overcast'],45:['🌫️','Fog'],48:['🌫️','Freezing fog'],51:['🌦️','Light drizzle'],53:['🌦️','Drizzle'],55:['🌧️','Heavy drizzle'],56:['🌧️','Freezing drizzle'],57:['🌧️','Freezing drizzle'],61:['🌦️','Light rain'],63:['🌧️','Rain'],65:['🌧️','Heavy rain'],66:['🌧️','Freezing rain'],67:['🌧️','Freezing rain'],71:['🌨️','Light snow'],73:['🌨️','Snow'],75:['❄️','Heavy snow'],77:['❄️','Snow grains'],80:['🌦️','Light showers'],81:['🌧️','Showers'],82:['🌧️','Heavy showers'],85:['🌨️','Snow showers'],86:['❄️','Heavy snow showers'],95:['⛈️','Thunderstorm'],96:['⛈️','Thunderstorm'],99:['⛈️','Thunderstorm']}[Number(code)]||['🌡️','Unknown']);
+ const condition=(code,when,wind)=>weatherCondition(code,when,wind);
  const daily=w.daily?.time||[];
- const [todayIcon,todayLabel]=condition(w.current.weather_code);
- const todayCard=`<div class="today-weather-banner"><div class="today-weather-heading"><span class="weather-icon" aria-hidden="true">${todayIcon}</span><div><span class="eyebrow">Today’s weather</span><strong>${e(todayLabel)} · ${e(w.current.temperature_2m??'—')}°C</strong><span>High ${e(w.daily?.temperature_2m_max?.[0]??'—')}° · Low ${e(w.daily?.temperature_2m_min?.[0]??'—')}° · Rain ${w.daily?.precipitation_probability_max?.[0]==null?'—':e(w.daily.precipitation_probability_max[0])+'%'}</span></div></div><div class="today-weather-location"><div class="today-weather-place"><strong>${e(w.place)}</strong><button type="button" class="icon-button today-weather-refresh" data-personal="weather" aria-label="Refresh weather" title="Refresh weather" ${loading?'disabled':''}>${refreshIcon}</button></div>${updated}</div></div>`;
- const forecastCard=(day,index)=>{const [icon,label]=condition(w.daily.weather_code?.[index]);return `<article class="today-weather-day"><button type="button" data-personal="weather-day" data-date="${e(day)}" aria-label="Show weather summary for ${e(prettyDate(day,{weekday:'long',day:'numeric',month:'long'}))}"><strong>${e(prettyDate(day,{weekday:'short',day:'numeric',month:'short'}))}</strong><span>${icon} ${e(label)}</span><b>${e(w.daily.temperature_2m_min?.[index]??'—')}–${e(w.daily.temperature_2m_max?.[index]??'—')}°</b><small>Rain ${w.daily.precipitation_probability_max?.[index]==null?'—':e(w.daily.precipitation_probability_max[index])+'%'}</small></button></article>`;};
+ const [todayIcon,todayLabel]=condition(w.current.weather_code,w.current?.time);
+ const todayCard=`<div class="today-weather-banner"><div class="today-weather-heading"><span class="weather-icon">${todayIcon}</span><div><span class="eyebrow">Today’s weather</span><strong>${e(todayLabel)} · ${e(w.current.temperature_2m??'—')}°C</strong><span>High ${e(w.daily?.temperature_2m_max?.[0]??'—')}° · Low ${e(w.daily?.temperature_2m_min?.[0]??'—')}° · Rain ${w.daily?.precipitation_probability_max?.[0]==null?'—':e(w.daily.precipitation_probability_max[0])+'%'}</span></div></div><div class="today-weather-location"><div class="today-weather-place"><strong>${e(w.place)}</strong><button type="button" class="icon-button today-weather-refresh" data-personal="weather" aria-label="Refresh weather" title="Refresh weather" ${loading?'disabled':''}>${refreshIcon}</button></div>${updated}</div></div>`;
+ const forecastCard=(day,index)=>{const [icon,label]=condition(w.daily.weather_code?.[index],`${day}T12:00`,undefined,'small');return `<article class="today-weather-day"><button type="button" data-personal="weather-day" data-date="${e(day)}" aria-label="Show weather summary for ${e(prettyDate(day,{weekday:'long',day:'numeric',month:'long'}))}"><strong>${e(prettyDate(day,{weekday:'short',day:'numeric',month:'short'}))}</strong><span>${icon} ${e(label)}</span><b>${e(w.daily.temperature_2m_min?.[index]??'—')}–${e(w.daily.temperature_2m_max?.[index]??'—')}°</b><small>Rain ${w.daily.precipitation_probability_max?.[index]==null?'—':e(w.daily.precipitation_probability_max[index])+'%'}</small></button></article>`;};
  let forecast='';
  if(weatherView==='hourly'){
   const hours=w.hourly?.time||[],temperatures=w.hourly?.temperature_2m||[],currentHour=String(w.current?.time||'').slice(0,13);
   let start=hours.findIndex(time=>String(time).slice(0,13)>=currentHour);
   if(start<0)start=0;
-  forecast=hours.slice(start,start+24).map((time,offset)=>{const i=start+offset,[icon,label]=condition(w.hourly.weather_code?.[i]);return `<article class="weather-card"><strong>${e(String(time).slice(11,16))}</strong><div class="weather-card-heading"><span class="weather-icon" aria-hidden="true">${icon}</span><div><strong>${e(label)}</strong><span>${e(temperatures[i]??'—')}°C</span></div></div><small>Rain ${w.hourly.precipitation_probability?.[i]==null?'—':e(w.hourly.precipitation_probability[i])+'%'}</small></article>`;}).join('');
+  forecast=hours.slice(start,start+24).map((time,offset)=>{const i=start+offset,[icon,label]=condition(w.hourly.weather_code?.[i],time,w.hourly?.wind_speed_10m?.[i],'small');return `<article class="weather-card"><strong>${e(String(time).slice(11,16))}</strong><div class="weather-card-heading"><span class="weather-icon">${icon}</span><div><strong>${e(label)}</strong><span>${e(temperatures[i]??'—')}°C</span></div></div><small>Rain ${w.hourly.precipitation_probability?.[i]==null?'—':e(w.hourly.precipitation_probability[i])+'%'}</small></article>`;}).join('');
   forecast=forecast?`<div class="weather-cards" aria-label="Hourly forecast">${forecast}</div>`:'<p class="helper">Hourly forecast is not available.</p>';
  }else if(weatherView==='daily'){
   forecast=`<div class="today-weather-days">${daily.slice(0,7).map(forecastCard).join('')}</div>`;

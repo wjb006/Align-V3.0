@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="pd-sun" cx="40%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#fff3bf"/>
+      <stop offset="100%" stop-color="#f0a020"/>
+    </radialGradient>
+    <linearGradient id="pd-cloud" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f7fbff"/>
+      <stop offset="100%" stop-color="#b9d4ee"/>
+    </linearGradient>
+  </defs>
+  <g stroke="#ffd56a" stroke-width="2.4" stroke-linecap="round">
+    <path d="M22 10v5M12 20h5M14 12l3.5 3.5"/>
+  </g>
+  <circle cx="22" cy="22" r="9" fill="url(#pd-sun)"/>
+  <g fill="url(#pd-cloud)">
+    <ellipse cx="36" cy="40" rx="16" ry="11"/>
+    <ellipse cx="24" cy="42" rx="10" ry="8"/>
+    <ellipse cx="46" cy="42" rx="9" ry="7"/>
+  </g>
+</svg>
