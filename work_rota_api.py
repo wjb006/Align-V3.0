@@ -141,7 +141,14 @@ def handle_post(handler, app, connection, path, payload) -> bool:
             result = work_rota_import.approve(connection, import_id, payload or {})
         else:
             result = work_rota_import.undo(connection, import_id, payload or {})
+        import work_calendar
+        result['calendar'] = work_calendar.status(connection)
         result['import'] = _import_payload(connection, storage.get_import(connection, import_id))['import']
+        try:
+            import organiser_api
+            organiser_api._wake(handler, app, None)
+        except Exception as error:
+            LOG.error('Could not queue iCloud sync after rota approval: %s', type(error).__name__)
         handler.send_json(200, result)
 
     return _guard(handler, app, connection, send)

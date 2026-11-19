@@ -169,7 +169,11 @@ async function loadGuideCatalog() {
 
 function plannerSectionsBlock() {
   const sections = state.boot?.sections || [];
-  return `<section class="section planner-sections"><div class="section-head"><h2>Planner sections</h2></div><p class="subtle">Set up a section such as Appointments. New events can reuse its calendar, places, travel time and alerts.</p><div class="button-row"><button type="button" class="primary-button" data-action="new-section">New section</button></div><div class="quick-grid">${sections.map(section => `<button type="button" class="quick-action" data-action="open-section" data-id="${section.id}" style="border-left:4px solid ${escapeHtml(section.colour || '#0878F9')}"><b>${escapeHtml(section.icon || '•')}</b>${escapeHtml(section.name)}<small>${escapeHtml(section.calendar_name || 'Saved in Align')}</small></button>`).join('') || '<p class="helper">No planner sections yet. An Appointments section is a good place to start.</p>'}</div></section>`;
+  return `<section class="section planner-sections"><div class="section-head"><h2>Planner sections</h2></div><p class="subtle">Set up a section such as Appointments. New events can reuse its calendar, places, travel time and alerts.</p><div class="button-row"><button type="button" class="primary-button" data-action="new-section">New section</button></div><div class="quick-grid">${sections.map(section => {
+    const shifts = Number(section.shift_count) || 0;
+    const detail = [section.calendar_name || 'Saved in Align', shifts ? `${shifts} shift${shifts === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
+    return `<button type="button" class="quick-action" data-action="open-section" data-id="${section.id}" style="border-left:4px solid ${escapeHtml(section.colour || '#0878F9')}"><b>${escapeHtml(section.icon || '•')}</b>${escapeHtml(section.name)}<small>${escapeHtml(detail)}</small></button>`;
+  }).join('') || '<p class="helper">No planner sections yet. An Appointments section is a good place to start.</p>'}</div></section>`;
 }
 
 function guideField(id, label, control) {

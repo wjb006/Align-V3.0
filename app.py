@@ -353,12 +353,23 @@ def beta_icloud_manager(row, restore: bool=True):
                 except BetaError as exc:
                     if exc.code not in ('credential_error', 'credential_key_unavailable'): raise
                     manager.reconnect_required = True
-                    manager.message = 'Reconnect iCloud in Calendar settings. Your saved planner and calendar data are still available.'
+                    manager.last_error = 'Reconnect iCloud in Calendar settings. Your saved planner and calendar data are still available.'
+                    manager.message = manager.last_error
+                    logging.getLogger('align.icloud').error('iCloud resume failed: %s', exc.code)
                 else:
                     if saved:
+                        from icloud_sync import CloudError
                         try: manager.resume(*saved)
-                        except Exception:
-                            manager.message = 'iCloud is temporarily unavailable. Retry from Calendar settings.'
+                        except CloudError as error:
+                            manager.reconnect_required = True
+                            manager.last_error = str(error)
+                            manager.message = manager.last_error
+                            logging.getLogger('align.icloud').error('iCloud resume failed: %s', manager.message)
+                        except Exception as error:
+                            manager.reconnect_required = True
+                            manager.last_error = 'iCloud is temporarily unavailable. Retry from Calendar settings.'
+                            manager.message = manager.last_error
+                            logging.getLogger('align.icloud').error('iCloud resume failed: %s', type(error).__name__)
         return manager
 
 
@@ -368,8 +379,8 @@ def restore_all_beta_icloud():
         try:
             live=beta_store().user(row['user_id'])
             if live and live['active'] and row.get('icloud_saved'): beta_icloud_manager(live, True)
-        except Exception:
-            pass
+        except Exception as error:
+            logging.getLogger('align.icloud').error('iCloud restore skipped: %s', type(error).__name__)
 
 def normalise_leave_year_start(value) -> str:
     text = str(value or "").strip()
@@ -542,11 +553,16 @@ def navigation_data(connection: sqlite3.Connection) -> dict:
 
 def public_icloud_data(manager=None) -> dict:
     manager = manager if manager is not None else ICLOUD_MANAGER
+    last_error = getattr(manager, 'last_error', None) if manager is not None else None
+    message = getattr(manager, 'message', 'Connect iCloud from PC Admin to link calendars.') if manager is not None else 'Connect iCloud from PC Admin to link calendars.'
+    reconnect = bool(getattr(manager, 'reconnect_required', False)) if manager is not None else False
     if manager is None or manager.client is None:
-        return {'connected': False, 'enabled': False, 'calendars': [], 'reconnect_required': bool(getattr(manager, 'reconnect_required', False)), 'message': getattr(manager, 'message', 'Connect iCloud from PC Admin to link calendars.')}
+        return {'connected': False, 'enabled': False, 'calendars': [], 'reconnect_required': reconnect,
+                'message': message, 'last_error': last_error, 'last_sync': getattr(manager, 'last_sync', None) if manager is not None else None}
     with manager.lock:
         return {'connected': True, 'enabled': manager.enabled,
-                'calendars': list(manager.options), 'message': manager.message, 'last_sync': manager.last_sync}
+                'calendars': list(manager.options), 'message': manager.message, 'last_sync': manager.last_sync,
+                'last_error': manager.last_error, 'reconnect_required': reconnect}
 
 
 def icloud_event_calendars(connection: sqlite3.Connection) -> list[dict]:

@@ -206,6 +206,18 @@ def organiser_event(event, uid):
     return calendar.to_ical(), event_content(item)
 
 
+def shift_event(shift, uid):
+    """Build a one-way iCloud copy of a saved shift. The shift row stays authoritative."""
+    return organiser_event({
+        'title': shift['title'],
+        'start_at': shift['start_at'],
+        'end_at': shift['end_at'],
+        'all_day': 0,
+        'location': shift.get('location') or '',
+        'notes': shift.get('notes') or '',
+    }, uid)
+
+
 def busy_event(event, owned_prefix):
     if str(event.get('UID','')).startswith(owned_prefix) or str(event.get('STATUS','')).upper() == 'CANCELLED' or str(event.get('TRANSP','')).upper() == 'TRANSPARENT':
         return None
@@ -390,9 +402,9 @@ class ICloudSync:
             prefix = 'align-' + config['instance_id'] + '-'
             conflicts = []
 
-            def sync_owned_item(key, uid, url, payload, content_hash, saved):
+            def sync_owned_item(key, uid, url, payload, content_hash, saved, overwrite=False):
                 try:
-                    self._sync_owned_item(key, uid, url, payload, content_hash, saved)
+                    self._sync_owned_item(key, uid, url, payload, content_hash, saved, overwrite=overwrite)
                 except CloudError as error:
                     message = str(error)
                     if 'edited in iCloud' in message or 'changed in iCloud' in message or 'edited in both' in message:
@@ -445,9 +457,8 @@ class ICloudSync:
                     )
 
             wanted = set()
-            # V3 only manages Section events. Numeric legacy shift mappings and
-            # their travel entries are intentionally left untouched, including
-            # their iCloud copies, so this transition cannot delete user data.
+            # Numeric legacy mappings are left untouched so this cannot delete
+            # copies Align no longer understands. Shift copies are managed below.
             for event in organiser_events:
                 if not event['export_enabled']:
                     continue
@@ -462,25 +473,52 @@ class ICloudSync:
                     tkey = 'travel:event:' + str(event['id']); wanted.add(tkey)
                     sync_owned_item(tkey, tuid, event['calendar_url'].rstrip('/') + '/' + tuid + '.ics', block[0], block[1], mappings.get(tkey))
 
+            import work_calendar
+            with self.app.db_connection() as c:
+                work = work_calendar.find_work_link(c)
+                shift_rows = work_calendar.shift_records(c)
+            managing_shifts = bool(work and work.get('calendar_url') and work.get('export_enabled'))
+            if shift_rows and not managing_shifts:
+                logging.getLogger('align.icloud').warning(
+                    'iCloud shift push skipped: shifts=%s linked=%s export=%s',
+                    len(shift_rows), bool(work and work.get('calendar_url')), bool(work and work.get('export_enabled')),
+                )
+            if managing_shifts:
+                for shift in shift_rows:
+                    key = 'shift:' + str(shift['id'])
+                    wanted.add(key)
+                    uid = prefix + 'shift-' + str(shift['id']) + '@align.local'
+                    url = work['calendar_url'].rstrip('/') + '/' + uid + '.ics'
+                    payload, content_hash = shift_event(shift, uid)
+                    sync_owned_item(key, uid, url, payload, content_hash, mappings.get(key), overwrite=True)
+
             for key,saved in mappings.items():
                 if key in wanted:
                     continue
-                # Preserve legacy/non-Section mappings without querying retired
-                # shift tables. Only Section-event mappings are reconciled here.
-                if str(key).isdigit() or str(key).startswith('shift:'):
+                # Numeric legacy mappings stay put. Shift copies are removed only
+                # after Align has confirmed the shift itself is gone.
+                if str(key).isdigit():
                     continue
                 if str(key).startswith('travel:') and not str(key).startswith('travel:event:'):
                     continue
-                if not str(key).startswith(('event:', 'travel:event:')):
-                    continue
-                event_key = str(key).split(':', 2)[-1]
-                with self.app.db_connection() as c:
-                    exists = c.execute(
-                        'SELECT 1 FROM organiser_events WHERE id=?',
-                        (event_key,)
-                    ).fetchone()
-                    if exists and str(key).startswith('event:'):
+                if str(key).startswith('shift:'):
+                    if not managing_shifts:
                         continue
+                    shift_id = str(key).split(':', 1)[1]
+                    with self.app.db_connection() as c:
+                        if c.execute('SELECT 1 FROM shifts WHERE id=?', (shift_id,)).fetchone():
+                            continue
+                elif not str(key).startswith(('event:', 'travel:event:')):
+                    continue
+                else:
+                    event_key = str(key).split(':', 2)[-1]
+                    with self.app.db_connection() as c:
+                        exists = c.execute(
+                            'SELECT 1 FROM organiser_events WHERE id=?',
+                            (event_key,)
+                        ).fetchone()
+                        if exists and str(key).startswith('event:'):
+                            continue
                 remote = self.client.get(saved['url'])
                 if remote:
                     raw, etag = remote
@@ -495,34 +533,45 @@ class ICloudSync:
             self.last_sync = datetime.now().isoformat(timespec='seconds')
             self.last_error = None; self.consecutive_failures = 0
             self.conflicts = conflicts
+            shift_note = ''
+            if managing_shifts:
+                calendar_name = work.get('calendar_name') or work.get('section_name') or 'Work'
+                count = len(shift_rows)
+                shift_note = f' Pushed {count} shift{"" if count == 1 else "s"} to {calendar_name}.'
+            elif shift_rows:
+                shift_note = ' Shifts stayed in Align because no Work calendar is linked for export.'
             if conflicts:
                 self.message = (
                     f'Synced {sum(1 for e in organiser_events if e["export_enabled"])} Section events. '
                     f'Read {sum(len(v) for v in events_by_url.values())} iCloud events. '
                     f'{len(conflicts)} Align event{"s" if len(conflicts) != 1 else ""} need review '
                     'after edits in both Align and iCloud. Other events continued syncing both ways.'
+                    + shift_note
                 )
             else:
                 self.message = (
                     f'Two-way sync complete: {sum(1 for e in organiser_events if e["export_enabled"])} Section events. '
                     f'Read {sum(len(v) for v in events_by_url.values())} iCloud events.'
+                    + shift_note
                 )
         except CloudError as error:
             self.conflicts = conflicts
             self.message = str(error)
             self.last_error = self.message
             self.consecutive_failures += 1
+            logging.getLogger('align.icloud').error('iCloud sync failed: %s', self.message)
             if active_calendar_id:
                 previous = self.calendar_status.get(active_calendar_id, {})
                 self.calendar_status[active_calendar_id] = {
                     'status':'error', 'last_success':previous.get('last_success'),
                     'event_count':previous.get('event_count'), 'error':self.message,
                 }
-        except Exception:
+        except Exception as error:
             self.conflicts = conflicts
             self.message = 'iCloud sync failed. Check your connection, app-specific password and calendar permissions. Cached events may be out of date; no unverified overwrite was attempted.'
             self.last_error = self.message
             self.consecutive_failures += 1
+            logging.getLogger('align.icloud').error('iCloud sync failed: %s', type(error).__name__)
             if active_calendar_id:
                 previous = self.calendar_status.get(active_calendar_id, {})
                 self.calendar_status[active_calendar_id] = {
@@ -569,9 +618,9 @@ class ICloudSync:
                 return True
             return False
 
-    def _sync_owned_item(self, key, uid, url, payload, content_hash, saved):
-        # Conflict-safe two-way sync for Section events.
-        # Two-way: when Align is unchanged and iCloud changed, pull the edit in.
+    def _sync_owned_item(self, key, uid, url, payload, content_hash, saved, overwrite=False):
+        # Section events stay two-way. Shift copies are one-way: Align overwrites
+        # its own iCloud copy so the saved shift remains the source of truth.
         if not saved:
             with self.app.db_connection() as c:
                 c.execute('INSERT INTO icloud_items(local_key,uid,url,etag,content_hash) VALUES(?,?,?,?,?)',(key,uid,url,'',content_hash))
@@ -595,7 +644,7 @@ class ICloudSync:
             if remote_hash == content_hash:
                 with self.app.db_connection() as c: c.execute('UPDATE icloud_items SET etag=?,content_hash=? WHERE local_key=?',(etag,content_hash,key))
                 return
-            if remote_hash != saved['content_hash'] or not etag:
+            if not overwrite and (remote_hash != saved['content_hash'] or not etag):
                 # Align unchanged since last sync → import the iCloud edit.
                 if content_hash == saved['content_hash'] and self._apply_inbound(key, raw, uid):
                     with self.app.db_connection() as c:

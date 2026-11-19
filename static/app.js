@@ -282,7 +282,12 @@ function render() {
   let content = renderer ? renderer() : '';
   if (content == null) content = '<section class="page"><div class="card empty">This screen is still loading. Refresh Align if it stays blank.</div></section>';
   else if (!content) content = renderHome();
-  const cloudNotice = state.boot.icloud_public?.reconnect_required ? `<div class="card" role="status"><strong>iCloud needs reconnecting</strong><p>${escapeHtml(state.boot.icloud_public.message)}</p><button class="small-button" data-nav="settings">Open settings</button></div>` : '';
+  const cloud = state.boot?.icloud_public || {};
+  const cloudNotice = cloud.reconnect_required
+    ? `<div class="card" role="alert"><strong>iCloud needs reconnecting</strong><p>${escapeHtml(cloud.message || 'Open Calendar settings and connect iCloud again.')}</p><button class="small-button" data-nav="settings">Open settings</button></div>`
+    : cloud.last_error
+    ? `<div class="card" role="alert"><strong>iCloud sync failed</strong><p>${escapeHtml(cloud.last_error)}</p><button class="small-button" data-nav="settings">Open settings</button></div>`
+    : '';
   app.innerHTML = cloudNotice + content;
   app.focus({ preventScroll: true });
   window.AlignProgrammeUpdate?.refresh();
@@ -384,9 +389,12 @@ function renderSectionsIndex() {
   const sections = state.sectionDefinitions || [];
   const visible = sections.filter(section => !section.optional || section.enabled);
   const work = sections.find(section => section.key === 'work');
+  const calendarInfo = state.boot?.work_calendar;
+  const calendarCount = Number(calendarInfo?.shift_count) || 0;
+  const workNote = calendarInfo ? `<p class="helper" role="status">${escapeHtml(calendarInfo.message || '')}${calendarCount ? escapeHtml(` ${calendarCount} shift${calendarCount === 1 ? '' : 's'} saved.`) : ''}</p>` : '';
   const workCard = !work || !work.enabled
-    ? `<section class="section"><div class="card work-optional-card"><p class="eyebrow">Work planner</p><h2>Work Calendar</h2><p class="subtle">Start by uploading your rota. Check the shifts before saving them, and add or reuse work details as you go. You can also configure your work details manually.</p><div class="button-row"><button class="primary-button" data-action="work-rota">Upload my rota</button><button class="secondary-button" data-action="work-add-shifts">Add shifts manually</button><button class="secondary-button" data-action="work-setup">Add work details</button></div></div></section>`
-    : `<section class="section work-calendar-setup"><div class="card"><p class="eyebrow">Work planner</p><h2>Work Calendar</h2><p class="subtle">Upload a new rota, or adjust your Work Settings. Workplaces and shift areas can also be saved as you use them.</p><div class="button-row"><button class="primary-button" data-action="work-rota">Upload my rota</button><button class="secondary-button" data-action="work-add-shifts">Add shifts manually</button><button class="secondary-button" data-action="work-setup">Manage Work Settings</button></div></div></section>`;
+    ? `<section class="section"><div class="card work-optional-card"><p class="eyebrow">Work planner</p><h2>Work Calendar</h2><p class="subtle">Start by uploading your rota. Check the shifts before saving them, and add or reuse work details as you go. You can also configure your work details manually.</p>${workNote}<div class="button-row"><button class="primary-button" data-action="work-rota">Upload my rota</button><button class="secondary-button" data-action="work-add-shifts">Add shifts manually</button><button class="secondary-button" data-action="work-setup">Add work details</button></div></div></section>`
+    : `<section class="section work-calendar-setup"><div class="card"><p class="eyebrow">Work planner</p><h2>Work Calendar</h2><p class="subtle">Upload a new rota, or adjust your Work Settings. Workplaces and shift areas can also be saved as you use them.</p>${workNote}<div class="button-row"><button class="primary-button" data-action="work-rota">Upload my rota</button><button class="secondary-button" data-action="work-add-shifts">Add shifts manually</button><button class="secondary-button" data-action="work-setup">Manage Work Settings</button></div></div></section>`;
   return `<section class="page"><div class="add-head"><p class="eyebrow">Your data, organised your way</p><h1>Sections</h1><p class="subtle">Sections set up in Align Management Studio appear here. Your records stay private to your account.</p></div><div class="quick-grid">${visible.map(section => `<button class="quick-action organiser-section-tile" data-section-key="${escapeHtml(section.key)}" style="--section-colour:${escapeHtml(section.colour)}"><b>${escapeHtml(section.icon)}</b>${escapeHtml(section.name)}<small>${escapeHtml(section.description || 'Open your saved records')}</small></button>`).join('')}${!visible.length?'<div class="card empty">No sections have been added yet.</div>':''}</div>${callOptional('plannerSectionsBlock') || ''}${workCard}</section>`;
 }
 
@@ -877,6 +885,7 @@ function renderSection() {
   if (!section) return '<section class="page"><div class="card empty">Loading section…</div></section>';
   const now = new Date();
   const upcoming = section.events.filter(event => {
+    if (event.source_kind === 'shift') return true;
     const end = new Date(event.end_at);
     return Number.isFinite(end.getTime()) && end > now;
   });
@@ -895,11 +904,13 @@ function renderSection() {
           section_id: section.id,
           section_colour: section.colour,
           category_name: section.name,
-          origin: event.source_kind === 'icloud' ? 'Calendar' : 'Event',
+          origin: event.source_kind === 'icloud' ? 'Calendar' : event.source_kind === 'shift' ? 'Shift' : 'Event',
           notes: event.notes || '',
         }, { showDate: true, index, condensed: true });
         const actions = event.source_kind === 'align'
           ? `<button class="small-button" data-action="edit-section-event" data-id="${event.id}">Edit</button>`
+          : event.source_kind === 'shift'
+          ? `<button class="small-button" data-shift-action="edit" data-id="${event.id}" data-work-date="${escapeHtml(event.work_date || '')}">Edit shift</button>`
           : '';
         return actions ? row.replace('</article>', `${actions}</article>`) : row;
       }).join('') || '<div class="card empty">No upcoming events.</div>'}</div>

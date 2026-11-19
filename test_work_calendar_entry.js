@@ -24,6 +24,10 @@ assert(html.includes('data-action="work-setup"'),'Enabled Work must offer manage
 assert(html.includes('data-action="work-add-shifts"'),'Enabled Work must offer manual shift entry');
 assert(html.includes('data-action="work-rota"'),'Enabled Work must offer rota upload');
 assert(!html.includes('data-action="work-opt-in"'),'Enabled Work must not ask the user to opt in again');
+context.state.boot = {work_calendar:{linked:true,name:'🩸Work',shift_count:2,message:'Shifts are saved on 🩸Work and queued for iCloud.'}};
+html = context.renderSectionsIndex();
+assert(html.includes('2 shifts saved'),'Work Calendar must show how many shifts are saved');
+assert(html.includes('queued for iCloud'),'Work Calendar must say when shifts are queued for iCloud');
 console.log('Work Calendar setup and management entry points passed');
 
 // The restored planner must filter a second booking to the unused AM/PM period,
