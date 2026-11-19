@@ -33,7 +33,7 @@ def health_status() -> dict:
             LOG.error("Hosted database health check failed")
         return {
             "version": {"build": align.BUILD_VERSION, "app": align.APP_VERSION},
-            "mode": "beta" if align.BETA_MODE else "normal",
+            "mode": "normal",
             "database": {"available": available, "backend": "postgres",
                          "integrity": "not_checked"},
             "migrations": {"available": False, "applied": False, "managed": "externally"},
@@ -66,7 +66,7 @@ def health_status() -> dict:
         LOG.exception("Health check could not inspect the Align database")
     return {
         "version": {"build": align.BUILD_VERSION, "app": align.APP_VERSION},
-        "mode": "beta" if align.BETA_MODE else "normal",
+        "mode": "normal",
         "database": {"available": database_available, "integrity": database_integrity},
         "migrations": {"available": migrations_available, "applied": migrations_applied},
     }

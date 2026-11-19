@@ -93,7 +93,7 @@ def authenticate_live(base_url: str, email: str, password: str) -> bool:
 def main() -> int:
     print("Align V3 live Owner setup")
     print("This connects directly to the selected production Postgres database.")
-    print("Live sign-in uses your Owner email and V3 password. A code created by local beta setup is not a live Owner credential.")
+    print("Live sign-in uses your Owner email and V3 password. A code created by a local setup is not a live Owner credential.")
     base_url = input(f"Live application URL [{EXPECTED_PUBLIC_URL}]: ").strip() or EXPECTED_PUBLIC_URL
     if base_url.rstrip("/") != EXPECTED_PUBLIC_URL:
         print(f"Refusing unrecognized production URL. Expected {EXPECTED_PUBLIC_URL}.", file=sys.stderr)

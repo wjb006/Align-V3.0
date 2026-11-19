@@ -199,6 +199,7 @@ h3 { font-size: 15px; margin-bottom: 2px; }
 .master-item.inactive { opacity: .56; }
 .small-button { border: 0; min-height: var(--tap); padding: 10px 14px; border-radius: 10px; background: var(--soft); color: var(--blue); font-weight: 750; font-size: 14px; }
 .settings-form { padding: 18px; display: grid; gap: 13px; }
+.settings-form[hidden] { display: none !important; }
 .user-colour-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
 .user-colour-row span { display: grid; gap: 2px; min-width: 0; }
 .user-colour-row strong { font-size: 15px; }

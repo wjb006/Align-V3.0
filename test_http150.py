@@ -58,6 +58,11 @@ class Http150Tests(unittest.TestCase):
     self.assertEqual(status,200)
     health=json.loads(payload)
     self.assertEqual(health['mode'],'normal')
+    app.BETA_MODE=True
+    try:
+     self.assertEqual(json.loads(request('/api/health')[1])['mode'],'normal')
+    finally:
+     app.BETA_MODE=False
     self.assertEqual(health['version']['build'],app.BUILD_VERSION)
     self.assertTrue(health['database']['available'])
     self.assertTrue(health['migrations']['available'])

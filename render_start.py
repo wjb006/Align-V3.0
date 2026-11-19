@@ -61,6 +61,7 @@ def prepare_preview():
     password = os.environ.get('ALIGN_PREVIEW_PASSWORD', '')
     if not hosted and len(password) < 20:
         raise RuntimeError('Set a strong ALIGN_PREVIEW_PASSWORD of at least 20 characters')
+    # Internal switch for hosted accounts, sign-in and invites. It is not a public beta label.
     os.environ['ALIGN_BETA_MODE'] = '1'
     # Hosted journeys require the reviewed HERE setup and durable quota storage.
     os.environ['ALIGN_TRANSPORT_ENABLED'] = '1' if (

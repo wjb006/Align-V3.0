@@ -8,7 +8,7 @@ Set deployment secrets in the service environment. `.env.example` lists setting 
 | `ALIGN_PUBLIC_URL` | Canonical public HTTPS address used in account email links, for example `https://getalign.co.uk`. |
 | `ALIGN_PORT` | Local server port. |
 | `ALIGN_HOSTING_MODE` | Selects persistent hosted mode or a disposable preview. |
-| `ALIGN_BETA_MODE` | Legacy configuration name for Align's account-scoped hosted mode. The user-facing product is Align in both local and hosted use. |
+| `ALIGN_BETA_MODE` | Internal switch for hosted accounts, sign-in, invites and `/api/beta/*`. The hosted start command sets it to `1`. Health reports `normal`, and the product is not labelled as a beta. |
 | `ALIGN_DATABASE_BACKEND` | Selects SQLite or PostgreSQL. |
 | `DATABASE_URL` | Connection string for this Align installation's own Neon database. |
 | `AWS_ENDPOINT_URL_S3`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `ALIGN_ASSET_BUCKET` | S3-compatible persistent storage for Management Studio image uploads. Keep credentials in the hosting provider's secret settings; hosted uploads are disabled until the bucket is configured. |
