@@ -1,4 +1,4 @@
--- Align V3.0 fresh PostgreSQL schema. No legacy shift-planner tables.
+-- Align V3.0 fresh PostgreSQL schema, including the restored shift planner.
 -- Apply only to a new, dedicated V3 database. Existing installations use reviewed numbered migrations.
 CREATE SCHEMA align_auth;
 CREATE SCHEMA align_owner;
@@ -132,6 +132,7 @@ CREATE TABLE align_auth.beta_login_challenges (
   "user_id" text NOT NULL,
   "expires" bigint NOT NULL,
   "created_at" bigint NOT NULL,
+  "purpose" text DEFAULT 'totp'::text NOT NULL,
   PRIMARY KEY (challenge_hash)
 );
 CREATE TABLE align_owner.asset_audit_log (
@@ -645,3 +646,4 @@ INSERT INTO align_owner.schema_migrations(migration_id, applied_at) VALUES ('156
 INSERT INTO align_owner.schema_migrations(migration_id, applied_at) VALUES ('157_work_rota_import',CURRENT_TIMESTAMP) ON CONFLICT(migration_id) DO NOTHING;
 INSERT INTO align_owner.schema_migrations(migration_id, applied_at) VALUES ('158_section_guides',CURRENT_TIMESTAMP) ON CONFLICT(migration_id) DO NOTHING;
 INSERT INTO align_owner.schema_migrations(migration_id, applied_at) VALUES ('159_account_security',CURRENT_TIMESTAMP) ON CONFLICT(migration_id) DO NOTHING;
+INSERT INTO align_owner.schema_migrations(migration_id, applied_at) VALUES ('160_password_change_challenge',CURRENT_TIMESTAMP) ON CONFLICT(migration_id) DO NOTHING;
