@@ -125,6 +125,35 @@ class DesktopAuthStore:
             row = connection.execute("SELECT * FROM desktop_owner WHERE id=1").fetchone()
         return token, self._public_user(row), expires_at
 
+    def reset_password(self, email: str, new_password: str) -> None:
+        """Reset the local Owner password from this computer's recovery flow.
+
+        This is deliberately local-only: anyone with access to the running
+        Windows app can recover the local account, so the UI requires an
+        explicit confirmation. Planner data is stored separately and is not
+        modified.
+        """
+        email = self._normalise_email(email)
+        password = str(new_password or "")
+        if len(password) < 12:
+            raise DesktopAuthError("Use a password with at least 12 characters.")
+        if len(password) > 1024:
+            raise DesktopAuthError("That password is too long.")
+        salt = secrets.token_bytes(32)
+        digest = self._password_hash(password, salt)
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT email FROM desktop_owner WHERE id=1 AND email=?", (email,)
+            ).fetchone()
+            if row is None:
+                raise DesktopAuthError("The email address does not match the local Owner account.")
+            connection.execute(
+                "UPDATE desktop_owner SET password_salt=?, password_hash=? WHERE id=1",
+                (salt.hex(), digest.hex()),
+            )
+            # Invalidate any remembered sessions after a credential reset.
+            connection.execute("DELETE FROM desktop_sessions")
+
     def authenticate(self, email: str, password: str, remember: bool = True, now: int | None = None) -> tuple[str, dict, int] | None:
         try:
             email = self._normalise_email(email)
