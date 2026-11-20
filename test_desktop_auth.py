@@ -44,6 +44,22 @@ class DesktopAuthTests(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result[1]["email"], "will@example.com")
 
+    def test_local_owner_password_can_be_reset_without_touching_account(self):
+        token, _user, _expires = self.store.setup(
+            "will@example.com", "Will", "a-long-local-password-123", now=3_500
+        )
+        self.store.reset_password("WILL@example.com", "a-new-local-password-456")
+        self.assertIsNone(self.store.get_session(token, now=3_501))
+        self.assertIsNone(self.store.authenticate("will@example.com", "a-long-local-password-123", now=3_502))
+        self.assertIsNotNone(self.store.authenticate("will@example.com", "a-new-local-password-456", now=3_503))
+
+    def test_password_reset_rejects_wrong_email_and_short_password(self):
+        self.store.setup("will@example.com", "Will", "a-long-local-password-123", now=3_600)
+        with self.assertRaises(DesktopAuthError):
+            self.store.reset_password("other@example.com", "a-new-local-password-456")
+        with self.assertRaises(DesktopAuthError):
+            self.store.reset_password("will@example.com", "too-short")
+
     def test_expired_session_is_removed(self):
         token, _user, expires = self.store.setup(
             "will@example.com", "Will", "a-long-local-password-123", True, now=4_000

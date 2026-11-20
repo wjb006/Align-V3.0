@@ -1086,7 +1086,7 @@ class AlignHandler(SimpleHTTPRequestHandler):
             })
             return True
         if method != "POST" or path not in {
-            "/api/local-auth/setup", "/api/local-auth/login", "/api/local-auth/logout"
+            "/api/local-auth/setup", "/api/local-auth/login", "/api/local-auth/logout", "/api/local-auth/reset-password"
         }:
             return False
         if not self.local_auth_same_origin():
@@ -1101,6 +1101,22 @@ class AlignHandler(SimpleHTTPRequestHandler):
         if path == "/api/local-auth/logout":
             store.revoke(self.local_auth_token())
             self.send_local_auth_json(200, {"ok": True}, self.local_auth_cookie())
+            return True
+        if path == "/api/local-auth/reset-password":
+            # Recovery is intentionally restricted to the local app origin.
+            # It resets only desktop-auth credentials, never planner data.
+            if payload.get("confirmation") != "RESET LOCAL OWNER":
+                self.send_local_auth_json(400, {"error": "Confirm the local account reset to continue."})
+                return True
+            try:
+                store.reset_password(payload.get("email", ""), payload.get("password", ""))
+            except Exception as error:
+                from desktop.auth import DesktopAuthError
+                if isinstance(error, DesktopAuthError):
+                    self.send_local_auth_json(400, {"error": str(error)})
+                    return True
+                raise
+            self.send_local_auth_json(200, {"ok": True, "message": "Local password updated. Sign in with your new password."}, self.local_auth_cookie())
             return True
         remember = payload.get("remember", True) is not False
         try:
