@@ -1431,6 +1431,7 @@ class AlignHandler(SimpleHTTPRequestHandler):
             '/terms': '/beta-terms', '/terms.html': '/beta-terms.html',
             '/welcome': '/beta-welcome', '/welcome.html': '/beta-welcome.html',
             '/account': '/beta-admin', '/account.html': '/beta-admin.html',
+            '/totp-setup': '/beta-totp-setup',
             '/login-submit': '/beta-login-submit',
             '/invite-complete': '/beta-invite-complete',
             '/reset-submit': '/beta-reset-submit',
