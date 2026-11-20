@@ -1420,7 +1420,7 @@ class AlignHandler(SimpleHTTPRequestHandler):
     def beta_me_payload(self,row):
         return {'authenticated':bool(row),'build_version':BUILD_VERSION,'app_version':APP_VERSION,'terms_version':beta_store().terms_current(row) if row else False,
                 'welcome_seen':bool(row and row['welcome_seen_at']),
-                'user':({'user_id':row['user_id'],'email':row['email'],'display_name':row['display_name'],'is_owner':bool(row['is_owner']),'password_set':bool(row['password_hash'])} if row else None)}
+                'user':({'user_id':row['user_id'],'email':row['email'],'display_name':row['display_name'],'is_owner':bool(row['is_owner']),'totp_enabled':bool(row['totp_enabled']),'password_set':bool(row['password_hash'])} if row else None)}
 
     def rewrite_public_path(self):
         aliases = {
