@@ -306,10 +306,17 @@ class PostgresIntegrationTests(unittest.TestCase):
                 "WHERE table_schema='align_auth'")}
             self.assertTrue({'totp_secret', 'totp_enabled'} <= columns)
             self.assertIn('beta_login_challenges', tables)
+            challenge_columns = {row[0] for row in raw.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema='align_auth' AND table_name='beta_login_challenges'")}
+            self.assertIn('purpose', challenge_columns)
             with sqlite_support.connect('align.sqlite3') as owner:
                 self.assertEqual(owner.execute(
                     "SELECT COUNT(*) FROM schema_migrations WHERE migration_id=?",
                     ('159_account_security',)).fetchone()[0], 1)
+                self.assertEqual(owner.execute(
+                    "SELECT COUNT(*) FROM schema_migrations WHERE migration_id=?",
+                    ('160_password_change_challenge',)).fetchone()[0], 1)
 
     def test_owner_restart_inbox_and_adapter_contract(self):
         import transport_places
