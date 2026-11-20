@@ -172,6 +172,8 @@ def handle_post(handler, app, path, payload) -> bool:
         row=self.require_beta_user()
         if not row: return True
         if path.endswith('/start'):
+            if row.get('totp_enabled'):
+                self.send_json(409, {'error':'totp_already_enabled','message':'Two-step sign-in is already enabled for this account.'}); return True
             self.send_json(200, beta_store().begin_totp(row)); return True
         beta_store().confirm_totp(row, payload.get('code'))
         self.send_json(200, {'enabled': True, 'signed_out': True}); return True
