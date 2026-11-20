@@ -67,6 +67,12 @@ WHERE NOT EXISTS (
     WHERE i.table_schema='align_auth' AND i.table_name='beta_users' AND i.column_name=c.column_name
 )
 UNION ALL
+SELECT 'missing required column: align_auth.beta_login_challenges.purpose', 1
+WHERE NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='align_auth' AND table_name='beta_login_challenges' AND column_name='purpose'
+)
+UNION ALL
 SELECT 'missing required column: align_owner.personal_items.' || c.column_name, 1
 FROM (VALUES ('id'), ('kind'), ('title'), ('calendar_id'), ('calendar_event_id'), ('done'), ('created_at')) AS c(column_name)
 WHERE NOT EXISTS (
@@ -80,7 +86,7 @@ WHERE NOT EXISTS (
 SELECT m.migration_id, COUNT(sm.migration_id)::bigint AS applied_count
 FROM (VALUES ('149_asset_studio'), ('149_transport'), ('150_calendar_links'),
              ('151_sections'), ('152_personal_item_calendars'), ('156_shift_planner'),
-             ('159_account_security')) AS m(migration_id)
+             ('159_account_security'), ('160_password_change_challenge')) AS m(migration_id)
 LEFT JOIN align_owner.schema_migrations sm ON sm.migration_id=m.migration_id
 GROUP BY m.migration_id
 ORDER BY m.migration_id;
