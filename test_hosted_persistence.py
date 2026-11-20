@@ -314,9 +314,9 @@ class PostgresIntegrationTests(unittest.TestCase):
                 self.assertEqual(owner.execute(
                     "SELECT COUNT(*) FROM schema_migrations WHERE migration_id=?",
                     ('159_account_security',)).fetchone()[0], 1)
-                self.assertEqual(owner.execute(
-                    "SELECT COUNT(*) FROM schema_migrations WHERE migration_id=?",
-                    ('160_password_change_challenge',)).fetchone()[0], 1)
+            self.assertEqual(raw.execute(
+                "SELECT COUNT(*) FROM align_owner.schema_migrations WHERE migration_id=%s",
+                ('160_password_change_challenge',)).fetchone()[0], 1)
 
     def test_owner_restart_inbox_and_adapter_contract(self):
         import transport_places
