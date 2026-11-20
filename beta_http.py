@@ -359,6 +359,8 @@ def apply_pages(handler, app, parsed) -> None:
         self.path='/beta-terms.html'
     elif BETA_MODE and parsed.path in {'/beta-welcome','/beta-welcome.html'}:
         self.path='/beta-welcome.html'
+    elif BETA_MODE and parsed.path in {'/beta-totp-setup','/beta-totp-setup.html'}:
+        self.path='/beta-totp-setup.html'
     elif BETA_MODE and parsed.path in {'/beta-admin','/beta-admin.html'}:
         if not self.is_admin(): self.path='/beta-login.html'
         else: self.path='/management-studio.html'
