@@ -2,11 +2,11 @@
 
 ## Two-step sign-in
 
-Migration `migrations/postgres/159_account_security.postgres.sql` adds `totp_secret`, `totp_enabled`, and `beta_login_challenges` in `align_auth`. It is additive. The rollback file drops those columns and the challenge table. The running app does not apply it.
+Migration `migrations/postgres/159_account_security.postgres.sql` adds `totp_secret`, `totp_enabled`, and `beta_login_challenges` in `align_auth`. Migration `160_password_change_challenge.postgres.sql` must then add the challenge `purpose` column. Both migrations are additive and must be applied explicitly; the running app does not apply them. The TOTP login path reads `purpose`, so migration 160 is required before enabling this flow, not just for the separate breached-password change path.
 
-Until that migration is applied, sign-in stays email and password and Management Studio is unchanged.
+Until migrations 159 and 160 are applied and the service is restarted, sign-in stays email and password and Management Studio is unchanged.
 
-After it is applied and the service is restarted:
+After both migrations are applied and the service is restarted:
 
 1. The owner signs in, then opens a signed-in session and calls `POST /api/beta/totp/start`. The response contains the secret and an `otpauth://` URI once. Store it in an authenticator.
 2. `POST /api/beta/totp/confirm` with the 6-digit code turns it on and signs every session out.
