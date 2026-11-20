@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#061326">
+<link rel="stylesheet" href="/styles.css?v=158-v104">
+<link rel="stylesheet" href="/visual-theme.css?v=158-v104">
+<title>Align V3.0 — Set up authenticator</title>
+</head>
+<body>
+<div class="app-shell">
+<header class="app-header"><a class="brand" href="/"><span class="brand-mark">A</span><span>Align <small>V3.0</small></span></a></header>
+<main id="app"><section class="page">
+<div class="hero"><p class="eyebrow">Owner account security</p><h1>Set up your authenticator</h1><p class="subtle">Add Align to your authenticator app before confirming two-step sign-in.</p></div>
+<section class="card settings-form" id="setup-card">
+<p id="status" class="helper" role="status">Checking your signed-in Owner session…</p>
+<div id="key-panel" hidden>
+<h2>1. Add Align to your authenticator</h2>
+<p class="helper">In Google Authenticator, Microsoft Authenticator or 1Password, choose to add an account manually and enter this setup key. Use the account label shown below.</p>
+<div class="field"><label>Account label</label><input id="account" readonly></div>
+<div class="field"><label>Setup key — keep this private</label><input id="secret" readonly autocomplete="off" spellcheck="false"></div>
+<button id="copy" class="secondary-button" type="button">Copy setup key</button>
+<p class="helper">Do not refresh or leave this page before confirming. Starting setup again replaces the pending key.</p>
+<form id="confirm-form">
+<h2>2. Confirm it's working</h2>
+<div class="field"><label for="code">Six-digit authenticator code</label><input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></div>
+<button class="primary-button" type="submit">Enable two-step sign-in</button>
+</form>
+</div>
+</section>
+</section></main>
+</div>
+<script src="/beta-totp-setup.js?v=1"></script>
+</body></html>
