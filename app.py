@@ -905,6 +905,7 @@ class AlignHandler(SimpleHTTPRequestHandler):
             "/forgot", "/forgot.html", "/reset", "/reset.html",
             "/terms", "/terms.html", "/welcome", "/welcome.html",
             "/account", "/account.html",
+            "/totp-setup", "/beta-totp-setup", "/beta-totp-setup.html",
             "/desktop-login.html", "/desktop-login.css", "/desktop-login.js",
         }
         if not path.startswith("/api/") and (path in {
