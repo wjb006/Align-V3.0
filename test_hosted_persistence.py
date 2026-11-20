@@ -297,6 +297,9 @@ class PostgresIntegrationTests(unittest.TestCase):
                     c.execute(f'SELECT COUNT(*) FROM {table}').fetchone()
 
     def test_fresh_auth_schema_includes_two_step_sign_in(self):
+        fresh_schema = (Path(__file__).parent / 'migrations' / 'postgres' / 'fresh_v3_schema.sql').read_text()
+        self.assertIn('"purpose" text DEFAULT \'totp\'::text NOT NULL', fresh_schema)
+        self.assertIn("'160_password_change_challenge'", fresh_schema)
         with pg.psycopg.connect(self.dsn) as raw:
             columns = {row[0] for row in raw.execute(
                 "SELECT column_name FROM information_schema.columns "
